@@ -31,8 +31,11 @@ protected:
 
     std::unique_ptr<NVEncFilterDehalo> m_dehalo;
     std::unique_ptr<CUFrameBuf> m_edges;
+    std::unique_ptr<CUFrameBuf> m_strong;
+    std::unique_ptr<CUFrameBuf> m_large;
+    std::unique_ptr<CUFrameBuf> m_light;
+    std::unique_ptr<CUFrameBuf> m_shrink;
+    std::unique_ptr<CUFrameBuf> m_outside;
     std::unique_ptr<CUFrameBuf> m_morphTmp;
-    std::unique_ptr<CUFrameBuf> m_ey;
-    std::unique_ptr<CUFrameBuf> m_em;
-    std::unique_ptr<CUFrameBuf> m_linemask;
+    std::unique_ptr<CUFrameBuf> m_shrMed;
 };

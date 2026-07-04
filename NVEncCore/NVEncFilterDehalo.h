@@ -54,11 +54,27 @@ protected:
 
     std::unique_ptr<NVEncFilterResize> m_resizeUp;
     std::unique_ptr<NVEncFilterResize> m_resizeDown;
+    std::unique_ptr<NVEncFilterResize> m_resizeAlphaHaloDown;
+    std::unique_ptr<NVEncFilterResize> m_resizeAlphaHaloUp;
+    std::unique_ptr<NVEncFilterResize> m_resizeAlphaUp;
+    std::unique_ptr<NVEncFilterResize> m_resizeAlphaDown;
     std::unique_ptr<CUFrameBuf> m_supersampled;
     std::unique_ptr<CUFrameBuf> m_expanded;
     std::unique_ptr<CUFrameBuf> m_inpand;
     std::unique_ptr<CUFrameBuf> m_mask;
     std::unique_ptr<CUFrameBuf> m_corrected;
+    std::unique_ptr<CUFrameBuf> m_alphaHalosSmall;
+    std::unique_ptr<CUFrameBuf> m_alphaHalos;
+    std::unique_ptr<CUFrameBuf> m_alphaAre;
+    std::unique_ptr<CUFrameBuf> m_alphaUgly;
+    std::unique_ptr<CUFrameBuf> m_alphaLets;
+    std::unique_ptr<CUFrameBuf> m_alphaLimitLow;
+    std::unique_ptr<CUFrameBuf> m_alphaLimitHigh;
+    std::unique_ptr<CUFrameBuf> m_alphaLimitLowSS;
+    std::unique_ptr<CUFrameBuf> m_alphaLimitHighSS;
+    std::unique_ptr<CUFrameBuf> m_alphaRemoved;
+    int  m_alphaHaloW;
+    int  m_alphaHaloH;
     int  m_ssW;
     int  m_ssH;
     bool m_ssActive;

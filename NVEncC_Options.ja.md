@@ -3520,7 +3520,9 @@ CUDAによる手ぶれ補正フィルタ。輝度成分から位相相関でフ�
 ハロー除去フィルタ。輝度成分に補正を適用し、色差成分は元のままコピーする。
 
 - **パラメータ**
-  - rx=&lt;float&gt; (default=2.0, 0.5 - 10.0)  
+  - mode=&lt;string&gt; (default=legacy, legacy|alpha)
+    フィルタモード。`legacy` は従来実装、`alpha` は高精度なハロー検出経路を使用する。
+  - rx=&lt;float&gt; (default=2.0, 0.5 - 10.0)
     水平方向のハロー半径。
   - ry=&lt;float&gt; (default=2.0, 0.5 - 10.0)  
     垂直方向のハロー半径。
@@ -3532,33 +3534,49 @@ CUDAによる手ぶれ補正フィルタ。輝度成分から位相相関でフ�
     感度ランプの下限。
   - highsens=&lt;int&gt; (default=50, 0 - 100)  
     感度ランプの上限。
-  - ss=&lt;float&gt; (default=1.5, 1.0 - 4.0)  
+  - ss=&lt;float&gt; (default=1.5, 1.0 - 4.0)
     スーパーサンプリング倍率。
+  - search_rade=&lt;int&gt; (default=auto, 1 - 10)
+    `mode=alpha` のマスク生成で使用するexpand側の探索半径。未指定時は `max(round(max(rx,ry)),3)`。
+  - search_radi=&lt;int&gt; (default=search_rade, 1 - 10)
+    `mode=alpha` のマスク生成で使用するinpand側の探索半径。未指定時は `search_rade` と同じ。
 
 - 使用例
   ```
   --vpp-dehalo
-  --vpp-dehalo rx=2.4,ry=2.0,darkstr=0.8,brightstr=0.1,lowsens=40,highsens=70,ss=1.5
+  --vpp-dehalo mode=alpha,rx=2.4,ry=2.0,darkstr=0.8,brightstr=0.1,lowsens=40,highsens=70,ss=1.5,search_rade=3
   ```
 
 ### --vpp-finedehalo [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 エッジ保護付きのハロー除去フィルタ。
 
 - **パラメータ**
-  - rx, ry, darkstr, brightstr, lowsens, highsens, ss
+  - mode=&lt;string&gt; (default=alpha, legacy|alpha)
+    内部 dehalo のモード。
+  - rx, ry, darkstr, lowsens, highsens, ss
     `--vpp-dehalo` と同じ。
+  - search_rade=&lt;int&gt; (default=1, 1 - 10)
+    `mode=alpha` の内部 dehalo で使用するexpand側の探索半径。
+  - search_radi=&lt;int&gt; (default=search_rade, 1 - 10)
+    `mode=alpha` の内部 dehalo で使用するinpand側の探索半径。未指定時は `search_rade` と同じ。
+  - brightstr=&lt;float&gt; (default=1.0, 0.0 - 1.0)
+    暗いハローを明るく補正する強度。
 
-  - thmi=&lt;int&gt; (default=80, 0 - 255)  
+  - thmi=&lt;int&gt; (default=80, 0 - 255)
     エッジマスクの下限しきい値。
   - thma=&lt;int&gt; (default=128, 0 - 255)  
     エッジマスクの上限しきい値。
-  - thlimi=&lt;int&gt; (default=50, 0 - 255)  
-    補正制限マスクの下限しきい値。
-  - thlima=&lt;int&gt; (default=100, 0 - 255)  
-    補正制限マスクの上限しきい値。
-  - showmask=&lt;int&gt; (default=0, 0 - 4)  
-    デバッグ用マスク出力。
-  - edge=&lt;string&gt; (default=prewitt)  
+  - thlimi=&lt;int&gt; (default=50, 0 - 255)
+    弱いエッジマスクの下限しきい値。
+  - thlima=&lt;int&gt; (default=100, 0 - 255)
+    弱いエッジマスクの上限しきい値。
+  - showmask=&lt;int&gt; (default=0, 0 - 4)
+    デバッグ用マスク出力。1=outside, 2=shrink, 3=edges, 4=strong。
+  - excl=&lt;bool&gt; (default=true)
+    強いエッジと近接する弱いエッジの exclusion zone を有効にする。
+  - edgeproc=&lt;float&gt; (default=0.0, 0.0 - 1.0)
+    outside マスクに strong エッジマスクを加算する。
+  - edge=&lt;string&gt; (default=prewitt)
     エッジ検出方式。prewitt, sobel, scharr, kirsch, laplacian から選択。
 
 - 使用例

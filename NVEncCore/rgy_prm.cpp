@@ -2201,36 +2201,7 @@ tstring VppEdgelevel::print() const {
 
 VppDehalo::VppDehalo() :
     enable(false),
-    rx(FILTER_DEFAULT_DEHALO_RX),
-    ry(FILTER_DEFAULT_DEHALO_RY),
-    darkstr(FILTER_DEFAULT_DEHALO_DARKSTR),
-    brightstr(FILTER_DEFAULT_DEHALO_BRIGHTSTR),
-    lowsens(FILTER_DEFAULT_DEHALO_LOWSENS),
-    highsens(FILTER_DEFAULT_DEHALO_HIGHSENS),
-    ss(FILTER_DEFAULT_DEHALO_SS) {
-}
-
-bool VppDehalo::operator==(const VppDehalo& x) const {
-    return enable == x.enable
-        && rx == x.rx
-        && ry == x.ry
-        && darkstr == x.darkstr
-        && brightstr == x.brightstr
-        && lowsens == x.lowsens
-        && highsens == x.highsens
-        && ss == x.ss;
-}
-bool VppDehalo::operator!=(const VppDehalo& x) const {
-    return !(*this == x);
-}
-
-tstring VppDehalo::print() const {
-    return strsprintf(_T("dehalo: rx %.2f, ry %.2f, darkstr %.2f, brightstr %.2f, lowsens %d, highsens %d, ss %.2f"),
-        rx, ry, darkstr, brightstr, lowsens, highsens, ss);
-}
-
-VppFineDehalo::VppFineDehalo() :
-    enable(false),
+    mode(VPP_DEHALO_MODE_LEGACY),
     rx(FILTER_DEFAULT_DEHALO_RX),
     ry(FILTER_DEFAULT_DEHALO_RY),
     darkstr(FILTER_DEFAULT_DEHALO_DARKSTR),
@@ -2238,16 +2209,13 @@ VppFineDehalo::VppFineDehalo() :
     lowsens(FILTER_DEFAULT_DEHALO_LOWSENS),
     highsens(FILTER_DEFAULT_DEHALO_HIGHSENS),
     ss(FILTER_DEFAULT_DEHALO_SS),
-    thmi(FILTER_DEFAULT_FINEDEHALO_THMI),
-    thma(FILTER_DEFAULT_FINEDEHALO_THMA),
-    thlimi(FILTER_DEFAULT_FINEDEHALO_THLIMI),
-    thlima(FILTER_DEFAULT_FINEDEHALO_THLIMA),
-    showmask(FILTER_DEFAULT_FINEDEHALO_SHOWMASK),
-    edge(FILTER_DEFAULT_FINEDEHALO_EDGE) {
+    searchRade(FILTER_DEFAULT_DEHALO_SEARCH_RADIUS_AUTO),
+    searchRadi(FILTER_DEFAULT_DEHALO_SEARCH_RADIUS_AUTO) {
 }
 
-bool VppFineDehalo::operator==(const VppFineDehalo& x) const {
+bool VppDehalo::operator==(const VppDehalo& x) const {
     return enable == x.enable
+        && mode == x.mode
         && rx == x.rx
         && ry == x.ry
         && darkstr == x.darkstr
@@ -2255,11 +2223,61 @@ bool VppFineDehalo::operator==(const VppFineDehalo& x) const {
         && lowsens == x.lowsens
         && highsens == x.highsens
         && ss == x.ss
+        && searchRade == x.searchRade
+        && searchRadi == x.searchRadi;
+}
+bool VppDehalo::operator!=(const VppDehalo& x) const {
+    return !(*this == x);
+}
+
+tstring VppDehalo::print() const {
+    const auto searchRadeStr = (searchRade == FILTER_DEFAULT_DEHALO_SEARCH_RADIUS_AUTO) ? tstring(_T("auto")) : strsprintf(_T("%d"), searchRade);
+    const auto searchRadiStr = (searchRadi == FILTER_DEFAULT_DEHALO_SEARCH_RADIUS_AUTO) ? tstring(_T("auto")) : strsprintf(_T("%d"), searchRadi);
+    return strsprintf(_T("dehalo: mode %s, rx %.2f, ry %.2f, darkstr %.2f, brightstr %.2f, lowsens %d, highsens %d, ss %.2f, search_rade %s, search_radi %s"),
+        get_chr_from_value(list_vpp_dehalo_mode, (int)mode), rx, ry, darkstr, brightstr, lowsens, highsens, ss, searchRadeStr.c_str(), searchRadiStr.c_str());
+}
+
+VppFineDehalo::VppFineDehalo() :
+    enable(false),
+    mode(VPP_DEHALO_MODE_ALPHA),
+    rx(FILTER_DEFAULT_DEHALO_RX),
+    ry(FILTER_DEFAULT_DEHALO_RY),
+    darkstr(FILTER_DEFAULT_DEHALO_DARKSTR),
+    brightstr(FILTER_DEFAULT_FINEDEHALO_BRIGHTSTR),
+    lowsens(FILTER_DEFAULT_DEHALO_LOWSENS),
+    highsens(FILTER_DEFAULT_DEHALO_HIGHSENS),
+    ss(FILTER_DEFAULT_DEHALO_SS),
+    searchRade(FILTER_DEFAULT_FINEDEHALO_SEARCH_RADIUS),
+    searchRadi(FILTER_DEFAULT_FINEDEHALO_SEARCH_RADIUS),
+    thmi(FILTER_DEFAULT_FINEDEHALO_THMI),
+    thma(FILTER_DEFAULT_FINEDEHALO_THMA),
+    thlimi(FILTER_DEFAULT_FINEDEHALO_THLIMI),
+    thlima(FILTER_DEFAULT_FINEDEHALO_THLIMA),
+    showmask(FILTER_DEFAULT_FINEDEHALO_SHOWMASK),
+    excl(FILTER_DEFAULT_FINEDEHALO_EXCL),
+    edgeproc(FILTER_DEFAULT_FINEDEHALO_EDGEPROC),
+    edge(FILTER_DEFAULT_FINEDEHALO_EDGE) {
+}
+
+bool VppFineDehalo::operator==(const VppFineDehalo& x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && rx == x.rx
+        && ry == x.ry
+        && darkstr == x.darkstr
+        && brightstr == x.brightstr
+        && lowsens == x.lowsens
+        && highsens == x.highsens
+        && ss == x.ss
+        && searchRade == x.searchRade
+        && searchRadi == x.searchRadi
         && thmi == x.thmi
         && thma == x.thma
         && thlimi == x.thlimi
         && thlima == x.thlima
         && showmask == x.showmask
+        && excl == x.excl
+        && edgeproc == x.edgeproc
         && edge == x.edge;
 }
 bool VppFineDehalo::operator!=(const VppFineDehalo& x) const {
@@ -2267,8 +2285,10 @@ bool VppFineDehalo::operator!=(const VppFineDehalo& x) const {
 }
 
 tstring VppFineDehalo::print() const {
-    return strsprintf(_T("finedehalo: rx %.2f, ry %.2f, darkstr %.2f, brightstr %.2f, lowsens %d, highsens %d, ss %.2f, thmi %d, thma %d, thlimi %d, thlima %d, showmask %d, edge %s"),
-        rx, ry, darkstr, brightstr, lowsens, highsens, ss, thmi, thma, thlimi, thlima, showmask, edge.c_str());
+    const auto searchRadeStr = (searchRade == FILTER_DEFAULT_DEHALO_SEARCH_RADIUS_AUTO) ? tstring(_T("auto")) : strsprintf(_T("%d"), searchRade);
+    const auto searchRadiStr = (searchRadi == FILTER_DEFAULT_DEHALO_SEARCH_RADIUS_AUTO) ? tstring(_T("auto")) : strsprintf(_T("%d"), searchRadi);
+    return strsprintf(_T("finedehalo: mode %s, rx %.2f, ry %.2f, darkstr %.2f, brightstr %.2f, lowsens %d, highsens %d, ss %.2f, search_rade %s, search_radi %s, thmi %d, thma %d, thlimi %d, thlima %d, showmask %d, excl %s, edgeproc %.2f, edge %s"),
+        get_chr_from_value(list_vpp_dehalo_mode, (int)mode), rx, ry, darkstr, brightstr, lowsens, highsens, ss, searchRadeStr.c_str(), searchRadiStr.c_str(), thmi, thma, thlimi, thlima, showmask, excl ? _T("on") : _T("off"), edgeproc, edge.c_str());
 }
 
 VppDering::VppDering() :

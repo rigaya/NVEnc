@@ -3463,7 +3463,9 @@ Corrects color cast and white balance.
 Halo removal filter. Applies correction to luma and copies chroma unchanged.
 
 - **Parameters**
-  - rx=&lt;float&gt; (default=2.0, 0.5 - 10.0)  
+  - mode=&lt;string&gt; (default=legacy, legacy|alpha)
+    Filter mode. `legacy` keeps the previous implementation, `alpha` uses the high-precision halo detection path.
+  - rx=&lt;float&gt; (default=2.0, 0.5 - 10.0)
     Horizontal halo radius.
   - ry=&lt;float&gt; (default=2.0, 0.5 - 10.0)  
     Vertical halo radius.
@@ -3475,32 +3477,48 @@ Halo removal filter. Applies correction to luma and copies chroma unchanged.
     Lower anchor of the sensitivity ramp.
   - highsens=&lt;int&gt; (default=50, 0 - 100)  
     Upper anchor of the sensitivity ramp.
-  - ss=&lt;float&gt; (default=1.5, 1.0 - 4.0)  
+  - ss=&lt;float&gt; (default=1.5, 1.0 - 4.0)
     Supersampling ratio.
+  - search_rade=&lt;int&gt; (default=auto, 1 - 10)
+    Expand-side search radius for mask generation in `mode=alpha`. If omitted, uses `max(round(max(rx,ry)),3)`.
+  - search_radi=&lt;int&gt; (default=search_rade, 1 - 10)
+    Inpand-side search radius for mask generation in `mode=alpha`. If omitted, uses `search_rade`.
 
 - examples
   ```
   --vpp-dehalo
-  --vpp-dehalo rx=2.4,ry=2.0,darkstr=0.8,brightstr=0.1,lowsens=40,highsens=70,ss=1.5
+  --vpp-dehalo mode=alpha,rx=2.4,ry=2.0,darkstr=0.8,brightstr=0.1,lowsens=40,highsens=70,ss=1.5,search_rade=3
   ```
 
 ### --vpp-finedehalo [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 Fine halo removal filter with edge protection.
 
 - **Parameters**
-  - rx, ry, darkstr, brightstr, lowsens, highsens, ss
+  - mode=&lt;string&gt; (default=alpha, legacy|alpha)
+    Internal dehalo mode.
+  - rx, ry, darkstr, lowsens, highsens, ss
     Same as `--vpp-dehalo`.
-  - thmi=&lt;int&gt; (default=80, 0 - 255)  
+  - search_rade=&lt;int&gt; (default=1, 1 - 10)
+    Expand-side search radius for the internal dehalo in `mode=alpha`.
+  - search_radi=&lt;int&gt; (default=search_rade, 1 - 10)
+    Inpand-side search radius for the internal dehalo in `mode=alpha`. If omitted, uses `search_rade`.
+  - brightstr=&lt;float&gt; (default=1.0, 0.0 - 1.0)
+    Strength for brightening dark halos.
+  - thmi=&lt;int&gt; (default=80, 0 - 255)
     Lower threshold of the edge mask.
   - thma=&lt;int&gt; (default=128, 0 - 255)  
     Upper threshold of the edge mask.
-  - thlimi=&lt;int&gt; (default=50, 0 - 255)  
-    Lower threshold of the limit mask.
-  - thlima=&lt;int&gt; (default=100, 0 - 255)  
-    Upper threshold of the limit mask.
-  - showmask=&lt;int&gt; (default=0, 0 - 4)  
-    Debug mask output.
-  - edge=&lt;string&gt; (default=prewitt)  
+  - thlimi=&lt;int&gt; (default=50, 0 - 255)
+    Lower threshold of the light edge mask.
+  - thlima=&lt;int&gt; (default=100, 0 - 255)
+    Upper threshold of the light edge mask.
+  - showmask=&lt;int&gt; (default=0, 0 - 4)
+    Debug mask output. 1=outside, 2=shrink, 3=edges, 4=strong.
+  - excl=&lt;bool&gt; (default=true)
+    Enable the exclusion zone around strong and nearby light edges.
+  - edgeproc=&lt;float&gt; (default=0.0, 0.0 - 1.0)
+    Adds the strong edge mask to the outside mask.
+  - edge=&lt;string&gt; (default=prewitt)
     Edge detector: prewitt, sobel, scharr, kirsch, laplacian.
 
 - examples

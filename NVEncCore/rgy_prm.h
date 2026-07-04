@@ -524,15 +524,31 @@ static const float FILTER_DEFAULT_DEHALO_RX = 2.0f;
 static const float FILTER_DEFAULT_DEHALO_RY = 2.0f;
 static const float FILTER_DEFAULT_DEHALO_DARKSTR = 1.0f;
 static const float FILTER_DEFAULT_DEHALO_BRIGHTSTR = 0.0f;
+static const float FILTER_DEFAULT_FINEDEHALO_BRIGHTSTR = 1.0f;
 static const int   FILTER_DEFAULT_DEHALO_LOWSENS = 50;
 static const int   FILTER_DEFAULT_DEHALO_HIGHSENS = 50;
 static const float FILTER_DEFAULT_DEHALO_SS = 1.5f;
+static const int   FILTER_DEFAULT_DEHALO_SEARCH_RADIUS_AUTO = -1;
+static const int   FILTER_DEFAULT_FINEDEHALO_SEARCH_RADIUS = 1;
 static const int   FILTER_DEFAULT_FINEDEHALO_THMI = 80;
 static const int   FILTER_DEFAULT_FINEDEHALO_THMA = 128;
 static const int   FILTER_DEFAULT_FINEDEHALO_THLIMI = 50;
 static const int   FILTER_DEFAULT_FINEDEHALO_THLIMA = 100;
 static const int   FILTER_DEFAULT_FINEDEHALO_SHOWMASK = 0;
+static const bool  FILTER_DEFAULT_FINEDEHALO_EXCL = true;
+static const float FILTER_DEFAULT_FINEDEHALO_EDGEPROC = 0.0f;
 static const TCHAR *FILTER_DEFAULT_FINEDEHALO_EDGE = _T("prewitt");
+
+enum VppDehaloMode {
+    VPP_DEHALO_MODE_LEGACY,
+    VPP_DEHALO_MODE_ALPHA,
+};
+
+const CX_DESC list_vpp_dehalo_mode[] = {
+    { _T("legacy"), VPP_DEHALO_MODE_LEGACY },
+    { _T("alpha"),  VPP_DEHALO_MODE_ALPHA  },
+    { NULL, 0 }
+};
 static const int   FILTER_DEFAULT_HQDERING_MRAD = 1;
 static const int   FILTER_DEFAULT_HQDERING_MTHR = 10;
 static const float FILTER_DEFAULT_HQDERING_SIGMA = 1.5f;
@@ -2713,6 +2729,7 @@ struct VppEdgelevel {
 
 struct VppDehalo {
     bool enable;
+    VppDehaloMode mode;
     float rx;
     float ry;
     float darkstr;
@@ -2720,6 +2737,8 @@ struct VppDehalo {
     int lowsens;
     int highsens;
     float ss;
+    int searchRade;
+    int searchRadi;
 
     VppDehalo();
     bool operator==(const VppDehalo& x) const;
@@ -2729,6 +2748,7 @@ struct VppDehalo {
 
 struct VppFineDehalo {
     bool enable;
+    VppDehaloMode mode;
     float rx;
     float ry;
     float darkstr;
@@ -2736,11 +2756,15 @@ struct VppFineDehalo {
     int lowsens;
     int highsens;
     float ss;
+    int searchRade;
+    int searchRadi;
     int thmi;
     int thma;
     int thlimi;
     int thlima;
     int showmask;
+    bool excl;
+    float edgeproc;
     tstring edge;
 
     VppFineDehalo();
