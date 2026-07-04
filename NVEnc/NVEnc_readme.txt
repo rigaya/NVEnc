@@ -214,6 +214,23 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2026.07.04 (9.23)
+- libvmafのCUDA版に対応。
+- --vpp-finedehalo の高精度化。
+- --vpp-finedehalo をインタレ非対応と明示。
+- VMAFのCUDA使用状態をフィルタ情報に表示。
+- vpp-ivtc の expand/mixed パスでフレーム破損する問題を修正。
+- vpp-anime4k-shader の chroma joint-bilateral が YUV444 で OOB になる問題を修正。
+- vpp-afs の map_filter の SRCPTR マクロの clamp 上限を修正。
+- vpp-subburn で字幕描画位置が負の場合の OOB write を防止。
+- vpp-deflicker でシーンチェンジ後にフィルタが無効化される問題を修正。
+- input-avs の音声トラック選択フォールバックのループ条件を修正。
+- vpp-curves の LUT 境界の clamp 漏れとスプライン係数の参照ミスを修正。
+- vpp-colorspace の constant-luminance YUV→RGB 変換で逆行列を使っていた問題を修正。
+- YUV444/NV24 色変換のバグを修正。
+- degrain fallback analyze の MV/SAD を scene-change 遅延出力向けにスナップショット。
+- --vpp-denoise-dct の候補リストを修正。
+
 2026.06.28 (9.22)
 - --vpp-rtgmc の post-tr2 補正を改善。
 

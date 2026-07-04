@@ -1,5 +1,22 @@
 # NVEnc Release Notes
 
+## 9.23
+
+- Add libvmaf CUDA support. ( #781 )
+- Improve precision of [--vpp-finedehalo](./NVEncC_Options.en.md#--vpp-finedehalo-param1value1param2value2). ( #777 )
+- Mark [--vpp-finedehalo](./NVEncC_Options.en.md#--vpp-finedehalo-param1value1param2value2) as interlace unsupported. ( #782 )
+- Fix frame corruption in [--vpp-ivtc](./NVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2) expand/mixed path.
+- Fix chroma joint-bilateral OOB in [--vpp-anime4k-shader](./NVEncC_Options.en.md#--vpp-anime4k-shader-param1value1param2value2) on YUV444.
+- Fix SRCPTR clamp upper limit in [--vpp-afs](./NVEncC_Options.en.md#--vpp-afs-param1value1param2value2) map_filter.
+- Fix OOB write in [--vpp-subburn](./NVEncC_Options.en.md#--vpp-subburn-param1value1param2value2) when subtitle position is negative.
+- Fix [--vpp-deflicker](./NVEncC_Options.en.md#--vpp-deflicker-param1value1param2value2) disabled after scene change.
+- Fix audio track selection fallback loop in `--avs` input.
+- Fix LUT boundary clamp and spline coefficient reference in [--vpp-curves](./NVEncC_Options.en.md#--vpp-curves-param1value1param2value2).
+- Fix constant-luminance YUV→RGB conversion using wrong inverse matrix in [--vpp-colorspace](./NVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2).
+- Fix YUV444/NV24 color conversion bugs.
+- Fix degrain fallback analyze MV/SAD snapshot for scene-change delayed output.
+- Fix candidate list in [--vpp-denoise-dct](./NVEncC_Options.en.md#--vpp-denoise-dct-param1value1param2value2).
+
 ## 9.22
 
 - Improve post-tr2 correction in [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1). ( #777 )
