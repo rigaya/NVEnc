@@ -58,10 +58,10 @@ std::unique_ptr<DenoiseFFT3DBase> getDenoiseFunc(const RGY_CSP csp, const int bl
     }
 }
 
-// Resolve the effective temporal radius bt. bt overrides 'temporal' when set
-// (!= 0); otherwise fall back to the legacy temporal flag (0 -> bt1 spatial,
-// 1 -> bt3 prev+cur+next). bt=-1 = sharpen/degrid only (no denoising), which
-// processes a single frame like bt=1. Frame layout per bt:
+// 実際に使う時間方向半径 bt を決定する。bt が 0 以外なら temporal より優先し、
+// 0 なら従来の temporal 指定へ戻す(0 -> bt1 空間のみ、1 -> bt3 prev+cur+next)。
+// bt=-1 は sharpen/degrid のみで、ノイズ除去は行わず bt=1 と同じく単一フレームを処理する。
+// bt ごとのフレーム配置:
 //   bt1 [cur]                 nPast=0 nFuture=0 curIdx=0
 //   bt2 [prev,cur]            nPast=1 nFuture=0 curIdx=1
 //   bt3 [prev,cur,next]       nPast=1 nFuture=1 curIdx=1
@@ -71,7 +71,7 @@ static int fft3d_bt(const VppDenoiseFFT3D &f) {
     return (bt < -1) ? -1 : (bt > 4) ? 4 : bt;
 }
 
-// number of frames processed together (bt=-1 -> 1)
+// 同時に処理するフレーム数(bt=-1 -> 1)。
 static int fft3d_bt_frames(const VppDenoiseFFT3D &f) {
     return std::max(fft3d_bt(f), 1);
 }
@@ -319,10 +319,10 @@ RGY_ERR NVEncFilterDenoiseFFT3D::init(shared_ptr<NVEncFilterParam> pParam, share
         // with the negative frequencies at the upper indices mirrored down.
         auto fnorm = [bs](int i) { const int f = (i < bs - i) ? i : (bs - i); return (float)f / (float)(bs / 2); };
 
-        // analysis window (same function the fft kernel uses) and its power sum.
-        // For white noise of std s (normalised pixels), each windowed FFT bin has
-        // expected power s^2 * sum(w(x)^2) * sum(w(y)^2) - the reference for
-        // signorm, which lets the user give sigma as the actual noise level.
+        // 解析窓(FFT kernel と同じ関数)と、そのパワー和を求める。
+        // 正規化画素で標準偏差 s の白色ノイズの場合、窓掛け後の各 FFT bin の期待パワーは
+        // s^2 * sum(w(x)^2) * sum(w(y)^2) になる。これを signorm の基準にし、
+        // sigma を実ノイズレベルとして指定できるようにする。
         std::vector<float> win(bs);
         auto winFunc = [bs](const int x) { return 0.50f - 0.50f * std::cos(2.0f * (float)M_PI * x / (float)bs); };
         double sw2 = 0.0;
@@ -330,43 +330,42 @@ RGY_ERR NVEncFilterDenoiseFFT3D::init(shared_ptr<NVEncFilterParam> pParam, share
             win[i] = winFunc(i);
             sw2 += win[i] * win[i];
         }
-        m_noisePowerGain = (float)(sw2 * sw2); // 2D separable window power gain
+        m_noisePowerGain = (float)(sw2 * sw2); // 2D 分離窓のパワーゲイン
 
-        // (1) sigma table: the 4 documented anchors (sigma = highest .. sigma4 =
-        // lowest frequency) interpolated across the normalised radial frequency.
-        // The same /255 scaling as the previous scalar path is baked in, so when
-        // sigma2/3/4 = sigma (or left unset) every entry equals the old scalar
-        // value and the output is reproduced exactly.
+        // (1) sigma table: 4つのアンカー(sigma = 最高周波数、sigma4 = 最低周波数)を
+        // 正規化した半径方向周波数で補間する。従来の scalar path と同じ /255 scaling を
+        // 組み込むため、sigma2/3/4 = sigma または未指定なら全要素が従来値と一致し、
+        // 出力もそのまま再現される。
         {
-            const float s1 = prm->fft3d.sigma;                                     // highest freq
-            const float s2 = (prm->fft3d.sigma2 > 0.0f) ? prm->fft3d.sigma2 : s1;  // mid-high
-            const float s3 = (prm->fft3d.sigma3 > 0.0f) ? prm->fft3d.sigma3 : s1;  // mid-low
-            const float s4 = (prm->fft3d.sigma4 > 0.0f) ? prm->fft3d.sigma4 : s1;  // lowest
-            const float anchors[4] = { s4, s3, s2, s1 }; // radial 0 -> 1
+            const float s1 = prm->fft3d.sigma;                                     // 最高周波数
+            const float s2 = (prm->fft3d.sigma2 > 0.0f) ? prm->fft3d.sigma2 : s1;  // 中高周波数
+            const float s3 = (prm->fft3d.sigma3 > 0.0f) ? prm->fft3d.sigma3 : s1;  // 中低周波数
+            const float s4 = (prm->fft3d.sigma4 > 0.0f) ? prm->fft3d.sigma4 : s1;  // 最低周波数
+            const float anchors[4] = { s4, s3, s2, s1 }; // 半径方向 0 -> 1
             std::vector<float> sigmaTable((size_t)bs * bs);
             for (int by = 0; by < bs; by++) {
                 const float fy = fnorm(by);
                 for (int bx = 0; bx < bs; bx++) {
                     const float fx = fnorm(bx);
-                    float radial = std::sqrt(fx * fx + fy * fy) * 0.70710678f; // /sqrt(2) -> [0,1]
+                    float radial = std::sqrt(fx * fx + fy * fy) * 0.70710678f; // /sqrt(2) で [0,1] にする
                     if (radial > 1.0f) radial = 1.0f;
-                    const float t = radial * 3.0f; // 3 linear segments across the 4 anchors
+                    const float t = radial * 3.0f; // 4アンカー間の3つの線形区間
                     int seg = (int)t; if (seg > 2) seg = 2;
                     const float frac = t - (float)seg;
                     const float sval = anchors[seg] * (1.0f - frac) + anchors[seg + 1] * frac;
                     if (prm->fft3d.signorm) {
-                        // sigma given as the noise level (8-bit scale): threshold at the
-                        // per-bin noise power that this noise level actually produces.
-                        // The forward temporal DFT is un-normalized, so iid per-frame
-                        // noise power is multiplied by btFrames in the temporal bins
-                        // (cf. the original FFT3DFilter's btcur factor) - scale to match.
-                        // (smin/smax must NOT get this factor: the sharpen psd is taken
-                        // after the 1/N-normalized inverse temporal DFT, per-frame units.)
+                        // sigma を 8bit scale のノイズレベルとして扱い、そのノイズが実際に
+                        // 生む bin ごとのノイズパワーを閾値にする。
+                        // 順方向の時間 DFT は正規化していないため、独立同分布のフレームごとの
+                        // ノイズパワーは時間方向 bin で btFrames 倍になる。
+                        // 元の FFT3DFilter の btcur 係数相当に合わせる。
+                        // smin/smax は、1/N 正規化済み逆時間 DFT 後のフレーム単位 psd に使うので、
+                        // この係数を掛けない。
                         const float snorm = sval * (1.0f / ((1 << 8) - 1));
                         sigmaTable[(size_t)by * bs + bx] = snorm * snorm * m_noisePowerGain * (float)fft3d_bt_frames(prm->fft3d);
                     } else {
-                        // backward compatible scale (compared against unnormalised bin power)
-                        sigmaTable[(size_t)by * bs + bx] = sval * (1.0f / ((1 << 8) - 1)); // match scalar /255
+                        // 後方互換 scale。正規化していない bin power と比較する。
+                        sigmaTable[(size_t)by * bs + bx] = sval * (1.0f / ((1 << 8) - 1)); // scalar /255 に合わせる
                     }
                 }
             }
@@ -375,9 +374,9 @@ RGY_ERR NVEncFilterDenoiseFFT3D::init(shared_ptr<NVEncFilterParam> pParam, share
             }
         }
 
-        // (2) sharpen weight table: strength x gaussian high-pass frequency
-        // weight, 1 - exp(-f^2 / (2*scutoff^2)), with the vertical frequency
-        // contribution scaled by svr (svr = 0 -> no vertical sharpening).
+        // (2) sharpen weight table: strength と gaussian high-pass frequency weight
+        // 1 - exp(-f^2 / (2*scutoff^2)) の積。垂直周波数成分は svr で調整する
+        // (svr = 0 なら垂直方向 sharpen なし)。
         if (prm->fft3d.sharpen != 0.0f) {
             const float scutoff = std::max(prm->fft3d.scutoff, 0.01f);
             std::vector<float> wsharpenTable((size_t)bs * bs);
@@ -397,11 +396,10 @@ RGY_ERR NVEncFilterDenoiseFFT3D::init(shared_ptr<NVEncFilterParam> pParam, share
             m_wsharpenBuf.reset();
         }
 
-        // (3) gridsample spectrum for degrid: the 2D spectrum of the analysis
-        // window itself (the spectrum a flat, featureless block produces). It is
-        // separable, so it is built from the 1D DFT of the window function.
-        // The kernel scales it by each block's DC / gridDC to reconstruct and
-        // subtract the window bias before filtering.
+        // (3) degrid 用 gridsample spectrum: 解析窓そのものの 2D spectrum
+        // (平坦で特徴のない block が生成する spectrum)。分離可能なので、窓関数の 1D DFT から作る。
+        // kernel 側で各 block の DC / gridDC に合わせて scale し、filter 前に窓由来の bias を
+        // 再構成して差し引く。
         if (prm->fft3d.degrid > 0.0f) {
             std::vector<std::pair<float, float>> w1(bs); // 1D DFT of the window
             for (int k = 0; k < bs; k++) {
@@ -520,26 +518,25 @@ RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGY
 
     const RGYFrameInfo *srcCurFrame = nullptr;
     {
-        // bt frame layout (see fft3d_bt): [prev.. , cur, ..next], cur at index nPast.
-        const int btFrames = std::max(bt, 1);      // bt=-1 processes a single frame
+        // bt のフレーム配置(fft3d_bt 参照): [prev.. , cur, ..next]、cur は nPast 番目。
+        const int btFrames = std::max(bt, 1);      // bt=-1 は単一フレームを処理する
         const int nPast = btFrames / 2;
         const int nFuture = (btFrames - 1) - nPast; // bt1:0 bt2:0 bt3:1 bt4:1
         const int curIdx = nPast;                   // temporalCurrentIdx
 
-        // Not enough future frames buffered yet to emit the next output frame.
-        // (nFuture==0 for bt=1/2 -> emit immediately; nFuture==1 for bt=3/4 ->
-        //  one frame of look-ahead, flushed at finalOutput.)
+        // 次の出力フレームを出すための未来フレームがまだ足りない。
+        // nFuture==0 の bt=1/2 は即時出力、nFuture==1 の bt=3/4 は1フレーム先読みし、
+        // finalOutput で flush する。
         if (!finalOutput && m_bufIdx < m_nFrameIdx + nFuture + 1) {
             *pOutputFrameNum = 0;
             ppOutputFrames[0] = nullptr;
             return sts;
         }
 
-        const int outFrameIdx = m_nFrameIdx; // frame to output now
-        // Gather the btFrames frames [outFrameIdx-nPast .. outFrameIdx+nFuture],
-        // repeating boundary frames at the start of stream and during flush by
-        // clamping to the valid buffered range (reproduces the previous
-        // prev=cur / next=cur edge handling for bt=3).
+        const int outFrameIdx = m_nFrameIdx; // 今回出力するフレーム
+        // btFrames 分のフレーム [outFrameIdx-nPast .. outFrameIdx+nFuture] を集める。
+        // ストリーム先頭と flush 中は有効な buffer 範囲へ clamp し、境界フレームを繰り返す。
+        // これにより従来の bt=3 での prev=cur / next=cur の端処理を再現する。
         CUFrameBuf *frames[4] = { nullptr, nullptr, nullptr, nullptr };
         for (int k = 0; k < btFrames; k++) {
             int idx = outFrameIdx + (k - nPast);
@@ -557,8 +554,8 @@ RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGY
             AddMessage(RGY_LOG_ERROR, _T("unsupported fft3d bt=%d.\n"), bt);
             return RGY_ERR_UNSUPPORTED;
         }
-        const float scale = (1.0f / ((1 << 8) - 1)); // same 8-bit-referenced normalisation as sigma
-        const float nGain = (prm->fft3d.signorm) ? m_noisePowerGain : 1.0f; // signorm: real noise-power units
+        const float scale = (1.0f / ((1 << 8) - 1)); // sigma と同じ 8bit 基準の正規化
+        const float nGain = (prm->fft3d.signorm) ? m_noisePowerGain : 1.0f; // signorm は実ノイズパワー単位
         const float sminSq = (prm->fft3d.smin * scale) * (prm->fft3d.smin * scale) * nGain;
         const float smaxSq = (prm->fft3d.smax * scale) * (prm->fft3d.smax * scale) * nGain;
         const float degridFactor = (m_gridBuf && m_gridDC > 0.0f) ? prm->fft3d.degrid / m_gridDC : 0.0f;

@@ -2866,8 +2866,11 @@ decombによるインタレ解除を行う。
   FFTベースのノイズ除去フィルタ。
 
 - **パラメータ**
-  - sigma=&lt;float&gt;  
+  - sigma=&lt;float&gt;
     フィルタ強度。 (default=1.0, 0.0 - 100.0)
+
+  - sigma2=&lt;float&gt; / sigma3=&lt;float&gt; / sigma4=&lt;float&gt;
+    中高周波数 / 中低周波数 / 低周波数側のフィルタ強度。0.0 の場合は sigma と同じ値を使用。(default=0.0, 0.0 - 100.0)
   
   - amount=&lt;float&gt;  (default=1.0, 0.0 - 1.0)  
     ノイズ除去量。
@@ -2889,6 +2892,32 @@ decombによるインタレ解除を行う。
   - temporal=&lt;int&gt; (default = 1)
     - 0 ... 空間方向のフィルタリングのみ
     - 1 ... 時間方向のフィルタリングも行う
+
+  - bt=&lt;int&gt; (default = 0)
+    - 0 ... temporal の指定に従う
+    - 1 ... 空間方向のみ
+    - 2 ... 前フレーム + 現在フレーム
+    - 3 ... 前フレーム + 現在フレーム + 次フレーム
+    - 4 ... 2つ前のフレーム + 前フレーム + 現在フレーム + 次フレーム
+    - -1 ... sharpen/degrid のみ
+
+  - sharpen=&lt;float&gt;
+    周波数領域でのシャープ化強度。0.0 で無効。(default=0.0, -10.0 - 10.0)
+
+  - scutoff=&lt;float&gt;
+    シャープ化のカットオフ周波数。(default=0.30, 0.0 - 1.0)
+
+  - svr=&lt;float&gt;
+    シャープ化の垂直方向比率。0.0 で垂直方向を無効化。(default=1.00, 0.0 - 10.0)
+
+  - smin=&lt;float&gt; / smax=&lt;float&gt;
+    シャープ化の最小/最大制限。(default=10.0/100.0)
+
+  - degrid=&lt;float&gt;
+    ブロック格子補正の強度。0.0 で無効、1.0 で標準補正。(default=0.0, 0.0 - 2.0)
+
+  - signorm=&lt;bool&gt;
+    sigma/smin/smax を実ノイズパワー単位として扱う。false では従来互換の scale を使用。(default=false)
 
   - prec=&lt;string&gt; (default = auto)
     - auto ... 可能な場合fp16(半精度浮動小数点)で計算する (高速)

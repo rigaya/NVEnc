@@ -377,10 +377,10 @@ __device__ complex<TypeComplex> temporal_filter(
     }
 
     complex<TypeComplex> result = work[temporalCurrentIdx];
-    // frequency-domain sharpening (after denoising): amplify mid amplitudes only.
-    // weak bins (psd ~< sminSq) stay put to avoid boosting noise, strong bins
-    // (psd ~> smaxSq) stay put to avoid oversharpening/halo; wsharpen carries
-    // the sharpen strength and the per-bin gaussian high-pass frequency weight.
+    // 周波数領域 sharpen(denoise 後): 中間振幅だけを増幅する。
+    // 弱い bin(psd ~< sminSq)はノイズ増幅を避けるため維持し、強い bin(psd ~> smaxSq)も
+    // 過剰 sharpen/halo を避けるため維持する。wsharpen は sharpen 強度と
+    // bin ごとの gaussian high-pass frequency weight を含む。
     if (wsharpen != 0.0f) {
         const float psd = result.squaref();
         const float sfact = 1.0f + wsharpen * sqrtf(psd * smaxSq * __frcp_rn((psd + sminSq) * (psd + smaxSq) + 1e-30f));
@@ -424,12 +424,11 @@ __global__ void kernel_tfft_filter_ifft(
     const char *const __restrict__ ptrSrcC = (temporalCount >= 3) ? selectptr2(ptrSrcC0, ptrSrcC1, plane_idx) : nullptr;
     const char *const __restrict__ ptrSrcD = (temporalCount >= 4) ? selectptr2(ptrSrcD0, ptrSrcD1, plane_idx) : nullptr;
 
-    // degrid: each frame's block DC scaled by degrid/gridDC. The grid correction
-    // for a bin is gridsample[bin] * blockDC * degrid / gridDC - for a flat block
-    // this equals the block's own (window-biased) spectrum, so subtracting it
-    // before the wiener filter keeps the overlap-add window bias from being
-    // modulated by the (amplitude-dependent) denoising, which is what shows up
-    // as the block grid artifact.
+    // degrid: 各フレームの block DC に degrid/gridDC を掛ける。
+    // bin ごとの grid 補正は gridsample[bin] * blockDC * degrid / gridDC で、
+    // 平坦な block では block 自身の窓 bias 付き spectrum と等しくなる。
+    // wiener filter 前にこれを差し引くことで、overlap-add の窓 bias が振幅依存の
+    // denoise で変調され、block grid artifact として現れるのを抑える。
     complex<TypeComplex> dcA(0.0f, 0.0f), dcB(0.0f, 0.0f), dcC(0.0f, 0.0f), dcD(0.0f, 0.0f);
     if (ptrGridSample && global_bx < block_count_x) {
         const int dc_idx = (global_by * BLOCK_SIZE) * srcPitch + (global_bx * BLOCK_SIZE) * sizeof(complex<TypeComplex>);
@@ -447,7 +446,7 @@ __global__ void kernel_tfft_filter_ifft(
             const int src_x = global_bx * BLOCK_SIZE + thWorker;
             const int src_y = global_by * BLOCK_SIZE + y;
             const int src_idx = src_y * srcPitch + src_x * sizeof(complex<TypeComplex>);
-            // per-frequency-bin sigma (sigma/sigma2/sigma3/sigma4 interpolated on host)
+            // 周波数 bin ごとの sigma(host 側で sigma/sigma2/sigma3/sigma4 を補間済み)
             const float binSigma = ptrSigma[y * BLOCK_SIZE + thWorker];
             complex<TypeComplex> srcA = *(const complex<TypeComplex> *)(ptrSrcA + src_idx);
             complex<TypeComplex> srcB(0.0f, 0.0f), srcC(0.0f, 0.0f), srcD(0.0f, 0.0f);
@@ -462,7 +461,7 @@ __global__ void kernel_tfft_filter_ifft(
                 if (temporalCount >= 2) { srcB -= grid * dcB; }
                 if (temporalCount >= 3) { srcC -= grid * dcC; }
                 if (temporalCount >= 4) { srcD -= grid * dcD; }
-                // current frame's correction, added back after filtering
+                // 現在フレームの補正値。filter 後に戻す。
                 if (temporalCurrentIdx == 0) corrCur = grid * dcA;
                 if (temporalCount >= 2 && temporalCurrentIdx == 1) corrCur = grid * dcB;
                 if (temporalCount >= 3 && temporalCurrentIdx == 2) corrCur = grid * dcC;
@@ -556,7 +555,7 @@ RGY_ERR denoise_tfft_filter_ifft(RGYFrameInfo *pOutputFrame,
             ptrBlockWindowInverse,
             ov1, ov2,
             ptrSigma, limit, filterMethod,
-            ptrWSharpen, sminSq, smaxSq, // sharpen: luma only
+            ptrWSharpen, sminSq, smaxSq, // sharpen は luma のみ
             ptrGridSample, degridFactor
         );
         CUDA_DEBUG_SYNC_ERR;
@@ -597,7 +596,7 @@ RGY_ERR denoise_tfft_filter_ifft(RGYFrameInfo *pOutputFrame,
             ptrBlockWindowInverse,
             ov1, ov2,
             ptrSigma, limit, filterMethod,
-            nullptr, sminSq, smaxSq, // no sharpening on chroma (matches the original filter's luma-default; avoids chroma ringing)
+            nullptr, sminSq, smaxSq, // chroma は sharpen しない(元フィルタの luma default に合わせ、chroma ringing を避ける)
             ptrGridSample, degridFactor
         );
         CUDA_DEBUG_SYNC_ERR;

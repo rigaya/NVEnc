@@ -2815,8 +2815,11 @@ Edge-preserving smoothing filter.
   FFT based denoise filter.
 
 - **parameters**
-  - sigma=&lt;float&gt;  
+  - sigma=&lt;float&gt;
     Strength of filter. (default=1.0, 0.0 - 100.0)
+
+  - sigma2=&lt;float&gt; / sigma3=&lt;float&gt; / sigma4=&lt;float&gt;
+    Filter strength for mid-high / mid-low / low frequencies. 0.0 uses the same value as sigma. (default=0.0, 0.0 - 100.0)
   
   - amount=&lt;float&gt;  (default=1.0, 0.0 - 1.0)  
     Amount of denoising.
@@ -2837,6 +2840,32 @@ Edge-preserving smoothing filter.
   - temporal=&lt;int&gt; (default = 1)
     - 0 ... spatial filtering only
     - 1 ... enable temporal filtering
+
+  - bt=&lt;int&gt; (default = 0)
+    - 0 ... follow temporal
+    - 1 ... spatial only
+    - 2 ... previous + current frame
+    - 3 ... previous + current + next frame
+    - 4 ... 2 previous + previous + current + next frame
+    - -1 ... sharpen/degrid only
+
+  - sharpen=&lt;float&gt;
+    Frequency-domain sharpening strength. 0.0 disables it. (default=0.0, -10.0 - 10.0)
+
+  - scutoff=&lt;float&gt;
+    Sharpen cutoff frequency. (default=0.30, 0.0 - 1.0)
+
+  - svr=&lt;float&gt;
+    Sharpen vertical ratio. 0.0 disables vertical sharpening. (default=1.00, 0.0 - 10.0)
+
+  - smin=&lt;float&gt; / smax=&lt;float&gt;
+    Minimum / maximum sharpening limits. (default=10.0/100.0)
+
+  - degrid=&lt;float&gt;
+    Block grid compensation strength. 0.0 disables it, 1.0 applies the standard compensation. (default=0.0, 0.0 - 2.0)
+
+  - signorm=&lt;bool&gt;
+    Interpret sigma/smin/smax as real noise-power units. false keeps the legacy-compatible scale. (default=false)
 
   - prec=&lt;string&gt; (default = auto)
     - auto ... use fp16 if possible (faster)
