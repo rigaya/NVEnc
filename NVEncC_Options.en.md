@@ -1087,8 +1087,23 @@ and is highly likely to become a bottleneck and result in poor encoding performa
   - model=&lt;string&gt;  
     Set internal model version of libvmaf, or external model file path. Default is internal "vmaf_v0.6.1".
 
-    When using model file, download json format model files from  
-    [link](https://github.com/Netflix/vmaf/tree/master/model) and set the path by this option.
+    Built-in model names available in the bundled libvmaf 3.2.0 build:
+    - `vmaf_v0.6.1`
+    - `vmaf_b_v0.6.3`
+    - `vmaf_v0.6.1neg`
+    - `vmaf_4k_v0.6.1`
+    - `vmaf_4k_v0.6.1neg`
+    - `vmaf_v1.0.16_3d0h`
+    - `vmaf_v1.0.16_3d0h_2160`
+    - `vmaf_v1.0.16_5d0h`
+    - `vmaf_v1.0.16_1d5h_2160`
+    - `vmaf_v1.0.16_hfr_3d0h`
+    - `vmaf_v1.0.16_hfr_3d0h_2160`
+    - `vmaf_v1.0.16_hfr_5d0h`
+    - `vmaf_v1.0.16_hfr_1d5h_2160`
+
+    To use an external model file, download a json format model file from  
+    [link](https://github.com/Netflix/vmaf/tree/master/model) and set the existing `.json` file path by this option.
   - threads=&lt;int&gt;  (default: 0)  
     CPU thread(s) to calculate vmaf score. Default is to use all physical cores.
   - subsample=&lt;int&gt;  (default: 1)  
@@ -1101,7 +1116,8 @@ and is highly likely to become a bottleneck and result in poor encoding performa
     
 - Examples
   ```
-  Example: --vmaf model=vmaf_v0.6.1.json
+  Example: --vmaf model=vmaf_v0.6.1
+  Example: --vmaf model=/path/to/vmaf_4k_v0.6.1neg.json
   ```
 
 ### --vship-ssimulacra2

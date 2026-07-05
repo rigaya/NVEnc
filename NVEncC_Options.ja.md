@@ -1094,8 +1094,23 @@ picture timing SEIを挿入する。
     - model=&lt;string&gt;  
       libvmafの内蔵モデルファイルのバージョン、あるいは外部のモデルファイルのパスを指定する。デフォルトは内蔵モデル"vmaf_v0.6.1"。
   
-      モデルファイルを使用する場合は、[こちら](https://github.com/Netflix/vmaf/tree/master/model)から
-      json形式のモデルファイルをダウンロードし、そのファイル名を指定してください。
+      同梱のlibvmaf 3.2.0ビルドで利用可能な内蔵モデル名:
+      - `vmaf_v0.6.1`
+      - `vmaf_b_v0.6.3`
+      - `vmaf_v0.6.1neg`
+      - `vmaf_4k_v0.6.1`
+      - `vmaf_4k_v0.6.1neg`
+      - `vmaf_v1.0.16_3d0h`
+      - `vmaf_v1.0.16_3d0h_2160`
+      - `vmaf_v1.0.16_5d0h`
+      - `vmaf_v1.0.16_1d5h_2160`
+      - `vmaf_v1.0.16_hfr_3d0h`
+      - `vmaf_v1.0.16_hfr_3d0h_2160`
+      - `vmaf_v1.0.16_hfr_5d0h`
+      - `vmaf_v1.0.16_hfr_1d5h_2160`
+  
+      外部モデルファイルを使用する場合は、[こちら](https://github.com/Netflix/vmaf/tree/master/model)から
+      json形式のモデルファイルをダウンロードし、実在する`.json`ファイルのパスを指定してください。
   
     - threads=&lt;int&gt;  (default: 0)  
       VMAFスコアを計算するCPUのスレッド数の指定。デフォルトは全物理コア。
@@ -1111,7 +1126,8 @@ picture timing SEIを挿入する。
       
 - 使用例
   ```
-  例: --vmaf model=vmaf_v0.6.1.json
+  例: --vmaf model=vmaf_v0.6.1
+  例: --vmaf model=/path/to/vmaf_4k_v0.6.1neg.json
   ```
 
 ### --vship-ssimulacra2
