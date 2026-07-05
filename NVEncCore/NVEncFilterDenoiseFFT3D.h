@@ -57,7 +57,10 @@ typedef RGY_ERR (*func_fft3d_tfft_filter_ifft)(RGYFrameInfo *pOutputFrame,
     const RGYFrameInfo *pInputFrameA, const RGYFrameInfo *pInputFrameB, const RGYFrameInfo *pInputFrameC, const RGYFrameInfo *pInputFrameD,
     const float *ptrBlockWindowInverse,
     const int widthY, const int heightY, const int widthUV, const int heightUV, const int ov1, const int ov2,
-    const float sigma, const float limit, const int filterMethod, const bool processChroma, cudaStream_t stream);
+    const float *ptrSigma, const float limit, const int filterMethod,
+    const float *ptrWSharpen, const float sminSq, const float smaxSq,
+    const float *ptrGridSample, const float degridFactor,
+    const bool processChroma, cudaStream_t stream);
 typedef RGY_ERR (*func_fft3d_merge)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const int ov1, const int ov2, const bool processChroma, cudaStream_t stream);
 
 class DenoiseFFT3DBase {
@@ -100,4 +103,9 @@ protected:
     std::unique_ptr<CUFrameBuf> m_filteredBlocks;
     std::unique_ptr<CUMemBuf> m_windowBuf;
     std::unique_ptr<CUMemBuf> m_windowBufInverse;
+    std::unique_ptr<CUMemBuf> m_sigmaBuf;    // per-frequency-bin sigma table (sigma/sigma2/3/4)
+    std::unique_ptr<CUMemBuf> m_wsharpenBuf; // per-frequency-bin sharpen weight (strength x gaussian high-pass)
+    std::unique_ptr<CUMemBuf> m_gridBuf;     // gridsample spectrum (complex, for degrid)
+    float m_gridDC;                          // DC of the gridsample spectrum
+    float m_noisePowerGain;                  // sum(w^2)^2: per-bin noise power gain of the windowed FFT (for signorm)
 };

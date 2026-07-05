@@ -5620,7 +5620,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{
-            "sigma", "amount", "block_size", "overlap",/*"overlap2",*/ "method", "temporal", "prec"};
+            "sigma", "sigma2", "sigma3", "sigma4", "amount", "block_size", "overlap",/*"overlap2",*/ "method", "temporal",
+            "bt", "sharpen", "scutoff", "svr", "smin", "smax", "degrid", "signorm", "prec"};
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -5641,6 +5642,33 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("sigma")) {
                     try {
                         vpp->fft3d.sigma = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigma2")) {
+                    try {
+                        vpp->fft3d.sigma2 = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigma3")) {
+                    try {
+                        vpp->fft3d.sigma3 = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigma4")) {
+                    try {
+                        vpp->fft3d.sigma4 = std::stof(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -5697,6 +5725,79 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     try {
                         vpp->fft3d.temporal = std::stoi(param_val);
                     } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("bt")) {
+                    try {
+                        vpp->fft3d.bt = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sharpen")) {
+                    try {
+                        vpp->fft3d.sharpen = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("scutoff")) {
+                    try {
+                        vpp->fft3d.scutoff = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("svr")) {
+                    try {
+                        vpp->fft3d.svr = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("smin")) {
+                    try {
+                        vpp->fft3d.smin = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("smax")) {
+                    try {
+                        vpp->fft3d.smax = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("degrid")) {
+                    try {
+                        vpp->fft3d.degrid = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("signorm")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->fft3d.signorm = b;
+                    } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
@@ -12881,12 +12982,23 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (param->fft3d.enable || save_disabled_prm) {
             ADD_FLOAT(_T("sigma"), fft3d.sigma, 3);
+            ADD_FLOAT(_T("sigma2"), fft3d.sigma2, 3);
+            ADD_FLOAT(_T("sigma3"), fft3d.sigma3, 3);
+            ADD_FLOAT(_T("sigma4"), fft3d.sigma4, 3);
             ADD_FLOAT(_T("amount"), fft3d.amount, 3);
             ADD_NUM(_T("block_size"), fft3d.block_size);
             ADD_FLOAT(_T("overlap"), fft3d.overlap, 3);
             ADD_FLOAT(_T("overlap2"), fft3d.overlap2, 3);
             ADD_NUM(_T("method"), fft3d.method);
             ADD_NUM(_T("temporal"), fft3d.temporal);
+            ADD_NUM(_T("bt"), fft3d.bt);
+            ADD_FLOAT(_T("sharpen"), fft3d.sharpen, 3);
+            ADD_FLOAT(_T("scutoff"), fft3d.scutoff, 3);
+            ADD_FLOAT(_T("svr"), fft3d.svr, 3);
+            ADD_FLOAT(_T("smin"), fft3d.smin, 3);
+            ADD_FLOAT(_T("smax"), fft3d.smax, 3);
+            ADD_FLOAT(_T("degrid"), fft3d.degrid, 3);
+            ADD_BOOL(_T("signorm"), fft3d.signorm);
             ADD_LST(_T("prec"), fft3d.precision, list_vpp_fp_prec);
         }
         if (!tmp.str().empty()) {
@@ -15379,6 +15491,10 @@ tstring gen_cmd_help_vpp() {
         _T("     enable fft based denoise filter.\n")
         _T("    params\n")
         _T("      sigma=<float>         strength of filter (default=%.2f, 0 - 100)\n")
+        _T("                              noise level for the highest frequencies.\n")
+        _T("      sigma2=<float>        noise level for mid-high frequencies (default=sigma)\n")
+        _T("      sigma3=<float>        noise level for mid-low frequencies  (default=sigma)\n")
+        _T("      sigma4=<float>        noise level for the lowest frequencies (default=sigma)\n")
         _T("      amount=<float>        amount of denoising (default=%.2f, 0 - 1)\n")
         _T("      block_size=<int>      block size of calculation.\n")
         _T("                              8, 16, 32 (default), 64\n")
@@ -15388,10 +15504,25 @@ tstring gen_cmd_help_vpp() {
         _T("      method=<int>          method of denoising\n")
         _T("                              0 (default), 1\n")
         _T("      temporal=<int>        Enable temporal filtering (default=%d)\n")
+        _T("      bt=<int>              temporal radius (overrides temporal if != 0)\n")
+        _T("                              1 spatial only, 2 prev+cur, 3 prev+cur+next,\n")
+        _T("                              4 2prev+cur+next, -1 sharpen/degrid only\n")
+        _T("      sharpen=<float>       sharpening strength (default=0 off, 0.3 - 1.0)\n")
+        _T("                              applied to luma in the frequency domain.\n")
+        _T("      scutoff=<float>       sharpen cutoff frequency, relative to max (default=%.2f)\n")
+        _T("      svr=<float>           sharpen vertical ratio (default=%.2f, 0 = no vertical)\n")
+        _T("      smin=<float>          sharpen minimum limit, noise margin (default=%.2f)\n")
+        _T("      smax=<float>          sharpen maximum limit, halo margin (default=%.2f)\n")
+        _T("      degrid=<float>        block grid compensation strength (default=0 off, 1.0 full)\n")
+        _T("      signorm=<bool>        normalise sigma/smin/smax to noise-power units, so\n")
+        _T("                              sigma matches the actual noise level (default=false,\n")
+        _T("                              keeps backward compatible sigma scale)\n")
         _T("      prec=<string>         Select calculation precision.\n")
         _T("                              auto (default), fp16, fp32\n"),
-        FILTER_DEFAULT_DENOISE_FFT3D_SIGMA, FILTER_DEFAULT_DENOISE_FFT3D_AMOUNT, FILTER_DEFAULT_DENOISE_FFT3D_BLOCK_SIZE,
-        FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP, /* FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2,*/ FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL);
+        FILTER_DEFAULT_DENOISE_FFT3D_SIGMA, FILTER_DEFAULT_DENOISE_FFT3D_AMOUNT,
+        FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP, /* FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2,*/ FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL,
+        FILTER_DEFAULT_DENOISE_FFT3D_SCUTOFF, FILTER_DEFAULT_DENOISE_FFT3D_SVR,
+        FILTER_DEFAULT_DENOISE_FFT3D_SMIN, FILTER_DEFAULT_DENOISE_FFT3D_SMAX);
 #endif
 #if ENABLE_VPP_FILTER_DEGRAIN
     str += strsprintf(_T("\n")

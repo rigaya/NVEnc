@@ -496,12 +496,22 @@ static const int   FILTER_DEFAULT_DENOISE_DCT_STEP = 2;
 static const int   FILTER_DEFAULT_DENOISE_DCT_BLOCK_SIZE = 8;
 
 static const float FILTER_DEFAULT_DENOISE_FFT3D_SIGMA = 1.0f;
+static const float FILTER_DEFAULT_DENOISE_FFT3D_SIGMA2 = 0.0f; // 0 = follow sigma
+static const float FILTER_DEFAULT_DENOISE_FFT3D_SIGMA3 = 0.0f; // 0 = follow sigma
+static const float FILTER_DEFAULT_DENOISE_FFT3D_SIGMA4 = 0.0f; // 0 = follow sigma
 static const float FILTER_DEFAULT_DENOISE_FFT3D_AMOUNT = 1.0f;
 static const int   FILTER_DEFAULT_DENOISE_FFT3D_BLOCK_SIZE = 32;
 static const float FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP  = 0.5;
 static const float FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2 = 0.0;
 static const int   FILTER_DEFAULT_DENOISE_FFT3D_METHOD = 0;
 static const int   FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL = 1;
+static const int   FILTER_DEFAULT_DENOISE_FFT3D_BT = 0; // 0 = follow 'temporal' (temporal=0 -> bt1, temporal=1 -> bt3)
+static const float FILTER_DEFAULT_DENOISE_FFT3D_SHARPEN = 0.0f; // 0 = off
+static const float FILTER_DEFAULT_DENOISE_FFT3D_SCUTOFF = 0.3f;
+static const float FILTER_DEFAULT_DENOISE_FFT3D_SVR = 1.0f;
+static const float FILTER_DEFAULT_DENOISE_FFT3D_SMIN = 10.0f;  // classic FFT3DFilter default is 4, but this
+static const float FILTER_DEFAULT_DENOISE_FFT3D_SMAX = 100.0f; // filter's sigma/power scale needs larger values (like sigma)
+static const float FILTER_DEFAULT_DENOISE_FFT3D_DEGRID = 0.0f; // 0 = off (keep current default output); 1.0 recommended
 
 static const int   FILTER_DEFAULT_MSMOOTH_STRENGTH = 3;
 static const float FILTER_DEFAULT_MSMOOTH_THRESHOLD = 15.0f;
@@ -2531,12 +2541,23 @@ const CX_DESC list_vpp_fft3d_block_size[] = {
 struct VppDenoiseFFT3D {
     bool enable;
     float sigma;
+    float sigma2; // noise level for mid-high frequencies (0 = follow sigma)
+    float sigma3; // noise level for mid-low frequencies  (0 = follow sigma)
+    float sigma4; // noise level for lowest frequencies    (0 = follow sigma)
     float amount;
     int block_size;
     float overlap;
     float overlap2;
     int method;
     int temporal;
+    int bt; // temporal radius 1..4 (0 = follow 'temporal': 0->bt1 spatial, 1->bt3 prev+cur+next); -1 = sharpen/degrid only
+    float sharpen;  // sharpening strength (0 = off, ~0.3 - 1.0)
+    float scutoff;  // sharpening cutoff frequency, relative to max (0 - 1)
+    float svr;      // sharpening vertical ratio (0 = no vertical sharpening, 1 = isotropic)
+    float smin;     // minimum limit (noise margin) for sharpening
+    float smax;     // maximum limit (oversharpening margin) for sharpening
+    float degrid;   // grid artifact compensation strength (0 = off, 1.0 = full)
+    bool signorm;   // normalise sigma/smin/smax to real noise-power units (sigma = noise level, like the original FFT3DFilter)
     VppFpPrecision precision;
     VppDenoiseFFT3D();
     bool operator==(const VppDenoiseFFT3D &x) const;

@@ -338,41 +338,55 @@ RGY_ERR denoise_fft(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
 
 template<typename TypeComplex, int temporalCurrentIdx, int temporalCount>
 __device__ complex<TypeComplex> temporal_filter(
-    const complex<TypeComplex> *ptrSrcA,
-    const complex<TypeComplex> *ptrSrcB,
-    const complex<TypeComplex> *ptrSrcC,
-    const complex<TypeComplex> *ptrSrcD,
-    const float sigma, const float limit, const int filterMethod) {
+    const complex<TypeComplex> srcA,
+    const complex<TypeComplex> srcB,
+    const complex<TypeComplex> srcC,
+    const complex<TypeComplex> srcD,
+    const float sigma, const float limit, const int filterMethod,
+    const float wsharpen, const float sminSq, const float smaxSq) {
     static_assert(1 <= temporalCount && temporalCount <= 4, "temporalCount must be 1 to 4.");
     static_assert(0 <= temporalCurrentIdx && temporalCurrentIdx < temporalCount, "temporalCurrentIdx must be 0 to temporalCount.");
     complex<TypeComplex> work[temporalCount];
-    work[0] = ptrSrcA[0];
-    if (temporalCount >= 2) { work[1] = ptrSrcB[0]; }
-    if (temporalCount >= 3) { work[2] = ptrSrcC[0]; }
-    if (temporalCount >= 4) { work[3] = ptrSrcD[0]; }
+    work[0] = srcA;
+    if (temporalCount >= 2) { work[1] = srcB; }
+    if (temporalCount >= 3) { work[2] = srcC; }
+    if (temporalCount >= 4) { work[3] = srcD; }
 
     if (temporalCount >= 2) {
         dft<TypeComplex, temporalCount, true, 1>(work);
     }
 
-    #pragma unroll
-    for (int z = 0; z < temporalCount; z++) {
-        const float power = work[z].squaref();
+    // filterMethod < 0 -> no denoising (bt=-1: sharpen/degrid only)
+    if (filterMethod >= 0) {
+        #pragma unroll
+        for (int z = 0; z < temporalCount; z++) {
+            const float power = work[z].squaref();
 
-        float factor;
-        if (filterMethod == 0) {
-            factor = fmaxf(limit, (power - sigma) * __frcp_rn(power + 1e-15f));
-        } else {
-            factor = power < sigma ? limit : 1.0f;
+            float factor;
+            if (filterMethod == 0) {
+                factor = fmaxf(limit, (power - sigma) * __frcp_rn(power + 1e-15f));
+            } else {
+                factor = power < sigma ? limit : 1.0f;
+            }
+            work[z] *= factor;
         }
-        work[z] *= factor;
     }
 
     if (temporalCount >= 2) {
         dft<TypeComplex, temporalCount, false, 1>(work);
     }
 
-    return work[temporalCurrentIdx];
+    complex<TypeComplex> result = work[temporalCurrentIdx];
+    // frequency-domain sharpening (after denoising): amplify mid amplitudes only.
+    // weak bins (psd ~< sminSq) stay put to avoid boosting noise, strong bins
+    // (psd ~> smaxSq) stay put to avoid oversharpening/halo; wsharpen carries
+    // the sharpen strength and the per-bin gaussian high-pass frequency weight.
+    if (wsharpen != 0.0f) {
+        const float psd = result.squaref();
+        const float sfact = 1.0f + wsharpen * sqrtf(psd * smaxSq * __frcp_rn((psd + sminSq) * (psd + smaxSq) + 1e-30f));
+        result *= sfact;
+    }
+    return result;
 }
 
 template<typename TypePixel, int bit_depth, typename TypeComplex, int BLOCK_SIZE, int DENOISE_BLOCK_SIZE_X,
@@ -393,7 +407,9 @@ __global__ void kernel_tfft_filter_ifft(
     const int block_count_x,
     const float *const __restrict__ ptrBlockWindowInverse,
     const int ov1, const int ov2,
-    const float sigma, const float limit, const int filterMethod
+    const float *const __restrict__ ptrSigma, const float limit, const int filterMethod,
+    const float *const __restrict__ ptrWSharpen, const float sminSq, const float smaxSq,
+    const float *const __restrict__ ptrGridSample, const float degridFactor
 ) {
     static_assert(1 <= temporalCount && temporalCount <= 4, "temporalCount must be 1 to 4.");
     const int thWorker = threadIdx.x; // BLOCK_SIZE
@@ -407,6 +423,21 @@ __global__ void kernel_tfft_filter_ifft(
     const char *const __restrict__ ptrSrcB = (temporalCount >= 2) ? selectptr2(ptrSrcB0, ptrSrcB1, plane_idx) : nullptr;
     const char *const __restrict__ ptrSrcC = (temporalCount >= 3) ? selectptr2(ptrSrcC0, ptrSrcC1, plane_idx) : nullptr;
     const char *const __restrict__ ptrSrcD = (temporalCount >= 4) ? selectptr2(ptrSrcD0, ptrSrcD1, plane_idx) : nullptr;
+
+    // degrid: each frame's block DC scaled by degrid/gridDC. The grid correction
+    // for a bin is gridsample[bin] * blockDC * degrid / gridDC - for a flat block
+    // this equals the block's own (window-biased) spectrum, so subtracting it
+    // before the wiener filter keeps the overlap-add window bias from being
+    // modulated by the (amplitude-dependent) denoising, which is what shows up
+    // as the block grid artifact.
+    complex<TypeComplex> dcA(0.0f, 0.0f), dcB(0.0f, 0.0f), dcC(0.0f, 0.0f), dcD(0.0f, 0.0f);
+    if (ptrGridSample && global_bx < block_count_x) {
+        const int dc_idx = (global_by * BLOCK_SIZE) * srcPitch + (global_bx * BLOCK_SIZE) * sizeof(complex<TypeComplex>);
+        dcA = *(const complex<TypeComplex> *)(ptrSrcA + dc_idx); dcA *= degridFactor;
+        if (temporalCount >= 2) { dcB = *(const complex<TypeComplex> *)(ptrSrcB + dc_idx); dcB *= degridFactor; }
+        if (temporalCount >= 3) { dcC = *(const complex<TypeComplex> *)(ptrSrcC + dc_idx); dcC *= degridFactor; }
+        if (temporalCount >= 4) { dcD = *(const complex<TypeComplex> *)(ptrSrcD + dc_idx); dcD *= degridFactor; }
+    }
 #if 1
     __shared__ complex<TypeComplex> stmp[DENOISE_BLOCK_SIZE_X][BLOCK_SIZE][BLOCK_SIZE + 1];
 #if 1
@@ -416,12 +447,34 @@ __global__ void kernel_tfft_filter_ifft(
             const int src_x = global_bx * BLOCK_SIZE + thWorker;
             const int src_y = global_by * BLOCK_SIZE + y;
             const int src_idx = src_y * srcPitch + src_x * sizeof(complex<TypeComplex>);
-            stmp[local_bx][y][thWorker] = temporal_filter<TypeComplex, temporalCurrentIdx, temporalCount>(
-                (const complex<TypeComplex> *)(ptrSrcA + src_idx),
-                (const complex<TypeComplex> *)(ptrSrcB + src_idx),
-                (const complex<TypeComplex> *)(ptrSrcC + src_idx),
-                (const complex<TypeComplex> *)(ptrSrcD + src_idx),
-                sigma, limit, filterMethod);
+            // per-frequency-bin sigma (sigma/sigma2/sigma3/sigma4 interpolated on host)
+            const float binSigma = ptrSigma[y * BLOCK_SIZE + thWorker];
+            complex<TypeComplex> srcA = *(const complex<TypeComplex> *)(ptrSrcA + src_idx);
+            complex<TypeComplex> srcB(0.0f, 0.0f), srcC(0.0f, 0.0f), srcD(0.0f, 0.0f);
+            if (temporalCount >= 2) { srcB = *(const complex<TypeComplex> *)(ptrSrcB + src_idx); }
+            if (temporalCount >= 3) { srcC = *(const complex<TypeComplex> *)(ptrSrcC + src_idx); }
+            if (temporalCount >= 4) { srcD = *(const complex<TypeComplex> *)(ptrSrcD + src_idx); }
+            complex<TypeComplex> corrCur(0.0f, 0.0f);
+            if (ptrGridSample) {
+                const float2 gv = ((const float2 *)ptrGridSample)[y * BLOCK_SIZE + thWorker];
+                const complex<TypeComplex> grid(gv.x, gv.y);
+                srcA -= grid * dcA;
+                if (temporalCount >= 2) { srcB -= grid * dcB; }
+                if (temporalCount >= 3) { srcC -= grid * dcC; }
+                if (temporalCount >= 4) { srcD -= grid * dcD; }
+                // current frame's correction, added back after filtering
+                if (temporalCurrentIdx == 0) corrCur = grid * dcA;
+                if (temporalCount >= 2 && temporalCurrentIdx == 1) corrCur = grid * dcB;
+                if (temporalCount >= 3 && temporalCurrentIdx == 2) corrCur = grid * dcC;
+                if (temporalCount >= 4 && temporalCurrentIdx == 3) corrCur = grid * dcD;
+            }
+            const float wsharpen = (ptrWSharpen) ? ptrWSharpen[y * BLOCK_SIZE + thWorker] : 0.0f;
+            complex<TypeComplex> result = temporal_filter<TypeComplex, temporalCurrentIdx, temporalCount>(
+                srcA, srcB, srcC, srcD,
+                binSigma, limit, filterMethod,
+                wsharpen, sminSq, smaxSq);
+            result += corrCur;
+            stmp[local_bx][y][thWorker] = result;
         }
     }
 #else
@@ -473,7 +526,10 @@ RGY_ERR denoise_tfft_filter_ifft(RGYFrameInfo *pOutputFrame,
     const RGYFrameInfo *pInputFrameA, const RGYFrameInfo *pInputFrameB, const RGYFrameInfo *pInputFrameC, const RGYFrameInfo *pInputFrameD,
     const float *ptrBlockWindowInverse,
     const int widthY, const int heightY, const int widthUV, const int heightUV, const int ov1, const int ov2,
-    const float sigma, const float limit, const int filterMethod, const bool processChroma, cudaStream_t stream) {
+    const float *ptrSigma, const float limit, const int filterMethod,
+    const float *ptrWSharpen, const float sminSq, const float smaxSq,
+    const float *ptrGridSample, const float degridFactor,
+    const bool processChroma, cudaStream_t stream) {
     {
         const auto block_count = getBlockCount(widthY, heightY, BLOCK_SIZE, ov1, ov2);
         const auto planeInputYA = (pInputFrameA) ? getPlane(pInputFrameA, RGY_PLANE_Y) : RGYFrameInfo();
@@ -499,7 +555,9 @@ RGY_ERR denoise_tfft_filter_ifft(RGYFrameInfo *pOutputFrame,
             block_count.first,
             ptrBlockWindowInverse,
             ov1, ov2,
-            sigma * (1.0f / ((1 << 8) - 1)), limit, filterMethod
+            ptrSigma, limit, filterMethod,
+            ptrWSharpen, sminSq, smaxSq, // sharpen: luma only
+            ptrGridSample, degridFactor
         );
         CUDA_DEBUG_SYNC_ERR;
         auto err = err_to_rgy(cudaGetLastError());
@@ -538,7 +596,9 @@ RGY_ERR denoise_tfft_filter_ifft(RGYFrameInfo *pOutputFrame,
             block_count.first,
             ptrBlockWindowInverse,
             ov1, ov2,
-            sigma * (1.0f / ((1 << 8) - 1)), limit, filterMethod
+            ptrSigma, limit, filterMethod,
+            nullptr, sminSq, smaxSq, // no sharpening on chroma (matches the original filter's luma-default; avoids chroma ringing)
+            ptrGridSample, degridFactor
         );
         CUDA_DEBUG_SYNC_ERR;
         auto err = err_to_rgy(cudaGetLastError());
@@ -652,12 +712,16 @@ public:
 
     virtual decltype(&denoise_fft<TypePixel, bit_depth, TypeComplex, BLOCK_SIZE, DENOISE_BLOCK_SIZE_X>) fft() override { return denoise_fft<TypePixel, bit_depth, TypeComplex, BLOCK_SIZE, DENOISE_BLOCK_SIZE_X>; }
     virtual decltype(&denoise_tfft_filter_ifft<TypePixel, bit_depth, TypeComplex, BLOCK_SIZE, DENOISE_BLOCK_SIZE_X, 0, 1>) tfft_filter_ifft(int temporalCurrentIdx, int temporalCount) override {
-        if (temporalCount == 1) {
+        // bt frame layouts: bt1=[cur](idx0), bt2=[prev,cur](idx1),
+        // bt3=[prev,cur,next](idx1), bt4=[prev2,prev,cur,next](idx2).
+        if (temporalCount == 1 && temporalCurrentIdx == 0) {
             return denoise_tfft_filter_ifft<TypePixel, bit_depth, TypeComplex, BLOCK_SIZE, DENOISE_BLOCK_SIZE_X, 0, 1>;
-        } else if (temporalCount == 3) {
-            if (temporalCurrentIdx == 1) {
-                return denoise_tfft_filter_ifft<TypePixel, bit_depth, TypeComplex, BLOCK_SIZE, DENOISE_BLOCK_SIZE_X, 1, 3>;
-            }
+        } else if (temporalCount == 2 && temporalCurrentIdx == 1) {
+            return denoise_tfft_filter_ifft<TypePixel, bit_depth, TypeComplex, BLOCK_SIZE, DENOISE_BLOCK_SIZE_X, 1, 2>;
+        } else if (temporalCount == 3 && temporalCurrentIdx == 1) {
+            return denoise_tfft_filter_ifft<TypePixel, bit_depth, TypeComplex, BLOCK_SIZE, DENOISE_BLOCK_SIZE_X, 1, 3>;
+        } else if (temporalCount == 4 && temporalCurrentIdx == 2) {
+            return denoise_tfft_filter_ifft<TypePixel, bit_depth, TypeComplex, BLOCK_SIZE, DENOISE_BLOCK_SIZE_X, 2, 4>;
         }
         return nullptr;
     }

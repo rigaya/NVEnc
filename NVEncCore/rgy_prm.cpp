@@ -1786,12 +1786,23 @@ tstring VppDenoiseDct::print() const {
 VppDenoiseFFT3D::VppDenoiseFFT3D() :
     enable(false),
     sigma(FILTER_DEFAULT_DENOISE_FFT3D_SIGMA),
+    sigma2(FILTER_DEFAULT_DENOISE_FFT3D_SIGMA2),
+    sigma3(FILTER_DEFAULT_DENOISE_FFT3D_SIGMA3),
+    sigma4(FILTER_DEFAULT_DENOISE_FFT3D_SIGMA4),
     amount(FILTER_DEFAULT_DENOISE_FFT3D_AMOUNT),
     block_size(FILTER_DEFAULT_DENOISE_FFT3D_BLOCK_SIZE),
     overlap(FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP),
     overlap2(FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2),
     method(FILTER_DEFAULT_DENOISE_FFT3D_METHOD),
     temporal(FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL),
+    bt(FILTER_DEFAULT_DENOISE_FFT3D_BT),
+    sharpen(FILTER_DEFAULT_DENOISE_FFT3D_SHARPEN),
+    scutoff(FILTER_DEFAULT_DENOISE_FFT3D_SCUTOFF),
+    svr(FILTER_DEFAULT_DENOISE_FFT3D_SVR),
+    smin(FILTER_DEFAULT_DENOISE_FFT3D_SMIN),
+    smax(FILTER_DEFAULT_DENOISE_FFT3D_SMAX),
+    degrid(FILTER_DEFAULT_DENOISE_FFT3D_DEGRID),
+    signorm(false),
     precision(VppFpPrecision::VPP_FP_PRECISION_AUTO) {
 
 }
@@ -1799,12 +1810,23 @@ VppDenoiseFFT3D::VppDenoiseFFT3D() :
 bool VppDenoiseFFT3D::operator==(const VppDenoiseFFT3D &x) const {
     return enable == x.enable
         && sigma == x.sigma
+        && sigma2 == x.sigma2
+        && sigma3 == x.sigma3
+        && sigma4 == x.sigma4
         && amount == x.amount
         && block_size == x.block_size
         && overlap == x.overlap
         && overlap2 == x.overlap2
         && method == x.method
         && temporal == x.temporal
+        && bt == x.bt
+        && sharpen == x.sharpen
+        && scutoff == x.scutoff
+        && svr == x.svr
+        && smin == x.smin
+        && smax == x.smax
+        && degrid == x.degrid
+        && signorm == x.signorm
         && precision == x.precision;
 }
 bool VppDenoiseFFT3D::operator!=(const VppDenoiseFFT3D &x) const {
@@ -1812,9 +1834,27 @@ bool VppDenoiseFFT3D::operator!=(const VppDenoiseFFT3D &x) const {
 }
 
 tstring VppDenoiseFFT3D::print() const {
-    tstring str = strsprintf(_T("denoise-fft3d: sigma %.2f, strength %.2f, block_size %d\n"
-        "                         overlap %.2f, method %d, temporal %d, precision %s"),
-        sigma, amount, block_size, overlap, method, temporal, get_cx_desc(list_vpp_fp_prec, precision));
+    tstring str = strsprintf(_T("denoise-fft3d: sigma %.2f"), sigma);
+    if (sigma2 > 0.0f || sigma3 > 0.0f || sigma4 > 0.0f) {
+        str += strsprintf(_T(" (sigma2 %.2f, sigma3 %.2f, sigma4 %.2f)"),
+            (sigma2 > 0.0f) ? sigma2 : sigma,
+            (sigma3 > 0.0f) ? sigma3 : sigma,
+            (sigma4 > 0.0f) ? sigma4 : sigma);
+    }
+    const int bt_eff = (bt != 0) ? bt : (temporal ? 3 : 1);
+    str += strsprintf(_T(", strength %.2f, block_size %d\n"
+        "                         overlap %.2f, method %d, bt %d, precision %s"),
+        amount, block_size, overlap, method, bt_eff, get_cx_desc(list_vpp_fp_prec, precision));
+    if (sharpen != 0.0f) {
+        str += strsprintf(_T("\n                         sharpen %.2f (scutoff %.2f, svr %.2f, smin %.2f, smax %.2f)"),
+            sharpen, scutoff, svr, smin, smax);
+    }
+    if (degrid > 0.0f) {
+        str += strsprintf(_T(", degrid %.2f"), degrid);
+    }
+    if (signorm) {
+        str += _T(", signorm");
+    }
     return str;
 }
 
