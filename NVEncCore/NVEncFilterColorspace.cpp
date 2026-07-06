@@ -634,7 +634,7 @@ std::string ColorspaceOpLUT3D::print() {
         x = lut3d_interp_%s(x, getDevParamsLut(params), lutSize0, lutSize01);
     })",
         m_tableSize0, m_tableSize01,
-        scale_to_table((int)LUT3DIDX::r), scale_to_table((int)LUT3DIDX::b), scale_to_table((int)LUT3DIDX::b),
+        scale_to_table((int)LUT3DIDX::r), scale_to_table((int)LUT3DIDX::g), scale_to_table((int)LUT3DIDX::b),
         tchar_to_string(get_cx_desc(list_vpp_colorspace_lut3d_interp, (int)m_interp)).c_str());
     return str;
 }
