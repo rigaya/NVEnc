@@ -2359,7 +2359,9 @@ nnediによるインタレ解除を行う。
 
 - **パラメータ**
 
-  - field=&lt;string&gt;  
+  - planes=&lt;string&gt;
+    対象plane。`all`、または `y`, `u`, `v` を `:` 区切りで指定。デフォルト: `all`。
+  - field=&lt;string&gt;
     対象フィールド。`bob`, `auto`(デフォルト), `top`, `bottom`, `bob_tff`, `bob_bff`。
   - nsize=&lt;string&gt;  
     NN近傍サイズ。`8x6`, `16x6`, `32x6`, `48x6`, `8x4`, `16x4`, `32x4`(デフォルト)。
@@ -2632,9 +2634,17 @@ decombによるインタレ解除を行う。
   - back=&lt;int&gt;  
     P マッチを試す条件。`0` = 常に試す、`1` = C が combed のときのみ試す。
   - y0=&lt;int&gt;
-  - y1=&lt;int&gt;  
+  - y1=&lt;int&gt;
     combing metric から除外する帯域を指定する。字幕焼き込みの回避用。
-  - cadlock=&lt;auto|on|off&gt;  
+  - nt=&lt;int&gt;  (デフォルト: 10)
+    match-metric のノイズ許容量。8bitスケール。
+  - cthresh=&lt;int&gt;  (デフォルト: 4)
+    match scoring で使用する画素単位のcomb閾値。8bitスケール。
+  - combpel=&lt;int&gt;  (デフォルト: 8)
+    32x8ブロックをcombedとみなすためのcombed画素数。
+  - scthresh=&lt;float&gt;  (デフォルト: 0.0)
+    最大SADに対する割合で指定するシーンチェンジ閾値。`0.0` で自動閾値を使用。
+  - cadlock=&lt;auto|on|off&gt;
     cadence pattern lock を有効化する。`auto` は `guide>=1` で有効。
   - gthresh=&lt;int&gt;  
     cadence-predicted match override の許容割合。`0 - 100`。`0` で override 無効。
@@ -2686,11 +2696,13 @@ decombによるインタレ解除を行う。
   - frac=&lt;float&gt;  (デフォルト: 0.33)  
     ドロップ対象とするかどうかの閾値。各8x8ブロックの中の差分の総和について、閾値"lo"を上回っているブロックの数をカウントし、
     それが全体のブロック数に占める割合が"frac"以上であればドロップ対象から外す。
-  - max=&lt;int&gt;  (デフォルト: 0)  
-    正の値での指定: 連続ドロップフレーム数の上限。  
+  - max=&lt;int&gt;  (デフォルト: 0)
+    正の値での指定: 連続ドロップフレーム数の上限。
     負の値での指定: 間引く1フレームを決めるフレーム間隔の下限。
-    
-  - log=&lt;bool&gt;  
+  - keep=&lt;int&gt;  (デフォルト: 0)
+    連続する類似フレームを何枚保持してから破棄を開始するか。
+
+  - log=&lt;bool&gt;
     判定結果のログファイルの出力。 (デフォルト: off)
 
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
@@ -2960,10 +2972,12 @@ decombによるインタレ解除を行う。
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 - **パラメータ**
-  - radius=&lt;int&gt;  (default=3, 1-5)  
+  - radius=&lt;int&gt;  (default=3, 1-5)
     適用半径。値が大きいほど効果が強くなる一方、処理が重くなる。
-  
-  - strength=&lt;float&gt;  (default=0.08, 0.0 - 1.0)  
+  - d=&lt;int&gt;  (default=0, 0 - 2)
+    時間方向半径。前後フレームを重み計算に含める。
+
+  - strength=&lt;float&gt;  (default=0.08, 0.0 - 1.0)
     フィルタの強さ。値が大きいほど効果が強くなる。
   
   - lerp=&lt;float&gt;  (default=0.2, 0.0 - 1.0)  
@@ -3068,11 +3082,13 @@ HQDN3D による空間・時間方向のノイズ除去を行う。CUDA 実装�
 
   - width=&lt;int&gt; / height=&lt;int&gt;  
     出力する元解像度。明示カーネルでは両方を指定します。
-  - b=&lt;float&gt;, c=&lt;float&gt;  
+  - b=&lt;float&gt;, c=&lt;float&gt;
     bicubic のパラメータ。デフォルトは b=0.0, c=0.5。
-  - src_left=&lt;float&gt;, src_top=&lt;float&gt;  
+  - src_left=&lt;float&gt;, src_top=&lt;float&gt;
     入力画像のサブピクセルオフセット。デフォルトは 0.0。
-  - border_handling=&lt;string&gt;  
+  - src_width=&lt;float&gt;, src_height=&lt;float&gt;
+    非整数のネイティブサイズを持つソース向けの有効ソース幅/高さ。デフォルト: 0.0 (無効)。
+  - border_handling=&lt;string&gt;
     端処理。デフォルトは mirror。
     ```
     mirror, zero, repeat
@@ -3634,7 +3650,7 @@ CUDAによる手ぶれ補正フィルタ。輝度成分から位相相関でフ�
   ```
 
 ### --vpp-hqdering [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
-DCTリンギング低減フィルタ。輝度成分に補正を適用し、色差成分は元のままコピーする。
+DCTリンギング低減フィルタ。デフォルトでは輝度に補正をかける。
 
 - **パラメータ**
   - mrad=&lt;int&gt; (default=1, 1 - 3)  
@@ -3647,8 +3663,24 @@ DCTリンギング低減フィルタ。輝度成分に補正を適用し、色�
     有効マスクのみを出力する。
   - protect=&lt;bool&gt; (default=true)  
     元のエッジ画素を保護する。
-  - edge=&lt;string&gt; (default=log)  
+  - edge=&lt;string&gt; (default=log)
     エッジ検出方式。log, sobel, prewitt, scharr, kirsch, laplacian から選択。
+  - thr=&lt;int&gt; (default=0)
+    1ピクセルあたりの変化量の上限。8bitスケール。`0` で無制限。
+  - elast=&lt;float&gt; (default=2.0, 1.0 - 3.0)
+    `thr` の弾性的な減衰。
+  - darkthr=&lt;int&gt; (default=-1)
+    暗くする方向の別上限。`-1` で `thr` に従う。
+  - minp=&lt;int&gt; (default=0, 0 - 3)
+    リングマスクから除外するエッジ芯のinpand回数。
+  - msmooth=&lt;int&gt; (default=0, 0 - 3)
+    リングマスクの平滑化回数。
+  - drrep=&lt;int&gt; (default=0)
+    ぼかしクリップの補修。`0`=off, `1`=入力の3x3最小/最大値へclamp。
+  - sharp=&lt;int&gt; (default=0, 0 - 3)
+    contra-sharpening強度。ぼかしで失われた線の強さを、リンギングを戻さない範囲で復元する。
+  - planes=&lt;string&gt; (default=y)
+    対象plane。`all`、または `y`, `u`, `v` を `:` 区切りで指定。
 
 - 使用例
   ```
@@ -3712,13 +3744,15 @@ DCTリンギング低減フィルタ。輝度成分に補正を適用し、色�
   ```
 
 ### --vpp-cas [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-輝度のみを処理するContrast Adaptive Sharpeningフィルタ。CASを輝度に適用し、色差はそのままコピーする。
+Contrast Adaptive Sharpeningフィルタ。デフォルトでは輝度へ適用する。
 
 - **パラメータ**
   - sharpness=&lt;float&gt; (default=0.4, 0.0 - 1.0)  
     シャープニングの強度。内部ではCASのpeak値に変換される。
-  - hdr=&lt;bool&gt; (default=false)  
+  - hdr=&lt;bool&gt; (default=false)
     SDR向けのgamma 2.0輝度近似をスキップする。PQやHLGなどのHDR素材で有効にする。
+  - chroma=&lt;bool&gt; (default=false)
+    色差planeにもシャープ化を適用する。
 
 - 使用例
   ```
@@ -3860,8 +3894,10 @@ DCTリンギング低減フィルタ。輝度成分に補正を適用し、色�
   - b=&lt;string&gt;  
     青成分のカーブの指定。
   
-  - all=&lt;string&gt;  
+  - all=&lt;string&gt;
     全成分のカーブの指定。r,g,bの固有の指定がない場合には、これが適用される。
+  - interp=&lt;string&gt; (default=spline)
+    補間方式。`spline` は自然3次スプライン、`pchip` は点間のオーバーシュートを抑える単調3次補間。
 
 - 使用例
   ```
@@ -3910,8 +3946,14 @@ DCTリンギング低減フィルタ。輝度成分に補正を適用し、色�
   
   - saturation=&lt;float&gt; (default=1.0, 0.0 - 3.0)  
   
-  - hue=&lt;float&gt; (default=0.0, -180 - 180)  
-  
+  - hue=&lt;float&gt; (default=0.0, -180 - 180)
+
+  - coring=&lt;bool&gt;  (default=false)
+
+  - start_hue=&lt;float&gt; (default=0.0, 0.0 - 360.0)
+  - end_hue=&lt;float&gt; (default=360.0, 0.0 - 360.0)
+    hue/saturation調整を適用する色相角の範囲を制限する。
+
   - swapuv=&lt;bool&gt;  (default=false)
 
   - y_offset=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
@@ -3975,9 +4017,11 @@ DCTリンギング低減フィルタ。輝度成分に補正を適用し、色�
     ブラー処理を先にすることでディザ強度を減らしつつ、階調飛びが多い素材での効果を上げる。
     全体的に副作用が強くなり細かい線が潰れやすくなる。
   
-  - rand_each_frame (default=off)  
+  - rand_each_frame (default=off)
     毎フレーム使用する乱数を変更する。
-  
+  - keep_tv_range=&lt;bool&gt; (default=off)
+    出力をbit深度に応じたTVレンジ (`Y: 16-235`, `Cb/Cr: 16-240`) にclampする。
+
 - 使用例
   ```
   例:
