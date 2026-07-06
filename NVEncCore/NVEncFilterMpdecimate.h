@@ -116,6 +116,7 @@ protected:
     bool dropFrame(NVEncFilterMpdecimateFrameData *targetFrame);
 
     int m_dropCount;
+    int m_similarRun; //連続してsimilar判定となったフレーム数 (keep用)
     int m_ref;
     int m_target;
     NVEncFilterMpdecimateCache m_cache;
