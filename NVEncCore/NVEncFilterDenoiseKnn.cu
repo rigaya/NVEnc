@@ -145,6 +145,24 @@ static cudaError_t denoise_knn_plane(RGYFrameInfo *pOutputFrame, const std::arra
     //先頭/末尾でクランプされ同じフレームが渡された場合はテクスチャを共有する
     std::array<cudaTextureObject_t, 5> texSrc = { 0, 0, 0, 0, 0 };
     cudaError_t cudaerr = cudaSuccess;
+    auto destroyTextures = [&]() {
+        for (int t = 2 - temporal_d; t <= 2 + temporal_d; t++) {
+            bool shared = false;
+            for (int i = 2 - temporal_d; i < t; i++) {
+                if (texSrc[i] == texSrc[t]) {
+                    shared = true;
+                    break;
+                }
+            }
+            if (!shared && texSrc[t] != 0) {
+                const auto err = cudaDestroyTextureObject(texSrc[t]);
+                if (err != cudaSuccess) {
+                    return err;
+                }
+            }
+        }
+        return cudaSuccess;
+    };
     for (int t = 2 - temporal_d; t <= 2 + temporal_d; t++) {
         for (int i = 2 - temporal_d; i < t; i++) {
             if (pSrc[i]->ptr[0] == pSrc[t]->ptr[0]) {
@@ -155,6 +173,7 @@ static cudaError_t denoise_knn_plane(RGYFrameInfo *pOutputFrame, const std::arra
         if (texSrc[t] == 0) {
             cudaerr = textureCreateDenoiseKnn<Type>(texSrc[t], cudaFilterModePoint, cudaReadModeElementType, pSrc[t]->ptr[0], pSrc[t]->pitch[0], pSrc[t]->width, pSrc[t]->height);
             if (cudaerr != cudaSuccess) {
+                destroyTextures();
                 return cudaerr;
             }
         }
@@ -169,23 +188,12 @@ static cudaError_t denoise_knn_plane(RGYFrameInfo *pOutputFrame, const std::arra
         pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
         texSrc[0], texSrc[1], texSrc[2], texSrc[3], texSrc[4], radius, temporal_d, strength, lerpC, weight_threshold, lerp_threshold, stream);
     cudaerr = cudaGetLastError();
+    const auto destroyerr = destroyTextures();
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    for (int t = 2 - temporal_d; t <= 2 + temporal_d; t++) {
-        bool shared = false;
-        for (int i = 2 - temporal_d; i < t; i++) {
-            if (texSrc[i] == texSrc[t]) {
-                shared = true;
-                break;
-            }
-        }
-        if (!shared) {
-            cudaerr = cudaDestroyTextureObject(texSrc[t]);
-            if (cudaerr != cudaSuccess) {
-                return cudaerr;
-            }
-        }
+    if (destroyerr != cudaSuccess) {
+        return destroyerr;
     }
     return cudaSuccess;
 }
@@ -271,6 +279,7 @@ RGY_ERR NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_
         pKnnParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
+    m_pathThrough = FILTER_PATHTHROUGH_ALL;
     if (pKnnParam->knn.d > 0) {
         //convolution3dと同様に前後フレームをキャッシュし、dフレーム遅れで出力する
         const int cacheFrames = 2 * pKnnParam->knn.d + 1;
@@ -288,9 +297,9 @@ RGY_ERR NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_
                     return sts;
                 }
             }
-            m_cacheIdx = 0;
-            m_nFrameIdx = 0;
         }
+        m_cacheIdx = 0;
+        m_nFrameIdx = 0;
         //遅延が発生するため、タイムスタンプ等はフィルタ側で設定する
         m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_FLAGS | FILTER_PATHTHROUGH_DATA));
     } else {
