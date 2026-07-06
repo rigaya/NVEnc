@@ -456,7 +456,7 @@ int main(void) {
 '''
     have_vmaf_cuda_link = cpp.links(
       vmaf_cuda_link_code,
-      dependencies: [vmaf_compile_dep, vmaf_link_dep],
+      dependencies: [vmaf_compile_dep, vmaf_link_dep, cuda_driver_dep],
       args: get_option('cpp_args'),
     )
   endif
@@ -1253,6 +1253,7 @@ summary({
   'libplacebo static': have_libplacebo_headers and libplacebo_static and have_libplacebo_link,
   'VMAF': have_vmaf_headers,
   'VMAF static': have_vmaf_headers and libvmaf_static and have_vmaf_link,
+  'VMAF CUDA': have_vmaf_headers and libvmaf_static and have_vmaf_link and have_vmaf_cuda_link,
   'libvship': have_libvship_headers,
   'ONNX Runtime': have_onnxruntime_headers,
   'Vulkan': have_vulkan_headers,
