@@ -313,6 +313,14 @@ RGY_ERR NVEncFilterMsmooth::procPlane(RGYFrameInfo *pOutputFrame, const RGYFrame
     auto err = procPlaneBlurMask(&planeMask, pInputFrame, threshold, highq, stream);
     if (err != RGY_ERR_NONE) return err;
 
+    {
+        auto prm = std::dynamic_pointer_cast<NVEncFilterParamMsmooth>(m_param);
+        if (prm && prm->msmooth.mask) {
+            //mask=onの場合はマスクを出力する (これまでパースされるだけで機能していなかった)
+            return copyPlaneAsync(pOutputFrame, &planeMask, stream);
+        }
+    }
+
     if (strength == 0) {
         return copyPlaneAsync(pOutputFrame, pInputFrame, stream);
     }

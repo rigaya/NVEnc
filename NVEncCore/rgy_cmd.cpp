@@ -13682,6 +13682,20 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("mrad"), dering.mrad);
             ADD_NUM(_T("mthr"), dering.mthr);
             ADD_FLOAT(_T("sigma"), dering.sigma, 3);
+            ADD_NUM(_T("thr"), dering.thr);
+            ADD_FLOAT(_T("elast"), dering.elast, 2);
+            ADD_NUM(_T("darkthr"), dering.darkthr);
+            ADD_NUM(_T("minp"), dering.minp);
+            ADD_NUM(_T("msmooth"), dering.msmooth);
+            ADD_NUM(_T("drrep"), dering.drrep);
+            ADD_NUM(_T("sharp"), dering.sharp);
+            if (param->dering.planes != defaultPrm->dering.planes) {
+                tstring p;
+                if (param->dering.planes[0]) p += _T(":y");
+                if (param->dering.planes[1]) p += _T(":u");
+                if (param->dering.planes[2]) p += _T(":v");
+                tmp << _T(",planes=") << ((p.length() > 0) ? p.substr(1) : _T(""));
+            }
             ADD_BOOL(_T("showmask"), dering.showmask);
             ADD_BOOL(_T("protect"), dering.protect);
             if (param->dering.edge != defaultPrm->dering.edge) {
@@ -13738,20 +13752,6 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("threshold"), warpsharp.threshold, 3);
             ADD_NUM(_T("blur"), warpsharp.blur);
             ADD_NUM(_T("type"), warpsharp.type);
-            ADD_NUM(_T("thr"), dering.thr);
-            ADD_FLOAT(_T("elast"), dering.elast, 2);
-            ADD_NUM(_T("darkthr"), dering.darkthr);
-            ADD_NUM(_T("minp"), dering.minp);
-            ADD_NUM(_T("msmooth"), dering.msmooth);
-            ADD_NUM(_T("drrep"), dering.drrep);
-            ADD_NUM(_T("sharp"), dering.sharp);
-            if (param->dering.planes != defaultPrm->dering.planes) {
-                tstring p;
-                if (param->dering.planes[0]) p += _T(":y");
-                if (param->dering.planes[1]) p += _T(":u");
-                if (param->dering.planes[2]) p += _T(":v");
-                tmp << _T(",planes=") << ((p.length() > 0) ? p.substr(1) : _T(""));
-            }
             ADD_FLOAT(_T("depth"), warpsharp.depth, 3);
             ADD_NUM(_T("chroma"), warpsharp.chroma);
             ADD_FLOAT(_T("depth_min"), warpsharp.depth_min, 3);
