@@ -44,34 +44,35 @@ static const int TWEAK_BLOCK_Y = 4;
 
 template<typename Type, int bit_depth>
 __device__ __inline__
-Type apply_basic_tweak_y(Type y, const float contrast, const float brightness, const float gamma_inv) {
+Type apply_basic_tweak_y(Type y, const float contrast, const float brightness, const float gamma_inv, const int clamp_min, const int clamp_max) {
     float pixel = (float)y * (1.0f / (1 << bit_depth));
     pixel = contrast * (pixel - 0.5f) + 0.5f + brightness;
     if (gamma_inv != 1.0f) pixel = powf(pixel, gamma_inv);
-    return (Type)clamp((int)(pixel * (1 << (bit_depth))), 0, (1 << (bit_depth)) - 1);
+    return (Type)clamp((int)(pixel * (1 << (bit_depth))), clamp_min, clamp_max);
 }
 
 template<typename Type, int bit_depth>
 __device__ __inline__
-Type apply_basic_tweak_y_without_gamma(Type y, const float contrast, const float brightness) {
+Type apply_basic_tweak_y_without_gamma(Type y, const float contrast, const float brightness, const int clamp_min, const int clamp_max) {
     float pixel = (float)y * (1.0f / (1 << bit_depth));
     pixel = contrast * (pixel - 0.5f) + 0.5f + brightness;
-    return (Type)clamp((int)(pixel * (1 << (bit_depth))), 0, (1 << (bit_depth)) - 1);
+    return (Type)clamp((int)(pixel * (1 << (bit_depth))), clamp_min, clamp_max);
 }
 
 template<typename Type, int bit_depth>
 __device__ __inline__
-Type apply_basic_tweak_cbcr(Type y, const float contrast, const float brightness) {
+Type apply_basic_tweak_cbcr(Type y, const float contrast, const float brightness, const int clamp_min, const int clamp_max) {
     float pixel = (float)y * (1.0f / (1 << bit_depth));
     pixel = contrast * pixel + brightness;
-    return (Type)clamp((int)(pixel * (1 << (bit_depth))), 0, (1 << (bit_depth)) - 1);
+    return (Type)clamp((int)(pixel * (1 << (bit_depth))), clamp_min, clamp_max);
 }
 
 template<typename Type, typename Type4, int bit_depth>
 __global__ void kernel_tweak_y(uint8_t *__restrict__ pFrame, const int pitch,
     const int width, const int height,
     const float contrast, const float brightness, const float gamma_inv,
-    const bool tweak_y, const float y_gain, const float y_offset) {
+    const bool tweak_y, const float y_gain, const float y_offset,
+    const int clamp_min, const int clamp_max) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -80,16 +81,16 @@ __global__ void kernel_tweak_y(uint8_t *__restrict__ pFrame, const int pitch,
         Type4 src = ptr[0];
 
         Type4 ret;
-        ret.x = apply_basic_tweak_y<Type, bit_depth>(src.x, contrast, brightness, gamma_inv);
-        ret.y = apply_basic_tweak_y<Type, bit_depth>(src.y, contrast, brightness, gamma_inv);
-        ret.z = apply_basic_tweak_y<Type, bit_depth>(src.z, contrast, brightness, gamma_inv);
-        ret.w = apply_basic_tweak_y<Type, bit_depth>(src.w, contrast, brightness, gamma_inv);
+        ret.x = apply_basic_tweak_y<Type, bit_depth>(src.x, contrast, brightness, gamma_inv, clamp_min, clamp_max);
+        ret.y = apply_basic_tweak_y<Type, bit_depth>(src.y, contrast, brightness, gamma_inv, clamp_min, clamp_max);
+        ret.z = apply_basic_tweak_y<Type, bit_depth>(src.z, contrast, brightness, gamma_inv, clamp_min, clamp_max);
+        ret.w = apply_basic_tweak_y<Type, bit_depth>(src.w, contrast, brightness, gamma_inv, clamp_min, clamp_max);
 
         if (tweak_y) {
-            ret.x = apply_basic_tweak_y_without_gamma<Type, bit_depth>(ret.x, y_gain, y_offset);
-            ret.y = apply_basic_tweak_y_without_gamma<Type, bit_depth>(ret.y, y_gain, y_offset);
-            ret.z = apply_basic_tweak_y_without_gamma<Type, bit_depth>(ret.z, y_gain, y_offset);
-            ret.w = apply_basic_tweak_y_without_gamma<Type, bit_depth>(ret.w, y_gain, y_offset);
+            ret.x = apply_basic_tweak_y_without_gamma<Type, bit_depth>(ret.x, y_gain, y_offset, clamp_min, clamp_max);
+            ret.y = apply_basic_tweak_y_without_gamma<Type, bit_depth>(ret.y, y_gain, y_offset, clamp_min, clamp_max);
+            ret.z = apply_basic_tweak_y_without_gamma<Type, bit_depth>(ret.z, y_gain, y_offset, clamp_min, clamp_max);
+            ret.w = apply_basic_tweak_y_without_gamma<Type, bit_depth>(ret.w, y_gain, y_offset, clamp_min, clamp_max);
         }
 
         ptr[0] = ret;
@@ -98,17 +99,25 @@ __global__ void kernel_tweak_y(uint8_t *__restrict__ pFrame, const int pitch,
 
 template<typename Type, int bit_depth>
 __device__ __inline__
-void apply_basic_tweak_uv(Type& u, Type& v, const float saturation, const float hue_sin, const float hue_cos) {
+void apply_basic_tweak_uv(Type& u, Type& v, const float saturation, const float hue_sin, const float hue_cos,
+    const bool hue_limit, const float hue_min, const float hue_max, const int clamp_min, const int clamp_max) {
     float u0 = (float)u * (1.0f / (1 << bit_depth));
     float v0 = (float)v * (1.0f / (1 << bit_depth));
+    if (hue_limit) {
+        //元画素の色相(atan2(Cr,Cb), 0-360度)が指定範囲外なら変更しない
+        float deg = atan2f(v0 - 0.5f, u0 - 0.5f) * (180.0f / (float)M_PI);
+        if (deg < 0.0f) deg += 360.0f;
+        const bool in_range = (hue_min <= hue_max) ? (deg >= hue_min && deg <= hue_max) : (deg >= hue_min || deg <= hue_max);
+        if (!in_range) return;
+    }
     u0 = saturation * (u0 - 0.5f) + 0.5f;
     v0 = saturation * (v0 - 0.5f) + 0.5f;
 
     float u1 = ((hue_cos * (u0 - 0.5f)) - (hue_sin * (v0 - 0.5f))) + 0.5f;
     float v1 = ((hue_sin * (u0 - 0.5f)) + (hue_cos * (v0 - 0.5f))) + 0.5f;
 
-    u = (Type)clamp((int)(u1 * (1 << (bit_depth))), 0, (1 << (bit_depth)) - 1);
-    v = (Type)clamp((int)(v1 * (1 << (bit_depth))), 0, (1 << (bit_depth)) - 1);
+    u = (Type)clamp((int)(u1 * (1 << (bit_depth))), clamp_min, clamp_max);
+    v = (Type)clamp((int)(v1 * (1 << (bit_depth))), clamp_min, clamp_max);
 }
 
 template<typename Type, typename Type4, int bit_depth>
@@ -116,7 +125,8 @@ __global__ void kernel_tweak_uv(uint8_t *__restrict__ pFrameU, uint8_t *__restri
     const int width, const int height,
     const float saturation, const float hue_sin, const float hue_cos, const bool swapuv,
     const bool tweak_cb, const float cb_gain, const float cb_offset,
-    const bool tweak_cr, const float cr_gain, const float cr_offset) {
+    const bool tweak_cr, const float cr_gain, const float cr_offset,
+    const bool hue_limit, const float hue_min, const float hue_max, const int clamp_min, const int clamp_max) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -127,22 +137,22 @@ __global__ void kernel_tweak_uv(uint8_t *__restrict__ pFrameU, uint8_t *__restri
         Type4 pixelU = ptrU[0];
         Type4 pixelV = ptrV[0];
 
-        apply_basic_tweak_uv<Type, bit_depth>(pixelU.x, pixelV.x, saturation, hue_sin, hue_cos);
-        apply_basic_tweak_uv<Type, bit_depth>(pixelU.y, pixelV.y, saturation, hue_sin, hue_cos);
-        apply_basic_tweak_uv<Type, bit_depth>(pixelU.z, pixelV.z, saturation, hue_sin, hue_cos);
-        apply_basic_tweak_uv<Type, bit_depth>(pixelU.w, pixelV.w, saturation, hue_sin, hue_cos);
+        apply_basic_tweak_uv<Type, bit_depth>(pixelU.x, pixelV.x, saturation, hue_sin, hue_cos, hue_limit, hue_min, hue_max, clamp_min, clamp_max);
+        apply_basic_tweak_uv<Type, bit_depth>(pixelU.y, pixelV.y, saturation, hue_sin, hue_cos, hue_limit, hue_min, hue_max, clamp_min, clamp_max);
+        apply_basic_tweak_uv<Type, bit_depth>(pixelU.z, pixelV.z, saturation, hue_sin, hue_cos, hue_limit, hue_min, hue_max, clamp_min, clamp_max);
+        apply_basic_tweak_uv<Type, bit_depth>(pixelU.w, pixelV.w, saturation, hue_sin, hue_cos, hue_limit, hue_min, hue_max, clamp_min, clamp_max);
 
         if (tweak_cb) {
-            apply_basic_tweak_cbcr<Type, bit_depth>(pixelU.x, cb_gain, cb_offset);
-            apply_basic_tweak_cbcr<Type, bit_depth>(pixelU.y, cb_gain, cb_offset);
-            apply_basic_tweak_cbcr<Type, bit_depth>(pixelU.z, cb_gain, cb_offset);
-            apply_basic_tweak_cbcr<Type, bit_depth>(pixelU.w, cb_gain, cb_offset);
+            apply_basic_tweak_cbcr<Type, bit_depth>(pixelU.x, cb_gain, cb_offset, clamp_min, clamp_max);
+            apply_basic_tweak_cbcr<Type, bit_depth>(pixelU.y, cb_gain, cb_offset, clamp_min, clamp_max);
+            apply_basic_tweak_cbcr<Type, bit_depth>(pixelU.z, cb_gain, cb_offset, clamp_min, clamp_max);
+            apply_basic_tweak_cbcr<Type, bit_depth>(pixelU.w, cb_gain, cb_offset, clamp_min, clamp_max);
         }
         if (tweak_cr) {
-            apply_basic_tweak_cbcr<Type, bit_depth>(pixelV.x, cr_gain, cr_offset);
-            apply_basic_tweak_cbcr<Type, bit_depth>(pixelV.y, cr_gain, cr_offset);
-            apply_basic_tweak_cbcr<Type, bit_depth>(pixelV.z, cr_gain, cr_offset);
-            apply_basic_tweak_cbcr<Type, bit_depth>(pixelV.w, cr_gain, cr_offset);
+            apply_basic_tweak_cbcr<Type, bit_depth>(pixelV.x, cr_gain, cr_offset, clamp_min, clamp_max);
+            apply_basic_tweak_cbcr<Type, bit_depth>(pixelV.y, cr_gain, cr_offset, clamp_min, clamp_max);
+            apply_basic_tweak_cbcr<Type, bit_depth>(pixelV.z, cr_gain, cr_offset, clamp_min, clamp_max);
+            apply_basic_tweak_cbcr<Type, bit_depth>(pixelV.w, cr_gain, cr_offset, clamp_min, clamp_max);
         }
 
         ptrU[0] = (swapuv) ? pixelV : pixelU;
@@ -163,18 +173,26 @@ static RGY_ERR tweak_frame(RGYFrameInfo *pFrame, const NVEncFilterParamTweak *pr
     const float gamma      = prm->tweak.gamma;
     const float hue_degree = prm->tweak.hue;
     const int   swapuv     = prm->tweak.swapuv ? 1 : 0;
+    //coring: 出力をTVレンジ相当にクランプ (デフォルトは従来通りフルレンジ)
+    const int clamp_min   = (prm->tweak.coring) ? (16 << (bit_depth - 8)) : 0;
+    const int clamp_max_y = (prm->tweak.coring) ? (235 << (bit_depth - 8)) : (1 << bit_depth) - 1;
+    const int clamp_max_c = (prm->tweak.coring) ? (240 << (bit_depth - 8)) : (1 << bit_depth) - 1;
+    //start_hue/end_hue: デフォルト(0-360)は従来と完全に同一のコードパス
+    const bool hue_limit = (prm->tweak.startHue != 0.0f || prm->tweak.endHue != 360.0f);
 
     //Y
     if (   contrast != 1.0f
         || brightness != 0.0f
         || gamma != 1.0f
-        || prm->tweak.y.enabled()) {
+        || prm->tweak.y.enabled()
+        || prm->tweak.coring) {
         dim3 blockSize(TWEAK_BLOCK_X, TWEAK_BLOCK_Y);
         dim3 gridSize(divCeil(planeInputY.width, blockSize.x * 4), divCeil(planeInputY.height, blockSize.y));
         kernel_tweak_y<Type, Type4, bit_depth><<<gridSize, blockSize, 0, stream>>>(
             planeInputY.ptr[0], planeInputY.pitch[0], planeInputY.width, planeInputY.height,
             contrast, brightness, 1.0f / gamma,
-            prm->tweak.y.enabled(), prm->tweak.y.gain, prm->tweak.y.offset);
+            prm->tweak.y.enabled(), prm->tweak.y.gain, prm->tweak.y.offset,
+            clamp_min, clamp_max_y);
         auto sts = err_to_rgy(cudaGetLastError());
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -186,7 +204,8 @@ static RGY_ERR tweak_frame(RGYFrameInfo *pFrame, const NVEncFilterParamTweak *pr
         || hue_degree != 0.0f
         || swapuv
         || prm->tweak.cb.enabled()
-        || prm->tweak.cr.enabled()) {
+        || prm->tweak.cr.enabled()
+        || prm->tweak.coring) {
         if (   planeInputU.width  != planeInputV.width
             || planeInputU.height != planeInputV.height
             || planeInputU.pitch[0] != planeInputV.pitch[0]) {
@@ -199,7 +218,8 @@ static RGY_ERR tweak_frame(RGYFrameInfo *pFrame, const NVEncFilterParamTweak *pr
             planeInputU.ptr[0], planeInputV.ptr[0], planeInputU.pitch[0], planeInputU.width, planeInputU.height,
             saturation, std::sin(hue) * saturation, std::cos(hue) * saturation, swapuv,
             prm->tweak.cb.enabled(), prm->tweak.cb.gain, prm->tweak.cb.offset,
-            prm->tweak.cr.enabled(), prm->tweak.cr.gain, prm->tweak.cr.offset);
+            prm->tweak.cr.enabled(), prm->tweak.cr.gain, prm->tweak.cr.offset,
+            hue_limit, prm->tweak.startHue, prm->tweak.endHue, clamp_min, clamp_max_c);
         auto sts = err_to_rgy(cudaGetLastError());
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -222,7 +242,8 @@ static RGY_ERR tweak_frame_rgb(RGYFrameInfo *pFrame, const NVEncFilterParamTweak
         kernel_tweak_y<Type, Type4, bit_depth><<<gridSize, blockSize, 0, stream>>>(
             plane.ptr[0], plane.pitch[0], plane.width, plane.height,
             target.first->gain, target.first->offset, 1.0f / target.first->gamma,
-            false, 0.0f, 0.0f);
+            false, 0.0f, 0.0f,
+            0, (1 << bit_depth) - 1);
         auto sts = err_to_rgy(cudaGetLastError());
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -278,6 +299,14 @@ RGY_ERR NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
     if (prm->tweak.gamma < 0.1f || 10.0f < prm->tweak.gamma) {
         prm->tweak.gamma = clamp(prm->tweak.gamma, 0.1f, 10.0f);
         AddMessage(RGY_LOG_WARN, _T("gamma should be in range of %.1f - %.1f.\n"), 0.1f, 10.0f);
+    }
+    if (prm->tweak.startHue < 0.0f || 360.0f < prm->tweak.startHue) {
+        prm->tweak.startHue = clamp(prm->tweak.startHue, 0.0f, 360.0f);
+        AddMessage(RGY_LOG_WARN, _T("start_hue should be in range of %.1f - %.1f.\n"), 0.0f, 360.0f);
+    }
+    if (prm->tweak.endHue < 0.0f || 360.0f < prm->tweak.endHue) {
+        prm->tweak.endHue = clamp(prm->tweak.endHue, 0.0f, 360.0f);
+        AddMessage(RGY_LOG_WARN, _T("end_hue should be in range of %.1f - %.1f.\n"), 0.0f, 360.0f);
     }
     for (auto prmtweak : { &prm->tweak.r, &prm->tweak.g, &prm->tweak.b, &prm->tweak.y, &prm->tweak.cb, &prm->tweak.cr }) {
         if (prmtweak->offset < -1.0f || 1.0f < prmtweak->offset) {

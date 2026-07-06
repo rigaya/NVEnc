@@ -2982,6 +2982,9 @@ struct VppTweak {
     float saturation; //  0.0 - 3.0 (1.0)
     float hue;        // -180 - 180 (0.0)
     bool swapuv;
+    bool coring;      //出力をTVレンジ相当にクランプ (default false)
+    float startHue;   //hue/saturation適用範囲の開始角(度, atan2(Cr,Cb)基準) (default 0)
+    float endHue;     //hue/saturation適用範囲の終了角(度) (default 360 = 全範囲)
 
     VppTweakChannel y, cb, cr;
     VppTweakChannel r, g, b;

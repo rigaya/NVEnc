@@ -8419,6 +8419,34 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+                if (param_arg == _T("coring")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->tweak.coring = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("start_hue")) {
+                    try {
+                        vpp->tweak.startHue = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("end_hue")) {
+                    try {
+                        vpp->tweak.endHue = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                 bool parse_gamma = false; // gammaのパラメータをパースのは r, g, b のみで、 y, cb, crは対象外
                 auto param_subopt = param_arg;
                 VppTweakChannel *tweak_channel = nullptr;
@@ -8473,6 +8501,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             } else {
                 if (param == _T("swapuv")) {
                     vpp->tweak.swapuv = true;
+                    continue;
+                }
+                if (param == _T("coring")) {
+                    vpp->tweak.coring = true;
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
@@ -13813,6 +13845,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_LST(_T("interp"), curves.interp, list_vpp_curves_interp);
             ADD_FLOAT(_T("g_offset"),  tweak.g.offset, 3);
             ADD_FLOAT(_T("g_gain"),    tweak.g.gain, 3);
+            ADD_BOOL(_T("coring"), tweak.coring);
+            ADD_FLOAT(_T("start_hue"), tweak.startHue, 3);
+            ADD_FLOAT(_T("end_hue"), tweak.endHue, 3);
             ADD_FLOAT(_T("g_gamma"),   tweak.g.gamma, 3);
             ADD_FLOAT(_T("b_offset"),  tweak.b.offset, 3);
             ADD_FLOAT(_T("b_gain"),    tweak.b.gain, 3);
@@ -16263,6 +16298,9 @@ _T("      m=<string>\n")
     str += strsprintf(_T("\n")
         _T("   --vpp-rotate <int>           rotate video (90, 180, 270)\n")
     );
+        _T("      coring=<bool>             clamp output to TV range (default=off)\n")
+        _T("      start_hue=<float>         limit hue/saturation to a hue range\n")
+        _T("      end_hue=<float>             in degrees (default 0-360 = everything)\n")
     str += strsprintf(_T("\n")
         _T("   --vpp-transform [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("    params\n")

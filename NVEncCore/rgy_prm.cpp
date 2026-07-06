@@ -2643,6 +2643,9 @@ VppTweak::VppTweak() :
     hue(FILTER_DEFAULT_TWEAK_HUE),
     swapuv(false),
     y(),
+    coring(false),
+    startHue(0.0f),
+    endHue(360.0f),
     cb(),
     cr(),
     r(),
@@ -2659,6 +2662,9 @@ bool VppTweak::operator==(const VppTweak &x) const {
         && hue == x.hue
         && swapuv == x.swapuv
         && y == x.y
+        && coring == x.coring
+        && startHue == x.startHue
+        && endHue == x.endHue
         && cb == x.cb
         && cr == x.cr
         && r == x.r
@@ -2683,6 +2689,12 @@ tstring VppTweak::print(const bool print_rgb, const bool print_header) const {
         if (b.enabled()) { str += _T("\n") + indent + _T("b: ") + b.print(); }
     }
     return str;
+    if (coring) {
+        str += _T(", coring");
+    }
+    if (startHue != 0.0f || endHue != 360.0f) {
+        str += strsprintf(_T(", hue range %.1f-%.1f"), startHue, endHue);
+    }
 }
 
 bool VppTweak::yuv_filter_enabled() const {
@@ -2693,6 +2705,7 @@ bool VppTweak::yuv_filter_enabled() const {
         || hue != 0.0f
         || swapuv
         || y.enabled()
+        || coring
         || cb.enabled()
         || cr.enabled();
 }
