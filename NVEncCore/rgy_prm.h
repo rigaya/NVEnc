@@ -2154,6 +2154,7 @@ struct VppNnedi {
     int               nns;
     VppNnediQuality   quality;
     int               prescreen;
+    std::array<bool, 3> planes; //Y, U, V
     VppNnediErrorType errortype;
     int               clamp;
     bool              doubleHeight;

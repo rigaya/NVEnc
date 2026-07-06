@@ -3499,6 +3499,9 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         unique_ptr<NVEncFilter> filter(new NVEncFilterNnedi());
         shared_ptr<NVEncFilterParamNnedi> param(new NVEncFilterParamNnedi());
         param->nnedi.enable = inputParam->vpp.nnedi.enable;
+        for (size_t iplane = 0; iplane < inputParam->vpp.nnedi.planes.size(); iplane++) {
+            param->nnedi.processPlane[iplane] = inputParam->vpp.nnedi.planes[iplane];
+        }
         param->nnedi.field = inputParam->vpp.nnedi.field;
         param->nnedi.nsize = inputParam->vpp.nnedi.nsize;
         param->nnedi.nns = inputParam->vpp.nnedi.nns;

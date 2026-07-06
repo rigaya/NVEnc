@@ -1202,6 +1202,7 @@ tstring VppAfs::print() const {
 
 VppNnedi::VppNnedi() :
     enable(false),
+    planes({ true, true, true }),
     field(VPP_NNEDI_FIELD_AUTO),
     nsize(VPP_NNEDI_NSIZE_32x4),
     nns(32),
@@ -1215,6 +1216,7 @@ VppNnedi::VppNnedi() :
 
 bool VppNnedi::operator==(const VppNnedi &x) const {
     return enable == x.enable
+        && planes == x.planes
         && field == x.field
         && nsize == x.nsize
         && nns == x.nns
