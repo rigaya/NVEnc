@@ -1551,6 +1551,7 @@ tstring VppPad::print() const {
 VppKnn::VppKnn() :
     enable(false),
     radius(FILTER_DEFAULT_KNN_RADIUS),
+    d(FILTER_DEFAULT_KNN_D),
     strength(FILTER_DEFAULT_KNN_STRENGTH),
     lerpC(FILTER_DEFAULT_KNN_LERPC),
     weight_threshold(FILTER_DEFAULT_KNN_WEIGHT_THRESHOLD),
@@ -1560,6 +1561,7 @@ VppKnn::VppKnn() :
 bool VppKnn::operator==(const VppKnn &x) const {
     return enable == x.enable
         && radius == x.radius
+        && d == x.d
         && strength == x.strength
         && lerpC == x.lerpC
         && weight_threshold == x.weight_threshold
@@ -1571,9 +1573,9 @@ bool VppKnn::operator!=(const VppKnn &x) const {
 
 tstring VppKnn::print() const {
     return strsprintf(
-        _T("denoise(knn): radius %d, strength %.2f, lerp %.2f\n")
+        _T("denoise(knn): radius %d, d %d, strength %.2f, lerp %.2f\n")
         _T("                              th_weight %.2f, th_lerp %.2f"),
-        radius, strength, lerpC,
+        radius, d, strength, lerpC,
         weight_threshold, lerp_threshold);
 }
 

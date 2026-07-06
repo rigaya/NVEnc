@@ -5026,7 +5026,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "radius", "strength", "lerp", "th_weight", "th_lerp" };
+        const auto paramList = std::vector<std::string>{ "radius", "d", "strength", "lerp", "th_weight", "th_lerp" };
 
         int radius = FILTER_DEFAULT_KNN_RADIUS;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &radius)) {
@@ -5049,6 +5049,15 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (param_arg == _T("radius")) {
                         try {
                             vpp->knn.radius = std::stoi(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("d")) {
+                        try {
+                            vpp->knn.d = std::stoi(param_val);
                         } catch (...) {
                             print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                             return 1;
@@ -12872,6 +12881,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (param->knn.enable || save_disabled_prm) {
             ADD_NUM(_T("radius"), knn.radius);
+            ADD_NUM(_T("d"), knn.d);
             ADD_FLOAT(_T("strength"), knn.strength, 3);
             ADD_FLOAT(_T("lerp"), knn.lerpC, 3);
             ADD_FLOAT(_T("th_weight"), knn.weight_threshold, 3);
@@ -15410,12 +15420,14 @@ tstring gen_cmd_help_vpp() {
         _T("     enable denoise filter by K-nearest neighbor.\n")
         _T("    params\n")
         _T("      radius=<int>              radius of knn (default=%d)\n")
+        _T("      d=<int>                   temporal radius (default=%d, 0-2)\n")
+        _T("                                  prev/next frames included in the weighting window.\n")
         _T("      strength=<float>          strength of knn (default=%.2f, 0.0-1.0)\n")
         _T("      lerp=<float>              balance of orig & blended pixel (default=%.2f)\n")
         _T("                                  lower value results strong denoise.\n")
         _T("      th_lerp=<float>           edge detect threshold (default=%.2f, 0.0-1.0)\n")
         _T("                                  higher value will preserve edge.\n"),
-        FILTER_DEFAULT_KNN_RADIUS, FILTER_DEFAULT_KNN_STRENGTH, FILTER_DEFAULT_KNN_LERPC,
+        FILTER_DEFAULT_KNN_RADIUS, FILTER_DEFAULT_KNN_D, FILTER_DEFAULT_KNN_STRENGTH, FILTER_DEFAULT_KNN_LERPC,
         FILTER_DEFAULT_KNN_LERPC_THRESHOLD);
 #if ENABLE_VPP_FILTER_NLMEANS
     str += strsprintf(_T("\n")

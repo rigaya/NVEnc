@@ -455,6 +455,7 @@ static const float FILTER_DEFAULT_KNN_STRENGTH = 0.08f;
 static const float FILTER_DEFAULT_KNN_LERPC = 0.20f;
 static const float FILTER_DEFAULT_KNN_WEIGHT_THRESHOLD = 0.01f;
 static const float FILTER_DEFAULT_KNN_LERPC_THRESHOLD = 0.80f;
+static const int   FILTER_DEFAULT_KNN_D = 0; // 時間方向半径 (0 = 空間方向のみ)
 
 static const float FILTER_DEFAULT_NLMEANS_FILTER_SIGMA = 0.005f;
 static const int   FILTER_DEFAULT_NLMEANS_PATCH_SIZE = 5;
@@ -2363,6 +2364,7 @@ struct VppConvolution3d {
 struct VppKnn {
     bool  enable;
     int   radius;
+    int   d;      // 時間方向半径 (0 = 空間方向のみ、1-2 = 重み付け窓に前後フレームを含める)
     float strength;
     float lerpC;
     float weight_threshold;

@@ -51,4 +51,6 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     bool m_bInterlacedWarn;
+    std::vector<std::unique_ptr<CUFrameBuf>> m_prevFrames; //d > 0 (時間軸) 用のフレームキャッシュ
+    int m_cacheIdx; //キャッシュしたフレーム数
 };

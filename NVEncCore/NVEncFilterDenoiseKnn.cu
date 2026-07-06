@@ -39,12 +39,16 @@
 #include "rgy_cuda_util_kernel.h"
 
 static const int KNN_RADIUS_MAX = 5;
+static const int KNN_TEMPORAL_MAX = 2;
 
-template<typename Type, int knn_radius, int bit_depth>
+template<typename Type, int knn_radius, int temporal_d, int bit_depth>
 __global__ void kernel_denoise_knn(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
-    cudaTextureObject_t texSrc, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold) {
+    cudaTextureObject_t texPrev2, cudaTextureObject_t texPrev1, cudaTextureObject_t texSrc, cudaTextureObject_t texNext1, cudaTextureObject_t texNext2,
+    const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold) {
     const float knn_window_area = (float)((2 * knn_radius + 1) * (2 * knn_radius + 1));
     const float inv_knn_window_area = 1.0f / knn_window_area;
+    //temporal_d == 0 では inv_temporal_frames = 1, distT = 0 に定数化され、従来の空間のみの処理と完全に一致する
+    const float inv_temporal_frames = 1.0f / (float)(2 * temporal_d + 1);
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix < dstWidth && iy < dstHeight) {
@@ -57,19 +61,25 @@ __global__ void kernel_denoise_knn(uint8_t *__restrict__ pDst, const int dstPitc
         float center = (float)tex2D<Type>(texSrc, x, y) * (1.0f / (1<<bit_depth));
 
         #pragma unroll
-        for (int i = -knn_radius; i <= knn_radius; i++) {
+        for (int t = -temporal_d; t <= temporal_d; t++) {
+            const cudaTextureObject_t tex = (t == -2) ? texPrev2 : ((t == -1) ? texPrev1 : ((t == 0) ? texSrc : ((t == 1) ? texNext1 : texNext2)));
+            //時間方向の距離ペナルティ、空間方向と同様に窓サイズで正規化
+            const float distT = (float)(t * t) * (inv_temporal_frames * inv_temporal_frames);
             #pragma unroll
-            for (int j = -knn_radius; j <= knn_radius; j++) {
-                float clrIJ = (float)tex2D<Type>(texSrc, x + (float)j, y + (float)i) * (1.0f / (1<<bit_depth));
-                float distanceIJ = (center - clrIJ) * (center - clrIJ);
+            for (int i = -knn_radius; i <= knn_radius; i++) {
+                #pragma unroll
+                for (int j = -knn_radius; j <= knn_radius; j++) {
+                    float clrIJ = (float)tex2D<Type>(tex, x + (float)j, y + (float)i) * (1.0f / (1<<bit_depth));
+                    float distanceIJ = (center - clrIJ) * (center - clrIJ);
 
-                float weightIJ = __expf(-(distanceIJ * strength + (float)(i * i + j * j) * inv_knn_window_area));
+                    float weightIJ = __expf(-(distanceIJ * strength + (float)(i * i + j * j) * inv_knn_window_area + distT));
 
-                sum += clrIJ * weightIJ;
+                    sum += clrIJ * weightIJ;
 
-                sumWeights += weightIJ;
+                    sumWeights += weightIJ;
 
-                fCount += (weightIJ > weight_threshold) ? inv_knn_window_area : 0;
+                    fCount += (weightIJ > weight_threshold) ? inv_knn_window_area * inv_temporal_frames : 0;
+                }
             }
         }
         float lerpQ = (fCount > lerp_threshold) ? lerpC : 1.0f - lerpC;
@@ -81,37 +91,28 @@ __global__ void kernel_denoise_knn(uint8_t *__restrict__ pDst, const int dstPitc
 
 template<typename Type, int bit_depth>
 void denoise_knn(uint8_t *pDst, const int dstPitch, const int dstWidth, const int dstHeight,
-    cudaTextureObject_t texSrc, int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
+    cudaTextureObject_t texPrev2, cudaTextureObject_t texPrev1, cudaTextureObject_t texSrc, cudaTextureObject_t texNext1, cudaTextureObject_t texNext2,
+    int radius, int temporal_d, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
     cudaStream_t stream) {
-    dim3 blockSize(64, 16);
+    //radius=5はよりレジスタを使うので、ブロック当たりのスレッド数を低減
+    dim3 blockSize = (radius >= 5) ? dim3(32, 16) : dim3(64, 16);
     dim3 gridSize(divCeil(dstWidth, blockSize.x), divCeil(dstHeight, blockSize.y));
-    switch (radius) {
-    case 1:
-        kernel_denoise_knn<Type, 1, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
-            1.0f / (strength * strength), lerpC, weight_threshold, lerp_threshold);
+#define KNN_KERNEL(KNN_RADIUS, TEMPORAL_D) \
+    case ((KNN_RADIUS) * 4 + (TEMPORAL_D)): \
+        kernel_denoise_knn<Type, (KNN_RADIUS), (TEMPORAL_D), bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, \
+            texPrev2, texPrev1, texSrc, texNext1, texNext2, \
+            1.0f / (strength * strength), lerpC, weight_threshold, lerp_threshold); \
         break;
-    case 2:
-        kernel_denoise_knn<Type, 2, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
-            1.0f / (strength * strength), lerpC, weight_threshold, lerp_threshold);
-        break;
-    case 3:
-        kernel_denoise_knn<Type, 3, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
-            1.0f / (strength * strength), lerpC, weight_threshold, lerp_threshold);
-        break;
-    case 4:
-        kernel_denoise_knn<Type, 4, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
-            1.0f / (strength * strength), lerpC, weight_threshold, lerp_threshold);
-        break;
-    case 5:
-        //よりレジスタを使うので、ブロック当たりのスレッド数を低減
-        blockSize = dim3(32, 16);
-        gridSize = dim3(divCeil(dstWidth, blockSize.x), divCeil(dstHeight, blockSize.y));
-        kernel_denoise_knn<Type, 5, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
-            1.0f / (strength * strength), lerpC, weight_threshold, lerp_threshold);
-        break;
+    switch (radius * 4 + temporal_d) {
+    KNN_KERNEL(1, 0) KNN_KERNEL(1, 1) KNN_KERNEL(1, 2)
+    KNN_KERNEL(2, 0) KNN_KERNEL(2, 1) KNN_KERNEL(2, 2)
+    KNN_KERNEL(3, 0) KNN_KERNEL(3, 1) KNN_KERNEL(3, 2)
+    KNN_KERNEL(4, 0) KNN_KERNEL(4, 1) KNN_KERNEL(4, 2)
+    KNN_KERNEL(5, 0) KNN_KERNEL(5, 1) KNN_KERNEL(5, 2)
     default:
         break;
     }
+#undef KNN_KERNEL
 }
 
 template<typename Type>
@@ -137,36 +138,71 @@ cudaError_t textureCreateDenoiseKnn(cudaTextureObject_t& tex, cudaTextureFilterM
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t denoise_knn_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
-    int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
+static cudaError_t denoise_knn_plane(RGYFrameInfo *pOutputFrame, const std::array<const RGYFrameInfo *, 5> &pSrc,
+    int radius, int temporal_d, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
     cudaStream_t stream) {
-    cudaTextureObject_t texSrc = 0;
-    auto cudaerr = textureCreateDenoiseKnn<Type>(texSrc, cudaFilterModePoint, cudaReadModeElementType, pInputFrame->ptr[0], pInputFrame->pitch[0], pInputFrame->width, pInputFrame->height);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    //中央(pSrc[2])が現在フレーム、その前後temporal_dフレーム分のテクスチャを作成する
+    //先頭/末尾でクランプされ同じフレームが渡された場合はテクスチャを共有する
+    std::array<cudaTextureObject_t, 5> texSrc = { 0, 0, 0, 0, 0 };
+    cudaError_t cudaerr = cudaSuccess;
+    for (int t = 2 - temporal_d; t <= 2 + temporal_d; t++) {
+        for (int i = 2 - temporal_d; i < t; i++) {
+            if (pSrc[i]->ptr[0] == pSrc[t]->ptr[0]) {
+                texSrc[t] = texSrc[i];
+                break;
+            }
+        }
+        if (texSrc[t] == 0) {
+            cudaerr = textureCreateDenoiseKnn<Type>(texSrc[t], cudaFilterModePoint, cudaReadModeElementType, pSrc[t]->ptr[0], pSrc[t]->pitch[0], pSrc[t]->width, pSrc[t]->height);
+            if (cudaerr != cudaSuccess) {
+                return cudaerr;
+            }
+        }
+    }
+    for (int t = 0; t < 5; t++) {
+        //カーネルから参照されないスロットには現在フレームのテクスチャを入れておく
+        if (texSrc[t] == 0) {
+            texSrc[t] = texSrc[2];
+        }
     }
     denoise_knn<Type, bit_depth>((uint8_t *)pOutputFrame->ptr[0],
         pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
-        texSrc, radius, strength, lerpC, weight_threshold, lerp_threshold, stream);
+        texSrc[0], texSrc[1], texSrc[2], texSrc[3], texSrc[4], radius, temporal_d, strength, lerpC, weight_threshold, lerp_threshold, stream);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    for (int t = 2 - temporal_d; t <= 2 + temporal_d; t++) {
+        bool shared = false;
+        for (int i = 2 - temporal_d; i < t; i++) {
+            if (texSrc[i] == texSrc[t]) {
+                shared = true;
+                break;
+            }
+        }
+        if (!shared) {
+            cudaerr = cudaDestroyTextureObject(texSrc[t]);
+            if (cudaerr != cudaSuccess) {
+                return cudaerr;
+            }
+        }
     }
-    return cudaerr;
+    return cudaSuccess;
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t denoise_knn_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
-    int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
+static cudaError_t denoise_knn_frame(RGYFrameInfo *pOutputFrame, const std::array<const RGYFrameInfo *, 5> &pSrc,
+    int radius, int temporal_d, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
     cudaStream_t stream) {
-    for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
-        const auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)iplane);
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[pSrc[2]->csp]; iplane++) {
+        std::array<RGYFrameInfo, 5> planeSrc;
+        std::array<const RGYFrameInfo *, 5> planeSrcPtr;
+        for (int t = 0; t < 5; t++) {
+            planeSrc[t] = getPlane(pSrc[t], (RGY_PLANE)iplane);
+            planeSrcPtr[t] = &planeSrc[t];
+        }
         auto planeOutput = getPlane(pOutputFrame, (RGY_PLANE)iplane);
-        auto cudaerr = denoise_knn_plane<Type, bit_depth>(&planeOutput, &planeSrc, radius, strength, lerpC, weight_threshold, lerp_threshold, stream);;
+        auto cudaerr = denoise_knn_plane<Type, bit_depth>(&planeOutput, planeSrcPtr, radius, temporal_d, strength, lerpC, weight_threshold, lerp_threshold, stream);
         if (cudaerr != cudaSuccess) {
             return cudaerr;
         }
@@ -174,7 +210,7 @@ static cudaError_t denoise_knn_frame(RGYFrameInfo *pOutputFrame, const RGYFrameI
     return cudaSuccess;
 }
 
-NVEncFilterDenoiseKnn::NVEncFilterDenoiseKnn() : m_bInterlacedWarn(false) {
+NVEncFilterDenoiseKnn::NVEncFilterDenoiseKnn() : m_bInterlacedWarn(false), m_prevFrames(), m_cacheIdx(0) {
     m_name = _T("knn");
 }
 
@@ -201,6 +237,10 @@ RGY_ERR NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
     if (pKnnParam->knn.radius > KNN_RADIUS_MAX) {
         AddMessage(RGY_LOG_ERROR, _T("radius must be <= %d.\n"), KNN_RADIUS_MAX);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (pKnnParam->knn.d < 0 || pKnnParam->knn.d > KNN_TEMPORAL_MAX) {
+        AddMessage(RGY_LOG_ERROR, _T("d must be 0 - %d.\n"), KNN_TEMPORAL_MAX);
         return RGY_ERR_INVALID_PARAM;
     }
     if (pKnnParam->knn.strength <= 0.0 || 1.0 < pKnnParam->knn.strength) {
@@ -231,6 +271,32 @@ RGY_ERR NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_
         pKnnParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
+    if (pKnnParam->knn.d > 0) {
+        //convolution3dと同様に前後フレームをキャッシュし、dフレーム遅れで出力する
+        const int cacheFrames = 2 * pKnnParam->knn.d + 1;
+        if ((int)m_prevFrames.size() != cacheFrames
+            || !m_prevFrames.front()
+            || cmpFrameInfoCspResolution(&m_prevFrames.front()->frame, &pKnnParam->frameOut)) {
+            m_prevFrames.clear();
+            m_prevFrames.resize(cacheFrames);
+            for (auto& f : m_prevFrames) {
+                f.reset(new CUFrameBuf(pKnnParam->frameOut));
+                f->releasePtr();
+                sts = f->alloc();
+                if (sts != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+                    return sts;
+                }
+            }
+            m_cacheIdx = 0;
+            m_nFrameIdx = 0;
+        }
+        //遅延が発生するため、タイムスタンプ等はフィルタ側で設定する
+        m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_FLAGS | FILTER_PATHTHROUGH_DATA));
+    } else {
+        m_prevFrames.clear();
+    }
+
     setFilterInfo(pParam->print());
     m_param = pParam;
     return sts;
@@ -243,32 +309,22 @@ tstring NVEncFilterParamDenoiseKnn::print() const {
 RGY_ERR NVEncFilterDenoiseKnn::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (pInputFrame->ptr[0] == nullptr) {
-        return sts;
-    }
-
-    *pOutputFrameNum = 1;
-    if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
-        ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
-    }
-    ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-    if (interlaced(*pInputFrame)) {
-        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], stream);
-    }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
-    if (memcpyKind != cudaMemcpyDeviceToDevice) {
-        AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    if (m_param->frameOut.csp != m_param->frameIn.csp) {
-        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
     auto pKnnParam = std::dynamic_pointer_cast<NVEncFilterParamDenoiseKnn>(m_param);
     if (!pKnnParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const int temporal_d = pKnnParam->knn.d;
+
+    if (pInputFrame->ptr[0] == nullptr
+        && (temporal_d == 0 || m_nFrameIdx >= m_cacheIdx)) {
+        //終了
+        *pOutputFrameNum = 0;
+        ppOutputFrames[0] = nullptr;
+        return sts;
+    }
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
+        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
 
@@ -278,21 +334,104 @@ RGY_ERR NVEncFilterDenoiseKnn::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         { RGY_CSP_YUV444,    denoise_knn_frame<uint8_t,   8> },
         { RGY_CSP_YUV444_16, denoise_knn_frame<uint16_t, 16> },
     };
-    if (denoise_list.count(pInputFrame->csp) == 0) {
-        AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
-        return RGY_ERR_UNSUPPORTED;
+
+    if (temporal_d == 0) {
+        //空間のみ(従来)のパス、遅延なし
+        *pOutputFrameNum = 1;
+        if (ppOutputFrames[0] == nullptr) {
+            auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
+            ppOutputFrames[0] = &pOutFrame->frame;
+            m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
+        }
+        ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
+        if (interlaced(*pInputFrame)) {
+            return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], stream);
+        }
+        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
+        if (memcpyKind != cudaMemcpyDeviceToDevice) {
+            AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (denoise_list.count(pInputFrame->csp) == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const std::array<const RGYFrameInfo *, 5> pSrc = { pInputFrame, pInputFrame, pInputFrame, pInputFrame, pInputFrame };
+        sts = err_to_rgy(denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pSrc, pKnnParam->knn.radius, 0, pKnnParam->knn.strength, pKnnParam->knn.lerpC, pKnnParam->knn.weight_threshold, pKnnParam->knn.lerp_threshold, stream));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at knn(%s): %s.\n"),
+                RGY_CSP_NAMES[pInputFrame->csp],
+                get_err_mes(sts));
+            return sts;
+        }
+        return sts;
     }
-    sts = err_to_rgy(denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pKnnParam->knn.radius, pKnnParam->knn.strength, pKnnParam->knn.lerpC, pKnnParam->knn.weight_threshold, pKnnParam->knn.lerp_threshold, stream));
+
+    //temporal_d > 0: convolution3dと同様に前後フレームをキャッシュし、temporal_dフレーム遅れで出力する
+    if (pInputFrame->ptr[0]) {
+        if (interlaced(*pInputFrame)) {
+            AddMessage(RGY_LOG_ERROR, _T("d > 0 does not support interlaced processing.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_frameBuf[0]->frame.mem_type);
+        if (memcpyKind != cudaMemcpyDeviceToDevice) {
+            AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (denoise_list.count(pInputFrame->csp) == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        //sourceキャッシュにコピー
+        auto cacheFrame = &m_prevFrames[m_cacheIdx % m_prevFrames.size()]->frame;
+        sts = copyFrameAsync(cacheFrame, pInputFrame, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set frame to data cache: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        copyFrameProp(cacheFrame, pInputFrame);
+        m_cacheIdx++;
+    }
+
+    //出力するフレームの前後temporal_dフレームがそろうまでは出力しない
+    if (pInputFrame->ptr[0] != nullptr && m_cacheIdx < m_nFrameIdx + temporal_d + 1) {
+        *pOutputFrameNum = 0;
+        ppOutputFrames[0] = nullptr;
+        return sts;
+    }
+
+    CUFrameBuf *pOutFrame = m_frameBuf[0].get();
+    *pOutputFrameNum = 1;
+    ppOutputFrames[0] = &pOutFrame->frame;
+
+    //出力フレームの前後temporal_dフレームを集める(先頭/末尾はクランプ)
+    std::array<const RGYFrameInfo *, 5> pSrc = { nullptr, nullptr, nullptr, nullptr, nullptr };
+    for (int t = -2; t <= 2; t++) {
+        const int idx = std::max(0, std::min(m_nFrameIdx + t, m_cacheIdx - 1));
+        pSrc[t + 2] = &m_prevFrames[idx % m_prevFrames.size()]->frame;
+    }
+    const RGYFrameInfo *frameCur = pSrc[2];
+    pOutFrame->frame.picstruct    = frameCur->picstruct;
+    pOutFrame->frame.inputFrameId = frameCur->inputFrameId;
+    pOutFrame->frame.duration     = frameCur->duration;
+    pOutFrame->frame.timestamp    = frameCur->timestamp;
+    pOutFrame->frame.flags        = frameCur->flags;
+    pOutFrame->frame.dataList     = frameCur->dataList;
+
+    sts = err_to_rgy(denoise_list.at(frameCur->csp)(&pOutFrame->frame, pSrc, pKnnParam->knn.radius, temporal_d, pKnnParam->knn.strength, pKnnParam->knn.lerpC, pKnnParam->knn.weight_threshold, pKnnParam->knn.lerp_threshold, stream));
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at knn(%s): %s.\n"),
-            RGY_CSP_NAMES[pInputFrame->csp],
+            RGY_CSP_NAMES[frameCur->csp],
             get_err_mes(sts));
         return sts;
     }
+    m_nFrameIdx++;
     return sts;
 }
 
 void NVEncFilterDenoiseKnn::close() {
     m_frameBuf.clear();
+    m_prevFrames.clear();
+    m_cacheIdx = 0;
     m_bInterlacedWarn = false;
 }
