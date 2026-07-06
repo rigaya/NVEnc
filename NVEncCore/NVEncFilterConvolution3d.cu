@@ -185,21 +185,21 @@ static RGY_ERR denoise_convolution3d_frame(RGYFrameInfo *pOutputFrame,
     if (fastMode) {
         if (matrix == VppConvolution3dMatrix::Standard) {
             auto cudaerr = denoise_convolution3d_frame_weight<Type, depth, true, 1, 2, 1, 1, 2, 1>(
-                pOutputFrame, pPrevFrame, pInputFrame, pNextFrame, threshYspatial, threshYtemporal, threshCspatial, threshCtemporal, stream);
+                pOutputFrame, pPrevFrame, pInputFrame, pNextFrame, threshYspatial, threshCspatial, threshYtemporal, threshCtemporal, stream);
             return err_to_rgy(cudaerr);
         } else if (matrix == VppConvolution3dMatrix::Simple) {
             auto cudaerr = denoise_convolution3d_frame_weight<Type, depth, true, 1, 1, 1, 1, 1, 1>(
-                pOutputFrame, pPrevFrame, pInputFrame, pNextFrame, threshYspatial, threshYtemporal, threshCspatial, threshCtemporal, stream);
+                pOutputFrame, pPrevFrame, pInputFrame, pNextFrame, threshYspatial, threshCspatial, threshYtemporal, threshCtemporal, stream);
             return err_to_rgy(cudaerr);
         }
     } else {
         if (matrix == VppConvolution3dMatrix::Standard) {
             auto cudaerr = denoise_convolution3d_frame_weight<Type, depth, false, 1, 2, 1, 1, 2, 1>(
-                pOutputFrame, pPrevFrame, pInputFrame, pNextFrame, threshYspatial, threshYtemporal, threshCspatial, threshCtemporal, stream);
+                pOutputFrame, pPrevFrame, pInputFrame, pNextFrame, threshYspatial, threshCspatial, threshYtemporal, threshCtemporal, stream);
             return err_to_rgy(cudaerr);
         } else if (matrix == VppConvolution3dMatrix::Simple) {
             auto cudaerr = denoise_convolution3d_frame_weight<Type, depth, false, 1, 1, 1, 1, 1, 1>(
-                pOutputFrame, pPrevFrame, pInputFrame, pNextFrame, threshYspatial, threshYtemporal, threshCspatial, threshCtemporal, stream);
+                pOutputFrame, pPrevFrame, pInputFrame, pNextFrame, threshYspatial, threshCspatial, threshYtemporal, threshCtemporal, stream);
             return err_to_rgy(cudaerr);
         }
     }
