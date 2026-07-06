@@ -787,7 +787,7 @@ RGY_ERR NVEncFilterLibplaceboResample::setLibplaceboParam(const NVEncFilterParam
     m_filter_params->filter.taper = prm->resample.taper;
     if (prm->resample.radius >= 0.0) {
         if (!m_filter_params->filter.kernel->resizable) {
-            AddMessage(RGY_LOG_WARN, _T("radius %.1f ignored for non-resizable filter: %s.\n"), char_to_tstring(resample_filter_name).c_str());
+            AddMessage(RGY_LOG_WARN, _T("radius %.1f ignored for non-resizable filter: %s.\n"), prm->resample.radius, char_to_tstring(resample_filter_name).c_str());
         } else {
             m_filter_params->filter.radius = prm->resample.radius;
         }
@@ -1988,7 +1988,7 @@ RGY_ERR NVEncFilterLibplaceboShader::setLibplaceboParam(const NVEncFilterParam *
     m_sample_params->filter.taper = prm->shader.taper;
     if (prm->shader.radius >= 0.0) {
         if (!m_sample_params->filter.kernel->resizable) {
-            AddMessage(RGY_LOG_WARN, _T("radius %.1f ignored for non-resizable filter: %s.\n"), char_to_tstring(resample_filter_name).c_str());
+            AddMessage(RGY_LOG_WARN, _T("radius %.1f ignored for non-resizable filter: %s.\n"), prm->shader.radius, char_to_tstring(resample_filter_name).c_str());
         } else {
             m_sample_params->filter.radius = prm->shader.radius;
         }
