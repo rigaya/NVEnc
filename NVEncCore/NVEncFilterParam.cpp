@@ -697,13 +697,13 @@ tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZ
         if (!param->nvvfxUpScaler.enable && save_disabled_prm) {
             tmp << _T(",enable=false");
         }
-        if (param->nvvfxDenoise.enable || save_disabled_prm) {
+        if (param->nvvfxUpScaler.enable || save_disabled_prm) {
             ADD_FLOAT(_T("strength"), nvvfxUpScaler.strength, 3);
         }
         if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-nvvfx-upscale ") << tmp.str().substr(1);
+            cmd << _T(" --vpp-nvvfx-upscaler ") << tmp.str().substr(1);
         } else if (param->nvvfxUpScaler.enable) {
-            cmd << _T(" --vpp-nvvfx-upscale");
+            cmd << _T(" --vpp-nvvfx-upscaler");
         }
     }
 
