@@ -58,7 +58,7 @@ protected:
 
 
     bool m_bInterlacedWarn;
-    float m_threshold;
+    std::unique_ptr<CUMemBuf> m_thresholdBuf; // 周波数 bin ごとのしきい値テーブル(sigma/sigma2/3/4)
     int m_step;
 
     std::unique_ptr<NVEncFilterCspCrop> m_srcCrop;

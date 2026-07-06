@@ -203,8 +203,10 @@ RGY_ERR NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_
         AddMessage(RGY_LOG_ERROR, _T("radius must be <= %d.\n"), KNN_RADIUS_MAX);
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pKnnParam->knn.strength < 0.0 || 1.0 < pKnnParam->knn.strength) {
-        AddMessage(RGY_LOG_ERROR, _T("strength should be 0.0 - 1.0.\n"));
+    if (pKnnParam->knn.strength <= 0.0 || 1.0 < pKnnParam->knn.strength) {
+        // 有効化されたフィルタで strength == 0 は意味がなく、
+        // host 側の 1/(strength*strength) 計算で NaN フレームが出力される。
+        AddMessage(RGY_LOG_ERROR, _T("strength should be greater than 0.0, up to 1.0.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (pKnnParam->knn.lerpC < 0.0 || 1.0 < pKnnParam->knn.lerpC) {

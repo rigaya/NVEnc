@@ -57,7 +57,7 @@ private:
         CUMemBuf *pCoefSpatial, CUMemBuf *pCoefTemporal,
         CUMemBuf *pPrev, int prevPitchFloats, cudaStream_t stream);
     RGY_ERR denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
-    static void precalcCoefs(std::vector<float> &table, double dist25);
+    static void precalcCoefs(std::vector<float> &table, double dist25, const int lutScale);
 
     std::array<std::unique_ptr<CUMemBuf>, 4> m_coefs;
     std::vector<std::unique_ptr<CUMemBuf>> m_framePrev;
@@ -66,4 +66,5 @@ private:
     std::unique_ptr<CUMemBuf> m_tmpHV;
     int m_tmpPitchFloats;
     bool m_firstFrame;
+    int m_lutScale; // 8bit 1段あたりの LUT 要素数(8bit 入力は1、高 bit 深度では最大16)
 };

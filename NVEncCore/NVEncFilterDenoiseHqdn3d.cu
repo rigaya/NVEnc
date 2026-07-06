@@ -56,10 +56,12 @@ __device__ __inline__ void hqdn3d_write_pixel_f(uint8_t *pDst, int dstPitch, int
     ptr[0] = (Type)(clamp(v, 0.0f, 1.0f) * (float)((1 << bit_depth) - 1) + 0.5f);
 }
 
-__device__ __inline__ float hqdn3d_lowpass(float prev, float cur, const float *__restrict__ coef) {
-    const float delta_pix = (prev - cur) * 255.0f;
-    int idx = (int)(delta_pix + (delta_pix >= 0.0f ? 0.5f : -0.5f)) + HQDN3D_LUT_RADIUS;
-    idx = clamp(idx, 0, 2 * HQDN3D_LUT_RADIUS - 1);
+__device__ __inline__ float hqdn3d_lowpass(float prev, float cur, const float *__restrict__ coef, const int lutScale) {
+    // lutScale で LUT の 8bit 1段を分割し、高 bit 深度入力の細かな階調を保つ。
+    // lutScale = 1 なら従来のテーブルを再現する。
+    const float delta_pix = (prev - cur) * 255.0f * (float)lutScale;
+    int idx = (int)(delta_pix + (delta_pix >= 0.0f ? 0.5f : -0.5f)) + HQDN3D_LUT_RADIUS * lutScale;
+    idx = clamp(idx, 0, 2 * HQDN3D_LUT_RADIUS * lutScale - 1);
     return cur + coef[idx];
 }
 
@@ -67,14 +69,14 @@ template<typename Type, int bit_depth>
 __global__ void kernel_hqdn3d_h(float *__restrict__ pDst, const int dstPitchElems,
     const uint8_t *__restrict__ pSrc, const int srcPitch,
     const int width, const int height,
-    const float *__restrict__ coefSpatial) {
+    const float *__restrict__ coefSpatial, const int lutScale) {
     const int iy = blockIdx.x * blockDim.x + threadIdx.x;
     if (iy >= height) return;
 
     float prev_pixel = hqdn3d_read_pixel_f<Type, bit_depth>(pSrc, srcPitch, 0, iy);
     for (int x = 0; x < width; ++x) {
         const float cur = hqdn3d_read_pixel_f<Type, bit_depth>(pSrc, srcPitch, x, iy);
-        prev_pixel = hqdn3d_lowpass(prev_pixel, cur, coefSpatial);
+        prev_pixel = hqdn3d_lowpass(prev_pixel, cur, coefSpatial, lutScale);
         pDst[iy * dstPitchElems + x] = prev_pixel;
     }
 }
@@ -82,14 +84,14 @@ __global__ void kernel_hqdn3d_h(float *__restrict__ pDst, const int dstPitchElem
 __global__ void kernel_hqdn3d_v(float *__restrict__ pDst, const int dstPitchElems,
     const float *__restrict__ pSrc, const int srcPitchElems,
     const int width, const int height,
-    const float *__restrict__ coefSpatial) {
+    const float *__restrict__ coefSpatial, const int lutScale) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     if (ix >= width) return;
 
     float prev_pixel = pSrc[ix];
     for (int y = 0; y < height; ++y) {
         const float cur = pSrc[y * srcPitchElems + ix];
-        prev_pixel = hqdn3d_lowpass(prev_pixel, cur, coefSpatial);
+        prev_pixel = hqdn3d_lowpass(prev_pixel, cur, coefSpatial, lutScale);
         pDst[y * dstPitchElems + ix] = prev_pixel;
     }
 }
@@ -100,7 +102,7 @@ __global__ void kernel_hqdn3d_t(uint8_t *__restrict__ pDst, const int dstPitch,
     const float *__restrict__ pSpatial, const int spatialPitchElems,
     const int width, const int height,
     const float *__restrict__ coefTemporal,
-    const int first_frame) {
+    const int first_frame, const int lutScale) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= width || iy >= height) return;
@@ -113,14 +115,14 @@ __global__ void kernel_hqdn3d_t(uint8_t *__restrict__ pDst, const int dstPitch,
         result = spatial;
     } else {
         const float prev = pFramePrev[idxPrev];
-        result = hqdn3d_lowpass(prev, spatial, coefTemporal);
+        result = hqdn3d_lowpass(prev, spatial, coefTemporal, lutScale);
     }
     pFramePrev[idxPrev] = result;
     hqdn3d_write_pixel_f<Type, bit_depth>(pDst, dstPitch, ix, iy, result);
 }
 
 template<typename Type, int bit_depth>
-static RGY_ERR hqdn3d_h_plane(RGYFrameInfo *pTmpH, const RGYFrameInfo *pInputFrame, const float *pCoefSpatial, cudaStream_t stream) {
+static RGY_ERR hqdn3d_h_plane(RGYFrameInfo *pTmpH, const RGYFrameInfo *pInputFrame, const float *pCoefSpatial, const int lutScale, cudaStream_t stream) {
     dim3 blockSize(HQDN3D_BLOCK_LINEAR, 1);
     dim3 gridSize(divCeil(pInputFrame->height, blockSize.x), 1);
 
@@ -128,11 +130,11 @@ static RGY_ERR hqdn3d_h_plane(RGYFrameInfo *pTmpH, const RGYFrameInfo *pInputFra
         (float *)pTmpH->ptr[0], pTmpH->pitch[0],
         (const uint8_t *)pInputFrame->ptr[0], pInputFrame->pitch[0],
         pInputFrame->width, pInputFrame->height,
-        pCoefSpatial);
+        pCoefSpatial, lutScale);
     return err_to_rgy(cudaGetLastError());
 }
 
-static RGY_ERR hqdn3d_v_plane(RGYFrameInfo *pTmpHV, const RGYFrameInfo *pTmpH, const float *pCoefSpatial, cudaStream_t stream) {
+static RGY_ERR hqdn3d_v_plane(RGYFrameInfo *pTmpHV, const RGYFrameInfo *pTmpH, const float *pCoefSpatial, const int lutScale, cudaStream_t stream) {
     dim3 blockSize(HQDN3D_BLOCK_LINEAR, 1);
     dim3 gridSize(divCeil(pTmpH->width, blockSize.x), 1);
 
@@ -140,13 +142,13 @@ static RGY_ERR hqdn3d_v_plane(RGYFrameInfo *pTmpHV, const RGYFrameInfo *pTmpH, c
         (float *)pTmpHV->ptr[0], pTmpHV->pitch[0],
         (const float *)pTmpH->ptr[0], pTmpH->pitch[0],
         pTmpH->width, pTmpH->height,
-        pCoefSpatial);
+        pCoefSpatial, lutScale);
     return err_to_rgy(cudaGetLastError());
 }
 
 template<typename Type, int bit_depth>
 static RGY_ERR hqdn3d_t_plane(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pPrevFrame, const RGYFrameInfo *pTmpHV,
-    const float *pCoefTemporal, bool firstFrame, cudaStream_t stream) {
+    const float *pCoefTemporal, bool firstFrame, const int lutScale, cudaStream_t stream) {
     dim3 blockSize(HQDN3D_TBLOCK_X, HQDN3D_TBLOCK_Y);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
 
@@ -155,20 +157,24 @@ static RGY_ERR hqdn3d_t_plane(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pPrevFra
         (float *)pPrevFrame->ptr[0], pPrevFrame->pitch[0],
         (const float *)pTmpHV->ptr[0], pTmpHV->pitch[0],
         pOutputFrame->width, pOutputFrame->height,
-        pCoefTemporal, firstFrame ? 1 : 0);
+        pCoefTemporal, firstFrame ? 1 : 0, lutScale);
     return err_to_rgy(cudaGetLastError());
 }
 
-void NVEncFilterDenoiseHqdn3d::precalcCoefs(std::vector<float> &table, double dist25) {
-    table.assign(2 * HQDN3D_LUT_RADIUS, 0.0f);
+void NVEncFilterDenoiseHqdn3d::precalcCoefs(std::vector<float> &table, double dist25, const int lutScale) {
+    // lutScale は 8bit での1段をさらに分割する。高 bit 深度では入力 code の
+    // 1段が 8bit での1段未満になるため、8bit 1段につき1要素の LUT では
+    // それらが同じ係数に丸められてしまう。
+    // lutScale = 1 なら従来のテーブルを完全に再現する。
+    table.assign(2 * HQDN3D_LUT_RADIUS * lutScale, 0.0f);
     if (dist25 <= 0.0) {
         return;
     }
     const double clamped = std::min(dist25, 253.9);
     const double sigma = -1.0 / std::log(0.25);
     const double scale = clamped * sigma + 1e-7;
-    for (int i = 0; i < 2 * HQDN3D_LUT_RADIUS; ++i) {
-        const double f = (double)(i - HQDN3D_LUT_RADIUS);
+    for (int i = 0; i < 2 * HQDN3D_LUT_RADIUS * lutScale; ++i) {
+        const double f = (double)(i - HQDN3D_LUT_RADIUS * lutScale) / (double)lutScale;
         const double attenuation = std::exp(-std::fabs(f) / scale);
         table[i] = (float)(attenuation * f / 256.0);
     }
@@ -181,7 +187,8 @@ NVEncFilterDenoiseHqdn3d::NVEncFilterDenoiseHqdn3d() :
     m_tmpH(),
     m_tmpHV(),
     m_tmpPitchFloats(0),
-    m_firstFrame(true) {
+    m_firstFrame(true),
+    m_lutScale(1) {
     m_name = _T("denoise-hqdn3d");
 }
 
@@ -218,9 +225,12 @@ RGY_ERR NVEncFilterDenoiseHqdn3d::init(shared_ptr<NVEncFilterParam> pParam, shar
         pHqdn3dParam->hqdn3d.chroma_spatial,
         pHqdn3dParam->hqdn3d.chroma_temporal
     };
+    // 高 bit 深度入力の細かな強度階調を保つため、bit 深度に応じて LUT 解像度を上げる。
+    // 上限は16倍で、12bit では正確、それ以上では 8bit 1段の 1/16 解像度になる。
+    m_lutScale = std::min(1 << (std::max((int)RGY_CSP_BIT_DEPTH[pHqdn3dParam->frameOut.csp], 8) - 8), 16);
     for (int i = 0; i < 4; ++i) {
         std::vector<float> table;
-        precalcCoefs(table, (double)strengths[i]);
+        precalcCoefs(table, (double)strengths[i], m_lutScale);
         const auto bytes = table.size() * sizeof(table[0]);
         m_coefs[i] = std::make_unique<CUMemBuf>(bytes);
         sts = m_coefs[i]->alloc();
@@ -302,28 +312,28 @@ RGY_ERR NVEncFilterDenoiseHqdn3d::denoisePlane(RGYFrameInfo *pOutputPlane, const
     const int bitDepth = RGY_CSP_BIT_DEPTH[pInputPlane->csp];
     RGY_ERR err = RGY_ERR_NONE;
     switch (bitDepth) {
-    case 8:  err = hqdn3d_h_plane<uint8_t,   8>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, stream); break;
-    case 9:  err = hqdn3d_h_plane<uint16_t,  9>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, stream); break;
-    case 10: err = hqdn3d_h_plane<uint16_t, 10>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, stream); break;
-    case 12: err = hqdn3d_h_plane<uint16_t, 12>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, stream); break;
-    case 14: err = hqdn3d_h_plane<uint16_t, 14>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, stream); break;
-    case 16: err = hqdn3d_h_plane<uint16_t, 16>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, stream); break;
+    case 8:  err = hqdn3d_h_plane<uint8_t,   8>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, m_lutScale, stream); break;
+    case 9:  err = hqdn3d_h_plane<uint16_t,  9>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, m_lutScale, stream); break;
+    case 10: err = hqdn3d_h_plane<uint16_t, 10>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, m_lutScale, stream); break;
+    case 12: err = hqdn3d_h_plane<uint16_t, 12>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, m_lutScale, stream); break;
+    case 14: err = hqdn3d_h_plane<uint16_t, 14>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, m_lutScale, stream); break;
+    case 16: err = hqdn3d_h_plane<uint16_t, 16>(&tmpH, pInputPlane, (const float *)pCoefSpatial->ptr, m_lutScale, stream); break;
     default:
         AddMessage(RGY_LOG_ERROR, _T("unsupported bit depth: %d.\n"), bitDepth);
         return RGY_ERR_UNSUPPORTED;
     }
     if (err != RGY_ERR_NONE) return err;
 
-    err = hqdn3d_v_plane(&tmpHV, &tmpH, (const float *)pCoefSpatial->ptr, stream);
+    err = hqdn3d_v_plane(&tmpHV, &tmpH, (const float *)pCoefSpatial->ptr, m_lutScale, stream);
     if (err != RGY_ERR_NONE) return err;
 
     switch (bitDepth) {
-    case 8:  err = hqdn3d_t_plane<uint8_t,   8>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, stream); break;
-    case 9:  err = hqdn3d_t_plane<uint16_t,  9>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, stream); break;
-    case 10: err = hqdn3d_t_plane<uint16_t, 10>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, stream); break;
-    case 12: err = hqdn3d_t_plane<uint16_t, 12>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, stream); break;
-    case 14: err = hqdn3d_t_plane<uint16_t, 14>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, stream); break;
-    case 16: err = hqdn3d_t_plane<uint16_t, 16>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, stream); break;
+    case 8:  err = hqdn3d_t_plane<uint8_t,   8>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, m_lutScale, stream); break;
+    case 9:  err = hqdn3d_t_plane<uint16_t,  9>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, m_lutScale, stream); break;
+    case 10: err = hqdn3d_t_plane<uint16_t, 10>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, m_lutScale, stream); break;
+    case 12: err = hqdn3d_t_plane<uint16_t, 12>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, m_lutScale, stream); break;
+    case 14: err = hqdn3d_t_plane<uint16_t, 14>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, m_lutScale, stream); break;
+    case 16: err = hqdn3d_t_plane<uint16_t, 16>(pOutputPlane, &prev, &tmpHV, (const float *)pCoefTemporal->ptr, m_firstFrame, m_lutScale, stream); break;
     default: return RGY_ERR_UNSUPPORTED;
     }
     return err;

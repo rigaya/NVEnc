@@ -5455,7 +5455,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{
-            "sigma", "step", "block_size" };
+            "sigma", "sigma2", "sigma3", "sigma4", "step", "block_size" };
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -5476,6 +5476,33 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("sigma")) {
                     try {
                         vpp->dct.sigma = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigma2")) {
+                    try {
+                        vpp->dct.sigma2 = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigma3")) {
+                    try {
+                        vpp->dct.sigma3 = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigma4")) {
+                    try {
+                        vpp->dct.sigma4 = std::stof(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -12945,6 +12972,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (param->dct.enable || save_disabled_prm) {
             ADD_FLOAT(_T("sigma"), dct.sigma, 3);
+            ADD_FLOAT(_T("sigma2"), dct.sigma2, 3);
+            ADD_FLOAT(_T("sigma3"), dct.sigma3, 3);
+            ADD_FLOAT(_T("sigma4"), dct.sigma4, 3);
             ADD_LST(_T("step"), dct.step, list_vpp_denoise_dct_step);
             ADD_LST(_T("block_size"), dct.block_size, list_vpp_denoise_dct_block_size);
         }
@@ -15481,6 +15511,10 @@ tstring gen_cmd_help_vpp() {
         _T("      step=<int>            quality of filter (smaller value will result higher quality)\n")
         _T("                              1, 2 (default), 4, 8\n")
         _T("      sigma=<float>         strength of filter (default=%.2f)\n")
+        _T("                              threshold for the highest frequency DCT bins.\n")
+        _T("      sigma2=<float>        threshold for mid-high frequency bins (default=sigma)\n")
+        _T("      sigma3=<float>        threshold for mid-low frequency bins  (default=sigma)\n")
+        _T("      sigma4=<float>        threshold for the lowest frequency bins (default=sigma)\n")
         _T("      block_size=<int>      block size of calculation.\n")
         _T("                              8 (default), 16\n"),
         FILTER_DEFAULT_DENOISE_DCT_SIGMA);

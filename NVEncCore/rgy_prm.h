@@ -492,6 +492,9 @@ static const float FILTER_DEFAULT_SMOOTH_B_RATIO = 0.5f;
 static const int   FILTER_DEFAULT_SMOOTH_MAX_QPTABLE_ERR = 10;
 
 static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA = 4.0f;
+static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA2 = 0.0f; // 0 = follow sigma
+static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA3 = 0.0f; // 0 = follow sigma
+static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA4 = 0.0f; // 0 = follow sigma
 static const int   FILTER_DEFAULT_DENOISE_DCT_STEP = 2;
 static const int   FILTER_DEFAULT_DENOISE_DCT_BLOCK_SIZE = 8;
 
@@ -2522,6 +2525,9 @@ struct VppSmooth {
 struct VppDenoiseDct {
     bool enable;
     float sigma;
+    float sigma2; // threshold for mid-high frequency DCT bins (0 = follow sigma)
+    float sigma3; // threshold for mid-low frequency DCT bins  (0 = follow sigma)
+    float sigma4; // threshold for the lowest frequency DCT bins (0 = follow sigma)
     int step;
     int block_size;
     VppDenoiseDct();

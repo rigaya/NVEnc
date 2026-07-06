@@ -371,10 +371,12 @@ __device__ void idctBlock(T shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], int thWorker
 }
 
 template<typename TypeTmp, int BLOCK_SIZE>
-__device__ void thresholdBlock(TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], int thWorker, const float threshold) {
+__device__ void thresholdBlock(TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], int thWorker, const float *__restrict__ ptrThreshold) {
     #pragma unroll
     for (int y = 0; y < BLOCK_SIZE; y++) {
         if (y > 0 || thWorker > 0) {
+            // 周波数 bin ごとのしきい値(host 側で sigma/sigma2/sigma3/sigma4 を補間済み)
+            const float threshold = ptrThreshold[y * BLOCK_SIZE + thWorker];
             TypeTmp *ptr = &shared_tmp[y][thWorker];
             const TypeTmp val = ptr[0];
             if (fabs(val) <= threshold) {
@@ -471,11 +473,11 @@ __device__ void filter_block(
     const int shared_block_x, const int shared_block_y,
     const int block_x, const int block_y,
     const int width, const int height,
-    const float threshold) {
+    const float *__restrict__ ptrThreshold) {
 #if 1
     loadBlocktmp<TypePixel, TypeTmp, BLOCK_SIZE>(shared_tmp, local_bx, thWorker, ptrSrc, srcPitch, block_x, block_y, width, height);
     dctBlock<TypeTmp, BLOCK_SIZE>(shared_tmp[local_bx], thWorker);
-    thresholdBlock<TypeTmp, BLOCK_SIZE>(shared_tmp[local_bx], thWorker, threshold);
+    thresholdBlock<TypeTmp, BLOCK_SIZE>(shared_tmp[local_bx], thWorker, ptrThreshold);
     idctBlock<TypeTmp, BLOCK_SIZE>(shared_tmp[local_bx], thWorker);
     addBlocktmp<TypeTmp, BLOCK_SIZE>(shared_out, shared_block_x, shared_block_y, shared_tmp, local_bx, thWorker);
 #else
@@ -509,7 +511,7 @@ __global__ void kernel_denoise_dct(
     const char *const __restrict__ ptrSrc2,
     const int srcPitch,
     const int width, const int height,
-    const float threshold) {
+    const float *__restrict__ ptrThreshold) {
     const int thWorker = threadIdx.x; // BLOCK_SIZE
     const int local_bx = threadIdx.y; // DENOISE_BLOCK_SIZE_X
     const int global_bx = blockIdx.x * DENOISE_BLOCK_SIZE_X + local_bx;
@@ -526,7 +528,7 @@ __global__ void kernel_denoise_dct(
     __shared__ SHARED_OUT;
 
     #define FILTER_BLOCK(SHARED_X, SHARED_Y, X, Y) \
-        { filter_block<TypePixel, bit_depth, TypeTmp, BLOCK_SIZE>(ptrSrc, srcPitch, shared_tmp, shared_out, local_bx, thWorker, (SHARED_X), (SHARED_Y), (X), (Y), width, height, threshold); }
+        { filter_block<TypePixel, bit_depth, TypeTmp, BLOCK_SIZE>(ptrSrc, srcPitch, shared_tmp, shared_out, local_bx, thWorker, (SHARED_X), (SHARED_Y), (X), (Y), width, height, ptrThreshold); }
 
     { // SHARED_OUTの初期化
         clearSharedOut<TypeTmp, BLOCK_SIZE>(shared_out, local_bx, thWorker);
@@ -577,7 +579,7 @@ __global__ void kernel_denoise_dct(
 
 template<typename Type, int bit_depth, int BLOCK_SIZE, int STEP>
 RGY_ERR denoise_dct_run(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
-    const float threshold, cudaStream_t stream) {
+    const float *ptrThreshold, cudaStream_t stream) {
     const auto planeInputR = getPlane(pInputFrame, RGY_PLANE_R);
     const auto planeInputG = getPlane(pInputFrame, RGY_PLANE_G);
     const auto planeInputB = getPlane(pInputFrame, RGY_PLANE_B);
@@ -593,7 +595,7 @@ RGY_ERR denoise_dct_run(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFr
     kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, STEP> << <gridSize, blockSize, 0, stream >>>(
         (char *)planeOutputR.ptr[0], (char *)planeOutputG.ptr[0], (char *)planeOutputB.ptr[0], planeOutputR.pitch[0],
         (const char *)planeInputR.ptr[0], (const char *)planeInputG.ptr[0], (const char *)planeInputB.ptr[0], planeInputR.pitch[0],
-        planeInputR.width, planeInputR.height, threshold);
+        planeInputR.width, planeInputR.height, ptrThreshold);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
         return err;
@@ -603,12 +605,12 @@ RGY_ERR denoise_dct_run(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFr
 
 template<typename Type, int bit_depth, int BLOCK_SIZE>
 static RGY_ERR denoise_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
-    const float threshold, const int step, cudaStream_t stream) {
+    const float *ptrThreshold, const int step, cudaStream_t stream) {
     switch (step) {
-    case 2:  return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 2>(pOutputFrame, pInputFrame, threshold, stream);
-    case 4:  return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 4>(pOutputFrame, pInputFrame, threshold, stream);
-    case 8:  return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 8>(pOutputFrame, pInputFrame, threshold, stream);
-    default: return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 1>(pOutputFrame, pInputFrame, threshold, stream);
+    case 2:  return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 2>(pOutputFrame, pInputFrame, ptrThreshold, stream);
+    case 4:  return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 4>(pOutputFrame, pInputFrame, ptrThreshold, stream);
+    case 8:  return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 8>(pOutputFrame, pInputFrame, ptrThreshold, stream);
+    default: return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 1>(pOutputFrame, pInputFrame, ptrThreshold, stream);
     }
 }
 
@@ -767,7 +769,7 @@ RGY_ERR NVEncFilterDenoiseDct::denoise(RGYFrameInfo *pOutputFrame, const RGYFram
         AddMessage(RGY_LOG_ERROR, _T("unsupported block_size %d.\n"), prm->dct.block_size);
         return RGY_ERR_UNSUPPORTED;
     }
-    sts = func_list.at(prm->dct.block_size)(&bufDst->frame, &bufSrc->frame, m_threshold, m_step, stream);
+    sts = func_list.at(prm->dct.block_size)(&bufDst->frame, &bufSrc->frame, (const float *)m_thresholdBuf->ptr, m_step, stream);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
@@ -796,7 +798,7 @@ RGY_ERR NVEncFilterDenoiseDct::denoise(RGYFrameInfo *pOutputFrame, const RGYFram
 
 NVEncFilterDenoiseDct::NVEncFilterDenoiseDct() :
     m_bInterlacedWarn(false),
-    m_threshold(0.0f),
+    m_thresholdBuf(),
     m_step(0),
     m_srcCrop(),
     m_dstCrop(),
@@ -893,7 +895,44 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
 
     m_step = prm->dct.step;
-    m_threshold = prm->dct.sigma * 3.0f / 255.0f;
+
+    // 周波数 bin ごとのしきい値テーブル(sigma / sigma2 / sigma3 / sigma4)。
+    // 4つのアンカー(sigma = 最高周波数、sigma4 = 最低周波数)を
+    // 正規化した半径方向 DCT 周波数で補間する。sigma2/3/4 未指定時は
+    // 全要素が従来の scalar 値 sigma * 3 / 255 と一致し、出力は変わらない。
+    {
+        const int bs = prm->dct.block_size;
+        const float s1 = prm->dct.sigma;                                    // 最高周波数
+        const float s2 = (prm->dct.sigma2 > 0.0f) ? prm->dct.sigma2 : s1;   // 中高周波数
+        const float s3 = (prm->dct.sigma3 > 0.0f) ? prm->dct.sigma3 : s1;   // 中低周波数
+        const float s4 = (prm->dct.sigma4 > 0.0f) ? prm->dct.sigma4 : s1;   // 最低周波数
+        const float anchors[4] = { s4, s3, s2, s1 }; // 半径方向 0 -> 1
+        std::vector<float> thresholdTable((size_t)bs * bs);
+        // DCT-II の bin 周波数は 0(DC) .. bs-1(Nyquist) で、ミラーリングしない。
+        auto fnorm = [bs](int i) { return (float)i / (float)(bs - 1); };
+        for (int by = 0; by < bs; by++) {
+            const float fy = fnorm(by);
+            for (int bx = 0; bx < bs; bx++) {
+                const float fx = fnorm(bx);
+                float radial = std::sqrt(fx * fx + fy * fy) * 0.70710678f; // /sqrt(2) で [0,1] にする
+                if (radial > 1.0f) radial = 1.0f;
+                const float t = radial * 3.0f; // 4アンカー間の3つの線形区間
+                int seg = (int)t; if (seg > 2) seg = 2;
+                const float frac = t - (float)seg;
+                const float sval = anchors[seg] * (1.0f - frac) + anchors[seg + 1] * frac;
+                thresholdTable[(size_t)by * bs + bx] = sval * 3.0f / 255.0f; // 従来の scalar scale に合わせる
+            }
+        }
+        m_thresholdBuf = std::unique_ptr<CUMemBuf>(new CUMemBuf(thresholdTable.size() * sizeof(thresholdTable[0])));
+        if ((sts = m_thresholdBuf->alloc()) != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for DCT threshold table: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        if ((sts = err_to_rgy(cudaMemcpy(m_thresholdBuf->ptr, thresholdTable.data(), thresholdTable.size() * sizeof(thresholdTable[0]), cudaMemcpyHostToDevice))) != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy memory for DCT threshold table: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+    }
 
     setFilterInfo(pParam->print());
     m_param = pParam;
