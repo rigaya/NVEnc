@@ -1008,7 +1008,7 @@ RGY_ERR NVEncFilterLibplaceboDeband::setLibplaceboParam(const NVEncFilterParam *
     m_filter_params->grain = prm->deband.grainY;
     if (prm->deband.grainC >= 0.0f && prm->deband.grainY != prm->deband.grainC) {
         m_filter_params_c = std::make_unique<pl_deband_params>(*m_filter_params.get());
-        m_filter_params->grain = prm->deband.grainC;
+        m_filter_params_c->grain = prm->deband.grainC;
     }
     return RGY_ERR_NONE;
 }
