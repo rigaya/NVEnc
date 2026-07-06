@@ -295,7 +295,7 @@ RGY_ERR NVEncFilterYadifSource::add(const RGYFrameInfo *pInputFrame, cudaStream_
     auto pDstFrame = get(iframe);
     auto sts = copyFrameAsync(&pDstFrame->frame, pInputFrame, stream);
     if (sts != RGY_ERR_NONE) {
-        return RGY_ERR_NONE;
+        return sts;
     }
     copyFrameProp(&pDstFrame->frame, pInputFrame);
     return RGY_ERR_NONE;
