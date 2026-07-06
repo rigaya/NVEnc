@@ -5435,7 +5435,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{
-            "enable", "kernel", "width", "height", "b", "c", "src_left", "src_top",
+            "enable", "kernel", "width", "height", "b", "c", "src_left", "src_top", "src_width", "src_height",
             "border_handling", "border", "auto", "search_min", "search_max", "search_step",
             "detect_frames", "show_scores"
         };
@@ -5490,6 +5490,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             else if (param_arg == _T("c"))             float_target = &vpp->descale.c;
             else if (param_arg == _T("src_left"))      float_target = &vpp->descale.src_left;
             else if (param_arg == _T("src_top"))       float_target = &vpp->descale.src_top;
+            else if (param_arg == _T("src_width"))     float_target = &vpp->descale.src_width;
+            else if (param_arg == _T("src_height"))    float_target = &vpp->descale.src_height;
             else if (param_arg == _T("auto"))          bool_target = &vpp->descale.autoDetect;
             else if (param_arg == _T("show_scores"))   bool_target = &vpp->descale.show_scores;
             if (int_target) {
@@ -13182,6 +13184,8 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     }
     if (param->rtgmc_retouch != defaultPrm->rtgmc_retouch) {
         tmp.str(tstring());
+            ADD_FLOAT(_T("src_width"), descale.src_width, 3);
+            ADD_FLOAT(_T("src_height"), descale.src_height, 3);
         if (!param->rtgmc_retouch.enable && save_disabled_prm) {
             tmp << _T(",enable=false");
         }
@@ -15744,6 +15748,9 @@ tstring gen_cmd_help_vpp() {
         _T("      filename=<string>         subtitle file path to burn in.\n")
         _T("      charcode=<string>         subtitle charcter code.\n")
         _T("      shaping=<string>          rendering quality of text.\n")
+        _T("      src_width=<float>         fractional active source width (default=0=off)\n")
+        _T("      src_height=<float>        fractional active source height (default=0=off)\n")
+        _T("                                  for sources whose native size is not integer.\n")
         _T("      scale=<float>             scaling multiplizer for bitmap subtitles.\n")
         _T("      transparency=<float>      adds additional transparency.\n")
         _T("                                  (default=0.0, 0.0 - 1.0)\n")

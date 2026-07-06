@@ -1398,7 +1398,7 @@ RGY_ERR NVEncFilterDescale::runProbe(NVEncFilterParamDescale *prm) {
 }
 
 RGY_ERR NVEncFilterDescale::prepareCore(NVEncFilterDescaleCore& core, int src_dim, int dst_dim,
-    VppDescaleKernel kernel, double b, double c_param, double shift, VppDescaleBorder border) {
+    VppDescaleKernel kernel, double b, double c_param, double shift, VppDescaleBorder border, double activeDim) {
     const int support = kernel_support(kernel);
     if (support <= 0 || src_dim <= 0 || dst_dim <= 0 || dst_dim >= src_dim) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid descale dimensions src=%d dst=%d support=%d (dst must be < src).\n"),
@@ -1411,7 +1411,8 @@ RGY_ERR NVEncFilterDescale::prepareCore(NVEncFilterDescaleCore& core, int src_di
     core.c = core.bandwidth / 2;
 
     std::vector<double> dense;
-    build_scaling_weights(kernel, support, dst_dim, src_dim, b, c_param, shift, (double)dst_dim, border, dense);
+    //activeDim: 実効寸法 (0なら従来通りdst_dim)。非整数のネイティブ寸法を持つソースの逆算用
+    build_scaling_weights(kernel, support, dst_dim, src_dim, b, c_param, shift, (activeDim > 0.0) ? activeDim : (double)dst_dim, border, dense);
 
     std::vector<double> dense_t;
     transpose_matrix(src_dim, dst_dim, dense, dense_t);
@@ -1504,19 +1505,23 @@ RGY_ERR NVEncFilterDescale::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     const auto luma_src_plane = getPlane(&prm->frameIn, RGY_PLANE_Y);
     const auto luma_dst_plane = getPlane(&prm->frameOut, RGY_PLANE_Y);
     sts = prepareCore(m_cores[0][0], luma_src_plane.width, luma_dst_plane.width,
-        prm->descale.kernel, prm->descale.b, prm->descale.c, (double)prm->descale.src_left, prm->descale.border);
+        prm->descale.kernel, prm->descale.b, prm->descale.c, (double)prm->descale.src_left, prm->descale.border,
+        (double)prm->descale.src_width);
     if (sts != RGY_ERR_NONE) return sts;
     sts = prepareCore(m_cores[1][0], luma_src_plane.height, luma_dst_plane.height,
-        prm->descale.kernel, prm->descale.b, prm->descale.c, (double)prm->descale.src_top, prm->descale.border);
+        prm->descale.kernel, prm->descale.b, prm->descale.c, (double)prm->descale.src_top, prm->descale.border,
+        (double)prm->descale.src_height);
     if (sts != RGY_ERR_NONE) return sts;
     if (plane_count > 1) {
         const auto chroma_src_plane = getPlane(&prm->frameIn, RGY_PLANE_U);
         const auto chroma_dst_plane = getPlane(&prm->frameOut, RGY_PLANE_U);
         sts = prepareCore(m_cores[0][1], chroma_src_plane.width, chroma_dst_plane.width,
-            prm->descale.kernel, prm->descale.b, prm->descale.c, (double)prm->descale.src_left, prm->descale.border);
+            prm->descale.kernel, prm->descale.b, prm->descale.c, (double)prm->descale.src_left, prm->descale.border,
+            (prm->descale.src_width > 0.0f) ? (double)prm->descale.src_width * chroma_dst_plane.width / (double)luma_dst_plane.width : 0.0);
         if (sts != RGY_ERR_NONE) return sts;
         sts = prepareCore(m_cores[1][1], chroma_src_plane.height, chroma_dst_plane.height,
-            prm->descale.kernel, prm->descale.b, prm->descale.c, (double)prm->descale.src_top, prm->descale.border);
+            prm->descale.kernel, prm->descale.b, prm->descale.c, (double)prm->descale.src_top, prm->descale.border,
+            (prm->descale.src_height > 0.0f) ? (double)prm->descale.src_height * chroma_dst_plane.height / (double)luma_dst_plane.height : 0.0);
         if (sts != RGY_ERR_NONE) return sts;
     }
 

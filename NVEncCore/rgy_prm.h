@@ -2505,6 +2505,8 @@ struct VppDescale {
     float c;
     float src_left;
     float src_top;
+    float src_width;  //0=無効: 元の実効幅 (小数可, アナモルフィック/非整数ネイティブ寸法用)
+    float src_height; //0=無効: 元の実効高さ
     VppDescaleBorder border;
     bool autoDetect;
     int search_min;

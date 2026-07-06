@@ -1691,6 +1691,8 @@ VppDescale::VppDescale() :
     b(FILTER_DEFAULT_DESCALE_BICUBIC_B),
     c(FILTER_DEFAULT_DESCALE_BICUBIC_C),
     src_left(FILTER_DEFAULT_DESCALE_SRC_LEFT),
+    src_width(0.0f),
+    src_height(0.0f),
     src_top(FILTER_DEFAULT_DESCALE_SRC_TOP),
     border(VppDescaleBorder::Mirror),
     autoDetect(false),
@@ -1709,6 +1711,8 @@ bool VppDescale::operator==(const VppDescale &x) const {
         && b == x.b
         && c == x.c
         && src_left == x.src_left
+        && src_width == x.src_width
+        && src_height == x.src_height
         && src_top == x.src_top
         && border == x.border
         && autoDetect == x.autoDetect

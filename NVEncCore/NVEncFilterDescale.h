@@ -79,7 +79,7 @@ protected:
 private:
     RGY_ERR prepareCore(NVEncFilterDescaleCore &core, int src_dim, int dst_dim,
         VppDescaleKernel kernel, double b, double c_param,
-        double shift, VppDescaleBorder border);
+        double shift, VppDescaleBorder border, double activeDim = 0.0);
     RGY_ERR runProbe(NVEncFilterParamDescale *prm);
 
     struct ProbeForwardWeights {
