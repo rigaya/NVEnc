@@ -289,7 +289,7 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
     }
     if (!m_dstCrop
         || m_dstCrop->GetFilterParam()->frameOut.width  != pParam->frameOut.width
-        || m_srcCrop->GetFilterParam()->frameOut.height != pParam->frameOut.height) {
+        || m_dstCrop->GetFilterParam()->frameOut.height != pParam->frameOut.height) {
         AddMessage(RGY_LOG_DEBUG, _T("Create output csp conversion filter.\n"));
         unique_ptr<NVEncFilterCspCrop> filter(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
