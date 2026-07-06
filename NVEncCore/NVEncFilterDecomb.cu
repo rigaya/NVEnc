@@ -132,7 +132,7 @@ __global__ void kernel_is_combed(
     // 1threadはx方向にBOX_X_LOG2 pixelを処理、さらにthread.xでy方向にBOX_Y_LOG2pixelを処理
     // thread.yはx方向にBOX_X_LOG2 pixelずつ処理
     const int x = (blockIdx.x * blockDim.x + threadIdx.y) << BOX_X_LOG2;
-    const int y = blockIdx.y * blockDim.y + threadIdx.x;
+    const int y = blockIdx.y * blockDim.x + threadIdx.x;
 
     __shared__ int block_result;
     if (threadIdx.x == 0 && threadIdx.y == 0) {
@@ -187,7 +187,9 @@ RGY_ERR is_combed(
     }
 
     dim3 blockSize(1 << BOX_Y_LOG2, 64);
-    dim3 gridSize(divCeil(pFmaskPlane->width, blockSize.x), divCeil(pFmaskPlane->height, blockSize.y));
+    // blockSize.x (= 1<<BOX_Y_LOG2) threadIdx.x values span the y direction, so the grid
+    // must stride y by blockSize.x, not blockSize.y (which spans the x direction).
+    dim3 gridSize(divCeil(pFmaskPlane->width, blockSize.x), divCeil(pFmaskPlane->height, blockSize.x));
 
     kernel_is_combed<uchar4, BOX_X_LOG2, BOX_Y_LOG2><<<gridSize, blockSize, 0, stream>>>(
         (int *)pResultIsCombed->ptr,
