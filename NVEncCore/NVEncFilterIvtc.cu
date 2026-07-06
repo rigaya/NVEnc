@@ -104,7 +104,7 @@ __global__ void kernel_ivtc_field_overlay(IvtcFramePlane dst, const IvtcFramePla
 template<typename TypePixel, int bit_depth>
 __global__ void kernel_ivtc_score_candidates(
     const IvtcFramePlane prev, const IvtcFramePlane cur, const IvtcFramePlane next,
-    const int tff, const int nt, const int T, const int y0, const int y1, uint32_t *scores) {
+    const int tff, const int nt, const int combPelThresh, const int T, const int y0, const int y1, uint32_t *scores) {
     const int thx = threadIdx.x;
     const int thy = threadIdx.y;
     const int ix  = blockIdx.x * blockDim.x + thx;
@@ -164,9 +164,9 @@ __global__ void kernel_ivtc_score_candidates(
         for (int k = 0; k < 6; k++) {
             scores[wg_idx * 9 + k] = lred[k * WG_SIZE];
         }
-        scores[wg_idx * 9 + 6] = (lred[3 * WG_SIZE] >= (uint32_t)BLOCK_COMB_THRESH) ? 1u : 0u;
-        scores[wg_idx * 9 + 7] = (lred[4 * WG_SIZE] >= (uint32_t)BLOCK_COMB_THRESH) ? 1u : 0u;
-        scores[wg_idx * 9 + 8] = (lred[5 * WG_SIZE] >= (uint32_t)BLOCK_COMB_THRESH) ? 1u : 0u;
+        scores[wg_idx * 9 + 6] = (lred[3 * WG_SIZE] >= (uint32_t)combPelThresh) ? 1u : 0u;
+        scores[wg_idx * 9 + 7] = (lred[4 * WG_SIZE] >= (uint32_t)combPelThresh) ? 1u : 0u;
+        scores[wg_idx * 9 + 8] = (lred[5 * WG_SIZE] >= (uint32_t)combPelThresh) ? 1u : 0u;
     }
 }
 
@@ -372,11 +372,11 @@ __global__ void kernel_ivtc_bwdif_deint(
 }
 
 template<typename TypePixel, int bit_depth>
-RGY_ERR run_ivtc_score_candidates_typed(const RGYFrameInfo *pPrev, const RGYFrameInfo *pCur, const RGYFrameInfo *pNext, int tff, int nt, int T, int y0, int y1, uint32_t *scoreDev, cudaStream_t stream) {
+RGY_ERR run_ivtc_score_candidates_typed(const RGYFrameInfo *pPrev, const RGYFrameInfo *pCur, const RGYFrameInfo *pNext, int tff, int nt, int T, int combPelThresh, int y0, int y1, uint32_t *scoreDev, cudaStream_t stream) {
     const dim3 blockSize(IVTC_BLOCK_X, IVTC_BLOCK_Y);
     const dim3 gridSize(divCeil(pCur->width, blockSize.x), divCeil(pCur->height, blockSize.y));
     kernel_ivtc_score_candidates<TypePixel, bit_depth><<<gridSize, blockSize, 0, stream>>>(
-        ivtc_frame_plane(*pPrev), ivtc_frame_plane(*pCur), ivtc_frame_plane(*pNext), tff, nt, T, y0, y1, scoreDev);
+        ivtc_frame_plane(*pPrev), ivtc_frame_plane(*pCur), ivtc_frame_plane(*pNext), tff, nt, T, combPelThresh, y0, y1, scoreDev);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -445,12 +445,12 @@ RGY_ERR run_ivtc_field_overlay_typed(RGYFrameInfo *pDst, const RGYFrameInfo *pSr
     return RGY_ERR_NONE;
 }
 
-RGY_ERR run_ivtc_score_candidates(const RGYFrameInfo *pPrev, const RGYFrameInfo *pCur, const RGYFrameInfo *pNext, int tff, int nt, int T, int y0, int y1, uint32_t *scoreDev, cudaStream_t stream) {
+RGY_ERR run_ivtc_score_candidates(const RGYFrameInfo *pPrev, const RGYFrameInfo *pCur, const RGYFrameInfo *pNext, int tff, int nt, int T, int combPelThresh, int y0, int y1, uint32_t *scoreDev, cudaStream_t stream) {
     if (RGY_CSP_DATA_TYPE[pCur->csp] == RGY_DATA_TYPE_U8) {
-        return run_ivtc_score_candidates_typed<uint8_t, 8>(pPrev, pCur, pNext, tff, nt, T, y0, y1, scoreDev, stream);
+        return run_ivtc_score_candidates_typed<uint8_t, 8>(pPrev, pCur, pNext, tff, nt, T, combPelThresh, y0, y1, scoreDev, stream);
     }
     if (RGY_CSP_DATA_TYPE[pCur->csp] == RGY_DATA_TYPE_U16) {
-        return run_ivtc_score_candidates_typed<uint16_t, 16>(pPrev, pCur, pNext, tff, nt, T, y0, y1, scoreDev, stream);
+        return run_ivtc_score_candidates_typed<uint16_t, 16>(pPrev, pCur, pNext, tff, nt, T, combPelThresh, y0, y1, scoreDev, stream);
     }
     return RGY_ERR_UNSUPPORTED;
 }

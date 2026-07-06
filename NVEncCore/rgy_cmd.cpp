@@ -3996,7 +3996,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{ "enable", "guide", "post", "cycle", "drop", "combthresh", "cleanfrac",
-            "dthresh", "chroma", "back", "y0", "y1", "cadlock", "gthresh", "vthresh", "expand", "mixed", "hysteresis", "tff", "log" };
+            "dthresh", "chroma", "back", "y0", "y1", "nt", "cthresh", "combpel", "scthresh", "cadlock", "gthresh", "vthresh", "expand", "mixed", "hysteresis", "tff", "log" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -4142,6 +4142,42 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("y1")) {
                     try {
                         vpp->ivtc.y1 = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("nt")) {
+                    try {
+                        vpp->ivtc.nt = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cthresh")) {
+                    try {
+                        vpp->ivtc.cthresh = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("combpel")) {
+                    try {
+                        vpp->ivtc.combPel = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("scthresh")) {
+                    try {
+                        vpp->ivtc.scThresh = std::stof(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -12933,6 +12969,10 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_LST(_T("fp16"), nlmeans.fp16, list_vpp_nlmeans_fp16);
             ADD_BOOL(_T("shared_mem"), nlmeans.sharedMem);
         }
+            ADD_NUM(_T("nt"), ivtc.nt);
+            ADD_NUM(_T("cthresh"), ivtc.cthresh);
+            ADD_NUM(_T("combpel"), ivtc.combPel);
+            ADD_FLOAT(_T("scthresh"), ivtc.scThresh, 3);
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-nlmeans ") << tmp.str().substr(1);
         } else if (param->nlmeans.enable) {
@@ -15257,7 +15297,12 @@ tstring gen_cmd_help_vpp() {
         _T("      hysteresis=<float>    match hysteresis. (default=%.2f, 0.0 - 1.0)\n")
         _T("      tff=<auto|on|off>     top-field-first. default auto (derived from input picstruct)\n")
         _T("      log=<path|bool>       write per-frame match log to <path>.\n")
-        _T("                              log=true uses output filename base + .ivtc.log.txt\n"),
+        _T("                              log=true uses output filename base + .ivtc.log.txt\n")
+        _T("      nt=<int>              match-metric noise tolerance (default=10, 8-bit scale)\n")
+        _T("      cthresh=<int>         per-pixel comb threshold for match scoring (default=4)\n")
+        _T("      combpel=<int>         combed pixels per block to mark it combed (default=8)\n")
+        _T("      scthresh=<float>      scene-change threshold, fraction of max SAD\n")
+        _T("                              (default=0 = adaptive)\n"),
         FILTER_DEFAULT_IVTC_GUIDE, FILTER_DEFAULT_IVTC_POST,
         FILTER_DEFAULT_IVTC_DROP,
         FILTER_DEFAULT_IVTC_COMB_THRESH, FILTER_DEFAULT_IVTC_CLEAN_FRAC,

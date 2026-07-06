@@ -112,7 +112,7 @@ enum class IvtcMixedSection : uint8_t {
 };
 
 
-RGY_ERR run_ivtc_score_candidates(const RGYFrameInfo *pPrev, const RGYFrameInfo *pCur, const RGYFrameInfo *pNext, int tff, int nt, int T, int y0, int y1, uint32_t *scoreDev, cudaStream_t stream);
+RGY_ERR run_ivtc_score_candidates(const RGYFrameInfo *pPrev, const RGYFrameInfo *pCur, const RGYFrameInfo *pNext, int tff, int nt, int T, int combPelThresh, int y0, int y1, uint32_t *scoreDev, cudaStream_t stream);
 RGY_ERR run_ivtc_synthesize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pPrev, const RGYFrameInfo *pCur, const RGYFrameInfo *pNext, int tff, int match, int applyBlend, int dthresh, cudaStream_t stream);
 RGY_ERR run_ivtc_bwdif_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pPrev2, const RGYFrameInfo *pPrev, const RGYFrameInfo *pCur, const RGYFrameInfo *pNext, const RGYFrameInfo *pNext2, int tff, int sceneChange, int dthresh, cudaStream_t stream);
 RGY_ERR run_ivtc_frame_diff(const RGYFrameInfo *pA, const RGYFrameInfo *pB, uint32_t *diffDev, cudaStream_t stream);

@@ -1182,15 +1182,15 @@ RGY_ERR NVEncFilterIvtc::scoreCandidates(const RGYFrameInfo *prev, const RGYFram
     }
     const int bitDepth = RGY_CSP_BIT_DEPTH[cur->csp];
     const int maxVal = (1 << bitDepth) - 1;
-    const int nt = std::max(1, (maxVal * 10) / 255);
-    const int T  = std::max(1, (maxVal *  4) / 255);
+    const int nt = std::max(1, (maxVal * std::max(0, prm->ivtc.nt)) / 255);
+    const int T  = std::max(1, (maxVal * std::max(0, prm->ivtc.cthresh)) / 255);
     const int y0 = std::max(0, prm->ivtc.y0);
     const uint32_t CLIP_THRESH = std::max<uint32_t>(4u, (uint32_t)(nt * 4));
 
     auto scorePlane = [&](const RGYFrameInfo &planePrev, const RGYFrameInfo &planeCur, const RGYFrameInfo &planeNext,
                           uint64_t out[6], uint64_t outMax[3], uint64_t outBlocks[3]) -> RGY_ERR {
         const int y1local = (prm->ivtc.y1 > 0) ? std::min(prm->ivtc.y1, planeCur.height - 1) : 0;
-        auto err = run_ivtc_score_candidates(&planePrev, &planeCur, &planeNext, tffForScoring, nt, T, y0, y1local, (uint32_t *)m_scoreBuf->ptr, stream);
+        auto err = run_ivtc_score_candidates(&planePrev, &planeCur, &planeNext, tffForScoring, nt, T, std::max(1, prm->ivtc.combPel), y0, y1local, (uint32_t *)m_scoreBuf->ptr, stream);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at run_ivtc_score_candidates: %s.\n"), get_err_mes(err));
             return err;
@@ -2090,7 +2090,10 @@ RGY_ERR NVEncFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int id
     // (first call OR effectively-static previous frame), use the historical
     // 0.15 fixed value so the detector still behaves on still-opener content.
     double sceneFrac = 0.15;
-    if (m_lastSceneSAD > 1) {
+    if (prm->ivtc.scThresh > 0.0f) {
+        //ユーザー指定の固定しきい値 (0 = 従来の適応調整)
+        sceneFrac = (double)prm->ivtc.scThresh;
+    } else if (m_lastSceneSAD > 1) {
         const double prevFrac = (double)m_lastSceneSAD / (double)frameMaxSAD;
         sceneFrac = prevFrac * 1.5;
         if (sceneFrac < 0.12) sceneFrac = 0.12;

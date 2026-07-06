@@ -431,6 +431,10 @@ static const bool  FILTER_DEFAULT_IVTC_CHROMA = false;
 static const int   FILTER_DEFAULT_IVTC_BACK = 0;
 static const int   FILTER_DEFAULT_IVTC_Y0 = 0;
 static const int   FILTER_DEFAULT_IVTC_Y1 = 0;
+static const int   FILTER_DEFAULT_IVTC_NT = 10;        // match-metric noise tolerance (8-bit scale)
+static const int   FILTER_DEFAULT_IVTC_CTHRESH = 4;    // per-pixel comb threshold for match scoring (8-bit scale)
+static const int   FILTER_DEFAULT_IVTC_COMBPEL = 8;    // combed pixels per block before the block counts as combed
+static const float FILTER_DEFAULT_IVTC_SCTHRESH = 0.0f; // 0 = adaptive scene-change threshold (legacy)
 static const int   FILTER_DEFAULT_IVTC_CADENCE_LOCK = -1;
 static const int   FILTER_DEFAULT_IVTC_GTHRESH = 10;
 static const int   FILTER_DEFAULT_IVTC_EXPAND = -1;
@@ -2269,6 +2273,10 @@ struct VppIvtc {
     int y0;               // exclusion band: inclusive top row (0 = no band)
     int y1;               // exclusion band: inclusive bottom row (0 = no band)
     int cadenceLock;      // 5-frame cadence tracker + pattern-predicted match override.
+    int nt;               // match-metric noise tolerance, 0..255 on the 8-bit scale (scaled to bit depth)
+    int cthresh;          // per-pixel comb threshold used in match scoring, 0..255 on the 8-bit scale
+    int combPel;          // combed pixels per 32x8 block before the block counts as combed (1..256)
+    float scThresh;       // scene-change threshold as fraction of max SAD (0 = adaptive, legacy)
                           //   -1 = auto (enable when guide >= 1), 0 = off, 1 = on.
                           //   Auto-mode fires when guide mode is active because
                           //   the tracker only produces useful predictions when
