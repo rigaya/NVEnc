@@ -66,16 +66,16 @@ protected:
 
     std::vector<std::pair<double, double>> parsePoints(const tstring& str);
     template<typename Type>
-    std::vector<Type> createLUT(const std::vector<std::pair<double, double>>& vec, const int scale);
+    std::vector<Type> createLUT(const std::vector<std::pair<double, double>>& vec, const int scale, const VppCurvesInterp interpMode);
 
     template<typename Type>
-    RGY_ERR createLUTFromParam(std::vector<Type>& lut, const tstring& str, const RGY_CSP csp, const std::vector<Type> *master);
+    RGY_ERR createLUTFromParam(std::vector<Type>& lut, const tstring& str, const RGY_CSP csp, const std::vector<Type> *master, const VppCurvesInterp interpMode);
 
     template<typename Type>
     RGY_ERR sendLUTToGPU(std::unique_ptr<CUMemBuf>& mem, const std::vector<Type>& lut);
 
     template<typename Type>
-    RGY_ERR createLUT(const VppCurveParams& prm, const RGY_CSP csp);
+    RGY_ERR createLUT(const VppCurveParams& prm, const RGY_CSP csp, const VppCurvesInterp interpMode);
 
     RGY_ERR createLUT(const NVEncFilterParamCurves *prm);
 

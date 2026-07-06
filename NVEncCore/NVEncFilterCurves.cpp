@@ -81,7 +81,7 @@ std::vector<std::pair<double, double>> NVEncFilterCurves::parsePoints(const tstr
 }
 
 template<typename Type>
-std::vector<Type> NVEncFilterCurves::createLUT(const std::vector<std::pair<double, double>>& vec, const int scale) {
+std::vector<Type> NVEncFilterCurves::createLUT(const std::vector<std::pair<double, double>>& vec, const int scale, const VppCurvesInterp interpMode) {
     const double scale_inv = 1.0 / scale;
     std::vector<Type> table(scale, 0);
 
@@ -93,30 +93,52 @@ std::vector<Type> NVEncFilterCurves::createLUT(const std::vector<std::pair<doubl
     }
 
     std::vector<double> tmp(n, 0.0);
-    for (int i = 1; i < n - 1; i++) {
-        tmp[i] = (vec[i + 1].second - vec[i].second) / h[i] - (vec[i].second - vec[i - 1].second) / h[i - 1];
-    }
-
-    coef[0](0) = 1.0;
-    for (int i = 1; i < n - 1; i++) {
-        coef[i](0) = h[i - 1];
-        coef[i](1) = (h[i] + h[i - 1]) * 2.0;
-        coef[i](2) = h[i];
-    }
-    coef[n - 1](1) = 1.0;
-
-
-    for (int i = 1; i < n; i++) {
-        double d = coef[i](1) - coef[i](0) * coef[i - 1](2);
-        if (d != 0.0) {
-            d = 1.0 / d;
+    std::vector<double> tangent(n, 0.0);
+    if (interpMode == VppCurvesInterp::PCHIP) {
+        //PCHIP (Fritsch-Carlson単調エルミート): 各点で単調性を保つ勾配を選ぶため、
+        //自然スプラインと異なり点の間でオーバーシュートしない
+        if (n >= 2) {
+            std::vector<double> slope(n - 1, 0.0);
+            for (int i = 0; i < n - 1; i++) {
+                slope[i] = (vec[i + 1].second - vec[i].second) / h[i];
+            }
+            tangent[0] = slope[0];
+            tangent[n - 1] = slope[n - 2];
+            for (int i = 1; i < n - 1; i++) {
+                if (slope[i - 1] * slope[i] <= 0.0) {
+                    tangent[i] = 0.0; //極値では勾配0として単調性を維持
+                } else {
+                    const double w1 = 2.0 * h[i] + h[i - 1];
+                    const double w2 = h[i] + 2.0 * h[i - 1];
+                    tangent[i] = (w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i]);
+                }
+            }
         }
-        coef[i](2) *= d;
-        tmp[i] = (tmp[i] - coef[i](0) * tmp[i - 1]) * d;
-    }
+    } else {
+        for (int i = 1; i < n - 1; i++) {
+            tmp[i] = (vec[i + 1].second - vec[i].second) / h[i] - (vec[i].second - vec[i - 1].second) / h[i - 1];
+        }
 
-    for (int i = n - 2; i >= 0; i--) {
-        tmp[i] -= coef[i](2) * tmp[i + 1];
+        coef[0](0) = 1.0;
+        for (int i = 1; i < n - 1; i++) {
+            coef[i](0) = h[i - 1];
+            coef[i](1) = (h[i] + h[i - 1]) * 2.0;
+            coef[i](2) = h[i];
+        }
+        coef[n - 1](1) = 1.0;
+
+        for (int i = 1; i < n; i++) {
+            double d = coef[i](1) - coef[i](0) * coef[i - 1](2);
+            if (d != 0.0) {
+                d = 1.0 / d;
+            }
+            coef[i](2) *= d;
+            tmp[i] = (tmp[i] - coef[i](0) * tmp[i - 1]) * d;
+        }
+
+        for (int i = n - 2; i >= 0; i--) {
+            tmp[i] -= coef[i](2) * tmp[i + 1];
+        }
     }
 
 
@@ -132,9 +154,18 @@ std::vector<Type> NVEncFilterCurves::createLUT(const std::vector<std::pair<doubl
         const double y1 = vec[i + 1].second;
 
         const double a0 = y0;
-        const double a1 = (y1 - y0) / h[i] - h[i] * tmp[i] * 0.5 - h[i] * (tmp[i + 1] - tmp[i]) * (1.0 / 6.0);
-        const double a2 = tmp[i] * 0.5;
-        const double a3 = (tmp[i + 1] - tmp[i]) / (h[i] * 6.0);
+        double a1, a2, a3;
+        if (interpMode == VppCurvesInterp::PCHIP) {
+            //3次エルミート補間を (x - x_i) の多項式係数に展開
+            const double d = (y1 - y0) / h[i];
+            a1 = tangent[i];
+            a2 = (3.0 * d - 2.0 * tangent[i] - tangent[i + 1]) / h[i];
+            a3 = (tangent[i] + tangent[i + 1] - 2.0 * d) / (h[i] * h[i]);
+        } else {
+            a1 = (y1 - y0) / h[i] - h[i] * tmp[i] * 0.5 - h[i] * (tmp[i + 1] - tmp[i]) * (1.0 / 6.0);
+            a2 = tmp[i] * 0.5;
+            a3 = (tmp[i + 1] - tmp[i]) / (h[i] * 6.0);
+        }
 
         auto interp = [a0, a1, a2, a3](const double x) {
             return ((a3 * x + a2) * x + a1) * x + a0;
@@ -195,7 +226,7 @@ VppCurveParams NVEncFilterCurves::getPreset(const VppCurvesPreset preset) {
 }
 
 template<typename Type>
-RGY_ERR NVEncFilterCurves::createLUTFromParam(std::vector<Type>& lut, const tstring& str, const RGY_CSP csp, const std::vector<Type> *master) {
+RGY_ERR NVEncFilterCurves::createLUTFromParam(std::vector<Type>& lut, const tstring& str, const RGY_CSP csp, const std::vector<Type> *master, const VppCurvesInterp interpMode) {
     if (str.length() == 0 && master == nullptr) {
         return RGY_ERR_NONE;
     }
@@ -205,7 +236,7 @@ RGY_ERR NVEncFilterCurves::createLUTFromParam(std::vector<Type>& lut, const tstr
     } else if (points.size() == 1) {
         return RGY_ERR_INVALID_PARAM;
     }
-    lut = createLUT<Type>(points, 1 << RGY_CSP_BIT_DEPTH[csp]);
+    lut = createLUT<Type>(points, 1 << RGY_CSP_BIT_DEPTH[csp], interpMode);
     if (master && master->size() > 0) {
         for (size_t i = 0; i < lut.size(); i++) {
             lut[i] = (*master)[lut[i]];
@@ -232,22 +263,22 @@ RGY_ERR NVEncFilterCurves::sendLUTToGPU(std::unique_ptr<CUMemBuf>& mem, const st
 }
 
 template<typename Type>
-RGY_ERR NVEncFilterCurves::createLUT(const VppCurveParams& prm, const RGY_CSP csp) {
+RGY_ERR NVEncFilterCurves::createLUT(const VppCurveParams& prm, const RGY_CSP csp, const VppCurvesInterp interpMode) {
     std::vector<Type> lutR, lutG, lutB, lutM;
     auto sts = RGY_ERR_NONE;
-    if ((sts = createLUTFromParam<Type>(lutM, prm.m, csp, nullptr)) != RGY_ERR_NONE) {
+    if ((sts = createLUTFromParam<Type>(lutM, prm.m, csp, nullptr, interpMode)) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create LUT(m): %s.\n"), get_err_mes(sts));
         return sts;
     }
-    if ((sts = createLUTFromParam<Type>(lutR, prm.r, csp, &lutM)) != RGY_ERR_NONE) {
+    if ((sts = createLUTFromParam<Type>(lutR, prm.r, csp, &lutM, interpMode)) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create LUT(r): %s.\n"), get_err_mes(sts));
         return sts;
     }
-    if ((sts = createLUTFromParam<Type>(lutG, prm.g, csp, &lutM)) != RGY_ERR_NONE) {
+    if ((sts = createLUTFromParam<Type>(lutG, prm.g, csp, &lutM, interpMode)) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create LUT(g): %s.\n"), get_err_mes(sts));
         return sts;
     }
-    if ((sts = createLUTFromParam<Type>(lutB, prm.b, csp, &lutM)) != RGY_ERR_NONE) {
+    if ((sts = createLUTFromParam<Type>(lutB, prm.b, csp, &lutM, interpMode)) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create LUT(b): %s.\n"), get_err_mes(sts));
         return sts;
     }
@@ -277,8 +308,8 @@ RGY_ERR NVEncFilterCurves::createLUT(const NVEncFilterParamCurves *prm) {
     if (p.b.length() == 0) p.b = prm->curves.all;
 
     return (RGY_CSP_BIT_DEPTH[prm->frameIn.csp] > 8)
-        ? createLUT<uint16_t>(p, prm->frameIn.csp)
-        : createLUT<uint8_t>( p, prm->frameIn.csp);
+        ? createLUT<uint16_t>(p, prm->frameIn.csp, prm->curves.interp)
+        : createLUT<uint8_t>( p, prm->frameIn.csp, prm->curves.interp);
 }
 
 RGY_ERR NVEncFilterCurves::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {

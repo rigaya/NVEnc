@@ -2722,14 +2722,16 @@ VppCurves::VppCurves() :
     enable(false),
     preset(VppCurvesPreset::NONE),
     prm(),
-    all() {
+    all(),
+    interp(VppCurvesInterp::SPLINE) {
 }
 
 bool VppCurves::operator==(const VppCurves &x) const {
     return enable == x.enable
         && preset == x.preset
         && prm == x.prm
-        && all == x.all;
+        && all == x.all
+        && interp == x.interp;
 }
 bool VppCurves::operator!=(const VppCurves &x) const {
     return !(*this == x);
@@ -2758,6 +2760,9 @@ int VppTransform::rotate() const {
     if (transpose) {
         if (!flipY && flipX) {
             return 270;
+    if (interp != VppCurvesInterp::SPLINE) {
+        str += strsprintf(_T(", interp %s"), get_cx_desc(list_vpp_curves_interp, (int)interp));
+    }
         } else if (flipY && !flipX) {
             return 90;
         }

@@ -3041,6 +3041,17 @@ const CX_DESC list_vpp_curves_preset[] = {
 struct VppCurveParams {
     tstring r, g, b, m;
 
+enum class VppCurvesInterp {
+    SPLINE, //自然3次スプライン (従来)
+    PCHIP,  //単調エルミート (Fritsch-Carlson): 点間でオーバーシュートしない
+};
+
+const CX_DESC list_vpp_curves_interp[] = {
+    { _T("spline"), (int)VppCurvesInterp::SPLINE },
+    { _T("pchip"),  (int)VppCurvesInterp::PCHIP  },
+    { NULL, 0 }
+};
+
     VppCurveParams();
     VppCurveParams(const tstring& r_, const tstring& g_, const tstring& b_, const tstring& m_);
     bool operator==(const VppCurveParams &x) const;
@@ -3055,6 +3066,7 @@ struct VppCurves {
 
     VppCurves();
     bool operator==(const VppCurves &x) const;
+    VppCurvesInterp interp;
     bool operator!=(const VppCurves &x) const;
     tstring print() const;
 };
