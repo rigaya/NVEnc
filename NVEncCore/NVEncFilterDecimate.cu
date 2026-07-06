@@ -322,7 +322,7 @@ RGY_ERR calc_block_diff_plane(const bool useKernel2, const bool firstPlane, cons
     dim3 blockSize, gridSize;
     if (useKernel2) {
         blockSize = dim3(DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y);
-        gridSize = dim3(divCeil(divCeil(width, blockHalfX), blockSize.x), divCeil(divCeil(width, blockHalfY), blockSize.y));
+        gridSize = dim3(divCeil(divCeil(width, blockHalfX), blockSize.x), divCeil(divCeil(height, blockHalfY), blockSize.y));
     } else {
         blockSize = dim3(blockHalfX / 4, blockHalfY);
         gridSize = dim3(divCeil(width, blockSize.x * 4), divCeil(height, blockSize.y));
