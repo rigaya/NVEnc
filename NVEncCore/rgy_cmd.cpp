@@ -4871,6 +4871,15 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+                if (param_arg == _T("keep")) {
+                    try {
+                        vpp->mpdecimate.keep = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                 if (param_arg == _T("frac")) {
                     try {
                         vpp->mpdecimate.frac = std::stof(param_val);
@@ -4894,7 +4903,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 return 1;
             } else {
                 if (param == _T("log")) {
-                    vpp->decimate.log = true;
+                    vpp->mpdecimate.log = true;
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
@@ -12880,7 +12889,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("hi"), mpdecimate.hi);
             ADD_NUM(_T("max"), mpdecimate.max);
             ADD_FLOAT(_T("frac"), mpdecimate.frac, 3);
-            ADD_BOOL(_T("log"), decimate.log);
+            ADD_BOOL(_T("log"), mpdecimate.log);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-mpdecimate ") << tmp.str().substr(1);
@@ -13031,6 +13040,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("search_min"), descale.search_min);
             ADD_NUM(_T("search_max"), descale.search_max);
             ADD_NUM(_T("search_step"), descale.search_step);
+            ADD_NUM(_T("keep"), mpdecimate.keep);
             ADD_NUM(_T("detect_frames"), descale.detect_frames);
             ADD_BOOL(_T("show_scores"), descale.show_scores);
         }
@@ -15563,6 +15573,8 @@ tstring gen_cmd_help_vpp() {
         _T("      b=<float>                 bicubic b parameter (default=%.2f)\n")
         _T("      c=<float>                 bicubic c parameter (default=%.2f)\n")
         _T("      src_left=<float>          source horizontal sub-pixel offset (default=%.2f)\n")
+        _T("      keep=<int>                number of similar consecutive frames to keep\n")
+        _T("                                before starting to drop (default: 0).\n")
         _T("      src_top=<float>           source vertical sub-pixel offset (default=%.2f)\n")
         _T("      border_handling=<string>  mirror (default), zero, repeat\n")
         _T("      auto=<bool>               shorthand for kernel=auto and native resolution search\n")

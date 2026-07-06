@@ -244,7 +244,7 @@ RGY_ERR NVEncFilterMpdecimateCache::add(const RGYFrameInfo *pInputFrame, cudaStr
     return getEmpty()->set(pInputFrame, id, stream);
 }
 
-NVEncFilterMpdecimate::NVEncFilterMpdecimate() : m_dropCount(0), m_ref(-1), m_target(-1), m_cache(), m_eventDiff(), m_streamDiff(), m_streamTransfer() {
+NVEncFilterMpdecimate::NVEncFilterMpdecimate() : m_dropCount(0), m_similarRun(0), m_ref(-1), m_target(-1), m_cache(), m_eventDiff(), m_streamDiff(), m_streamTransfer() {
     m_name = _T("mpdecimate");
 }
 
@@ -331,6 +331,7 @@ RGY_ERR NVEncFilterMpdecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_
         const int max_value = (1 << RGY_CSP_BIT_DEPTH[prm->frameIn.csp]) - 1;
         m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
         m_dropCount = 0;
+        m_similarRun = 0;
         m_ref = -1;
         m_target = -1;
 
@@ -394,7 +395,15 @@ RGY_ERR NVEncFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         //GPU->CPUの転送終了を待機
         cudaStreamSynchronize(*m_streamTransfer.get());
 
-        const bool drop = dropFrame(targetFrame) && pInputFrame->ptr[0] != nullptr; //最終フレームは必ず出力する
+        const bool similar = dropFrame(targetFrame);
+        //keep: 連続similarフレームをkeep枚まで保持してからドロップを開始する (ffmpeg mpdecimateのkeepと同様)
+        const bool keepGate = (prm->mpdecimate.keep <= 0) || (m_similarRun >= prm->mpdecimate.keep);
+        if (similar) {
+            m_similarRun++;
+        } else {
+            m_similarRun = 0;
+        }
+        const bool drop = similar && keepGate && pInputFrame->ptr[0] != nullptr; //最終フレームは必ず出力する
         if (m_fpLog) {
             fprintf(m_fpLog.get(), "%s %8d: %10lld\n", (drop) ? "d" : " ", m_target, (long long)targetFrame->get()->frame.timestamp);
         }

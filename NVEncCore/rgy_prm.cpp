@@ -1516,6 +1516,7 @@ VppMpdecimate::VppMpdecimate() :
     enable(false),
     lo(FILTER_DEFAULT_MPDECIMATE_LO),
     hi(FILTER_DEFAULT_MPDECIMATE_HI),
+    keep(FILTER_DEFAULT_MPDECIMATE_KEEP),
     max(FILTER_DEFAULT_MPDECIMATE_MAX),
     frac(FILTER_DEFAULT_MPDECIMATE_FRAC),
     log(FILTER_DEFAULT_MPDECIMATE_LOG) {
@@ -1526,6 +1527,7 @@ bool VppMpdecimate::operator==(const VppMpdecimate& x) const {
     return enable == x.enable
         && lo == x.lo
         && hi == x.hi
+        && keep == x.keep
         && max == x.max
         && frac == x.frac
         && log == x.log;
@@ -1535,8 +1537,8 @@ bool VppMpdecimate::operator!=(const VppMpdecimate& x) const {
 }
 
 tstring VppMpdecimate::print() const {
-    return strsprintf(_T("mpdecimate: hi %d, lo %d, frac %.2f, max %d, log %s"),
-        hi, lo, frac, max,
+    return strsprintf(_T("mpdecimate: hi %d, lo %d, frac %.2f, max %d, keep %d, log %s"),
+        hi, lo, frac, max, keep,
         log ? _T("on") : _T("off"));
 }
 
