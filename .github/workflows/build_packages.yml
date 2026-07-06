@@ -99,6 +99,7 @@ jobs:
             FFPKG="${{ env.FFMPEG_PREFIX }}/lib/pkgconfig:${{ env.FFMPEG_PREFIX }}/lib/x86_64-linux-gnu/pkgconfig"
             export PKG_CONFIG_PATH="${VMAFPKG}:${FFPKG}${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
             meson setup ./build . --buildtype=release -Db_lto=true -Denable_libplacebo=enabled -Dlibplacebo_static=true -Denable_vmaf=enabled -Dlibvmaf_static=true -Dcpp_args="['\''-I${{ env.AVISYNTH_HEADER_INC }}'\'','\''-I${{ env.VAPOURSYNTH_HEADER_INC }}'\'','\''-I${{ env.VSHIP_HEADER_INC }}'\'']"
+            grep -F "#define LIBVMAF_STATIC_CUDA_LINK 1" ./build/rgy_config.h
           '
           docker exec build_pkg bash -lc "meson compile -C ./build -j${{ steps.prep.outputs.nproc }}"
           docker exec build_pkg bash -lc '
