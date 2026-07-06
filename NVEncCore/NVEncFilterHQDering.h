@@ -33,4 +33,9 @@ protected:
     std::unique_ptr<CUFrameBuf> m_morphTmp;
     std::unique_ptr<CUFrameBuf> m_hBlurred;
     std::unique_ptr<CUFrameBuf> m_blurred;
+    std::unique_ptr<CUFrameBuf> m_edgeCore; //minp用: inpandしたエッジ芯
+    std::unique_ptr<CUFrameBuf> m_maskTmp2;
+    std::unique_ptr<CUFrameBuf> m_maskTmp3;
+    std::unique_ptr<CUFrameBuf> m_contraTmp;  //sharp用: RG11/RG20チェーンと合成結果
+    std::unique_ptr<CUFrameBuf> m_contraTmp2;
 };

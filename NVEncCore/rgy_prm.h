@@ -2823,6 +2823,14 @@ struct VppDering {
     bool showmask;
     bool protect;
     tstring edge;
+    int thr;      //LimitFilter形式の変化量制限 (8bitスケール, 0=無効=従来動作)
+    float elast;  //thrの弾性減衰幅 (1.0 - 3.0)
+    int darkthr;  //暗くなる方向の個別制限 (-1=thrに追従)
+    int minp;     //エッジ芯のinpand回数 (リングマスクから除外, 0=従来動作)
+    int msmooth;  //リングマスクの3x3平滑化回数 (0=従来動作)
+    int drrep;    //ブラー結果の修復: 0=無効, 1=3x3min/maxへクランプ
+    int sharp;    //コントラシャープ: 0=無効, 1-3=強度 (ブラーで失われた線を安全な範囲で戻す)
+    std::array<bool, 3> planes; //Y, U, V (default: Yのみ = 従来動作)
 
     VppDering();
     bool operator==(const VppDering& x) const;

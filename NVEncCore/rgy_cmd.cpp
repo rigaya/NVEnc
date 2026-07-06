@@ -7687,7 +7687,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "enable", "mrad", "mthr", "sigma", "showmask", "protect", "edge" };
+        const auto paramList = std::vector<std::string>{ "enable", "mrad", "mthr", "sigma", "showmask", "protect", "edge" , "thr", "elast", "darkthr", "minp", "msmooth", "drrep", "sharp", "planes" };
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -7740,6 +7740,86 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (edge == _T("log") || edge == _T("sobel") || edge == _T("prewitt") || edge == _T("scharr") || edge == _T("kirsch") || edge == _T("laplacian")) {
                         vpp->dering.edge = edge;
                     } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thr")) {
+                    try {
+                        vpp->dering.thr = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("darkthr")) {
+                    try {
+                        vpp->dering.darkthr = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("minp")) {
+                    try {
+                        vpp->dering.minp = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("msmooth")) {
+                    try {
+                        vpp->dering.msmooth = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("drrep")) {
+                    try {
+                        vpp->dering.drrep = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sharp")) {
+                    try {
+                        vpp->dering.sharp = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("planes")) {
+                    vpp->dering.planes = { false, false, false };
+                    if (param_val == _T("all")) {
+                        vpp->dering.planes = { true, true, true };
+                    } else {
+                        for (const auto& plane : split(param_val, _T(":"))) {
+                            if      (plane == _T("y")) vpp->dering.planes[0] = true;
+                            else if (plane == _T("u")) vpp->dering.planes[1] = true;
+                            else if (plane == _T("v")) vpp->dering.planes[2] = true;
+                            else {
+                                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: all, or \":\"-separated list of y, u, v (e.g. y:u:v)."));
+                                return 1;
+                            }
+                        }
+                    }
+                    continue;
+                }
+                if (param_arg == _T("elast")) {
+                    try {
+                        vpp->dering.elast = std::stof(param_val);
+                    } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
@@ -7854,7 +7934,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "enable", "sharpness", "hdr" };
+        const auto paramList = std::vector<std::string>{ "enable", "sharpness", "chroma", "hdr" };
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -8251,7 +8331,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        auto paramList = std::vector<std::string>{ "contrast", "brightness", "gamma", "saturation", "swapuv", "hue" };
+        auto paramList = std::vector<std::string>{ "contrast", "brightness", "gamma", "saturation", "swapuv", "hue", "coring", "start_hue", "end_hue" };
         for (auto& channel : { "y", "cb", "cr", "r", "g", "b" }) {
             paramList.push_back(std::string(channel) + "offset");
             paramList.push_back(std::string(channel) + "gain");
@@ -13616,6 +13696,20 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("threshold"), warpsharp.threshold, 3);
             ADD_NUM(_T("blur"), warpsharp.blur);
             ADD_NUM(_T("type"), warpsharp.type);
+            ADD_NUM(_T("thr"), dering.thr);
+            ADD_FLOAT(_T("elast"), dering.elast, 2);
+            ADD_NUM(_T("darkthr"), dering.darkthr);
+            ADD_NUM(_T("minp"), dering.minp);
+            ADD_NUM(_T("msmooth"), dering.msmooth);
+            ADD_NUM(_T("drrep"), dering.drrep);
+            ADD_NUM(_T("sharp"), dering.sharp);
+            if (param->dering.planes != defaultPrm->dering.planes) {
+                tstring p;
+                if (param->dering.planes[0]) p += _T(":y");
+                if (param->dering.planes[1]) p += _T(":u");
+                if (param->dering.planes[2]) p += _T(":v");
+                tmp << _T(",planes=") << ((p.length() > 0) ? p.substr(1) : _T(""));
+            }
             ADD_FLOAT(_T("depth"), warpsharp.depth, 3);
             ADD_NUM(_T("chroma"), warpsharp.chroma);
             ADD_FLOAT(_T("depth_min"), warpsharp.depth_min, 3);
@@ -16005,7 +16099,21 @@ tstring gen_cmd_help_vpp() {
         _T("      sigma=<float>             Gaussian blur sigma (default=%.2f, 0.5 - 5.0)\n")
         _T("      showmask=<bool>           output effective mask only (default=%s)\n")
         _T("      protect=<bool>            protect original edge pixels (default=%s)\n")
-        _T("      edge=<string>             edge operator (default=%s, log|sobel|prewitt|scharr|kirsch|laplacian)\n"),
+        _T("      edge=<string>             edge operator (default=%s, log|sobel|prewitt|scharr|kirsch|laplacian)\n")
+        _T("      thr=<int>                 limit for the change per pixel, 8-bit scale\n")
+        _T("                                  (default=0 = no limit)\n")
+        _T("      elast=<float>             elastic falloff of thr (default=2.0, 1.0 - 3.0)\n")
+        _T("      darkthr=<int>             separate limit for darkening (default: follow thr)\n")
+        _T("      minp=<int>                edge-core inpand iterations excluded from the\n")
+        _T("                                  ring mask (default=0, 0 - 3)\n")
+        _T("      msmooth=<int>             ring mask smoothing iterations (default=0, 0 - 3)\n")
+        _T("      drrep=<int>               repair blurred clip: 0=off, 1=clamp to 3x3 min/max\n")
+        _T("                                  of the source (default=0)\n")
+        _T("      sharp=<int>               contra-sharpening level (default=0, 0 - 3)\n")
+        _T("                                  restores line strength lost to the blur, limited\n")
+        _T("                                  so it cannot re-introduce ringing.\n")
+        _T("      planes=<string>           target planes (default=y)\n")
+        _T("                                  all, or \":\"-separated list of y, u, v.\n"),
         FILTER_DEFAULT_HQDERING_MRAD, FILTER_DEFAULT_HQDERING_MTHR,
         FILTER_DEFAULT_HQDERING_SIGMA,
         FILTER_DEFAULT_HQDERING_SHOWMASK ? _T("true") : _T("false"),
