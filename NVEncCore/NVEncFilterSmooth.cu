@@ -548,8 +548,8 @@ __global__ void kernel_gen_qp_table(
     const int qpx = (blockIdx.x * blockDim.x + thx) * 4;
     const int qpy = blockIdx.y * blockDim.y + thy;
 
-    const int qpsx = max(qpx, qpSrcWidth);
-    const int qpsy = max(qpy, qpSrcHeight);
+    const int qpsx = min(qpx, qpSrcWidth - 1);
+    const int qpsy = min(qpy, qpSrcHeight - 1);
 
     ptrQPDst  += (qpy  * qpDstPitch + qpx  * sizeof(decltype(TypeQP4::x)));
     ptrQPSrc  += (qpsy * qpSrcPitch + qpsx * sizeof(decltype(TypeQP4::x)));
