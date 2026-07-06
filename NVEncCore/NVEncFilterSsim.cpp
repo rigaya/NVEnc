@@ -26,6 +26,8 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#include <algorithm>
+#include <cctype>
 #include <map>
 #include "rgy_avutil.h"
 #include "rgy_filesystem.h"
@@ -871,6 +873,16 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     VmafModel *model_ptr = nullptr;
     VmafModelCollection *model_collection_ptr = nullptr;
     const bool isModelPath = rgy_file_exists(model_str);
+    const auto model_str_lower = [&model_str]() {
+        auto str = model_str;
+        std::transform(str.begin(), str.end(), str.begin(), [](const unsigned char c) { return (char)std::tolower(c); });
+        return str;
+    }();
+    if (!isModelPath && model_str_lower.size() >= 5 && model_str_lower.substr(model_str_lower.size() - 5) == ".json") {
+        m_vmaf.error = 1;
+        AddMessage(RGY_LOG_ERROR, _T("vmaf model file not found: %s\n"), prm->vmaf.model.c_str());
+        return RGY_ERR_FILE_OPEN;
+    }
     if (isModelPath) {
         m_vmaf.error = m_libvmaf.p_vmaf_model_load_from_path()(&model_ptr, &model_cfg, model_str.c_str());
     } else {
