@@ -245,7 +245,7 @@ uint4 mie_spot8(uint4 src1, uint4 src2, uint4 src3, uint4 src4, uint4 src_spot) 
     pout.x = mie_spot2(src1.x, src2.x, src3.x, src4.x, src_spot.x);
     pout.y = mie_spot2(src1.y, src2.y, src3.y, src4.y, src_spot.y);
     pout.z = mie_spot2(src1.z, src2.z, src3.z, src4.z, src_spot.z);
-    pout.w = mie_spot2(src1.z, src2.w, src3.w, src4.w, src_spot.w);
+    pout.w = mie_spot2(src1.w, src2.w, src3.w, src4.w, src_spot.w);
     return pout;
 }
 
