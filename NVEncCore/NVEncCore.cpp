@@ -1533,7 +1533,7 @@ RGY_ERR NVEncCore::AllocateBufferEncoder(const uint32_t uInputWidth, const uint3
             // alpha channelが必要な場合、メモリ確保は連続で行い、NvEncRegisterResourceを分割する
             if (alphaChannel) {
                 m_stEncodeBuffer[i].stInputBfrAlpha.pNV12devPtr = (CUdeviceptr)nullptr;
-                m_stEncodeBuffer[i].stInputBfrAlpha.dwHeight = uInputWidth;
+                m_stEncodeBuffer[i].stInputBfrAlpha.dwWidth = uInputWidth;
                 m_stEncodeBuffer[i].stInputBfrAlpha.dwHeight = uInputHeight;
                 m_stEncodeBuffer[i].stInputBfrAlpha.bufferFmt = inputFormat;
                 m_stEncodeBuffer[i].stInputBfrAlpha.uNV12Stride = m_stEncodeBuffer[i].stInputBfr.uNV12Stride;
