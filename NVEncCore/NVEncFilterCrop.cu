@@ -1819,9 +1819,9 @@ __global__ void kernel_crop_rgb_yv12(uint8_t *__restrict__ pDstY, uint8_t *__res
         TypeOut2 *ptr_dst_v = (TypeOut2 *)(pDstV + y * dstPitchC + x * 2 * sizeof(TypeOut));
         TypeOut2 dstU, dstV;
         dstU.x = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x0_y0.y + yuv_x1_y0.y + yuv_x0_y1.y + yuv_x1_y1.y) * 0.25f);
-        dstU.y = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.y + yuv_x3_y0.y + yuv_x0_y1.y + yuv_x2_y1.y) * 0.25f);
+        dstU.y = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.y + yuv_x3_y0.y + yuv_x2_y1.y + yuv_x3_y1.y) * 0.25f);
         dstV.x = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x0_y0.z + yuv_x1_y0.z + yuv_x0_y1.z + yuv_x1_y1.z) * 0.25f);
-        dstV.y = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.z + yuv_x3_y0.z + yuv_x0_y1.z + yuv_x2_y1.z) * 0.25f);
+        dstV.y = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.z + yuv_x3_y0.z + yuv_x2_y1.z + yuv_x3_y1.z) * 0.25f);
         kernel_crop_store2<TypeOut, TypeOut2, aligned>(ptr_dst_u, dstU);
         kernel_crop_store2<TypeOut, TypeOut2, aligned>(ptr_dst_v, dstV);
     }
@@ -2181,8 +2181,8 @@ __global__ void kernel_crop_rgb_nv12(uint8_t *__restrict__ pDstY, uint8_t *__res
         TypeOut4 dstC;
         dstC.x = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x0_y0.y + yuv_x1_y0.y + yuv_x0_y1.y + yuv_x1_y1.y) * 0.25f);
         dstC.y = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x0_y0.z + yuv_x1_y0.z + yuv_x0_y1.z + yuv_x1_y1.z) * 0.25f);
-        dstC.z = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.y + yuv_x3_y0.y + yuv_x0_y1.y + yuv_x2_y1.y) * 0.25f);
-        dstC.w = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.z + yuv_x3_y0.z + yuv_x0_y1.z + yuv_x2_y1.z) * 0.25f);
+        dstC.z = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.y + yuv_x3_y0.y + yuv_x2_y1.y + yuv_x3_y1.y) * 0.25f);
+        dstC.w = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.z + yuv_x3_y0.z + yuv_x2_y1.z + yuv_x3_y1.z) * 0.25f);
         kernel_crop_store4<TypeOut, TypeOut4, aligned>(ptr_dst_c, dstC);
     }
 }
