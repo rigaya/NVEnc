@@ -2154,12 +2154,12 @@ struct VppDecomb {
 
 struct VppNnedi {
     bool              enable;
+    std::array<bool, 3> planes; //Y, U, V
     VppNnediField     field;
     VppNnediNSize     nsize;
     int               nns;
     VppNnediQuality   quality;
     int               prescreen;
-    std::array<bool, 3> planes; //Y, U, V
     VppNnediErrorType errortype;
     int               clamp;
     bool              doubleHeight;
@@ -2273,11 +2273,11 @@ struct VppIvtc {
     int back;             // 0 = always test P; 1 = only test P when current appears combed
     int y0;               // exclusion band: inclusive top row (0 = no band)
     int y1;               // exclusion band: inclusive bottom row (0 = no band)
-    int cadenceLock;      // 5-frame cadence tracker + pattern-predicted match override.
     int nt;               // match-metric noise tolerance, 0..255 on the 8-bit scale (scaled to bit depth)
     int cthresh;          // per-pixel comb threshold used in match scoring, 0..255 on the 8-bit scale
     int combPel;          // combed pixels per 32x8 block before the block counts as combed (1..256)
     float scThresh;       // scene-change threshold as fraction of max SAD (0 = adaptive, legacy)
+    int cadenceLock;      // 5-frame cadence tracker + pattern-predicted match override.
                           //   -1 = auto (enable when guide >= 1), 0 = off, 1 = on.
                           //   Auto-mode fires when guide mode is active because
                           //   the tracker only produces useful predictions when
@@ -2857,6 +2857,7 @@ struct VppMsharpen {
 struct VppCas {
     bool  enable;
     float sharpness;
+    bool  chroma; //色差プレーンにも適用する (default: false = 従来のluma-only)
     bool  hdr;
 
     VppCas();
@@ -2865,7 +2866,6 @@ struct VppCas {
     tstring print() const;
 };
 
-    bool  chroma; //色差プレーンにも適用する (default: false = 従来のluma-only)
 struct VppWarpsharp {
     bool enable;
     float threshold;
@@ -3041,9 +3041,6 @@ const CX_DESC list_vpp_curves_preset[] = {
     { NULL, 0 }
 };
 
-struct VppCurveParams {
-    tstring r, g, b, m;
-
 enum class VppCurvesInterp {
     SPLINE, //自然3次スプライン (従来)
     PCHIP,  //単調エルミート (Fritsch-Carlson): 点間でオーバーシュートしない
@@ -3054,6 +3051,9 @@ const CX_DESC list_vpp_curves_interp[] = {
     { _T("pchip"),  (int)VppCurvesInterp::PCHIP  },
     { NULL, 0 }
 };
+
+struct VppCurveParams {
+    tstring r, g, b, m;
 
     VppCurveParams();
     VppCurveParams(const tstring& r_, const tstring& g_, const tstring& b_, const tstring& m_);
@@ -3066,10 +3066,10 @@ struct VppCurves {
     VppCurvesPreset preset;
     VppCurveParams prm;
     tstring all;
+    VppCurvesInterp interp;
 
     VppCurves();
     bool operator==(const VppCurves &x) const;
-    VppCurvesInterp interp;
     bool operator!=(const VppCurves &x) const;
     tstring print() const;
 };
