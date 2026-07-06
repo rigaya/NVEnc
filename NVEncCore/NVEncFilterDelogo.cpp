@@ -96,7 +96,7 @@ std::array<double, 3> leastSquare2nd(const double *x, const double *y, size_t n)
             a[0] = (y[0] + y[1]) * 0.5;
         } else {
             a[1] = (y[1] - y[0]) / (x[1] - x[0]);
-            a[0] = y[0] - x[0] / a[1];
+            a[0] = y[0] - x[0] * a[1];
         }
     } else {
         std::array<double, 5> Ae;
