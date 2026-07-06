@@ -184,9 +184,23 @@ RGY_ERR NVEncFilterCas::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo
     for (int i = 1; i < nPlanes; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)i);
-        err = copyPlaneAsync(&planeDst, &planeSrc, stream);
+        if (prm->cas.chroma) {
+            //chroma=onの場合は色差プレーンにも適用する
+            switch (RGY_CSP_DATA_TYPE[pInputFrame->csp]) {
+            case RGY_DATA_TYPE_U8:
+                err = cas_plane<uint8_t, 8>(&planeDst, &planeSrc, peak, apply_gamma2, stream);
+                break;
+            case RGY_DATA_TYPE_U16:
+                err = cas_plane<uint16_t, 16>(&planeDst, &planeSrc, peak, apply_gamma2, stream);
+                break;
+            default:
+                return RGY_ERR_UNSUPPORTED;
+            }
+        } else {
+            err = copyPlaneAsync(&planeDst, &planeSrc, stream);
+        }
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("cas chroma copy (plane %d) failed: %s.\n"), i, get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("cas chroma (plane %d) failed: %s.\n"), i, get_err_mes(err));
             return err;
         }
     }

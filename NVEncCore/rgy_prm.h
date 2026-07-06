@@ -2857,6 +2857,7 @@ struct VppCas {
     tstring print() const;
 };
 
+    bool  chroma; //色差プレーンにも適用する (default: false = 従来のluma-only)
 struct VppWarpsharp {
     bool enable;
     float threshold;

@@ -2446,8 +2446,8 @@ bool VppCas::operator!=(const VppCas& x) const {
 }
 
 tstring VppCas::print() const {
-    return strsprintf(_T("cas: sharpness %.2f, hdr %s"),
-        sharpness, hdr ? _T("true") : _T("false"));
+    return strsprintf(_T("cas: sharpness %.2f, hdr %s%s"),
+        sharpness, hdr ? _T("true") : _T("false"), chroma ? _T(", chroma on") : _T(""));
 }
 
 VppWarpsharp::VppWarpsharp() :
@@ -2464,11 +2464,13 @@ VppWarpsharp::VppWarpsharp() :
 }
 
 bool VppWarpsharp::operator==(const VppWarpsharp& x) const {
+    chroma(false),
     return enable == x.enable
         && threshold == x.threshold
         && blur == x.blur
         && type == x.type
         && depth == x.depth
+        && chroma == x.chroma
         && chroma == x.chroma
         && depth_min == x.depth_min
         && depth_max == x.depth_max

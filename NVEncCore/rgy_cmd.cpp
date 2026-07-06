@@ -7959,6 +7959,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("chroma")) {
                     try {
+                if (param_arg == _T("chroma")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->cas.chroma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                         vpp->warpsharp.chroma = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
@@ -13739,6 +13749,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 && param->deband.threY == param->deband.threCr) {
                 ADD_NUM(_T("thre"), deband.threY);
             } else {
+            ADD_BOOL(_T("chroma"), cas.chroma);
                 ADD_NUM(_T("thre_y"), deband.threY);
                 ADD_NUM(_T("thre_cb"), deband.threCb);
                 ADD_NUM(_T("thre_cr"), deband.threCr);
@@ -16026,7 +16037,8 @@ tstring gen_cmd_help_vpp() {
         _T("     luma-only Contrast Adaptive Sharpening filter.\n")
         _T("    params\n")
         _T("      sharpness=<float>         sharpening strength (default=%.2f, 0.0 - 1.0)\n")
-        _T("      hdr=<bool>                skip SDR gamma 2.0 luma approximation (default=%s)\n"),
+        _T("      hdr=<bool>                skip SDR gamma 2.0 luma approximation (default=%s)\n")
+        _T("      chroma=<bool>             also sharpen chroma planes (default=false)\n"),
         FILTER_DEFAULT_CAS_SHARPNESS,
         FILTER_DEFAULT_CAS_HDR ? _T("true") : _T("false"));
 #endif
