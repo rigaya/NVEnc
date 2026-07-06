@@ -6857,6 +6857,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+                if (param_arg == _T("chroma")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->vinverse.chroma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                 if (param_arg == _T("sstr")) {
                     try {
                         vpp->vinverse.sstr = std::stof(param_val);
@@ -6888,16 +6898,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     try {
                         vpp->vinverse.thr = std::stof(param_val);
                     } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("chroma")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->vinverse.chroma = b;
-                    } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }

@@ -396,11 +396,15 @@ RGY_ERR NVEncFilterVinverse::procPlaneFinalize(RGYFrameInfo *pOutputPlane, const
 RGY_ERR NVEncFilterVinverse::procPlane(int planeIdx, RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYFrameInfo *pPb3Plane, RGYFrameInfo *pPb6Plane,
     VppVinverseMode mode, float sstr, float scl, int thr_hbd, int amnt_hbd, int h_offset, cudaStream_t stream) {
     RGY_ERR err = RGY_ERR_NONE;
+    bool chromaSbr = false;
+    if (auto prm = std::dynamic_pointer_cast<NVEncFilterParamVinverse>(m_param); prm) {
+        chromaSbr = prm->vinverse.chroma;
+    }
     if (mode == VppVinverseMode::Vinverse) {
         err = procPlaneVblur35(pPb3Plane, pPb6Plane, pInputPlane, stream);
         if (err != RGY_ERR_NONE) return err;
     } else {
-        if (planeIdx == 0) {
+        if (planeIdx == 0 || chromaSbr) {
             err = procPlaneVblur3(pPb6Plane, pInputPlane, stream);
             if (err != RGY_ERR_NONE) return err;
             err = procPlaneMakediff(pPb3Plane, pInputPlane, pPb6Plane, h_offset, stream);
