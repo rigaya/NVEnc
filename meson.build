@@ -456,7 +456,7 @@ int main(void) {
 '''
     have_vmaf_cuda_link = cpp.links(
       vmaf_cuda_link_code,
-      dependencies: [vmaf_compile_dep, vmaf_link_dep, cuda_driver_dep],
+      dependencies: [vmaf_compile_dep, vmaf_link_dep, cuda_driver_dep, dl_dep],
       args: get_option('cpp_args'),
     )
   endif
