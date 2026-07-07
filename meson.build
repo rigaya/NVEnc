@@ -576,6 +576,15 @@ int main(void) {
       endif
     endif
   endforeach
+  if not have_libvship_headers
+    have_libvship_headers = cpp.compiles(
+      libvship_headers_code,
+      args: get_option('cpp_args'),
+    )
+    if have_libvship_headers
+      message('Using Vship headers from cpp_args')
+    endif
+  endif
   if enable_libvship_option == 'enabled' and not have_libvship_headers
     error('Vship headers not found (VshipAPI.h)')
   endif
