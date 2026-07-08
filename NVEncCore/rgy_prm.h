@@ -3696,12 +3696,10 @@ struct VppOnnx {
     tstring provider;    // NVEnc execution provider: "auto" (=cuda, default), "cuda", "tensorrt"
     tstring device;      // accepted for CLI compatibility (QSV/VCE); on NVEnc inference binds to the encoder's CUDA device
     tstring interop;     // accepted for CLI compatibility; NVEnc uses the host-readback path
-    // The pre/post a model needs is inferred from its input/output channel count
-    // (1ch luma SR, 3ch RGB, 4ch RGB+noise, 2ch gray+noise, 3->2ch chroma). These
-    // options control the colour conversion + conditioning shared by the
-    // multi-channel families.
-    tstring colormatrix; // "auto" (bt601 for SD, bt709 for HD), "bt601", "bt709", "bt2020"
-    tstring colorrange;  // "auto" (tv), "tv", "pc"
+    CspMatrix colormatrix;    // 入力側YUV->RGB変換のマトリクス。auto=SD/HDで自動判定。
+    CspMatrix colormatrixOut; // 出力側RGB->YUV変換のマトリクス。auto=入力と同じ=従来動作。
+                              // SDR->HDR等、モデルが色空間を変えるとき用 (例: bt709入力/bt2020nc出力)
+    CspColorRange colorrange; // auto=tv
     tstring colorspace;  // 3ch models: "rgb" (default) or "ycbcr"
     int     noise;       // noise sigma (0..255) fed to the conditioning channel of noise models (default 15)
     // Opt-in end-of-chain resize (out_res=). When postResizeW/H are set, an internal

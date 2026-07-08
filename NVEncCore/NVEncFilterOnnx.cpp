@@ -56,6 +56,38 @@ namespace {
 static inline int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 static inline float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
+static const TCHAR *cx_desc_or_unknown(const CX_DESC *list, int value) {
+    const auto desc = get_cx_desc(list, value);
+    return (desc != nullptr) ? desc : _T("unknown");
+}
+
+static bool onnx_matrix_to_coeff_id(CspMatrix matrix, int inputHeight, int& matrixSel) {
+    if (matrix == RGY_MATRIX_AUTO || (int)matrix == COLOR_VALUE_AUTO_RESOLUTION) {
+        matrixSel = (inputHeight <= 576) ? 601 : 709;
+        return true;
+    }
+    switch (matrix) {
+    case RGY_MATRIX_ST170_M:
+    case RGY_MATRIX_BT470_BG:
+        matrixSel = 601;
+        return true;
+    case RGY_MATRIX_BT709:
+        matrixSel = 709;
+        return true;
+    case RGY_MATRIX_BT2020_NCL:
+        matrixSel = 2020;
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool onnx_supported_colorrange(CspColorRange range) {
+    return range == RGY_COLORRANGE_AUTO
+        || range == RGY_COLORRANGE_LIMITED
+        || range == RGY_COLORRANGE_FULL;
+}
+
 // Bilinear upscale of one 8-bit channel from (sw x sh) to (sw*scale x sh*scale)
 // on the CPU (host path).
 static void upscale_bilinear_u8(uint8_t *dst, const int dstPitch, const int dstStride,
@@ -143,18 +175,22 @@ static void copy_plane_u8(uint8_t *dst, const int dstPitch, const int dstStride,
 }
 } // namespace
 
-void NVEncFilterOnnx::setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax) {
+void NVEncFilterOnnx::setupColorCoeffs(int matrixSelIn, int matrixSelOut, bool rangeTV, int pixMax) {
     float Kr = 0.2126f, Kb = 0.0722f;        // BT.709 default
-    if (matrixSel == 601)  { Kr = 0.299f;  Kb = 0.114f; }
-    if (matrixSel == 2020) { Kr = 0.2627f; Kb = 0.0593f; }
+    if (matrixSelIn == 601)  { Kr = 0.299f;  Kb = 0.114f; }
+    if (matrixSelIn == 2020) { Kr = 0.2627f; Kb = 0.0593f; }
     const float Kg = 1.0f - Kr - Kb;
     m_matVR = 2.0f * (1.0f - Kr);
     m_matUG = -2.0f * Kb * (1.0f - Kb) / Kg;
     m_matVG = -2.0f * Kr * (1.0f - Kr) / Kg;
     m_matUB = 2.0f * (1.0f - Kb);
-    m_matRY = Kr;                            m_matGY = Kg;                            m_matBY = Kb;
-    m_matRU = -Kr / (2.0f * (1.0f - Kb));    m_matGU = -Kg / (2.0f * (1.0f - Kb));    m_matBU = 0.5f;
-    m_matRV = 0.5f;                          m_matGV = -Kg / (2.0f * (1.0f - Kr));    m_matBV = -Kb / (2.0f * (1.0f - Kr));
+    float Kr2 = 0.2126f, Kb2 = 0.0722f;      // BT.709 default
+    if (matrixSelOut == 601)  { Kr2 = 0.299f;  Kb2 = 0.114f; }
+    if (matrixSelOut == 2020) { Kr2 = 0.2627f; Kb2 = 0.0593f; }
+    const float Kg2 = 1.0f - Kr2 - Kb2;
+    m_matRY = Kr2;                             m_matGY = Kg2;                             m_matBY = Kb2;
+    m_matRU = -Kr2 / (2.0f * (1.0f - Kb2));    m_matGU = -Kg2 / (2.0f * (1.0f - Kb2));    m_matBU = 0.5f;
+    m_matRV = 0.5f;                            m_matGV = -Kg2 / (2.0f * (1.0f - Kr2));    m_matBV = -Kb2 / (2.0f * (1.0f - Kr2));
     m_yOff   = rangeTV ? (16.0f  * pixMax / 255.0f) : 0.0f;
     m_yRange = rangeTV ? (219.0f * pixMax / 255.0f) : (float)pixMax;
     m_yScale = 1.0f / m_yRange;
@@ -195,6 +231,25 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         if (prm->onnx.noise == 15) {
             prm->onnx.noise = entry->noise;
         }
+        if (prm->onnx.colormatrixOut == RGY_MATRIX_AUTO && entry->colormatrixOut != RGY_MATRIX_UNSPECIFIED) {
+            prm->onnx.colormatrixOut = entry->colormatrixOut;
+        }
+    }
+    int matrixSel = 0;
+    if (!onnx_matrix_to_coeff_id(prm->onnx.colormatrix, prm->frameIn.height, matrixSel)) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: unsupported colormatrix %s.\n"),
+            cx_desc_or_unknown(list_colormatrix, prm->onnx.colormatrix));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (!onnx_matrix_to_coeff_id(prm->onnx.colormatrixOut, prm->frameIn.height, matrixSel)) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: unsupported colormatrix_out %s.\n"),
+            cx_desc_or_unknown(list_colormatrix, prm->onnx.colormatrixOut));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (!onnx_supported_colorrange(prm->onnx.colorrange)) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: unsupported colorrange %s.\n"),
+            cx_desc_or_unknown(list_colorrange, prm->onnx.colorrange));
+        return RGY_ERR_UNSUPPORTED;
     }
     if (!rgy_file_exists(prm->onnx.modelFile)) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: model file not found: %s\n"), prm->onnx.modelFile.c_str());
@@ -269,13 +324,15 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     const int noiseClamped = std::max(0, std::min(255, prm->onnx.noise));
     m_sigmaNorm = (float)noiseClamped / 255.0f;
 
-    int matrixSel;
-    if      (prm->onnx.colormatrix == _T("bt601"))  matrixSel = 601;
-    else if (prm->onnx.colormatrix == _T("bt2020")) matrixSel = 2020;
-    else if (prm->onnx.colormatrix == _T("bt709"))  matrixSel = 709;
-    else                                            matrixSel = (inH <= 576) ? 601 : 709; // auto
-    const bool rangeTV = (prm->onnx.colorrange != _T("pc")); // auto/tv -> TV
-    setupColorCoeffs(matrixSel, rangeTV, 255);
+    int matrixSelOut = 0;
+    onnx_matrix_to_coeff_id(prm->onnx.colormatrix, inH, matrixSel);
+    if (prm->onnx.colormatrixOut == RGY_MATRIX_AUTO) {
+        matrixSelOut = matrixSel;
+    } else {
+        onnx_matrix_to_coeff_id(prm->onnx.colormatrixOut, inH, matrixSelOut);
+    }
+    const bool rangeTV = (prm->onnx.colorrange != RGY_COLORRANGE_FULL);
+    setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, 255);
 
     // Output frame buffer at the (possibly upscaled) resolution.
     auto frameOut = prm->frameOut;
@@ -346,6 +403,9 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         m_ov->providerName().c_str());
     if (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise || m_io == OnnxIO::Chroma) {
         info += strsprintf(_T(" matrix=bt%d range=%s"), matrixSel, rangeTV ? _T("tv") : _T("pc"));
+        if (matrixSelOut != matrixSel) {
+            info += strsprintf(_T(" matrix_out=bt%d"), matrixSelOut);
+        }
     }
     if (m_io == OnnxIO::GrayNoise || m_io == OnnxIO::RGBNoise) {
         info += strsprintf(_T(" noise=%d"), noiseClamped);

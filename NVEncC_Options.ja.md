@@ -4365,10 +4365,12 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
     ONNXモデルファイルのパス (必須)。`--vpp-onnx-model-dir` 指定時は、models.json に登録されたモデル名を拡張子なしで指定可能。
   - provider=&lt;string&gt; (デフォルト: auto)  
     推論に使用する実行プロバイダ。auto / cuda / tensorrt (trt)
-  - colormatrix=&lt;string&gt; (デフォルト: auto)  
-    色行列。auto (SD=bt601, HD=bt709) / bt601 / bt709 / bt2020
-  - colorrange=&lt;string&gt; (デフォルト: auto)  
-    色域。auto (tv) / tv / pc
+  - colormatrix=&lt;string&gt; (デフォルト: auto)
+    [`--colormatrix`](#--colormatrix-string) と同じ名前を受け付ける。`--vpp-onnx` で対応するのは auto / auto_res / smpte170m / bt470bg / bt709 / bt2020nc。互換性のため、旧指定名の bt601 と bt2020 も smpte170m / bt2020nc の別名として受け付ける。
+  - colormatrix_out=&lt;string&gt; (デフォルト: auto)
+    出力側 RGB→YUV 変換の色行列。auto では colormatrix と同じ色行列を使用する。BT.2020/PQ RGB を出力する SDR→HDR モデルでは bt2020nc を指定する。
+  - colorrange=&lt;string&gt; (デフォルト: auto)
+    [`--colorrange`](#--colorrange-string) と同じ名前を受け付ける。`--vpp-onnx` で対応するのは auto / tv / limited / pc / full。
   - colorspace=&lt;string&gt; (デフォルト: rgb)  
     3chモデルの色空間。rgb / ycbcr (ArtCNN *_YCbCr 用)
   - noise=&lt;int&gt; (デフォルト: 15, 範囲: 0 - 255)  
@@ -4389,6 +4391,7 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
 - **使用可能なモデル名一覧**
 
   models.json に登録済みのモデル名は model= で拡張子なしで指定可能 (例: `model=artcnn_c4f32`)。使用するには [`--vpp-onnx-model-dir`](#--vpp-onnx-model-dir-string) でモデルディレクトリを指定する必要がある。
+  models.json では `"colormatrix_out": "bt2020nc"` を指定できる。`colormatrix_out=auto` の場合は、NVEnc が登録された出力側色行列を使用する。
 
   | ファミリー | モデル名 |
   |-----------|---------|
@@ -4400,6 +4403,7 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
   | Anime4K Restore | anime4k_restore_cnn_l, anime4k_restore_cnn_soft_l, anime4k_restore_cnn_soft_ul, anime4k_restore_cnn_soft_vl, anime4k_restore_cnn_ul, anime4k_restore_cnn_vl |
   | Anime4K Upscale CNN | anime4k_upscale_cnn_s, anime4k_upscale_cnn_s_dn, anime4k_upscale_cnn_m, anime4k_upscale_cnn_m_dn, anime4k_upscale_cnn_l, anime4k_upscale_cnn_l_dn, anime4k_upscale_cnn_ul, anime4k_upscale_cnn_ul_dn, anime4k_upscale_cnn_vl, anime4k_upscale_cnn_vl_dn |
   | Anime4K GAN | anime4k_gan_s_x2, anime4k_gan_m_x2, anime4k_gan_l_x3, anime4k_gan_vl_x3, anime4k_gan_ul_x4, anime4k_gan_uul_x4 |
+  | HDRTVNet++ | hdrtvnetpp_agcm_dynamic, hdrtvnetpp_ensemble_dynamic |
   | WebSR | websr_cnn2x_s_rl, websr_cnn2x_s_an, websr_cnn2x_s_3d, websr_cnn2x_m_rl, websr_cnn2x_m_an, websr_cnn2x_m_3d, websr_cnn2x_l_rl, websr_cnn2x_l_an, websr_cnn2x_l_3d |
   | waifu2x CUNet | waifu2x_cunet_scale2x, waifu2x_cunet_noise0, waifu2x_cunet_noise0_scale2x, waifu2x_cunet_noise1, waifu2x_cunet_noise1_scale2x, waifu2x_cunet_noise2, waifu2x_cunet_noise2_scale2x, waifu2x_cunet_noise3, waifu2x_cunet_noise3_scale2x |
   | waifu2x UpConv7 | waifu2x_upconv7_art_scale2x, waifu2x_upconv7_art_noise0_scale2x, waifu2x_upconv7_art_noise1_scale2x, waifu2x_upconv7_art_noise2_scale2x, waifu2x_upconv7_art_noise3_scale2x, waifu2x_upconv7_photo_scale2x, waifu2x_upconv7_photo_noise0_scale2x, waifu2x_upconv7_photo_noise1_scale2x, waifu2x_upconv7_photo_noise2_scale2x, waifu2x_upconv7_photo_noise3_scale2x |
@@ -4419,6 +4423,7 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
   --vpp-onnx model=artcnn_c4f32
   --vpp-onnx model=acnet/acnet_s.onnx,provider=cuda,out_res=1920x1080,resize=lanczos4
   --vpp-onnx model=anime4k_restore_cnn_l,out_res=-2x1080
+  --vpp-onnx model=hdrtvnetpp_agcm_dynamic,colormatrix=bt709 --output-depth 10 --colormatrix bt2020nc --colorprim bt2020 --transfer smpte2084
   ```
 
 ### --vpp-onnx-model-dir &lt;string&gt;

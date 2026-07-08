@@ -9152,7 +9152,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 
         const auto paramList = std::vector<std::string>{
             "enable", "model", "modelfile", "provider", "device", "interop",
-            "colormatrix", "colorrange", "colorspace", "noise", "out_res", "resize"
+            "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "out_res", "resize"
         };
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -9200,21 +9200,39 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("colormatrix")) {
-                    const tstring v = tolowercase(param_val);
-                    if (v == _T("auto") || v == _T("bt601") || v == _T("bt709") || v == _T("bt2020")) {
-                        vpp->onnx.colormatrix = v;
+                    int value = 0;
+                    if (get_list_value(list_colormatrix, param_val.c_str(), &value)) {
+                        vpp->onnx.colormatrix = (CspMatrix)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        const auto compatMatrix = tolowercase(param_val);
+                        // 互換性のため、公開済みの旧指定名だけは --vpp-onnx colormatrix で吸収する。
+                        if (compatMatrix == _T("bt601")) {
+                            vpp->onnx.colormatrix = RGY_MATRIX_ST170_M;
+                        } else if (compatMatrix == _T("bt2020")) {
+                            vpp->onnx.colormatrix = RGY_MATRIX_BT2020_NCL;
+                        } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_colormatrix);
+                            return 1;
+                        }
+                    }
+                    continue;
+                }
+                if (param_arg == _T("colormatrix_out")) {
+                    int value = 0;
+                    if (get_list_value(list_colormatrix, param_val.c_str(), &value)) {
+                        vpp->onnx.colormatrixOut = (CspMatrix)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_colormatrix);
                         return 1;
                     }
                     continue;
                 }
                 if (param_arg == _T("colorrange")) {
-                    const tstring v = tolowercase(param_val);
-                    if (v == _T("auto") || v == _T("tv") || v == _T("limited") || v == _T("pc") || v == _T("full")) {
-                        vpp->onnx.colorrange = (v == _T("limited")) ? _T("tv") : (v == _T("full")) ? _T("pc") : v;
+                    int value = 0;
+                    if (get_list_value(list_colorrange, param_val.c_str(), &value)) {
+                        vpp->onnx.colorrange = (CspColorRange)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_colorrange);
                         return 1;
                     }
                     continue;
@@ -13993,8 +14011,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         if (param->onnx.enable || save_disabled_prm) {
             if (!param->onnx.modelFile.empty()) tmp << _T(",model=") << param->onnx.modelFile;
             if (param->onnx.provider != defaultPrm->onnx.provider) tmp << _T(",provider=") << param->onnx.provider;
-            if (param->onnx.colormatrix != defaultPrm->onnx.colormatrix) tmp << _T(",colormatrix=") << param->onnx.colormatrix;
-            if (param->onnx.colorrange != defaultPrm->onnx.colorrange) tmp << _T(",colorrange=") << param->onnx.colorrange;
+            if (param->onnx.colormatrix != defaultPrm->onnx.colormatrix) tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->onnx.colormatrix);
+            if (param->onnx.colormatrixOut != RGY_MATRIX_AUTO) tmp << _T(",colormatrix_out=") << get_cx_desc(list_colormatrix, param->onnx.colormatrixOut);
+            if (param->onnx.colorrange != defaultPrm->onnx.colorrange) tmp << _T(",colorrange=") << get_cx_desc(list_colorrange, param->onnx.colorrange);
             if (param->onnx.colorspace != defaultPrm->onnx.colorspace) tmp << _T(",colorspace=") << param->onnx.colorspace;
             if (param->onnx.noise != defaultPrm->onnx.noise) tmp << _T(",noise=") << param->onnx.noise;
             if (param->onnx.postResizeW != 0 && param->onnx.postResizeH != 0) {
@@ -16393,8 +16412,15 @@ _T("      m=<string>\n")
         _T("      model=<path>                path to the .onnx model (required)\n")
         _T("      provider=<string>           execution provider for inference\n")
         _T("                                    auto (default, = cuda), cuda, tensorrt\n")
-        _T("      colormatrix=<string>        auto(default), bt601, bt709, bt2020\n")
-        _T("      colorrange=<string>         auto(default,=tv), tv, pc\n")
+        _T("      colormatrix=<string>        same list as --colormatrix; onnx supports\n")
+        _T("                                    auto / auto_res / smpte170m / bt470bg\n")
+        _T("                                    / bt709 / bt2020nc\n")
+        _T("      colormatrix_out=<string>    matrix for the OUTPUT RGB->YUV conversion\n")
+        _T("                                    (same list as colormatrix; auto=same as input;\n")
+        _T("                                    set bt2020nc for models\n")
+        _T("                                    that convert SDR/709 to HDR/2020)\n")
+        _T("      colorrange=<string>         same list as --colorrange; onnx supports\n")
+        _T("                                    auto (default, tv) / tv / limited / pc / full\n")
         _T("      colorspace=<string>         rgb(default) or ycbcr (for 3ch models)\n")
         _T("      noise=<int>                 noise sigma 0-255 for noise models (default 15)\n")
         _T("      out_res=<int>x<int>         resize the network output to this resolution\n")

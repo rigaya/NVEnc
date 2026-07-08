@@ -29,6 +29,8 @@
 #ifndef __RGY_MODEL_REGISTRY_H__
 #define __RGY_MODEL_REGISTRY_H__
 
+#include "rgy_prm.h"
+
 #include "rgy_osdep.h"
 #include "rgy_err.h"
 #include "rgy_log.h"
@@ -40,6 +42,8 @@ struct OnnxModelEntry {
     tstring path;
     tstring colorspace;  // "rgb" or "ycbcr", default "rgb"
     int noise;           // default 15
+    bool fp32;           // fp32推論を強制する。デフォルトはfalse。
+    CspMatrix colormatrixOut; // 未指定時は RGY_MATRIX_UNSPECIFIED。colormatrix_out=auto の場合のみ適用。
 };
 
 class RGYModelRegistry {

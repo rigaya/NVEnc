@@ -89,7 +89,7 @@ protected:
     void fillInputHost(const RGYFrameInfo &hin);
     void writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo &hin);
     // compute the YUV<->RGB matrix + range coefficients.
-    void setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax);
+    void setupColorCoeffs(int matrixSelIn, int matrixSelOut, bool rangeTV, int pixMax);
 
     std::unique_ptr<RGYOnnxRTCUDA> m_ov;
     OnnxIO m_io;                          // I/O convention inferred from channel counts
