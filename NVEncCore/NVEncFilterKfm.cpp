@@ -31,6 +31,7 @@
 #include "NVEncFilterRtgmc.h"
 #include "rgy_filesystem.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -56,12 +57,35 @@ static constexpr int KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN = 64;
 static constexpr int KFM_REALTIMEPLUS_DEINT60_CACHE_MARGIN = KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN * 2;
 static constexpr int KFM_VFR_SOURCE_TRIM_LOOKBEHIND = 8;
 static constexpr int KFM_VFR_DEINT60_TRIM_LOOKBEHIND = 16;
+static constexpr int KFM_MAX_OUTPUT_FRAMES = 16;
 static constexpr int KFM_UCF_NOISE_LIMIT_NMIN = 1;
 static constexpr int KFM_UCF_NOISE_LIMIT_RANGE = 128;
 static constexpr int KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY = 2;
 static constexpr int KFM_UCF_LAZY_SOURCE_CACHE_MARGIN = 512;
 static constexpr double KFM_UCF_GAUSS_P = 2.5;
 static constexpr double KFM_UCF_GAUSS_CROP_EPS = 0.0001;
+
+static int64_t kfmProfileNowNs() {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+template<typename TStats, typename TCounter>
+class KfmProfileScope {
+public:
+    KfmProfileScope(TStats& stats, TCounter& counter, int items = 0)
+        : m_stats(stats), m_counter(counter), m_startNs(stats.enabled ? kfmProfileNowNs() : 0), m_items(items) {};
+    ~KfmProfileScope() {
+        if (m_startNs > 0) {
+            m_counter.add(kfmProfileNowNs() - m_startNs, m_items);
+        }
+    }
+private:
+    TStats& m_stats;
+    TCounter& m_counter;
+    int64_t m_startNs;
+    int m_items;
+};
 
 static double kfmUcfGaussValue(const double value, const double p) {
     const auto param = std::min(std::max(p, 0.1), 100.0);
@@ -1083,6 +1107,8 @@ RGY_ERR NVEncFilterKfm::initAnalyzer(const NVEncFilterParamKfm& prm) {
     analyzeParam.pastCycles = prm.kfm.pastCycles;
     analyzeParam.NGThresh = prm.kfm.thswitch;
     m_analyzer = std::make_unique<RGYKFM::KFMAnalyze>(analyzeParam);
+    m_kfmProfile = KfmProfileStats();
+    m_kfmProfile.enabled = std::getenv("NVENC_KFM_PROFILE") || std::getenv("RGY_KFM_PROFILE");
     m_analyzeSourceFrames = 0;
     m_nextAnalyzeCycle = 0;
     m_nextFMCountSubmitCycle = 0;
@@ -2806,7 +2832,10 @@ void NVEncFilterKfm::finalizeAnalyzerResults(VppKfmTiming timing) {
         return;
     }
     const auto resultCount = static_cast<size_t>(m_nextAnalyzeCycle);
-    m_analyzer->analyzeTrailingCycles(m_analyzer->param().cycleRange);
+    {
+        KfmProfileScope profile(m_kfmProfile, m_kfmProfile.analyzerTrailing, m_analyzer->param().cycleRange);
+        m_analyzer->analyzeTrailingCycles(m_analyzer->param().cycleRange);
+    }
     if (timing == VppKfmTiming::Strict) {
         writeAnalyzerResultsFinal(resultCount, true);
     } else if (timing == VppKfmTiming::RealtimePlus) {
@@ -2822,36 +2851,43 @@ std::vector<RGYKFM::KFMResult> NVEncFilterKfm::analyzerResultsSnapshot(bool mark
     if (!m_analyzer) {
         return results;
     }
-    results = m_analyzer->results();
+    {
+        const auto& srcResults = m_analyzer->results();
+        KfmProfileScope profile(m_kfmProfile, m_kfmProfile.snapshotCopy, (int)srcResults.size());
+        results = srcResults;
+    }
     if (!mark60p || results.empty()) {
         return results;
     }
-    for (auto& result : results) {
-        result.is60p = false;
-    }
-    const auto& param = m_analyzer->param();
-    bool is60p = true;
-    for (int i = 0; i < static_cast<int>(results.size()); ++i) {
-        auto& cur = results[i];
-        if (is60p) {
-            if (cur.cost < param.th24) {
-                if (cur.reliability < param.rel24) {
-                    is60p = false;
+    {
+        KfmProfileScope profile(m_kfmProfile, m_kfmProfile.snapshotMark60p, (int)results.size());
+        for (auto& result : results) {
+            result.is60p = false;
+        }
+        const auto& param = m_analyzer->param();
+        bool is60p = true;
+        for (int i = 0; i < static_cast<int>(results.size()); ++i) {
+            auto& cur = results[i];
+            if (is60p) {
+                if (cur.cost < param.th24) {
+                    if (cur.reliability < param.rel24) {
+                        is60p = false;
+                    }
+                } else {
+                    cur.is60p = true;
                 }
             } else {
-                cur.is60p = true;
-            }
-        } else {
-            if (cur.cost >= param.th60) {
-                is60p = true;
-                for (int t = i; t >= 0; --t) {
-                    auto& prev = results[t];
-                    if (prev.cost < param.th24) {
-                        if (prev.reliability < param.rel24) {
-                            break;
+                if (cur.cost >= param.th60) {
+                    is60p = true;
+                    for (int t = i; t >= 0; --t) {
+                        auto& prev = results[t];
+                        if (prev.cost < param.th24) {
+                            if (prev.reliability < param.rel24) {
+                                break;
+                            }
+                        } else {
+                            prev.is60p = true;
                         }
-                    } else {
-                        prev.is60p = true;
                     }
                 }
             }
@@ -2894,22 +2930,26 @@ void NVEncFilterKfm::appendAnalyzerResults(size_t resultCount, bool dump, bool m
     if (!m_analyzer) {
         return;
     }
+    KfmProfileScope profile(m_kfmProfile, m_kfmProfile.appendAnalyzer, (int)resultCount);
     const auto results = analyzerResultsSnapshot(mark60p);
     resultCount = std::min(resultCount, results.size());
     if (resultCount <= m_analyzerOutputResults.size()) {
         return;
     }
-    while (m_analyzerOutputResults.size() < resultCount) {
-        const auto& result = results[m_analyzerOutputResults.size()];
-        m_analyzerOutputResults.push_back(result);
-        m_lastAnalyzeResult = result;
-        m_hasLastAnalyzeResult = true;
-        if (dump && m_fpResult) {
-            fwrite(&result, sizeof(result), 1, m_fpResult);
+    {
+        KfmProfileScope writeProfile(m_kfmProfile, m_kfmProfile.appendWrite, (int)(resultCount - m_analyzerOutputResults.size()));
+        while (m_analyzerOutputResults.size() < resultCount) {
+            const auto& result = results[m_analyzerOutputResults.size()];
+            m_analyzerOutputResults.push_back(result);
+            m_lastAnalyzeResult = result;
+            m_hasLastAnalyzeResult = true;
+            if (dump && m_fpResult) {
+                fwrite(&result, sizeof(result), 1, m_fpResult);
+            }
         }
-    }
-    if (dump && m_fpResult) {
-        fflush(m_fpResult);
+        if (dump && m_fpResult) {
+            fflush(m_fpResult);
+        }
     }
 }
 
@@ -2917,6 +2957,7 @@ void NVEncFilterKfm::writeAnalyzerResultsFinal(size_t resultCount, bool mark60p)
     if (!m_analyzer) {
         return;
     }
+    KfmProfileScope profile(m_kfmProfile, m_kfmProfile.writeFinal, (int)resultCount);
     const auto results = analyzerResultsSnapshot(mark60p);
     resultCount = std::min(resultCount, results.size());
     if (resultCount == 0) {
@@ -2953,10 +2994,10 @@ void NVEncFilterKfm::writeFrameTimecode(const RGYFrameInfo *frame) {
     fflush(m_fpTimecode);
 }
 
-std::vector<NVEncFilterKfm::KfmSwitchTiming> NVEncFilterKfm::deriveSwitchTimings(int total60) const {
-    std::vector<KfmSwitchTiming> timings;
-    if (!m_analyzer || m_analyzerOutputResults.empty() || total60 <= 0) {
-        return timings;
+bool NVEncFilterKfm::deriveSwitchTimingAt(KfmSwitchTiming& timing, int n60, int total60) const {
+    timing = KfmSwitchTiming();
+    if (!m_analyzer || m_analyzerOutputResults.empty() || total60 <= 0 || n60 < 0 || n60 >= total60) {
+        return false;
     }
     const auto prm = std::dynamic_pointer_cast<NVEncFilterParamKfm>(m_param);
     const auto timingMode = prm ? prm->kfm.timing : VppKfmTiming::Realtime;
@@ -3016,8 +3057,7 @@ std::vector<NVEncFilterKfm::KfmSwitchTiming> NVEncFilterKfm::deriveSwitchTimings
         return info;
     };
 
-    int current = 0;
-    while (current < total60) {
+    auto deriveFromStart = [&](int current) {
         auto info = frameInfoAt(current, resultAt(current / 10));
         const bool forceSingle = (info.baseType == KFM_FRAME_24 || info.baseType == KFM_FRAME_30) && isSwitchSingleFrameN60(current);
         const int maxDuration = forceSingle ? 1 : info.baseType == KFM_FRAME_24 ? 4 : info.baseType == KFM_FRAME_30 ? 2 : 1;
@@ -3038,10 +3078,43 @@ std::vector<NVEncFilterKfm::KfmSwitchTiming> NVEncFilterKfm::deriveSwitchTimings
         info.duration60 = duration;
         info.duration120 = duration * 2;
         info.numSourceFrames = std::max(1, divCeil(duration, 2));
+        return info;
+    };
+
+    for (int current = n60; current >= std::max(0, n60 - 3); --current) {
+        auto info = deriveFromStart(current);
+        if (info.start60 <= n60 && n60 < info.start60 + info.duration60) {
+            if (info.start60 < n60) {
+                const auto consumed60 = n60 - info.start60;
+                info.start60 = n60;
+                info.start120 += consumed60 * 2;
+                info.duration60 = std::max(1, info.duration60 - consumed60);
+                info.duration120 = info.duration60 * 2;
+                info.numSourceFrames = std::max(1, divCeil(info.duration60, 2));
+            }
+            timing = info;
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<NVEncFilterKfm::KfmSwitchTiming> NVEncFilterKfm::deriveSwitchTimings(int total60) const {
+    std::vector<KfmSwitchTiming> timings;
+    if (!m_analyzer || m_analyzerOutputResults.empty() || total60 <= 0) {
+        return timings;
+    }
+    int current = 0;
+    while (current < total60) {
+        KfmSwitchTiming info;
+        if (!deriveSwitchTimingAt(info, current, total60)) {
+            break;
+        }
         timings.push_back(info);
-        current += duration;
+        current += info.duration60;
     }
 
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamKfm>(m_param);
     if (prm && prm->kfm.is120) {
         for (size_t i = 1; i < timings.size(); ++i) {
             if (timings[i - 1].isFrame24 && timings[i].isFrame24
@@ -4984,7 +5057,7 @@ RGY_ERR NVEncFilterKfm::emitPendingVfrOutput(RGYFrameInfo **ppOutputFrames, int 
 RGY_ERR NVEncFilterKfm::emitPendingVfrOutputs(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     cudaStream_t stream, RGYCudaEvent *event, int keepFrames) {
     keepFrames = std::max(0, keepFrames);
-    const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), 4);
+    const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), KFM_MAX_OUTPUT_FRAMES);
     while ((int)m_pendingVfrOutputs.size() > keepFrames && *pOutputFrameNum < maxOutputFrames) {
         const int outputFrameNumBefore = *pOutputFrameNum;
         auto sts = emitPendingVfrOutput(ppOutputFrames, pOutputFrameNum, stream, event);
@@ -5601,6 +5674,7 @@ RGY_ERR NVEncFilterKfm::analyzeAvailableSource(bool drain, cudaStream_t stream) 
     const auto prm = std::dynamic_pointer_cast<NVEncFilterParamKfm>(m_param);
     const auto timing = prm ? prm->kfm.timing : VppKfmTiming::Realtime;
     while (m_nextFMCountSubmitCycle < readyCycles) {
+        KfmProfileScope profile(m_kfmProfile, m_kfmProfile.submitFMCounts, m_nextFMCountSubmitCycle);
         auto sts = submitFMCounts(m_nextFMCountSubmitCycle, drain, stream);
         if (sts == RGY_ERR_MORE_DATA) {
             break;
@@ -5624,7 +5698,11 @@ RGY_ERR NVEncFilterKfm::analyzeAvailableSource(bool drain, cudaStream_t stream) 
     }
     while (m_nextAnalyzeCycle < readyCycles) {
         std::array<RGYKFM::FMCount, KFM_FMCOUNT_COUNT> counts = {};
-        auto sts = readbackFMCounts(counts, m_nextAnalyzeCycle, drain, stream);
+        auto sts = RGY_ERR_NONE;
+        {
+            KfmProfileScope profile(m_kfmProfile, m_kfmProfile.readbackFMCounts, m_nextAnalyzeCycle);
+            sts = readbackFMCounts(counts, m_nextAnalyzeCycle, drain, stream);
+        }
         if (sts == RGY_ERR_MORE_DATA) {
             return RGY_ERR_NONE;
         }
@@ -5633,6 +5711,7 @@ RGY_ERR NVEncFilterKfm::analyzeAvailableSource(bool drain, cudaStream_t stream) 
         }
         writeFMCountDump(counts, m_nextAnalyzeCycle);
         try {
+            KfmProfileScope profile(m_kfmProfile, m_kfmProfile.analyzeCpu, m_nextAnalyzeCycle);
             if (timing == VppKfmTiming::Realtime) {
                 const auto result = m_analyzer->realtimeFromCounts(counts.data(), frame->width, frame->height);
                 writeAnalyzerResult(result, true);
@@ -6149,10 +6228,10 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             : std::min(m_cachedSourceFrames * 2, static_cast<int>(m_analyzerOutputResults.size()) * 10);
         const int vfrTailHold60 = switchSingleFrameDurationEnabled() ? 8 : 4;
         const int availableN60 = drain ? rawAvailableN60 : std::max(0, rawAvailableN60 - vfrTailHold60);
-        const auto timings = deriveSwitchTimings(availableN60);
-        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), 4);
+        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), KFM_MAX_OUTPUT_FRAMES);
         const int vfrOutputDelay = switchSingleFrameDurationEnabled() ? 1 : 0;
         auto emitReadyPending = [&](int keepFrames) -> RGY_ERR {
+            KfmProfileScope profile(m_kfmProfile, m_kfmProfile.emitPending, (int)m_pendingVfrOutputs.size());
             return emitPendingVfrOutputs(ppOutputFrames, pOutputFrameNum, stream, nullptr, keepFrames);
         };
         sts = emitReadyPending(drain ? 0 : vfrOutputDelay);
@@ -6160,25 +6239,12 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             return sts;
         }
         while (*pOutputFrameNum < maxOutputFrames) {
-            auto itTiming = std::find_if(timings.begin(), timings.end(), [this](const KfmSwitchTiming& timing) {
-                return timing.start60 == m_nextSwitchN60;
-            });
-            if (itTiming == timings.end()) {
-                itTiming = std::find_if(timings.begin(), timings.end(), [this](const KfmSwitchTiming& timing) {
-                    return timing.start60 < m_nextSwitchN60 && m_nextSwitchN60 < timing.start60 + timing.duration60;
-                });
-                if (itTiming == timings.end()) {
+            KfmSwitchTiming outputTiming;
+            {
+                KfmProfileScope profile(m_kfmProfile, m_kfmProfile.deriveTimings, m_nextSwitchN60);
+                if (!deriveSwitchTimingAt(outputTiming, m_nextSwitchN60, availableN60)) {
                     break;
                 }
-            }
-            auto outputTiming = *itTiming;
-            if (outputTiming.start60 < m_nextSwitchN60) {
-                const auto consumed60 = m_nextSwitchN60 - outputTiming.start60;
-                outputTiming.start60 = m_nextSwitchN60;
-                outputTiming.start120 += consumed60 * 2;
-                outputTiming.duration60 = std::max(1, outputTiming.duration60 - consumed60);
-                outputTiming.duration120 = outputTiming.duration60 * 2;
-                outputTiming.numSourceFrames = std::max(1, divCeil(outputTiming.duration60, 2));
             }
             if (!drain && outputTiming.start60 + outputTiming.duration60 >= availableN60) {
                 break;
@@ -6213,12 +6279,10 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 outputStart120 = m_lastSwitchStart120 + 5;
             }
             int64_t nextStart120 = outputStart120 + outputTiming.duration60 * 2;
-            const auto itNextTiming = std::find_if(timings.begin(), timings.end(), [&outputTiming](const KfmSwitchTiming& timing) {
-                return timing.start60 == outputTiming.start60 + outputTiming.duration60;
-            });
-            if (itNextTiming != timings.end()) {
-                nextStart120 = rawStart120(*itNextTiming);
-                if (prm->kfm.is120 && canUse120Cadence(outputTiming.isFrame24, outputTiming.duration60, *itNextTiming)) {
+            KfmSwitchTiming nextTiming;
+            if (deriveSwitchTimingAt(nextTiming, outputTiming.start60 + outputTiming.duration60, availableN60)) {
+                nextStart120 = rawStart120(nextTiming);
+                if (prm->kfm.is120 && canUse120Cadence(outputTiming.isFrame24, outputTiming.duration60, nextTiming)) {
                     nextStart120 = outputStart120 + 5;
                 }
             }
@@ -6812,7 +6876,7 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 return sts;
             }
         }
-        if (drain && m_pendingVfrOutputs.empty() && (timings.empty() || m_nextSwitchN60 >= m_cachedSourceFrames * 2)) {
+        if (drain && m_pendingVfrOutputs.empty() && m_nextSwitchN60 >= m_cachedSourceFrames * 2) {
             writeSwitchTimingDump();
             if (*pOutputFrameNum == 0) {
                 sts = drainNrFilter(ppOutputFrames, pOutputFrameNum, stream, nullptr);
@@ -6862,7 +6926,7 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
 
         *pOutputFrameNum = 0;
         const bool drain = pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr;
-        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), 4);
+        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), KFM_MAX_OUTPUT_FRAMES);
         while (*pOutputFrameNum < maxOutputFrames && m_nextTelecine24Frame < telecine24FrameCount(drain)) {
             auto deint24 = nextWorkFrame();
             auto out = nextWorkFrame();
