@@ -99,6 +99,8 @@ RGYLibVMAFLoader::RGYLibVMAFLoader() :
     m_vmaf_use_features_from_model_collection(nullptr),
     m_vmaf_use_feature(nullptr),
     m_vmaf_read_pictures(nullptr),
+    m_vmaf_feature_score_at_index(nullptr),
+    m_vmaf_score_at_index(nullptr),
     m_vmaf_score_pooled(nullptr),
     m_vmaf_score_pooled_model_collection(nullptr),
     m_vmaf_model_load(nullptr),
@@ -135,6 +137,8 @@ bool RGYLibVMAFLoader::load() {
     m_vmaf_use_features_from_model_collection = &vmaf_use_features_from_model_collection;
     m_vmaf_use_feature = &vmaf_use_feature;
     m_vmaf_read_pictures = &vmaf_read_pictures;
+    m_vmaf_feature_score_at_index = &vmaf_feature_score_at_index;
+    m_vmaf_score_at_index = &vmaf_score_at_index;
     m_vmaf_score_pooled = &vmaf_score_pooled;
     m_vmaf_score_pooled_model_collection = &vmaf_score_pooled_model_collection;
     m_vmaf_model_load = &vmaf_model_load;
@@ -180,6 +184,8 @@ bool RGYLibVMAFLoader::load() {
     if (!loadFunc("vmaf_use_features_from_model_collection", (void **)&m_vmaf_use_features_from_model_collection)) { close(); return false; }
     if (!loadFunc("vmaf_use_feature", (void **)&m_vmaf_use_feature)) { close(); return false; }
     if (!loadFunc("vmaf_read_pictures", (void **)&m_vmaf_read_pictures)) { close(); return false; }
+    if (!loadFunc("vmaf_feature_score_at_index", (void **)&m_vmaf_feature_score_at_index)) { close(); return false; }
+    if (!loadFunc("vmaf_score_at_index", (void **)&m_vmaf_score_at_index)) { close(); return false; }
     if (!loadFunc("vmaf_score_pooled", (void **)&m_vmaf_score_pooled)) { close(); return false; }
     if (!loadFunc("vmaf_score_pooled_model_collection", (void **)&m_vmaf_score_pooled_model_collection)) { close(); return false; }
     if (!loadFunc("vmaf_model_load", (void **)&m_vmaf_model_load)) { close(); return false; }
@@ -235,6 +241,8 @@ void RGYLibVMAFLoader::close() {
     m_vmaf_use_features_from_model_collection = nullptr;
     m_vmaf_use_feature = nullptr;
     m_vmaf_read_pictures = nullptr;
+    m_vmaf_feature_score_at_index = nullptr;
+    m_vmaf_score_at_index = nullptr;
     m_vmaf_score_pooled = nullptr;
     m_vmaf_score_pooled_model_collection = nullptr;
     m_vmaf_model_load = nullptr;

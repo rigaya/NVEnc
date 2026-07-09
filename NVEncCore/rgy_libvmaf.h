@@ -92,6 +92,8 @@ private:
     decltype(&vmaf_use_features_from_model_collection) m_vmaf_use_features_from_model_collection;
     decltype(&vmaf_use_feature) m_vmaf_use_feature;
     decltype(&vmaf_read_pictures) m_vmaf_read_pictures;
+    decltype(&vmaf_feature_score_at_index) m_vmaf_feature_score_at_index;
+    decltype(&vmaf_score_at_index) m_vmaf_score_at_index;
     decltype(&vmaf_score_pooled) m_vmaf_score_pooled;
     decltype(&vmaf_score_pooled_model_collection) m_vmaf_score_pooled_model_collection;
     decltype(&vmaf_model_load) m_vmaf_model_load;
@@ -126,6 +128,8 @@ public:
     auto p_vmaf_use_features_from_model_collection() const { return m_vmaf_use_features_from_model_collection; }
     auto p_vmaf_use_feature() const { return m_vmaf_use_feature; }
     auto p_vmaf_read_pictures() const { return m_vmaf_read_pictures; }
+    auto p_vmaf_feature_score_at_index() const { return m_vmaf_feature_score_at_index; }
+    auto p_vmaf_score_at_index() const { return m_vmaf_score_at_index; }
     auto p_vmaf_score_pooled() const { return m_vmaf_score_pooled; }
     auto p_vmaf_score_pooled_model_collection() const { return m_vmaf_score_pooled_model_collection; }
     auto p_vmaf_model_load() const { return m_vmaf_model_load; }

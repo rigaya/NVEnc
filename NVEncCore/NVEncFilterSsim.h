@@ -84,6 +84,7 @@ struct NVEncFilterVMAFData {
     std::atomic<int> procIndex;
     int error;
     double score;
+    uint32_t nonFiniteFrames;
     std::thread thread;
 
     void thread_fin(bool abortThread = true);
