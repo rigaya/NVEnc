@@ -649,6 +649,8 @@ protected:
     std::string m_stageDumpDir;
     RGYKFM::KFMResult m_lastAnalyzeResult;
     std::vector<RGYKFM::KFMResult> m_analyzerOutputResults;
+    size_t m_analyzerMark60pCommitted;
+    bool m_analyzerMark60pState;
     bool m_hasLastAnalyzeResult;
     bool m_analyzerFinalized;
     bool m_switchTimingDumped;

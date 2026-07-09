@@ -356,6 +356,8 @@ NVEncFilterKfm::NVEncFilterKfm() :
     m_stageDumpDir(),
     m_lastAnalyzeResult(),
     m_analyzerOutputResults(),
+    m_analyzerMark60pCommitted(0),
+    m_analyzerMark60pState(true),
     m_hasLastAnalyzeResult(false),
     m_analyzerFinalized(false),
     m_switchTimingDumped(false),
@@ -1122,6 +1124,8 @@ RGY_ERR NVEncFilterKfm::initAnalyzer(const NVEncFilterParamKfm& prm) {
     m_switchTimecodePath.clear();
     m_stageDumpDir.clear();
     m_analyzerOutputResults.clear();
+    m_analyzerMark60pCommitted = 0;
+    m_analyzerMark60pState = true;
     m_switchSingleFrameN60.clear();
     m_stageDumpFrameCounts.clear();
     m_stageDumpFrameIndices.clear();
@@ -2931,15 +2935,68 @@ void NVEncFilterKfm::appendAnalyzerResults(size_t resultCount, bool dump, bool m
         return;
     }
     KfmProfileScope profile(m_kfmProfile, m_kfmProfile.appendAnalyzer, (int)resultCount);
-    const auto results = analyzerResultsSnapshot(mark60p);
+    const auto& results = m_analyzer->results();
     resultCount = std::min(resultCount, results.size());
     if (resultCount <= m_analyzerOutputResults.size()) {
         return;
     }
+    const auto committed = m_analyzerOutputResults.size();
+    std::vector<RGYKFM::KFMResult> pending;
+    bool mark60pStateAtResultCount = m_analyzerMark60pState;
+    if (mark60p) {
+        const auto& param = m_analyzer->param();
+        auto advanceMark60pState = [&](bool state, const RGYKFM::KFMResult& result) {
+            if (state) {
+                if (result.cost < param.th24 && result.reliability < param.rel24) state = false;
+            } else if (result.cost >= param.th60) {
+                state = true;
+            }
+            return state;
+        };
+        if (m_analyzerMark60pCommitted != committed) {
+            m_analyzerMark60pState = true;
+            for (size_t i = 0; i < committed && i < m_analyzerOutputResults.size(); ++i) {
+                m_analyzerMark60pState = advanceMark60pState(m_analyzerMark60pState, m_analyzerOutputResults[i]);
+            }
+            m_analyzerMark60pCommitted = committed;
+        }
+        {
+            KfmProfileScope snapshotProfile(m_kfmProfile, m_kfmProfile.snapshotCopy, (int)(results.size() - committed));
+            pending.assign(results.begin() + committed, results.end());
+        }
+        {
+            KfmProfileScope markProfile(m_kfmProfile, m_kfmProfile.snapshotMark60p, (int)pending.size());
+            for (auto& result : pending) result.is60p = false;
+            bool is60p = m_analyzerMark60pState;
+            const auto appendCount = resultCount - committed;
+            for (size_t i = 0; i < pending.size(); ++i) {
+                auto& cur = pending[i];
+                if (is60p) {
+                    if (cur.cost < param.th24) {
+                        if (cur.reliability < param.rel24) is60p = false;
+                    } else {
+                        cur.is60p = true;
+                    }
+                } else if (cur.cost >= param.th60) {
+                    is60p = true;
+                    for (int t = (int)i; t >= 0; --t) {
+                        auto& prev = pending[t];
+                        if (prev.cost < param.th24) {
+                            if (prev.reliability < param.rel24) break;
+                        } else {
+                            prev.is60p = true;
+                        }
+                    }
+                }
+                if (i + 1 == appendCount) mark60pStateAtResultCount = is60p;
+            }
+        }
+    }
     {
         KfmProfileScope writeProfile(m_kfmProfile, m_kfmProfile.appendWrite, (int)(resultCount - m_analyzerOutputResults.size()));
         while (m_analyzerOutputResults.size() < resultCount) {
-            const auto& result = results[m_analyzerOutputResults.size()];
+            const auto outputIndex = m_analyzerOutputResults.size();
+            const auto& result = mark60p ? pending[outputIndex - committed] : results[outputIndex];
             m_analyzerOutputResults.push_back(result);
             m_lastAnalyzeResult = result;
             m_hasLastAnalyzeResult = true;
@@ -2950,6 +3007,10 @@ void NVEncFilterKfm::appendAnalyzerResults(size_t resultCount, bool dump, bool m
         if (dump && m_fpResult) {
             fflush(m_fpResult);
         }
+    }
+    if (mark60p) {
+        m_analyzerMark60pCommitted = resultCount;
+        m_analyzerMark60pState = mark60pStateAtResultCount;
     }
 }
 
@@ -2974,6 +3035,18 @@ void NVEncFilterKfm::writeAnalyzerResultsFinal(size_t resultCount, bool mark60p)
     m_analyzerOutputResults.assign(results.begin(), results.begin() + resultCount);
     m_lastAnalyzeResult = results[resultCount - 1];
     m_hasLastAnalyzeResult = true;
+    m_analyzerMark60pCommitted = resultCount;
+    m_analyzerMark60pState = true;
+    for (size_t i = 0; i < resultCount; ++i) {
+        const auto& result = m_analyzerOutputResults[i];
+        if (m_analyzerMark60pState) {
+            if (result.cost < m_analyzer->param().th24 && result.reliability < m_analyzer->param().rel24) {
+                m_analyzerMark60pState = false;
+            }
+        } else if (result.cost >= m_analyzer->param().th60) {
+            m_analyzerMark60pState = true;
+        }
+    }
 }
 
 void NVEncFilterKfm::writeFrameTimecode(const RGYFrameInfo *frame) {
@@ -7391,6 +7464,8 @@ void NVEncFilterKfm::close() {
     m_switchTimecodePath.clear();
     m_stageDumpDir.clear();
     m_analyzerOutputResults.clear();
+    m_analyzerMark60pCommitted = 0;
+    m_analyzerMark60pState = true;
     m_switchSingleFrameN60.clear();
     m_stageDumpFrameCounts.clear();
     m_stageDumpFrameIndices.clear();
