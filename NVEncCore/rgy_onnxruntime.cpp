@@ -29,6 +29,7 @@
 
 #if ENABLE_ONNXRUNTIME
 
+#include "rgy_filesystem.h"
 #include "rgy_util.h"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -57,16 +58,37 @@ bool RGYOnnxRuntimeLoader::load() {
     m_errMessage.clear();
 
     if ((m_hModule = RGY_LOAD_LIBRARY(RGY_ONNXRUNTIME_DLL_NAME)) == nullptr) {
-        m_errMessage = strsprintf(_T("could not load %s (a CUDA/TensorRT-enabled ONNX Runtime). ")
-                                  _T("place it and its provider libraries next to the executable or in the library search path."),
-                                  RGY_ONNXRUNTIME_DLL_NAME);
+#if defined(_WIN32) || defined(_WIN64)
+        const auto errorCode = GetLastError();
+        m_errMessage = strsprintf(_T("could not load %s (Win32 error %u). ")
+                                  _T("Place a CUDA/TensorRT-enabled ONNX Runtime and its provider DLLs next to the executable or in PATH."),
+                                  RGY_ONNXRUNTIME_DLL_NAME, errorCode);
+#else
+        const auto errorMessage = dlerror();
+        m_errMessage = strsprintf(_T("could not load %s: %s. ")
+                                  _T("Place a CUDA/TensorRT-enabled ONNX Runtime and its provider libraries in the library search path."),
+                                  RGY_ONNXRUNTIME_DLL_NAME, char_to_tstring(errorMessage ? errorMessage : "unknown error").c_str());
+#endif
         return false;
     }
 
-    auto loadFunc = [this](const char *funcName, void **func) {
+    const auto modulePath = getModulePath(m_hModule);
+    auto loadFunc = [this, &modulePath](const char *funcName, void **func) {
+#if !defined(_WIN32) && !defined(_WIN64)
+        dlerror();
+#endif
         if ((*func = RGY_GET_PROC_ADDRESS(m_hModule, funcName)) == nullptr) {
-            m_errMessage = strsprintf(_T("%s is missing %s (not a compatible ONNX Runtime library?)."),
-                                      RGY_ONNXRUNTIME_DLL_NAME, char_to_tstring(funcName).c_str());
+#if defined(_WIN32) || defined(_WIN64)
+            const auto errorCode = GetLastError();
+            m_errMessage = strsprintf(_T("loaded ONNX Runtime \"%s\", but required symbol \"%s\" was not found (Win32 error %u). ")
+                                      _T("Use a CUDA/TensorRT-enabled ONNX Runtime build compatible with NVEnc."),
+                                      modulePath.c_str(), char_to_tstring(funcName).c_str(), errorCode);
+#else
+            const auto errorMessage = dlerror();
+            m_errMessage = strsprintf(_T("loaded ONNX Runtime \"%s\", but required symbol \"%s\" was not found: %s. ")
+                                      _T("Use a CUDA/TensorRT-enabled ONNX Runtime build compatible with NVEnc."),
+                                      modulePath.c_str(), char_to_tstring(funcName).c_str(), char_to_tstring(errorMessage ? errorMessage : "unknown error").c_str());
+#endif
             close();
             return false;
         }
@@ -76,6 +98,13 @@ bool RGYOnnxRuntimeLoader::load() {
     if (!loadFunc("OrtGetApiBase", (void **)&m_OrtGetApiBase)) {
         return false;
     }
+    if (!loadFunc("OrtSessionOptionsAppendExecutionProvider_CUDA", (void **)&m_OrtSessionOptionsAppendExecutionProviderCUDA)) {
+        return false;
+    }
+
+    m_OrtSessionOptionsAppendExecutionProviderTensorRT =
+        reinterpret_cast<PFN_OrtSessionOptionsAppendExecutionProviderTensorRT>(
+            RGY_GET_PROC_ADDRESS(m_hModule, "OrtSessionOptionsAppendExecutionProvider_Tensorrt"));
 
     const OrtApi *api = nullptr;
     for (int v = ORT_API_VERSION; v >= 11; --v) {
@@ -85,20 +114,12 @@ bool RGYOnnxRuntimeLoader::load() {
         }
     }
     if (!api) {
-        m_errMessage = strsprintf(_T("%s is too old (no compatible ONNX Runtime API version)."),
-                                  RGY_ONNXRUNTIME_DLL_NAME);
+        m_errMessage = strsprintf(_T("loaded ONNX Runtime \"%s\", but it does not provide a compatible C API version ")
+                                  _T("(requested %d down to 11)."), modulePath.c_str(), ORT_API_VERSION);
         close();
         return false;
     }
     Ort::InitApi(api);
-
-    if (!loadFunc("OrtSessionOptionsAppendExecutionProvider_CUDA", (void **)&m_OrtSessionOptionsAppendExecutionProviderCUDA)) {
-        return false;
-    }
-
-    m_OrtSessionOptionsAppendExecutionProviderTensorRT =
-        reinterpret_cast<PFN_OrtSessionOptionsAppendExecutionProviderTensorRT>(
-            RGY_GET_PROC_ADDRESS(m_hModule, "OrtSessionOptionsAppendExecutionProvider_Tensorrt"));
 
     m_loaded = true;
     return true;
