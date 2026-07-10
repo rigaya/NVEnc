@@ -153,6 +153,9 @@ public:
     RGYFrame() {};
     virtual ~RGYFrame() { }
     virtual bool isempty() const = 0;
+    RGYFrameInfo frameInfo() const {
+        return getInfo();
+    }
     std::array<void*, RGY_MAX_PLANES> ptr() const {
         auto frame = getInfo();
         std::array<void*, RGY_MAX_PLANES> ptrarray;

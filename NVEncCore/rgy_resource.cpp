@@ -82,6 +82,7 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_delogo_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_dct_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_fft3d_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_hqdn3d_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_anime4k_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_descale_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_ivtc_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_msmooth_cl);
@@ -132,6 +133,9 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_kfm_switch_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_kfm_ucf_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_overlay_cl);
+#if ENCODER_QSV
+_BINARY_VPP_FILTER_FILE(rgy_filter_onnx_cl);
+#endif
 _BINARY_VPP_FILTER_FILE(rgy_filter_pad_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_resize_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_ssim_cl);
@@ -212,6 +216,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_DCT_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_dct_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_FFT3D_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_fft3d_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_HQDN3D_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_hqdn3d_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_ANIME4K_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_anime4k_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DESCALE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_descale_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_IVTC_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_ivtc_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_MSMOOTH_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_msmooth_cl) },
@@ -254,6 +259,9 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_MPDECIMATE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_mpdecimate_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_OVERLAY_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_overlay_cl) },
+#if ENCODER_QSV
+    { _T("EXE_DATA"), _T("RGY_FILTER_ONNX_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_onnx_cl) },
+#endif
     { _T("EXE_DATA"), _T("RGY_FILTER_PAD_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_pad_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_RESIZE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_resize_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_SSIM_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_ssim_cl) },

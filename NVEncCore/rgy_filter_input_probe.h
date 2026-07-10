@@ -34,6 +34,18 @@
 #include <string>
 #include "rgy_avutil.h"
 
+// Returns a short human-readable protocol name when the given input
+// path cannot be re-opened safely for a private libav pre-scan, or
+// nullptr when the path looks like a re-openable local file.
+//
+// "Re-openable" means: the filter can open a second AVFormatContext
+// against the same source without consuming bytes from the primary
+// reader. stdin and named-pipe protocols fail this property because
+// the primary reader has already drained the stream by the time the
+// filter's init() runs.
+//
+// Used by --vpp-ivtc expand= pre-scan, --vpp-descale kernel=auto
+// probe, and --vpp-colorfix mode=auto / gray init-time analysis.
 inline const char *unsupportedProbeProtocol(const std::string &filename) {
     if (filename == "-") {
         return "stdin";

@@ -25,6 +25,8 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#include "rgy_prm.h"
+
 #include "rgy_model_registry.h"
 #include "rgy_filesystem.h"
 #include "rgy_util.h"

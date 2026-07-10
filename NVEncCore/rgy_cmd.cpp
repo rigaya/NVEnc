@@ -13569,19 +13569,58 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-descale");
         }
     }
+    if (param->anime4k != defaultPrm->anime4k) {
+        tmp.str(tstring());
+        if (!param->anime4k.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->anime4k.enable || save_disabled_prm) {
+            ADD_LST2(_T("mode"), param->anime4k, defaultPrm->anime4k, mode, list_vpp_anime4k_mode);
+            ADD_NUM2(_T("scale"), param->anime4k, defaultPrm->anime4k, scale);
+            ADD_FLOAT2(_T("strength"), param->anime4k, defaultPrm->anime4k, strength, 3);
+            ADD_LST2(_T("chroma_resize"), param->anime4k, defaultPrm->anime4k, chromaResize, list_vpp_anime4k_chroma_resize);
+            ADD_BOOL2(_T("chroma"), param->anime4k, defaultPrm->anime4k, chroma);
+            ADD_LST2(_T("darken"), param->anime4k, defaultPrm->anime4k, darken, list_vpp_anime4k_darken);
+            ADD_LST2(_T("thin"), param->anime4k, defaultPrm->anime4k, thin, list_vpp_anime4k_thin);
+            ADD_LST2(_T("denoise"), param->anime4k, defaultPrm->anime4k, denoise, list_vpp_anime4k_denoise);
+            ADD_FLOAT2(_T("denoise_intensity"), param->anime4k, defaultPrm->anime4k, denoiseIntensity, 3);
+            ADD_FLOAT2(_T("denoise_spatial"), param->anime4k, defaultPrm->anime4k, denoiseSpatial, 3);
+            ADD_FLOAT2(_T("denoise_curve"), param->anime4k, defaultPrm->anime4k, denoiseCurve, 3);
+            ADD_FLOAT2(_T("denoise_hist_reg"), param->anime4k, defaultPrm->anime4k, denoiseHistReg, 3);
+            ADD_LST2(_T("prefilter_denoise"), param->anime4k, defaultPrm->anime4k, prefilterDenoise, list_vpp_anime4k_denoise);
+            ADD_BOOL2(_T("clamp_highlights"), param->anime4k, defaultPrm->anime4k, clampHighlights);
+            ADD_FLOAT2(_T("antiring"), param->anime4k, defaultPrm->anime4k, antiring, 2);
+            if (param->anime4k.postResizeW != defaultPrm->anime4k.postResizeW
+             || param->anime4k.postResizeH != defaultPrm->anime4k.postResizeH) {
+                tmp << _T(",out_res=") << param->anime4k.postResizeW << _T("x") << param->anime4k.postResizeH;
+            }
+            ADD_LST2(_T("resize"), param->anime4k, defaultPrm->anime4k, postResizeAlgo, list_vpp_resize);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-anime4k-shader ") << tmp.str().substr(1);
+        } else if (param->anime4k.enable) {
+            cmd << _T(" --vpp-anime4k-shader");
+        }
+    }
     if (param->onnx != defaultPrm->onnx) {
         tmp.str(tstring());
         if (!param->onnx.enable && save_disabled_prm) {
             tmp << _T(",enable=false");
         }
         if (param->onnx.enable || save_disabled_prm) {
-            if (!param->onnx.modelFile.empty()) tmp << _T(",model=") << param->onnx.modelFile;
-            if (param->onnx.provider != defaultPrm->onnx.provider) tmp << _T(",provider=") << param->onnx.provider;
-            if (param->onnx.colormatrix != defaultPrm->onnx.colormatrix) tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->onnx.colormatrix);
-            if (param->onnx.colormatrixOut != RGY_MATRIX_AUTO) tmp << _T(",colormatrix_out=") << get_cx_desc(list_colormatrix, param->onnx.colormatrixOut);
-            if (param->onnx.colorrange != defaultPrm->onnx.colorrange) tmp << _T(",colorrange=") << get_cx_desc(list_colorrange, param->onnx.colorrange);
-            if (param->onnx.colorspace != defaultPrm->onnx.colorspace) tmp << _T(",colorspace=") << param->onnx.colorspace;
-            if (param->onnx.noise != defaultPrm->onnx.noise) tmp << _T(",noise=") << param->onnx.noise;
+            if (!param->onnx.modelFile.empty()) {
+                tmp << _T(",model=") << param->onnx.modelFile;
+            }
+            tmp << _T(",device=") << param->onnx.device;
+            tmp << _T(",interop=") << param->onnx.interop;
+            tmp << _T(",prec=") << param->onnx.precision;
+            tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->onnx.colormatrix);
+            if (param->onnx.colormatrixOut != RGY_MATRIX_AUTO) {
+                tmp << _T(",colormatrix_out=") << get_cx_desc(list_colormatrix, param->onnx.colormatrixOut);
+            }
+            tmp << _T(",colorrange=") << get_cx_desc(list_colorrange, param->onnx.colorrange);
+            tmp << _T(",colorspace=") << param->onnx.colorspace;
+            tmp << _T(",noise=") << param->onnx.noise;
             if (param->onnx.postResizeW != 0 && param->onnx.postResizeH != 0) {
                 tmp << _T(",out_res=") << param->onnx.postResizeW << _T("x") << param->onnx.postResizeH;
                 tmp << _T(",resize=") << get_cx_desc(list_vpp_resize, param->onnx.postResizeAlgo);
@@ -13598,7 +13637,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     }
     if (param->rife_ov != defaultPrm->rife_ov) {
         tmp.str(tstring());
-        if (!param->rife_ov.enable && save_disabled_prm) tmp << _T(",enable=false");
+        if (!param->rife_ov.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
         if (param->rife_ov.enable || save_disabled_prm) {
             if (!param->rife_ov.modelFile.empty()) tmp << _T(",model=") << param->rife_ov.modelFile;
             tmp << _T(",device=") << param->rife_ov.device;
@@ -13608,31 +13649,8 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         cmd << _T(" --vpp-rife-ov ") << tmp.str().substr(1);
     }
-    if (param->anime4k != defaultPrm->anime4k) {
-        tmp.str(tstring());
-        if (!param->anime4k.enable && save_disabled_prm) tmp << _T(",enable=false");
-        if (param->anime4k.enable || save_disabled_prm) {
-            if (param->anime4k.mode != defaultPrm->anime4k.mode) tmp << _T(",mode=") << get_cx_desc(list_vpp_anime4k_mode, (int)param->anime4k.mode);
-            if (param->anime4k.scale != defaultPrm->anime4k.scale) tmp << _T(",scale=") << param->anime4k.scale;
-            if (param->anime4k.strength != defaultPrm->anime4k.strength) tmp << _T(",strength=") << param->anime4k.strength;
-            if (param->anime4k.chromaResize != defaultPrm->anime4k.chromaResize) tmp << _T(",chroma_resize=") << get_cx_desc(list_vpp_anime4k_chroma_resize, (int)param->anime4k.chromaResize);
-            if (param->anime4k.chroma != defaultPrm->anime4k.chroma) tmp << _T(",chroma=") << (param->anime4k.chroma ? _T("true") : _T("false"));
-            if (param->anime4k.darken != defaultPrm->anime4k.darken) tmp << _T(",darken=") << get_cx_desc(list_vpp_anime4k_darken, (int)param->anime4k.darken);
-            if (param->anime4k.thin != defaultPrm->anime4k.thin) tmp << _T(",thin=") << get_cx_desc(list_vpp_anime4k_thin, (int)param->anime4k.thin);
-            if (param->anime4k.denoise != defaultPrm->anime4k.denoise) tmp << _T(",denoise=") << get_cx_desc(list_vpp_anime4k_denoise, (int)param->anime4k.denoise);
-            if (param->anime4k.prefilterDenoise != defaultPrm->anime4k.prefilterDenoise) tmp << _T(",prefilter_denoise=") << get_cx_desc(list_vpp_anime4k_denoise, (int)param->anime4k.prefilterDenoise);
-            if (param->anime4k.clampHighlights != defaultPrm->anime4k.clampHighlights) tmp << _T(",clamp_highlights=") << (param->anime4k.clampHighlights ? _T("true") : _T("false"));
-            if (param->anime4k.antiring != defaultPrm->anime4k.antiring) tmp << _T(",antiring=") << param->anime4k.antiring;
-            if (param->anime4k.postResizeW != 0 && param->anime4k.postResizeH != 0) {
-                tmp << _T(",out_res=") << param->anime4k.postResizeW << _T("x") << param->anime4k.postResizeH;
-                tmp << _T(",resize=") << get_cx_desc(list_vpp_resize, param->anime4k.postResizeAlgo);
-            }
-        }
-        if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-anime4k-shader ") << tmp.str().substr(1);
-        } else if (param->anime4k.enable) {
-            cmd << _T(" --vpp-anime4k-shader");
-        }
+    if (!param->onnx.cacheDir.empty()) {
+        cmd << _T(" --vpp-onnx-cache-dir ") << param->onnx.cacheDir;
     }
     if (param->dct != defaultPrm->dct) {
         tmp.str(tstring());
@@ -15657,20 +15675,31 @@ tstring gen_cmd_help_vpp() {
         _T("          bob_tff           Generate one frame from each field assuming tff.\n")
         _T("          bob_bff           Generate one frame from each field assuming bff.\n"));
 #endif
+#if ENABLE_VPP_FILTER_DECOMB
+    str += strsprintf(_T("\n")
+        _T("   --vpp-decomb [<param1>=<value>]\n")
+        _T("     enable decomb deinterlacer\n")
+        _T("    params\n")
+        _T("      full=<bool>           deinterlace all frames\n")
+        _T("      threshold=<int>       default %d (0 - 255)\n")
+        _T("      dthreshold=<int>      default %d (0 - 255)\n")
+        _T("      blend=<bool>          blend rather than interpolate\n"),
+        FILTER_DEFAULT_DECOMB_THRESHOLD, FILTER_DEFAULT_DECOMB_DTHRESHOLD);
+#endif
 #if ENABLE_VPP_FILTER_BWDIF
     str += strsprintf(_T("\n")
         _T("   --vpp-bwdif [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     motion-adaptive deinterlacer (w3fdif + cubic interpolation).\n")
         _T("    params\n")
-        _T("      mode=<frame|bob>      output mode. default frame (1 output per input).\n")
-        _T("                              frame = same-rate, preserves first-displayed field\n")
-        _T("                              bob   = double-rate, emits both fields (alternating)\n")
-        _T("      order=<auto|tff|bff>  field order. default auto (derived from input picstruct)\n")
-        _T("      deint=<all|interlaced> which frames to deinterlace. default all.\n")
-        _T("                              interlaced = pass through frames not flagged as interlaced\n")
-        _T("      thr=<float>           skip-interpolation threshold, 0.0..100.0 (%% of value range).\n")
-        _T("                              motion below this returns pure temporal average. default 0.0\n")
-        _T("      log=<path|bool>       write per-frame TSV decision log to <path>\n"));
+        _T("      mode=<string>\n")
+        _T("          frame (default)   Same-rate output, one frame per input.\n")
+        _T("          bob               Double-rate output, two frames per input.\n")
+        _T("      order=<string>\n")
+        _T("          auto (default)    Detect field order from each input frame.\n")
+        _T("          tff               Assume top field first.\n")
+        _T("          bff               Assume bottom field first.\n")
+        _T("      thr=<float>           Motion threshold (default=%.1f, 0.0 - 100.0).\n"),
+        FILTER_DEFAULT_BWDIF_THR);
 #endif
 #if ENABLE_VPP_FILTER_MAA
     str += strsprintf(_T("\n")
@@ -15910,6 +15939,11 @@ tstring gen_cmd_help_vpp() {
         _T("      chroma=<bool>         include chroma planes in match-quality scoring. (default=off)\n")
         _T("      back=<int>            when to test match=P. (default=%d, 0 - 1)\n")
         _T("      y0=<int>,y1=<int>     ignore rows outside [y0, y1] for combing metric.\n")
+        _T("      nt=<int>              match-metric noise tolerance (default=10, 8-bit scale)\n")
+        _T("      cthresh=<int>         per-pixel comb threshold for match scoring (default=4)\n")
+        _T("      combpel=<int>         combed pixels per block to mark it combed (default=8)\n")
+        _T("      scthresh=<float>      scene-change threshold, fraction of max SAD\n")
+        _T("                              (default=0 = adaptive)\n")
         _T("      cadlock=<auto|on|off> cadence pattern lock + match override. (default=auto)\n")
         _T("      gthresh=<int>         tolerance percent for cadence override. (default=%d, 0 - 100)\n")
         _T("      vthresh=<int>         post-assembly combing veto threshold. (default=%d, 0 - 256)\n")
@@ -15918,12 +15952,7 @@ tstring gen_cmd_help_vpp() {
         _T("      hysteresis=<float>    match hysteresis. (default=%.2f, 0.0 - 1.0)\n")
         _T("      tff=<auto|on|off>     top-field-first. default auto (derived from input picstruct)\n")
         _T("      log=<path|bool>       write per-frame match log to <path>.\n")
-        _T("                              log=true uses output filename base + .ivtc.log.txt\n")
-        _T("      nt=<int>              match-metric noise tolerance (default=10, 8-bit scale)\n")
-        _T("      cthresh=<int>         per-pixel comb threshold for match scoring (default=4)\n")
-        _T("      combpel=<int>         combed pixels per block to mark it combed (default=8)\n")
-        _T("      scthresh=<float>      scene-change threshold, fraction of max SAD\n")
-        _T("                              (default=0 = adaptive)\n"),
+        _T("                              log=true uses output filename base + .ivtc.log.txt\n"),
         FILTER_DEFAULT_IVTC_GUIDE, FILTER_DEFAULT_IVTC_POST,
         FILTER_DEFAULT_IVTC_DROP,
         FILTER_DEFAULT_IVTC_COMB_THRESH, FILTER_DEFAULT_IVTC_CLEAN_FRAC,
@@ -16166,17 +16195,72 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DESCALE_SRC_LEFT, FILTER_DEFAULT_DESCALE_SRC_TOP,
         FILTER_DEFAULT_DESCALE_SEARCH_STEP, FILTER_DEFAULT_DESCALE_DETECT_FRAMES);
 #endif
+#if ENABLE_VPP_FILTER_ANIME4K
+    str += strsprintf(_T("\n")
+        _T("   --vpp-anime4k-shader [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Enable GLSL luma enhancement / 2x upscale chain, based on bloc97 Anime4K.\n")
+        _T("    params\n")
+        _T("      mode=<string>             GLSL variant (default=ani4k_original)\n")
+        _T("                                ani4k_original    - edge-refine 2x upscale (strength 0.5)\n")
+        _T("                                ani4k_deblur      - edge-refine 2x upscale, stronger (1.0)\n")
+        _T("                                ani4k_darken_hq   - line-darkening 2x upscale\n")
+        _T("                                ani4k_thin_hq     - line-thinning 2x upscale\n")
+        _T("                                ani4k_dog_sharpen - 1x Difference-of-Gaussians sharpen\n")
+        _T("                                ani4k_dog         - 2x DoG upscale\n")
+        _T("                                ani4k_dtd         - 2x composite darken-thin-deblur upscale\n")
+        _T("      scale=<int>               1 = refine at source resolution,\n")
+        _T("                                2 = 2x upscale + refine (default=%d).\n")
+        _T("                                some modes imply scale (dog_sharpen=1, dog/dtd=2).\n")
+        _T("      strength=<float>          refine strength multiplier (default=%.2f, %.2f - %.2f).\n")
+        _T("                                promoted to 1.0 for mode=ani4k_deblur with no value.\n")
+        _T("      prefilter_denoise=<string> denoise the luma BEFORE the main pass (default=off)\n")
+        _T("                                off | mean | median | mode  (bilateral)\n")
+        _T("      darken=<string>           line-darkening pass after the main pass (default=off)\n")
+        _T("                                off | hq | fast | veryfast\n")
+        _T("      thin=<string>             line-thinning pass after the main pass (default=off)\n")
+        _T("                                off | hq | fast | veryfast\n")
+        _T("      denoise=<string>          denoise pass after the main pass (default=off)\n")
+        _T("                                off | mean | median | mode  (bilateral)\n")
+        _T("      denoise_intensity / denoise_spatial / denoise_curve / denoise_hist_reg=<float>\n")
+        _T("                                fine-tune the denoise passes (advanced, optional).\n")
+        _T("      clamp_highlights=<bool>   clamp output highlights to the local source max\n")
+        _T("                                (Anime4K Clamp_Highlights). default=false.\n")
+        _T("      antiring=<float>          anti-ringing strength 0..1 (default=0, off). clamps\n")
+        _T("                                each upscaled luma pixel to its 2x2 source min/max\n")
+        _T("                                envelope, removing overshoot ringing on both sides.\n")
+        _T("      chroma_resize=<string>    U/V resize kernel when scale=2 (default=spline36)\n")
+        _T("                                spline36 | bilinear | bicubic | lanczos3 | joint\n")
+        _T("                                joint = luma-guided joint-bilateral chroma rebuild.\n")
+        _T("      chroma=<bool>             when scale=2, resize chroma (true, default) or pass\n")
+        _T("                                it through unchanged (false). scale=1 always passes.\n")
+        _T("      out_res=<WxH>             end-of-chain resize to an arbitrary final size, AFTER\n")
+        _T("                                this stage (e.g. a 2x upscale), so a fixed integer\n")
+        _T("                                upscale fits any resolution in one pass, e.g.\n")
+        _T("                                out_res=1440x1080. a negative value on one axis keeps\n")
+        _T("                                the source aspect (magnitude=rounding step), like\n")
+        _T("                                --output-res: out_res=-2x1080 -> 1440x1080 (4:3) or\n")
+        _T("                                1920x1080 (16:9). default: off (output stays scale*src).\n")
+        _T("      resize=<string>           resampler for out_res (default=lanczos4):\n")
+        _T("                                lanczos4 | spline36 | jinc144 | nis | bicubic | ...\n"),
+        FILTER_DEFAULT_ANIME4K_SCALE, FILTER_DEFAULT_ANIME4K_STRENGTH,
+        FILTER_ANIME4K_STRENGTH_MIN, FILTER_ANIME4K_STRENGTH_MAX);
+#endif
 #if ENABLE_VPP_FILTER_ONNX
     str += strsprintf(_T("\n")
         _T("   --vpp-onnx [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     ONNX Runtime CNN filter: loads an ONNX model directly and runs it on\n")
-        _T("     the GPU. The pre/post a model needs is inferred from its input/output\n")
-        _T("     channel count (1ch luma-SR, 3ch RGB, 4ch RGB+noise, 2ch gray+noise,\n")
-        _T("     3->2ch chroma).\n")
+        _T("     ONNX Runtime CNN filter: loads and runs an ONNX model directly.\n")
         _T("    params\n")
-        _T("      model=<path>                path to the .onnx model (required)\n")
+        _T("      model=<path>                model name or path to .onnx file\n")
+#if ENABLE_OPENVINO
+        _T("      device=<string>             OpenVINO device: GPU.0 (default) / GPU / CPU / AUTO / NPU\n")
+        _T("                                    NPU needs an NPU-enabled OpenVINO runtime (Core Ultra).\n")
+        _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
+        _T("      prec=<string>               auto (default) / fp16 / fp32\n")
+#endif
+#if ENCODER_NVENC
         _T("      provider=<string>           execution provider for inference\n")
         _T("                                    auto (default, = cuda), cuda, tensorrt\n")
+#endif
         _T("      colormatrix=<string>        same list as --colormatrix; onnx supports\n")
         _T("                                    auto / auto_res / smpte170m / bt470bg\n")
         _T("                                    / bt709 / bt2020nc\n")
@@ -16188,41 +16272,30 @@ tstring gen_cmd_help_vpp() {
         _T("                                    auto (default, tv) / tv / limited / pc / full\n")
         _T("      colorspace=<string>         rgb(default) or ycbcr (for 3ch models)\n")
         _T("      noise=<int>                 noise sigma 0-255 for noise models (default 15)\n")
-        _T("      out_res=<int>x<int>         resize the network output to this resolution\n")
-        _T("                                    (a negative axis keeps aspect, e.g. -2x1080)\n")
+        _T("      out_res=<WxH>               end-of-chain resize to an arbitrary final size,\n")
+        _T("                                  applied AFTER the network so CNN upscale + fit run\n")
+        _T("                                  in one pass, e.g. out_res=1440x1080. A negative\n")
+        _T("                                  value on one axis keeps the source aspect:\n")
+        _T("                                  out_res=-2x1080 -> 1440x1080 (4:3) or 1920x1080 (16:9).\n")
         _T("      resize=<string>             resampler for out_res (see --vpp-resize algo)\n"));
     str += strsprintf(_T("\n")
         _T("   --vpp-onnx-model-dir <string>   Directory containing models.json for registered ONNX models.\n"));
 #if ENABLE_VPP_FILTER_RIFE_OV
     str += strsprintf(_T("\n")
         _T("   --vpp-rife-ov [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     RIFE v4.x frame interpolation via ONNX Runtime CUDA.\n")
+        _T("     RIFE v4.x frame interpolation.\n")
         _T("      model=<path>                RIFE v4.x ONNX model path (required)\n")
         _T("      multi=<int>                 frame-rate multiplier (>=2, default 2)\n")
-        _T("      device=<string>             accepted for cross-encoder compatibility; NVEnc uses its selected CUDA device\n")
+#if ENABLE_OPENVINO
+        _T("      device=<string>             GPU.0 (default) / GPU / CPU / AUTO / NPU\n")
+#endif
         _T("      colormatrix=<string>        auto / bt601 / bt709 / bt2020\n")
         _T("      colorrange=<string>         auto / tv / pc\n"));
 #endif
-#endif
-#if ENABLE_VPP_FILTER_ANIME4K
+#if ENABLE_OPENVINO
     str += strsprintf(_T("\n")
-        _T("   --vpp-anime4k-shader [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     GLSL Anime4K upscale/restore filter.\n")
-        _T("    params\n")
-        _T("      mode=<string>               ani4k_original(default), ani4k_deblur,\n")
-        _T("                                  ani4k_darken_hq, ani4k_thin_hq,\n")
-        _T("                                  ani4k_dog_sharpen, ani4k_dog, ani4k_dtd\n")
-        _T("      scale=<int>                 1 (refine only) or 2 (upscale, default)\n")
-        _T("      strength=<float>            refine strength (0.2 - 4.0, default 0.5)\n")
-        _T("      chroma_resize=<string>      spline36(default), bilinear, bicubic, lanczos3, joint\n")
-        _T("      darken=<string>             off(default), hq, fast, veryfast\n")
-        _T("      thin=<string>               off(default), hq, fast, veryfast\n")
-        _T("      denoise=<string>            off(default), mean, median, mode\n")
-        _T("      prefilter_denoise=<string>  off(default), mean, median, mode\n")
-        _T("      clamp_highlights=<bool>     clamp output luma to source max (default false)\n")
-        _T("      antiring=<float>            anti-ringing strength 0-1 (default 0)\n")
-        _T("      out_res=<int>x<int>         resize the anime4k output to this resolution\n")
-        _T("      resize=<string>             resampler for out_res (see --vpp-resize algo)\n"));
+        _T("   --vpp-onnx-cache-dir <string>   Cache compiled ONNX models in this folder.\n"));
+#endif
 #endif
 #if ENABLE_VPP_FILTER_SMOOTH
     str += strsprintf(_T("\n")
