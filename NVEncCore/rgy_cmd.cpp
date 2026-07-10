@@ -5563,7 +5563,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-
     if (IS_OPTION("vpp-anime4k-shader") && ENABLE_VPP_FILTER_ANIME4K) {
         vpp->anime4k.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -5572,8 +5571,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
         const auto paramList = std::vector<std::string>{
             "enable", "mode", "scale", "strength", "chroma_resize", "chroma",
-            "darken", "thin", "denoise", "denoise_intensity", "denoise_spatial", "denoise_curve", "denoise_hist_reg",
-            "prefilter_denoise", "clamp_highlights", "antiring", "out_res", "resize" };
+            "darken", "thin",
+            "denoise", "denoise_intensity", "denoise_spatial", "denoise_curve", "denoise_hist_reg",
+            "prefilter_denoise", "clamp_highlights", "antiring",
+            "out_res", "resize" };
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos == std::string::npos) {
@@ -5585,110 +5586,197 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             param_arg = tolowercase(param_arg);
             if (param_arg == _T("enable")) {
                 bool b = false;
-                if (!cmd_string_to_bool(&b, param_val)) { vpp->anime4k.enable = b; }
-                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                if (!cmd_string_to_bool(&b, param_val)) {
+                    vpp->anime4k.enable = b;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("mode")) {
                 int value = 0;
                 if (get_list_value(list_vpp_anime4k_mode, param_val.c_str(), &value)) {
                     vpp->anime4k.mode = (VppAnime4kMode)value;
-                    if (vpp->anime4k.mode == VppAnime4kMode::Deblur && vpp->anime4k.strength == FILTER_DEFAULT_ANIME4K_STRENGTH) {
+                    // deblur uses REFINE_STRENGTH=1.0 in the reference shader
+                    // while original uses 0.5. Promote the default strength
+                    // when the user picks deblur without an explicit value.
+                    if (vpp->anime4k.mode == VppAnime4kMode::Deblur
+                     && vpp->anime4k.strength == FILTER_DEFAULT_ANIME4K_STRENGTH) {
                         vpp->anime4k.strength = 1.0f;
                     }
-                } else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_mode); return 1; }
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_mode);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("scale")) {
-                try { vpp->anime4k.scale = std::stoi(param_val); }
-                catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try {
+                    vpp->anime4k.scale = std::stoi(param_val);
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("strength")) {
-                try { vpp->anime4k.strength = std::stof(param_val); }
-                catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try {
+                    vpp->anime4k.strength = std::stof(param_val);
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("chroma_resize")) {
                 int value = 0;
-                if (get_list_value(list_vpp_anime4k_chroma_resize, param_val.c_str(), &value)) { vpp->anime4k.chromaResize = (VppAnime4kChromaResize)value; }
-                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_chroma_resize); return 1; }
+                if (get_list_value(list_vpp_anime4k_chroma_resize, param_val.c_str(), &value)) {
+                    vpp->anime4k.chromaResize = (VppAnime4kChromaResize)value;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_chroma_resize);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("chroma")) {
                 bool b = false;
-                if (!cmd_string_to_bool(&b, param_val)) { vpp->anime4k.chroma = b; }
-                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                if (!cmd_string_to_bool(&b, param_val)) {
+                    vpp->anime4k.chroma = b;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("out_res")) {
                 auto xpos = param_val.find_first_of(_T("xX"));
-                int w = 0, h = 0; bool ok = false;
+                int w = 0, h = 0;
+                bool ok = false;
                 if (xpos != tstring::npos) {
-                    try { w = std::stoi(param_val.substr(0, xpos)); h = std::stoi(param_val.substr(xpos + 1)); ok = true; } catch (...) { ok = false; }
+                    try {
+                        w = std::stoi(param_val.substr(0, xpos));
+                        h = std::stoi(param_val.substr(xpos + 1));
+                        ok = true;
+                    } catch (...) {
+                        ok = false;
+                    }
                 }
+                // A negative value on ONE axis keeps the source aspect (magnitude =
+                // rounding step), matching --output-res (e.g. -2x1080 -> auto-even width).
+                // Both negative, or any zero, is invalid.
                 if (!ok || w == 0 || h == 0 || (w < 0 && h < 0)) {
                     print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val,
                         _T("expected WxH; a negative value keeps aspect (e.g. -2x1080); both cannot be negative"));
                     return 1;
                 }
-                vpp->anime4k.postResizeW = w; vpp->anime4k.postResizeH = h;
+                vpp->anime4k.postResizeW = w;
+                vpp->anime4k.postResizeH = h;
                 continue;
             }
             if (param_arg == _T("resize")) {
                 int value = 0;
-                if (get_list_value(list_vpp_resize, param_val.c_str(), &value)) { vpp->anime4k.postResizeAlgo = (RGY_VPP_RESIZE_ALGO)value; }
-                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize); return 1; }
+                if (get_list_value(list_vpp_resize, param_val.c_str(), &value)) {
+                    vpp->anime4k.postResizeAlgo = (RGY_VPP_RESIZE_ALGO)value;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("darken")) {
                 int value = 0;
-                if (get_list_value(list_vpp_anime4k_darken, param_val.c_str(), &value)) { vpp->anime4k.darken = (VppAnime4kDarken)value; }
-                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_darken); return 1; }
+                if (get_list_value(list_vpp_anime4k_darken, param_val.c_str(), &value)) {
+                    vpp->anime4k.darken = (VppAnime4kDarken)value;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_darken);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("thin")) {
                 int value = 0;
-                if (get_list_value(list_vpp_anime4k_thin, param_val.c_str(), &value)) { vpp->anime4k.thin = (VppAnime4kThin)value; }
-                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_thin); return 1; }
+                if (get_list_value(list_vpp_anime4k_thin, param_val.c_str(), &value)) {
+                    vpp->anime4k.thin = (VppAnime4kThin)value;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_thin);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("denoise")) {
                 int value = 0;
-                if (get_list_value(list_vpp_anime4k_denoise, param_val.c_str(), &value)) { vpp->anime4k.denoise = (VppAnime4kDenoise)value; }
-                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_denoise); return 1; }
+                if (get_list_value(list_vpp_anime4k_denoise, param_val.c_str(), &value)) {
+                    vpp->anime4k.denoise = (VppAnime4kDenoise)value;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_denoise);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("denoise_intensity")) {
-                try { vpp->anime4k.denoiseIntensity = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try {
+                    vpp->anime4k.denoiseIntensity = std::stof(param_val);
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("denoise_spatial")) {
-                try { vpp->anime4k.denoiseSpatial = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try {
+                    vpp->anime4k.denoiseSpatial = std::stof(param_val);
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("denoise_curve")) {
-                try { vpp->anime4k.denoiseCurve = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try {
+                    vpp->anime4k.denoiseCurve = std::stof(param_val);
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("denoise_hist_reg")) {
-                try { vpp->anime4k.denoiseHistReg = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try {
+                    vpp->anime4k.denoiseHistReg = std::stof(param_val);
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("prefilter_denoise")) {
                 int value = 0;
-                if (get_list_value(list_vpp_anime4k_denoise, param_val.c_str(), &value)) { vpp->anime4k.prefilterDenoise = (VppAnime4kDenoise)value; }
-                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_denoise); return 1; }
+                if (get_list_value(list_vpp_anime4k_denoise, param_val.c_str(), &value)) {
+                    vpp->anime4k.prefilterDenoise = (VppAnime4kDenoise)value;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_denoise);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("clamp_highlights")) {
                 bool b = false;
-                if (!cmd_string_to_bool(&b, param_val)) { vpp->anime4k.clampHighlights = b; }
-                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                if (!cmd_string_to_bool(&b, param_val)) {
+                    vpp->anime4k.clampHighlights = b;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
                 continue;
             }
             if (param_arg == _T("antiring")) {
-                try { vpp->anime4k.antiring = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try {
+                    vpp->anime4k.antiring = std::stof(param_val);
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
                 continue;
             }
             print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
@@ -5704,7 +5792,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
 
         const auto paramList = std::vector<std::string>{
-            "enable", "model", "modelfile", "provider", "device", "interop",
+            "enable", "model", "modelfile", "provider", "device", "interop", "precision",
             "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "out_res", "resize"
         };
 
@@ -5739,13 +5827,24 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("device")) {
-                    vpp->onnx.device = param_val;
+                    //OpenVINOのデバイス名は大文字 (GPU.0/GPU/CPU/AUTO/NPU) - 小文字入力も受け付ける
+                    vpp->onnx.device = touppercase(param_val);
                     continue;
                 }
                 if (param_arg == _T("interop")) {
                     const tstring v = tolowercase(param_val);
                     if (v == _T("auto") || v == _T("ocl") || v == _T("host")) {
                         vpp->onnx.interop = v;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("prec") || param_arg == _T("precision")) {
+                    const tstring v = tolowercase(param_val);
+                    if (v == _T("auto") || v == _T("fp16") || v == _T("f16") || v == _T("fp32") || v == _T("f32")) {
+                        vpp->onnx.precision = (v == _T("f16")) ? _T("fp16") : (v == _T("f32")) ? _T("fp32") : v;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -13470,6 +13569,71 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-descale");
         }
     }
+    if (param->onnx != defaultPrm->onnx) {
+        tmp.str(tstring());
+        if (!param->onnx.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->onnx.enable || save_disabled_prm) {
+            if (!param->onnx.modelFile.empty()) tmp << _T(",model=") << param->onnx.modelFile;
+            if (param->onnx.provider != defaultPrm->onnx.provider) tmp << _T(",provider=") << param->onnx.provider;
+            if (param->onnx.colormatrix != defaultPrm->onnx.colormatrix) tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->onnx.colormatrix);
+            if (param->onnx.colormatrixOut != RGY_MATRIX_AUTO) tmp << _T(",colormatrix_out=") << get_cx_desc(list_colormatrix, param->onnx.colormatrixOut);
+            if (param->onnx.colorrange != defaultPrm->onnx.colorrange) tmp << _T(",colorrange=") << get_cx_desc(list_colorrange, param->onnx.colorrange);
+            if (param->onnx.colorspace != defaultPrm->onnx.colorspace) tmp << _T(",colorspace=") << param->onnx.colorspace;
+            if (param->onnx.noise != defaultPrm->onnx.noise) tmp << _T(",noise=") << param->onnx.noise;
+            if (param->onnx.postResizeW != 0 && param->onnx.postResizeH != 0) {
+                tmp << _T(",out_res=") << param->onnx.postResizeW << _T("x") << param->onnx.postResizeH;
+                tmp << _T(",resize=") << get_cx_desc(list_vpp_resize, param->onnx.postResizeAlgo);
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-onnx ") << tmp.str().substr(1);
+        } else if (param->onnx.enable) {
+            cmd << _T(" --vpp-onnx");
+        }
+    }
+    if (!param->onnxModelDir.empty()) {
+        cmd << _T(" --vpp-onnx-model-dir ") << param->onnxModelDir;
+    }
+    if (param->rife_ov != defaultPrm->rife_ov) {
+        tmp.str(tstring());
+        if (!param->rife_ov.enable && save_disabled_prm) tmp << _T(",enable=false");
+        if (param->rife_ov.enable || save_disabled_prm) {
+            if (!param->rife_ov.modelFile.empty()) tmp << _T(",model=") << param->rife_ov.modelFile;
+            tmp << _T(",device=") << param->rife_ov.device;
+            tmp << _T(",multi=") << param->rife_ov.multi;
+            tmp << _T(",colormatrix=") << param->rife_ov.colormatrix;
+            tmp << _T(",colorrange=") << param->rife_ov.colorrange;
+        }
+        cmd << _T(" --vpp-rife-ov ") << tmp.str().substr(1);
+    }
+    if (param->anime4k != defaultPrm->anime4k) {
+        tmp.str(tstring());
+        if (!param->anime4k.enable && save_disabled_prm) tmp << _T(",enable=false");
+        if (param->anime4k.enable || save_disabled_prm) {
+            if (param->anime4k.mode != defaultPrm->anime4k.mode) tmp << _T(",mode=") << get_cx_desc(list_vpp_anime4k_mode, (int)param->anime4k.mode);
+            if (param->anime4k.scale != defaultPrm->anime4k.scale) tmp << _T(",scale=") << param->anime4k.scale;
+            if (param->anime4k.strength != defaultPrm->anime4k.strength) tmp << _T(",strength=") << param->anime4k.strength;
+            if (param->anime4k.chromaResize != defaultPrm->anime4k.chromaResize) tmp << _T(",chroma_resize=") << get_cx_desc(list_vpp_anime4k_chroma_resize, (int)param->anime4k.chromaResize);
+            if (param->anime4k.chroma != defaultPrm->anime4k.chroma) tmp << _T(",chroma=") << (param->anime4k.chroma ? _T("true") : _T("false"));
+            if (param->anime4k.darken != defaultPrm->anime4k.darken) tmp << _T(",darken=") << get_cx_desc(list_vpp_anime4k_darken, (int)param->anime4k.darken);
+            if (param->anime4k.thin != defaultPrm->anime4k.thin) tmp << _T(",thin=") << get_cx_desc(list_vpp_anime4k_thin, (int)param->anime4k.thin);
+            if (param->anime4k.denoise != defaultPrm->anime4k.denoise) tmp << _T(",denoise=") << get_cx_desc(list_vpp_anime4k_denoise, (int)param->anime4k.denoise);
+            if (param->anime4k.prefilterDenoise != defaultPrm->anime4k.prefilterDenoise) tmp << _T(",prefilter_denoise=") << get_cx_desc(list_vpp_anime4k_denoise, (int)param->anime4k.prefilterDenoise);
+            if (param->anime4k.clampHighlights != defaultPrm->anime4k.clampHighlights) tmp << _T(",clamp_highlights=") << (param->anime4k.clampHighlights ? _T("true") : _T("false"));
+            if (param->anime4k.antiring != defaultPrm->anime4k.antiring) tmp << _T(",antiring=") << param->anime4k.antiring;
+            if (param->anime4k.postResizeW != 0 && param->anime4k.postResizeH != 0) {
+                tmp << _T(",out_res=") << param->anime4k.postResizeW << _T("x") << param->anime4k.postResizeH;
+                tmp << _T(",resize=") << get_cx_desc(list_vpp_resize, param->anime4k.postResizeAlgo);
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-anime4k-shader ") << tmp.str().substr(1);
+        } else if (param->anime4k.enable) {
+            cmd << _T(" --vpp-anime4k-shader");
+        }
+    }
     if (param->dct != defaultPrm->dct) {
         tmp.str(tstring());
         if (!param->dct.enable && save_disabled_prm) {
@@ -14271,71 +14435,6 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-fruc ") << tmp.str().substr(1);
         } else if (param->fruc.enable) {
             cmd << _T(" --vpp-fruc");
-        }
-    }
-    if (param->onnx != defaultPrm->onnx) {
-        tmp.str(tstring());
-        if (!param->onnx.enable && save_disabled_prm) {
-            tmp << _T(",enable=false");
-        }
-        if (param->onnx.enable || save_disabled_prm) {
-            if (!param->onnx.modelFile.empty()) tmp << _T(",model=") << param->onnx.modelFile;
-            if (param->onnx.provider != defaultPrm->onnx.provider) tmp << _T(",provider=") << param->onnx.provider;
-            if (param->onnx.colormatrix != defaultPrm->onnx.colormatrix) tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->onnx.colormatrix);
-            if (param->onnx.colormatrixOut != RGY_MATRIX_AUTO) tmp << _T(",colormatrix_out=") << get_cx_desc(list_colormatrix, param->onnx.colormatrixOut);
-            if (param->onnx.colorrange != defaultPrm->onnx.colorrange) tmp << _T(",colorrange=") << get_cx_desc(list_colorrange, param->onnx.colorrange);
-            if (param->onnx.colorspace != defaultPrm->onnx.colorspace) tmp << _T(",colorspace=") << param->onnx.colorspace;
-            if (param->onnx.noise != defaultPrm->onnx.noise) tmp << _T(",noise=") << param->onnx.noise;
-            if (param->onnx.postResizeW != 0 && param->onnx.postResizeH != 0) {
-                tmp << _T(",out_res=") << param->onnx.postResizeW << _T("x") << param->onnx.postResizeH;
-                tmp << _T(",resize=") << get_cx_desc(list_vpp_resize, param->onnx.postResizeAlgo);
-            }
-        }
-        if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-onnx ") << tmp.str().substr(1);
-        } else if (param->onnx.enable) {
-            cmd << _T(" --vpp-onnx");
-        }
-    }
-    if (!param->onnxModelDir.empty()) {
-        cmd << _T(" --vpp-onnx-model-dir ") << param->onnxModelDir;
-    }
-    if (param->rife_ov != defaultPrm->rife_ov) {
-        tmp.str(tstring());
-        if (!param->rife_ov.enable && save_disabled_prm) tmp << _T(",enable=false");
-        if (param->rife_ov.enable || save_disabled_prm) {
-            if (!param->rife_ov.modelFile.empty()) tmp << _T(",model=") << param->rife_ov.modelFile;
-            tmp << _T(",device=") << param->rife_ov.device;
-            tmp << _T(",multi=") << param->rife_ov.multi;
-            tmp << _T(",colormatrix=") << param->rife_ov.colormatrix;
-            tmp << _T(",colorrange=") << param->rife_ov.colorrange;
-        }
-        cmd << _T(" --vpp-rife-ov ") << tmp.str().substr(1);
-    }
-    if (param->anime4k != defaultPrm->anime4k) {
-        tmp.str(tstring());
-        if (!param->anime4k.enable && save_disabled_prm) tmp << _T(",enable=false");
-        if (param->anime4k.enable || save_disabled_prm) {
-            if (param->anime4k.mode != defaultPrm->anime4k.mode) tmp << _T(",mode=") << get_cx_desc(list_vpp_anime4k_mode, (int)param->anime4k.mode);
-            if (param->anime4k.scale != defaultPrm->anime4k.scale) tmp << _T(",scale=") << param->anime4k.scale;
-            if (param->anime4k.strength != defaultPrm->anime4k.strength) tmp << _T(",strength=") << param->anime4k.strength;
-            if (param->anime4k.chromaResize != defaultPrm->anime4k.chromaResize) tmp << _T(",chroma_resize=") << get_cx_desc(list_vpp_anime4k_chroma_resize, (int)param->anime4k.chromaResize);
-            if (param->anime4k.chroma != defaultPrm->anime4k.chroma) tmp << _T(",chroma=") << (param->anime4k.chroma ? _T("true") : _T("false"));
-            if (param->anime4k.darken != defaultPrm->anime4k.darken) tmp << _T(",darken=") << get_cx_desc(list_vpp_anime4k_darken, (int)param->anime4k.darken);
-            if (param->anime4k.thin != defaultPrm->anime4k.thin) tmp << _T(",thin=") << get_cx_desc(list_vpp_anime4k_thin, (int)param->anime4k.thin);
-            if (param->anime4k.denoise != defaultPrm->anime4k.denoise) tmp << _T(",denoise=") << get_cx_desc(list_vpp_anime4k_denoise, (int)param->anime4k.denoise);
-            if (param->anime4k.prefilterDenoise != defaultPrm->anime4k.prefilterDenoise) tmp << _T(",prefilter_denoise=") << get_cx_desc(list_vpp_anime4k_denoise, (int)param->anime4k.prefilterDenoise);
-            if (param->anime4k.clampHighlights != defaultPrm->anime4k.clampHighlights) tmp << _T(",clamp_highlights=") << (param->anime4k.clampHighlights ? _T("true") : _T("false"));
-            if (param->anime4k.antiring != defaultPrm->anime4k.antiring) tmp << _T(",antiring=") << param->anime4k.antiring;
-            if (param->anime4k.postResizeW != 0 && param->anime4k.postResizeH != 0) {
-                tmp << _T(",out_res=") << param->anime4k.postResizeW << _T("x") << param->anime4k.postResizeH;
-                tmp << _T(",resize=") << get_cx_desc(list_vpp_resize, param->anime4k.postResizeAlgo);
-            }
-        }
-        if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-anime4k-shader ") << tmp.str().substr(1);
-        } else if (param->anime4k.enable) {
-            cmd << _T(" --vpp-anime4k-shader");
         }
     }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), checkPerformance);
@@ -15545,6 +15644,54 @@ tstring gen_cmd_help_vpp() {
         _T("      weightfile=<string>    Set path of nnedi3_weights.bin. By default,\n")
         _T("                              Windows searches nnedi3_weights.bin, Linux uses embedded weights.\n"));
 #endif
+#if ENABLE_VPP_FILTER_YADIF
+    str += strsprintf(_T("\n")
+        _T("   --vpp-yadif [<param1>=<value>]\n")
+        _T("     enable yadif deinterlacer\n")
+        _T("    params\n")
+        _T("      mode=<string>\n")
+        _T("          auto (default)    Generate latter field using first field.\n")
+        _T("          tff               Generate bottom field using top field.\n")
+        _T("          bff               Generate top field using bottom field.\n")
+        _T("          bob               Generate one frame from each field.\n")
+        _T("          bob_tff           Generate one frame from each field assuming tff.\n")
+        _T("          bob_bff           Generate one frame from each field assuming bff.\n"));
+#endif
+#if ENABLE_VPP_FILTER_BWDIF
+    str += strsprintf(_T("\n")
+        _T("   --vpp-bwdif [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     motion-adaptive deinterlacer (w3fdif + cubic interpolation).\n")
+        _T("    params\n")
+        _T("      mode=<frame|bob>      output mode. default frame (1 output per input).\n")
+        _T("                              frame = same-rate, preserves first-displayed field\n")
+        _T("                              bob   = double-rate, emits both fields (alternating)\n")
+        _T("      order=<auto|tff|bff>  field order. default auto (derived from input picstruct)\n")
+        _T("      deint=<all|interlaced> which frames to deinterlace. default all.\n")
+        _T("                              interlaced = pass through frames not flagged as interlaced\n")
+        _T("      thr=<float>           skip-interpolation threshold, 0.0..100.0 (%% of value range).\n")
+        _T("                              motion below this returns pure temporal average. default 0.0\n")
+        _T("      log=<path|bool>       write per-frame TSV decision log to <path>\n"));
+#endif
+#if ENABLE_VPP_FILTER_MAA
+    str += strsprintf(_T("\n")
+        _T("   --vpp-maa [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     masked anti-aliasing for animated content (anime, cel-shaded).\n")
+        _T("     combines directional 9-cost AA with edge masking to anti-alias diagonal\n")
+        _T("     lines without damaging non-edge content.\n")
+        _T("    params\n")
+        _T("      ss=<float>            supersample factor (default 2.0; range 1.0..4.0).\n")
+        _T("      aa=<int>              luma AA strength (default 48; range 0..255).\n")
+        _T("      aac=<int>             chroma AA strength (default aa-8; range 0..255).\n")
+        _T("                              only used when chroma=on.\n")
+        _T("      mask=<bool>           enable edge mask (default on).\n")
+        _T("      mthresh=<int>         edge threshold (default 7; range 1..255).\n")
+        _T("                              higher = fewer pixels treated as edges.\n")
+        _T("      chroma=<bool>         process chroma planes (default off; ~50-100%% slower).\n")
+        _T("      show=<int>            debug overlay (0=normal, 1=mask only, 2=mask+AA).\n")
+        _T("                              default 0.\n")
+        _T("      edge=<string>         edge operator: sobel(default), prewitt, sobel_full,\n")
+        _T("                              scharr, kirsch, laplacian.\n"));
+#endif
 #if ENABLE_VPP_FILTER_RTGMC
     str += strsprintf(_T("\n")
         _T("   --vpp-rtgmc [<param1>=<value>]\n")
@@ -15725,19 +15872,6 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_RTGMC_PRIMITIVE_WEIGHT,
         FILTER_DEFAULT_RTGMC_PRIMITIVE_CHROMA ? _T("true") : _T("false"));
 #endif
-#if ENABLE_VPP_FILTER_YADIF
-    str += strsprintf(_T("\n")
-        _T("   --vpp-yadif [<param1>=<value>]\n")
-        _T("     enable yadif deinterlacer\n")
-        _T("    params\n")
-        _T("      mode=<string>\n")
-        _T("          auto (default)    Generate latter field using first field.\n")
-        _T("          tff               Generate bottom field using top field.\n")
-        _T("          bff               Generate top field using bottom field.\n")
-        _T("          bob               Generate one frame from each field.\n")
-        _T("          bob_tff           Generate one frame from each field assuming tff.\n")
-        _T("          bob_bff           Generate one frame from each field assuming bff.\n"));
-#endif
 #if ENABLE_VPP_FILTER_DECOMB
     str += strsprintf(_T("\n")
         _T("   --vpp-decomb [<param1>=<value>]\n")
@@ -15796,41 +15930,6 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_IVTC_DTHRESH, FILTER_DEFAULT_IVTC_BACK,
         FILTER_DEFAULT_IVTC_GTHRESH, FILTER_DEFAULT_IVTC_VTHRESH,
         FILTER_DEFAULT_IVTC_HYSTERESIS);
-#endif
-#if ENABLE_VPP_FILTER_BWDIF
-    str += strsprintf(_T("\n")
-        _T("   --vpp-bwdif [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     motion-adaptive deinterlacer (w3fdif + cubic interpolation).\n")
-        _T("    params\n")
-        _T("      mode=<frame|bob>      output mode. default frame (1 output per input).\n")
-        _T("                              frame = same-rate, preserves first-displayed field\n")
-        _T("                              bob   = double-rate, emits both fields (alternating)\n")
-        _T("      order=<auto|tff|bff>  field order. default auto (derived from input picstruct)\n")
-        _T("      deint=<all|interlaced> which frames to deinterlace. default all.\n")
-        _T("                              interlaced = pass through frames not flagged as interlaced\n")
-        _T("      thr=<float>           skip-interpolation threshold, 0.0..100.0 (%% of value range).\n")
-        _T("                              motion below this returns pure temporal average. default 0.0\n")
-        _T("      log=<path|bool>       write per-frame TSV decision log to <path>\n"));
-#endif
-#if ENABLE_VPP_FILTER_MAA
-    str += strsprintf(_T("\n")
-        _T("   --vpp-maa [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     masked anti-aliasing for animated content (anime, cel-shaded).\n")
-        _T("     combines directional 9-cost AA with edge masking to anti-alias diagonal\n")
-        _T("     lines without damaging non-edge content.\n")
-        _T("    params\n")
-        _T("      ss=<float>            supersample factor (default 2.0; range 1.0..4.0).\n")
-        _T("      aa=<int>              luma AA strength (default 48; range 0..255).\n")
-        _T("      aac=<int>             chroma AA strength (default aa-8; range 0..255).\n")
-        _T("                              only used when chroma=on.\n")
-        _T("      mask=<bool>           enable edge mask (default on).\n")
-        _T("      mthresh=<int>         edge threshold (default 7; range 1..255).\n")
-        _T("                              higher = fewer pixels treated as edges.\n")
-        _T("      chroma=<bool>         process chroma planes (default off; ~50-100%% slower).\n")
-        _T("      show=<int>            debug overlay (0=normal, 1=mask only, 2=mask+AA).\n")
-        _T("                              default 0.\n")
-        _T("      edge=<string>         edge operator: sobel(default), prewitt, sobel_full,\n")
-        _T("                              scharr, kirsch, laplacian.\n"));
 #endif
 #if ENABLE_VPP_FILTER_RFF
     str += strsprintf(_T("\n")

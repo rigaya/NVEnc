@@ -433,10 +433,10 @@ static const bool  FILTER_DEFAULT_IVTC_CHROMA = false;
 static const int   FILTER_DEFAULT_IVTC_BACK = 0;
 static const int   FILTER_DEFAULT_IVTC_Y0 = 0;
 static const int   FILTER_DEFAULT_IVTC_Y1 = 0;
-static const int   FILTER_DEFAULT_IVTC_NT = 10;        // match-metric noise tolerance (8-bit scale)
-static const int   FILTER_DEFAULT_IVTC_CTHRESH = 4;    // per-pixel comb threshold for match scoring (8-bit scale)
-static const int   FILTER_DEFAULT_IVTC_COMBPEL = 8;    // combed pixels per block before the block counts as combed
-static const float FILTER_DEFAULT_IVTC_SCTHRESH = 0.0f; // 0 = adaptive scene-change threshold (legacy)
+static const int   FILTER_DEFAULT_IVTC_NT = 10;        // マッチ評価のノイズ許容値（8bit基準）
+static const int   FILTER_DEFAULT_IVTC_CTHRESH = 4;    // マッチ評価の画素単位の縞閾値（8bit基準）
+static const int   FILTER_DEFAULT_IVTC_COMBPEL = 8;    // ブロックを縞ありと判定する縞画素数
+static const float FILTER_DEFAULT_IVTC_SCTHRESH = 0.0f; // 0は適応シーンチェンジ閾値
 static const int   FILTER_DEFAULT_IVTC_CADENCE_LOCK = -1;
 static const int   FILTER_DEFAULT_IVTC_GTHRESH = 10;
 static const int   FILTER_DEFAULT_IVTC_EXPAND = -1;
