@@ -111,6 +111,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_ONNXRUNTIME 0
 #endif
 #define ENABLE_VPP_FILTER_ONNX         (ENABLE_ONNXRUNTIME && ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_RIFE_OV      (ENABLE_ONNXRUNTIME && ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_ANIME4K       (                 ENCODER_NVENC)
 #define ENABLE_VPP_ORDER                   (CLFILTERS_AUF)
 
@@ -248,6 +249,7 @@ enum class VppType : int {
     CL_FRUC,
 
     CL_ONNX,
+    CL_RIFE_OV,
     CL_ANIME4K,
 
     CL_PAD,
@@ -3715,6 +3717,20 @@ struct VppOnnx {
     tstring print() const;
 };
 
+struct VppRifeOV {
+    bool enable;
+    tstring modelFile;
+    tstring device;
+    int multi;
+    tstring colormatrix;
+    tstring colorrange;
+
+    VppRifeOV();
+    bool operator==(const VppRifeOV &x) const;
+    bool operator!=(const VppRifeOV &x) const;
+    tstring print() const;
+};
+
 struct RGYParamVpp {
     std::vector<VppType> filterOrder;
     RGY_VPP_RESIZE_ALGO resize_algo;
@@ -3789,6 +3805,7 @@ struct RGYParamVpp {
     std::vector<VppOverlay> overlay;
     VppFruc fruc;
     VppOnnx onnx;
+    VppRifeOV rife_ov;
     tstring onnxModelDir;
     bool    onnxListModels;
     VppAnime4k anime4k;

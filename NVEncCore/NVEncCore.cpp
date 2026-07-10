@@ -85,6 +85,7 @@
 #include "NVEncFilterNvvfx.h"
 #include "NVEncFilterNGX.h"
 #include "NVEncFilterOnnx.h"
+#include "NVEncFilterRifeOV.h"
 #include "NVEncFilterAnime4k.h"
 #include "NVEncFilterLibplacebo.h"
 #include "NVEncFilterDeband.h"
@@ -3013,6 +3014,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.overlay.size() > 0)  filterPipeline.push_back(VppType::CL_OVERLAY);
     if (inputParam->vppnv.ngxTrueHDR.enable)     filterPipeline.push_back(VppType::NGX_TRUEHDR);
     if (inputParam->vpp.onnx.enable)       filterPipeline.push_back(VppType::CL_ONNX);
+    if (inputParam->vpp.rife_ov.enable)    filterPipeline.push_back(VppType::CL_RIFE_OV);
     if (inputParam->vpp.anime4k.enable)     filterPipeline.push_back(VppType::CL_ANIME4K);
     if (inputParam->vpp.fruc.enable)     filterPipeline.push_back(VppType::CL_FRUC);
 
@@ -5070,6 +5072,28 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         //パラメータ情報を更新
         m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    if (vppType == VppType::CL_RIFE_OV) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterRifeOV());
+        shared_ptr<NVEncFilterParamRifeOV> param(new NVEncFilterParamRifeOV());
+        param->modelFile = inputParam->vpp.rife_ov.modelFile;
+        param->device = inputParam->vpp.rife_ov.device;
+        param->multi = inputParam->vpp.rife_ov.multi;
+        param->colormatrix = inputParam->vpp.rife_ov.colormatrix;
+        param->colorrange = inputParam->vpp.rife_ov.colorrange;
+        param->deviceID = m_dev->id();
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) return sts;
+        cufilters.push_back(std::move(filter));
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         return RGY_ERR_NONE;

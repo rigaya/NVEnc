@@ -148,6 +148,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_LIBPLACEBO_DEBAND,    _T("libplacebo-deband")),
     std::make_pair(VppType::CL_FRUC,                 _T("fruc")),
     std::make_pair(VppType::CL_ONNX,                 _T("onnx")),
+    std::make_pair(VppType::CL_RIFE_OV,              _T("rife-ov")),
     std::make_pair(VppType::CL_ANIME4K,               _T("anime4k")),
     std::make_pair(VppType::CL_PAD,                  _T("pad"))
 );
@@ -3669,6 +3670,21 @@ tstring VppOnnx::print() const {
     return s;
 }
 
+VppRifeOV::VppRifeOV() :
+    enable(false), modelFile(), device(_T("GPU.0")), multi(2), colormatrix(_T("auto")), colorrange(_T("auto")) {
+}
+bool VppRifeOV::operator==(const VppRifeOV &x) const {
+    return enable == x.enable && modelFile == x.modelFile && device == x.device
+        && multi == x.multi && colormatrix == x.colormatrix && colorrange == x.colorrange;
+}
+bool VppRifeOV::operator!=(const VppRifeOV &x) const {
+    return !(*this == x);
+}
+tstring VppRifeOV::print() const {
+    return strsprintf(_T("model=%s,device=%s,multi=%d,colormatrix=%s,colorrange=%s"),
+        modelFile.c_str(), device.c_str(), multi, colormatrix.c_str(), colorrange.c_str());
+}
+
 VppResizeBicubic::VppResizeBicubic() :
     b(FILTER_DEFAULT_RESIZE_BICUBIC_B), c(FILTER_DEFAULT_RESIZE_BICUBIC_C) {
 }
@@ -3764,6 +3780,7 @@ RGYParamVpp::RGYParamVpp() :
     overlay(),
     fruc(),
     onnx(),
+    rife_ov(),
     onnxModelDir(),
     onnxListModels(false),
     anime4k(),
@@ -3843,6 +3860,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && libplacebo_deband == x.libplacebo_deband
         && overlay == x.overlay
         && onnx == x.onnx
+        && rife_ov == x.rife_ov
         && onnxModelDir == x.onnxModelDir
         && anime4k == x.anime4k
         && checkPerformance == x.checkPerformance;

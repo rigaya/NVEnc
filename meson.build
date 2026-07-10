@@ -919,6 +919,7 @@ nvenccore_sources = files(
   'NVEncCore/NVEncFilterNVOFFRUC.cpp',
   'NVEncCore/NVEncFilterNvvfx.cpp',
   'NVEncCore/NVEncFilterOnnx.cpp',
+  'NVEncCore/NVEncFilterRifeOV.cpp',
   'NVEncCore/NVEncFilterOverlay.cpp',
   'NVEncCore/NVEncFilterPad.cpp',
   'NVEncCore/NVEncFilterParam.cpp',

@@ -960,6 +960,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="NVEncFilterOnnx.cpp" />
+    <ClCompile Include="NVEncFilterRifeOV.cpp" />
     <ClCompile Include="rgy_model_registry.cpp" />
     <ClCompile Include="rgy_onnxruntime.cpp" />
     <ClCompile Include="rgy_onnxrt_cuda.cpp" />
@@ -1916,6 +1917,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncFilterLibplacebo.h" />
     <ClInclude Include="NVEncFilterNGX.h" />
     <ClInclude Include="NVEncFilterOnnx.h" />
+    <ClInclude Include="NVEncFilterRifeOV.h" />
     <ClInclude Include="rgy_model_registry.h" />
     <ClInclude Include="rgy_onnxruntime.h" />
     <ClInclude Include="rgy_onnxrt_cuda.h" />
