@@ -266,6 +266,7 @@
   - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
   - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
+  - [--vpp-rife-ov \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-rife-ov-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [制御系のオプション](#制御系のオプション)
@@ -1889,6 +1890,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
+- [--vpp-rife-ov](#--vpp-rife-ov-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 色空間変換を行う。x64版のみ使用可能。  
@@ -4404,6 +4406,9 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
   | Anime4K Upscale CNN | anime4k_upscale_cnn_s, anime4k_upscale_cnn_s_dn, anime4k_upscale_cnn_m, anime4k_upscale_cnn_m_dn, anime4k_upscale_cnn_l, anime4k_upscale_cnn_l_dn, anime4k_upscale_cnn_ul, anime4k_upscale_cnn_ul_dn, anime4k_upscale_cnn_vl, anime4k_upscale_cnn_vl_dn |
   | Anime4K GAN | anime4k_gan_s_x2, anime4k_gan_m_x2, anime4k_gan_l_x3, anime4k_gan_vl_x3, anime4k_gan_ul_x4, anime4k_gan_uul_x4 |
   | HDRTVNet++ | hdrtvnetpp_agcm_dynamic, hdrtvnetpp_ensemble_dynamic |
+  | FBCNN | fbcnn_color_blind, fbcnn_gray_blind, fbcnn_color_flex, fbcnn_gray_flex |
+  | NAFNet | nafnet_gopro_width32, nafnet_reds_width64, nafnet_sidd_width32, nafnet_sidd_width64 |
+  | super-image | pan_2x/3x/4x, pan_bam_2x/3x/4x, carn_2x/3x/4x, carn_bam_2x/3x/4x, a2n_2x/3x/4x, awsrn_bam_2x/3x/4x, msrn_2x/3x/4x |
   | WebSR | websr_cnn2x_s_rl, websr_cnn2x_s_an, websr_cnn2x_s_3d, websr_cnn2x_m_rl, websr_cnn2x_m_an, websr_cnn2x_m_3d, websr_cnn2x_l_rl, websr_cnn2x_l_an, websr_cnn2x_l_3d |
   | waifu2x CUNet | waifu2x_cunet_scale2x, waifu2x_cunet_noise0, waifu2x_cunet_noise0_scale2x, waifu2x_cunet_noise1, waifu2x_cunet_noise1_scale2x, waifu2x_cunet_noise2, waifu2x_cunet_noise2_scale2x, waifu2x_cunet_noise3, waifu2x_cunet_noise3_scale2x |
   | waifu2x UpConv7 | waifu2x_upconv7_art_scale2x, waifu2x_upconv7_art_noise0_scale2x, waifu2x_upconv7_art_noise1_scale2x, waifu2x_upconv7_art_noise2_scale2x, waifu2x_upconv7_art_noise3_scale2x, waifu2x_upconv7_photo_scale2x, waifu2x_upconv7_photo_noise0_scale2x, waifu2x_upconv7_photo_noise1_scale2x, waifu2x_upconv7_photo_noise2_scale2x, waifu2x_upconv7_photo_noise3_scale2x |
@@ -4438,6 +4443,25 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
 ```
 --vpp-onnx-model-dir C:\models\HWEnc-onnx-models
 ```
+
+### --vpp-rife-ov [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+ONNX Runtime CUDA/TensorRTでRIFE v4.x ONNXモデルを実行するフレーム補間フィルタ。入力は8bit YUV420で、幅・高さは32の倍数である必要がある。
+
+- **パラメータ**
+  - model=&lt;string&gt;
+    RIFE v4.x ONNXモデルのパス (必須)。
+  - multi=&lt;int&gt; (デフォルト: 2、範囲: 2以上)
+    フレームレート倍率。
+  - device=&lt;string&gt; (デフォルト: GPU.0)
+    エンコーダ間の互換性のため受け付ける。NVEncでは選択済みのCUDAデバイスを使用する。
+  - colormatrix=&lt;string&gt; (デフォルト: auto)
+    auto / bt601 / bt709 / bt2020。
+  - colorrange=&lt;string&gt; (デフォルト: auto)
+    auto / tv / pc。
+
+  ```
+  --vpp-rife-ov model=rife_v4.6.onnx,multi=2
+  ```
 
 ### --vpp-perf-monitor
 各フィルタのパフォーマンス測定を行い、適用したフィルタの1フレームあたりの平均処理時間を最後に出力する。全体のエンコード速度がやや遅くなることがある点に注意。
