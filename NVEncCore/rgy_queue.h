@@ -79,6 +79,7 @@ public:
         m_nMallocAlign(32),
         m_nMaxCapacity(SIZE_MAX),
         m_nKeepLength(0),
+        m_nSize(0),
         m_pBufIn(nullptr), m_pBufOut(nullptr),
         m_pBufStart(), m_pBufFin(nullptr),
         m_bUsingData(false), m_bPush(false) {
@@ -135,6 +136,7 @@ public:
         m_pBufFin = m_pBufStart.get() + bufSize;
         m_pBufIn = m_pBufStart.get();
         m_pBufOut = m_pBufStart.get();
+        m_nSize = 0;
     }
     //キューのデータをクリアする際に、指定した関数で内部データを開放してから、データをクリアする
     template<typename Func>
@@ -159,6 +161,7 @@ public:
         m_pBufFin = nullptr;
         m_pBufIn = nullptr;
         m_pBufOut = nullptr;
+        m_nSize = 0;
         m_bUsingData = false;
         m_bPush = false;
     }
@@ -171,13 +174,13 @@ public:
     //データをキューにコピーし押し込む
     //キューのデータ量があらかじめ設定した上限に達した場合は、キューに空きができるまで待機する
     bool push(const Type& in) {
+        // pushするスレッド同士が競合しないよう、下記領域にロックをかける
+        RGYQueueLock pushLock(m_bPush);
         //最初に決めた容量分までキューにデータがたまっていたら、キューに空きができるまで待機する
         while (size() >= m_nMaxCapacity) {
             ResetEvent(m_heEventPoped);
             WaitForSingleObject(m_heEventPoped, 16);
         }
-        // pushするスレッド同士が競合しないよう、下記領域にロックをかける
-        RGYQueueLock pushLock(m_bPush);
         if (m_pBufIn >= m_pBufFin) {
             //現時点でのm_pBufOut (この後別スレッドによって書き換わるかもしれない)
             queueData *pBufOutOld = m_pBufOut.load();
@@ -222,20 +225,15 @@ public:
         }
         m_pBufIn.load()->data = in;
         m_pBufIn++;
+        //要素数を先に増やすとconsumerが未初期化データを読みうるため、
+        //必ずデータ格納とm_pBufInの更新を完了してから公開する。
+        m_nSize.fetch_add(1, std::memory_order_release);
         SetEvent(m_heEventPushed);
         return true;
     }
     //キューのsizeを取得する
     size_t size() const {
-        if (!m_pBufStart)
-            return 0;
-        //バッファはあるが、m_pBufInがnullptrの場合は、
-        //押し込み処理で書き換え中なので待機する
-        queueData *ptr = nullptr;
-        while ((ptr = m_pBufIn.load()) == nullptr) {
-            rgy_yield();
-        }
-        return ptr - m_pBufOut;
+        return m_nSize.load(std::memory_order_acquire);
     }
     //キューが空ならtrueを返す
     bool empty() const {
@@ -301,6 +299,9 @@ public:
             if (bCopy) {
                 *out = m_pBufOut.load()->data;
                 m_pBufOut++;
+                //要素数を先に減らすとproducerが読み出し中の領域を空きと判断しうるため、
+                //必ずデータ読み出しとm_pBufOutの更新を完了してから空きを公開する。
+                m_nSize.fetch_sub(1, std::memory_order_release);
                 if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
                     SetEvent(m_heEventPoped);
                 }
@@ -324,6 +325,9 @@ public:
             bCopy = nSize > m_nKeepLength;
             if (bCopy) {
                 m_pBufOut++;
+                //要素数を先に減らすとproducerが読み出し中の領域を空きと判断しうるため、
+                //必ずm_pBufOutの更新を完了してから空きを公開する。
+                m_nSize.fetch_sub(1, std::memory_order_release);
                 if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
                     SetEvent(m_heEventPoped);
                 }
@@ -360,6 +364,7 @@ protected:
     int m_nMallocAlign; //メモリのアライメント
     size_t m_nMaxCapacity; //キューに詰められる有効なデータの最大数
     size_t m_nKeepLength; //ある一定の長さを常にキュー内に保持するようにする
+    alignas(64) std::atomic<size_t> m_nSize; //キューに格納され、consumerへ公開済みのデータ数
     alignas(64) std::atomic<queueData*> m_pBufIn; //キューにデータを格納する位置へのポインタ
                 std::atomic<queueData*> m_pBufOut; //キューから取り出すべき先頭のデータへのポインタ
                 std::unique_ptr<queueData, aligned_malloc_deleter> m_pBufStart; //確保しているメモリ領域の先頭へのポインタ
