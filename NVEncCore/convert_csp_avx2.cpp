@@ -1383,7 +1383,7 @@ void convert_yuv444_to_y410_avx2(void** dst, const void** src, int width, int sr
         uint8_t* src_u_ptr = srcULine;
         uint8_t* src_v_ptr = srcVLine;
         uint32_t* dst_ptr = dstLine;
-        for (int x = 0; x < y_width; x++, src_y_ptr += 32, src_u_ptr += 32, src_v_ptr += 32, dst_ptr += 32) {
+        for (int x = 0; x < y_width; x += 32, src_y_ptr += 32, src_u_ptr += 32, src_v_ptr += 32, dst_ptr += 32) {
             __m256i pixY = _mm256_loadu_si256((const __m256i*)(src_y_ptr + 0));
             __m256i pixU = _mm256_loadu_si256((const __m256i*)(src_u_ptr + 0));
             __m256i pixV = _mm256_loadu_si256((const __m256i*)(src_v_ptr + 0));
@@ -1439,13 +1439,13 @@ void convert_yuv444_high_to_y410_avx2(void** dst, const void** src, int width, i
         uint16_t* src_u_ptr = srcULine;
         uint16_t* src_v_ptr = srcVLine;
         uint32_t* dst_ptr = dstLine;
-        for (int x = 0; x < y_width; x++, src_y_ptr += 32, src_u_ptr += 32, src_v_ptr += 32, dst_ptr += 32) {
+        for (int x = 0; x < y_width; x += 32, src_y_ptr += 32, src_u_ptr += 32, src_v_ptr += 32, dst_ptr += 32) {
             __m256i pixY0 = _mm256_loadu_si256((const __m256i*)(src_y_ptr + 0)); // 15 -  0
-            __m256i pixY1 = _mm256_loadu_si256((const __m256i*)(src_y_ptr + 8)); // 31 - 16
+            __m256i pixY1 = _mm256_loadu_si256((const __m256i*)(src_y_ptr + 16)); // 31 - 16
             __m256i pixU0 = _mm256_loadu_si256((const __m256i*)(src_u_ptr + 0)); // 15 -  0
-            __m256i pixU1 = _mm256_loadu_si256((const __m256i*)(src_u_ptr + 8)); // 31 - 16
+            __m256i pixU1 = _mm256_loadu_si256((const __m256i*)(src_u_ptr + 16)); // 31 - 16
             __m256i pixV0 = _mm256_loadu_si256((const __m256i*)(src_v_ptr + 0)); // 15 -  0
-            __m256i pixV1 = _mm256_loadu_si256((const __m256i*)(src_v_ptr + 8)); // 31 - 16
+            __m256i pixV1 = _mm256_loadu_si256((const __m256i*)(src_v_ptr + 16)); // 31 - 16
 
             if (in_bit_depth > out_bit_depth) {
                 pixY0 = _mm256_srli_epi16(_mm256_add_epi16(pixY0, xrsftAdd), in_bit_depth - out_bit_depth);

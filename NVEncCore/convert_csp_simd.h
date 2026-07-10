@@ -1351,7 +1351,7 @@ static void RGY_FORCEINLINE convert_yuv444_to_y410_simd(void** dst, const void**
         uint8_t* src_u_ptr = srcULine;
         uint8_t* src_v_ptr = srcVLine;
         uint32_t* dst_ptr = dstLine;
-        for (int x = 0; x < y_width; x++, src_y_ptr += 16, src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 16) {
+        for (int x = 0; x < y_width; x += 16, src_y_ptr += 16, src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 16) {
             __m128i pixY = _mm_loadu_si128((const __m128i*)(src_y_ptr + 0));
             __m128i pixU = _mm_loadu_si128((const __m128i*)(src_u_ptr + 0));
             __m128i pixV = _mm_loadu_si128((const __m128i*)(src_v_ptr + 0));
@@ -1407,7 +1407,7 @@ void convert_yuv444_high_to_y410_simd(void** dst, const void** src, int width, i
         uint16_t* src_u_ptr = srcULine;
         uint16_t* src_v_ptr = srcVLine;
         uint32_t* dst_ptr = dstLine;
-        for (int x = 0; x < y_width; x++, src_y_ptr += 16, src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 16) {
+        for (int x = 0; x < y_width; x += 16, src_y_ptr += 16, src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 16) {
             __m128i pixY0 = _mm_loadu_si128((const __m128i*)(src_y_ptr + 0));
             __m128i pixY1 = _mm_loadu_si128((const __m128i*)(src_y_ptr + 8));
             __m128i pixU0 = _mm_loadu_si128((const __m128i*)(src_u_ptr + 0));
