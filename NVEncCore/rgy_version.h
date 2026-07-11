@@ -66,6 +66,7 @@ const char *get_encoder_version();
 
 #define ENABLE_NVTX 0
 #define ENABLE_OPENVINO 0
+#define ENABLE_OPENCL 0
 
 #define GPU_VENDOR "NVIDIA"
 
@@ -74,7 +75,6 @@ const char *get_encoder_version();
 
 #if defined(_WIN32) || defined(_WIN64)
 #define NV_DRIVER_VER_MIN 452039
-#define ENABLE_OPENCL 1
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
 #define ENABLE_PERF_COUNTER 1
