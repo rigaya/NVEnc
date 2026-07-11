@@ -1,5 +1,44 @@
 # NVEnc Release Notes
 
+## 9.24
+
+- Improve [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) performance for long processing.
+- Extend temporal options in [--vpp-fft3d](./NVEncC_Options.en.md#--vpp-fft3d-param1value1param2value2).
+- Improve diagnostics when ONNX Runtime fails to load.
+- Avoid nan in CUDA [--vmaf](./NVEncC_Options.en.md#--vmaf-param1value1param2value2). ( #781 )
+- Fix Linux VMAF CUDA support. ( #781 )
+- Enable libvship build on Linux.
+- Add SDR to HDR model support to [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
+- Clarify error for non-existent VMAF json model. ( #783 )
+- Add OpenVINO RIFE frame interpolation filter [--vpp-rife-ov](./NVEncC_Options.en.md#--vpp-rife-ov-param1value1param2value2).
+- Add coring and hue range to [--vpp-tweak](./NVEncC_Options.en.md#--vpp-tweak-param1value1param2value2).
+- Add interpolation mode and fix all in [--vpp-curves](./NVEncC_Options.en.md#--vpp-curves-param1value1param2value2).
+- Add detailed parameters to [--vpp-hqdering](./NVEncC_Options.en.md#--vpp-hqdering-param1value1param2value2).
+- Add chroma to [--vpp-cas](./NVEncC_Options.en.md#--vpp-cas-param1value1param2value2).
+- Add valid source size to [--vpp-descale](./NVEncC_Options.en.md#--vpp-descale-param1value1param2value2).
+- Add keep and fix state management in [--vpp-mpdecimate](./NVEncC_Options.en.md#--vpp-mpdecimate-param1value1param2value2).
+- Add detection parameters to [--vpp-ivtc](./NVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2).
+- Add planes to [--vpp-nnedi](./NVEncC_Options.en.md#--vpp-nnedi-param1value1param2value2).
+- Add temporal radius and improve temporal processing in [--vpp-knn](./NVEncC_Options.en.md#--vpp-knn-param1value1param2value2).
+- Fix yuv444→y410 conversion.
+- Fix mask output in [--vpp-msmooth](./NVEncC_Options.en.md#--vpp-msmooth-param1value1param2value2).
+- Fix chroma processing in [--vpp-vinverse](./NVEncC_Options.en.md#--vpp-vinverse-param1value1param2value2).
+- Propagate Yadif copyFrameAsync error in [--vpp-yadif](./NVEncC_Options.en.md#--vpp-yadif-param1value1).
+- Fix nvvfx output crop height check.
+- Fix alpha input buffer width.
+- Fix smooth QP table reference coordinate clamp.
+- Fix Anime4K spline36 linear term in [--vpp-anime4k-shader](./NVEncC_Options.en.md#--vpp-anime4k-shader-param1value1param2value2).
+- Fix AFS mie_spot8 4th element reference in [--vpp-afs](./NVEncC_Options.en.md#--vpp-afs-param1value1param2value2).
+- Fix colorspace LUT3D green axis scale in [--vpp-colorspace](./NVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2).
+- Fix libplacebo radius warning argument in [--vpp-libplacebo-shader](./NVEncC_Options.en.md#--vpp-libplacebo-shader-param1value1param2value2).
+- Fix libplacebo deband grain target in [--vpp-libplacebo-deband](./NVEncC_Options.en.md#--vpp-libplacebo-deband-param1value1param2value2).
+- Fix delogo two-point least squares intercept in [--vpp-delogo](./NVEncC_Options.en.md#--vpp-delogo-stringparam1value1param2value2).
+- Fix decimate diff grid height in [--vpp-decimate](./NVEncC_Options.en.md#--vpp-decimate-param1value1param2value2).
+- Fix decomb stripe grid Y stride in [--vpp-decomb](./NVEncC_Options.en.md#--vpp-decomb-param1value1param2value2).
+- Fix chroma reference line in RGB→YUV420 conversion.
+- Apply denoise filter fixes.
+- Fix threshold in [--vpp-convolution3d](./NVEncC_Options.en.md#--vpp-convolution3d-param1value1param2value2).
+
 ## 9.23
 
 - Add libvmaf CUDA support. ( #781 )
