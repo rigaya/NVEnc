@@ -3694,26 +3694,25 @@ struct VppAnime4k {
 
 struct VppOnnx {
     bool    enable;
-    tstring modelFile;   // path to the ONNX model
-    tstring provider;    // NVEnc execution provider: "auto" (=cuda, default), "cuda", "tensorrt"
-    tstring device;      // accepted for CLI compatibility (QSV/VCE); on NVEnc inference binds to the encoder's CUDA device
-    tstring interop;     // accepted for CLI compatibility; NVEnc uses the host-readback path
+    tstring modelFile;   // path to the ONNX (or OpenVINO IR .xml) model
+    tstring device;      // OpenVINO device: "GPU.0" (default), "GPU", "CPU", "AUTO", "NPU"
+    tstring interop;     // "auto" (default), "ocl" (zero-copy shared context), "host" (readback)
+    tstring provider;
+    tstring precision;   // "auto" (default), "fp16", "fp32"
+    tstring cacheDir;    // OpenVINOのCACHE_DIR (コンパイル済みモデルのキャッシュ先, ""=無効=従来動作)
     CspMatrix colormatrix;    // 入力側YUV->RGB変換のマトリクス。auto=SD/HDで自動判定。
     CspMatrix colormatrixOut; // 出力側RGB->YUV変換のマトリクス。auto=入力と同じ=従来動作。
-                              // SDR->HDR等、モデルが色空間を変えるとき用 (例: bt709入力/bt2020nc出力)
+    // SDR->HDR等、モデルが色空間を変えるとき用 (例: bt709入力/bt2020nc出力)
     CspColorRange colorrange; // auto=tv
-    tstring colorspace;  // 3ch models: "rgb" (default) or "ycbcr"
+    tstring colorspace;  // 3ch models: "rgb" (default) or "ycbcr" (ArtCNN *_YCbCr / JPEG-YCbCr)
     int     noise;       // noise sigma (0..255) fed to the conditioning channel of noise models (default 15)
-    // Opt-in end-of-chain resize (out_res=). When postResizeW/H are set, an internal
-    // resize runs AFTER the network, fitting the integer-scaled output to an
-    // arbitrary final resolution. A negative value on one axis keeps the source aspect.
     int                  postResizeW;
     int                  postResizeH;
     RGY_VPP_RESIZE_ALGO  postResizeAlgo;
 
     VppOnnx();
-    bool operator==(const VppOnnx &x) const;
-    bool operator!=(const VppOnnx &x) const;
+    bool operator==(const VppOnnx& x) const;
+    bool operator!=(const VppOnnx& x) const;
     tstring print() const;
 };
 

@@ -3620,9 +3620,11 @@ tstring VppAnime4k::print() const {
 VppOnnx::VppOnnx() :
     enable(false),
     modelFile(),
-    provider(_T("auto")),
     device(_T("GPU.0")),
     interop(_T("auto")),
+    provider(_T("auto")),
+    precision(_T("auto")),
+    cacheDir(),
     colormatrix(RGY_MATRIX_AUTO),
     colormatrixOut(RGY_MATRIX_AUTO),
     colorrange(RGY_COLORRANGE_AUTO),
@@ -3634,12 +3636,14 @@ VppOnnx::VppOnnx() :
 
 }
 
-bool VppOnnx::operator==(const VppOnnx &x) const {
+bool VppOnnx::operator==(const VppOnnx& x) const {
     return enable == x.enable
         && modelFile == x.modelFile
-        && provider == x.provider
         && device == x.device
         && interop == x.interop
+        && provider == x.provider
+        && precision == x.precision
+        && cacheDir == x.cacheDir
         && colormatrix == x.colormatrix
         && colormatrixOut == x.colormatrixOut
         && colorrange == x.colorrange
@@ -3649,13 +3653,22 @@ bool VppOnnx::operator==(const VppOnnx &x) const {
         && postResizeH == x.postResizeH
         && postResizeAlgo == x.postResizeAlgo;
 }
-bool VppOnnx::operator!=(const VppOnnx &x) const {
+bool VppOnnx::operator!=(const VppOnnx& x) const {
     return !(*this == x);
 }
 
 tstring VppOnnx::print() const {
     tstring s = strsprintf(_T("model=%s"), modelFile.c_str());
+#if ENCODER_NVENC
     s += strsprintf(_T(",provider=%s"), provider.c_str());
+#elif ENABLE_OPENVINO
+    s += strsprintf(_T(",device=%s"), device.c_str());
+    s += strsprintf(_T(",interop=%s"), interop.c_str());
+    s += strsprintf(_T(",prec=%s"), precision.c_str());
+    if (!cacheDir.empty()) {
+        s += strsprintf(_T(",cache_dir=%s"), cacheDir.c_str());
+    }
+#endif
     s += strsprintf(_T(",colormatrix=%s"), get_cx_desc(list_colormatrix, colormatrix));
     if (colormatrixOut != RGY_MATRIX_AUTO) {
         s += strsprintf(_T(",colormatrix_out=%s"), get_cx_desc(list_colormatrix, colormatrixOut));

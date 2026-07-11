@@ -28,6 +28,7 @@
 #include "NVEncFilterRifeOV.h"
 #include <cuda_runtime.h>
 #include "rgy_filesystem.h"
+#include "rgy_model_registry.h"
 #include <algorithm>
 #include <cmath>
 
@@ -86,9 +87,23 @@ RGY_ERR NVEncFilterRifeOV::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("rife-ov: this build was compiled without ONNX Runtime CUDA support.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if (prm->modelFile.empty() || !rgy_file_exists(prm->modelFile)) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: model= (path to a RIFE .onnx) is required and must exist.\n"));
+    if (prm->modelFile.empty()) {
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: model= (a registered model name or RIFE .onnx path) is required.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->modelFile.find_first_of(_T("/\\\\.")) == tstring::npos && !prm->modelDir.empty()) {
+        RGYModelRegistry registry;
+        const auto err = registry.load(PathCombineS(prm->modelDir, _T("rife_ov_models.json")), m_pLog);
+        if (err != RGY_ERR_NONE) return err;
+        if (!registry.find(prm->modelFile)) {
+            AddMessage(RGY_LOG_ERROR, _T("rife-ov: model \"%s\" not found in rife_ov_models.json\n"), prm->modelFile.c_str());
+            return RGY_ERR_NOT_FOUND;
+        }
+        prm->modelFile = registry.resolveModelPath(prm->modelFile);
+    }
+    if (!rgy_file_exists(prm->modelFile)) {
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: model file not found: %s\n"), prm->modelFile.c_str());
+        return RGY_ERR_FILE_OPEN;
     }
     if (prm->multi < 2) {
         AddMessage(RGY_LOG_ERROR, _T("rife-ov: multi must be >= 2.\n"));

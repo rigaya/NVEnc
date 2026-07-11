@@ -16284,7 +16284,8 @@ tstring gen_cmd_help_vpp() {
     str += strsprintf(_T("\n")
         _T("   --vpp-rife-ov [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     RIFE v4.x frame interpolation.\n")
-        _T("      model=<path>                RIFE v4.x ONNX model path (required)\n")
+        _T("      model=<name|path>           Registered RIFE model name or ONNX path (required)\n")
+        _T("                                  Names require --vpp-onnx-model-dir (rife_ov_models.json).\n")
         _T("      multi=<int>                 frame-rate multiplier (>=2, default 2)\n")
 #if ENABLE_OPENVINO
         _T("      device=<string>             GPU.0 (default) / GPU / CPU / AUTO / NPU\n")

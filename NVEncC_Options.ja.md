@@ -4449,7 +4449,7 @@ ONNX Runtime CUDA/TensorRTでRIFE v4.x ONNXモデルを実行するフレーム�
 
 - **パラメータ**
   - model=&lt;string&gt;
-    RIFE v4.x ONNXモデルのパス (必須)。
+    登録済みRIFE v4.xモデル名、またはONNXモデルのパス (必須)。`--vpp-onnx-model-dir` 指定時は、`rife_ov_models.json` の `rife_v4_6` のようなモデル名を使用できる。互換性のため、`/`、`\\`、`.` を含む値は直接パスとして扱う。
   - multi=&lt;int&gt; (デフォルト: 2、範囲: 2以上)
     フレームレート倍率。
   - device=&lt;string&gt; (デフォルト: GPU.0)
@@ -4460,7 +4460,8 @@ ONNX Runtime CUDA/TensorRTでRIFE v4.x ONNXモデルを実行するフレーム�
     auto / tv / pc。
 
   ```
-  --vpp-rife-ov model=rife_v4.6.onnx,multi=2
+  --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-rife-ov model=rife_v4_6,multi=2
+  --vpp-rife-ov model=C:\models\rife_v4.6.onnx,multi=2
   ```
 
 ### --vpp-perf-monitor

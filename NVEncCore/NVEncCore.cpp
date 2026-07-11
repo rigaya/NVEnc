@@ -5080,6 +5080,7 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         unique_ptr<NVEncFilter> filter(new NVEncFilterRifeOV());
         shared_ptr<NVEncFilterParamRifeOV> param(new NVEncFilterParamRifeOV());
         param->modelFile = inputParam->vpp.rife_ov.modelFile;
+        param->modelDir = inputParam->vpp.onnxModelDir;
         param->device = inputParam->vpp.rife_ov.device;
         param->multi = inputParam->vpp.rife_ov.multi;
         param->colormatrix = inputParam->vpp.rife_ov.colormatrix;

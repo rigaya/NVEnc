@@ -12,12 +12,13 @@
 class NVEncFilterParamRifeOV : public NVEncFilterParam {
 public:
     tstring modelFile;
+    tstring modelDir;
     tstring device;
     int multi;
     tstring colormatrix;
     tstring colorrange;
     int deviceID;
-    NVEncFilterParamRifeOV() : modelFile(), device(_T("GPU.0")), multi(2), colormatrix(_T("auto")), colorrange(_T("auto")), deviceID(-1) {};
+    NVEncFilterParamRifeOV() : modelFile(), modelDir(), device(_T("GPU.0")), multi(2), colormatrix(_T("auto")), colorrange(_T("auto")), deviceID(-1) {};
     virtual tstring print() const override;
 };
 
