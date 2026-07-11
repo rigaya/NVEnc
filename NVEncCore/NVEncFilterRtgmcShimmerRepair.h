@@ -12,6 +12,35 @@ enum class RGYRtgmcShimmerRepairStage {
     PostTR2,
 };
 
+bool launchRtgmcShimmerRepairApplyU8(
+    int thinLevel, int padLevel, dim3 gridSize, dim3 blockSize, cudaStream_t stream,
+    uint8_t *pDst, int dstPitch, const uint8_t *pInput, int inputPitch, const uint8_t *pReference, int referencePitch,
+    int width, int height, int rangeHalf, int maxVal);
+bool launchRtgmcShimmerRepairApplyU16(
+    int thinLevel, int padLevel, dim3 gridSize, dim3 blockSize, cudaStream_t stream,
+    uint8_t *pDst, int dstPitch, const uint8_t *pInput, int inputPitch, const uint8_t *pReference, int referencePitch,
+    int width, int height, int rangeHalf, int maxVal);
+bool launchRtgmcShimmerRepairCopyU8(
+    dim3 gridSize, dim3 blockSize, cudaStream_t stream,
+    uint8_t *pDst, int dstPitch, const uint8_t *pSrc, int srcPitch,
+    int width, int height, int maxVal);
+bool launchRtgmcShimmerRepairCopyU16(
+    dim3 gridSize, dim3 blockSize, cudaStream_t stream,
+    uint8_t *pDst, int dstPitch, const uint8_t *pSrc, int srcPitch,
+    int width, int height, int maxVal);
+bool launchRtgmcShimmerRepairFusedU8(
+    int thinLevel, int padLevel, dim3 gridSize, dim3 blockSize, cudaStream_t stream,
+    uint8_t *pDst, int dstPitch, uint8_t *pCorrectionDelta, int correctionDeltaPitch,
+    uint8_t *pPositiveCorrectionGate, int positiveCorrectionGatePitch, uint8_t *pNegativeCorrectionGate, int negativeCorrectionGatePitch,
+    const uint8_t *pInput, int inputPitch, const uint8_t *pReference, int referencePitch,
+    int width, int height, int rangeHalf, int maxVal);
+bool launchRtgmcShimmerRepairFusedU16(
+    int thinLevel, int padLevel, dim3 gridSize, dim3 blockSize, cudaStream_t stream,
+    uint8_t *pDst, int dstPitch, uint8_t *pCorrectionDelta, int correctionDeltaPitch,
+    uint8_t *pPositiveCorrectionGate, int positiveCorrectionGatePitch, uint8_t *pNegativeCorrectionGate, int negativeCorrectionGatePitch,
+    const uint8_t *pInput, int inputPitch, const uint8_t *pReference, int referencePitch,
+    int width, int height, int rangeHalf, int maxVal);
+
 class NVEncFilterParamRtgmcShimmerRepair : public NVEncFilterParam {
 public:
     RGYRtgmcShimmerRepairStage stage;

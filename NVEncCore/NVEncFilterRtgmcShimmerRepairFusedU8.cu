@@ -1,0 +1,5 @@
+﻿#define NVENC_RTGMC_SHIMMER_REPAIR_KERNEL_ONLY
+#define NVENC_RTGMC_SHIMMER_REPAIR_BUILD_FUSED
+#define NVENC_RTGMC_SHIMMER_REPAIR_TYPE uint8_t
+#define NVENC_RTGMC_SHIMMER_REPAIR_LAUNCH_NAME launchRtgmcShimmerRepairFusedU8
+#include "NVEncFilterRtgmcShimmerRepair.cuh"
