@@ -1227,9 +1227,11 @@ struct VppResizeNis {
 };
 
 static const char *paramsResizeLibPlacebo[] = { "algo", "pl-radius", "pl-clamp", "pl-taper", "pl-blur", "pl-antiring"/*, "pl-cplace"*/ };
-static const char *paramsResizeNVEnc[] = { "superres-mode", "superres-strength", "vsr-quality", "sharpness", "cascade", "hdr", "b", "c" };
+static const char *paramsResizeNVEnc[] = { "superres-mode", "superres-strength", "vsr-quality" };
 static const char *paramsResizeQSVEnc[] = { "superres-mode", "superres-algo" };
 static const char *paramsResizeFsr1[] = { "sharpness" };
+static const char *paramsResizeNis[] = { "cascade", "sharpness", "hdr" };
+static const char *paramsResizeBicubic[] = { "b", "c" };
 
 static const float FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS = 0.5f;
 
