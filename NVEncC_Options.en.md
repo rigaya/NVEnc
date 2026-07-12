@@ -270,6 +270,7 @@
   - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
   - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
+  - [--vpp-onnx-cache-dir \<string\>](#--vpp-onnx-cache-dir-string)
   - [--vpp-rife-ov \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-rife-ov-param1value1param2value2)
   - [--vpp-stdeint \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-stdeint-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
@@ -1896,6 +1897,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
+- [--vpp-onnx-cache-dir](#--vpp-onnx-cache-dir-string)
 - [--vpp-rife-ov](#--vpp-rife-ov-param1value1param2value2)
 - [--vpp-stdeint](#--vpp-stdeint-param1value1param2value2)
 
@@ -4388,6 +4390,15 @@ This option only specifies where model files are located. The ONNX Runtime GPU, 
 --vpp-onnx-model-dir C:\models\HWEnc-onnx-models
 ```
 
+### --vpp-onnx-cache-dir &lt;string&gt;
+Directory used to cache TensorRT engines for `--vpp-stdeint provider=tensorrt`.
+
+The cache is disabled when this option is omitted. The first run builds an engine, while later runs with the same model, precision, input shape, and GPU can load the cached engine and substantially reduce startup time.
+
+```
+--vpp-onnx-cache-dir C:\models\HWEnc-onnx-cache
+```
+
 ### --vpp-rife-ov [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 RIFE v4.x frame interpolation filter using ONNX Runtime CUDA/TensorRT. Input must be 8-bit YUV420 and its width and height must be multiples of 32.
 
@@ -4424,11 +4435,11 @@ Legacy models with ONNX weave output must be re-exported.
   - device=&lt;string&gt; (default: GPU.0)  
     Accepted for cross-encoder compatibility. NVEnc uses the CUDA device selected by NVEncC.
   - precision=&lt;string&gt; (default: fp32)  
-    `fp32` / `auto`. Both currently run in fp32 on NVEnc.
+    `fp32` / `auto`. CUDA runs both settings in fp32. With `provider=tensorrt`, `fp32` uses fp32 and `auto` enables TensorRT fp16.
   - provider=&lt;string&gt; (default: auto)  
     `auto` / `cuda` / `tensorrt`. `auto` uses the CUDA execution provider.
     TensorRT is opt-in and may provide approximately twice the steady-state throughput,
-    but its first engine build takes around 10–20 seconds. TensorRT runtime DLLs must be
+    but its first engine build can take tens of seconds. Use `--vpp-onnx-cache-dir` to cache the engine and shorten later startups. TensorRT runtime DLLs must be
     installed separately and made visible through `PATH` or placed next to `NVEncC64.exe`.
     If TensorRT is unavailable, NVEncC prints a warning and falls back to CUDA.
   - colormatrix=&lt;string&gt; (default: auto)  
@@ -4446,7 +4457,7 @@ or `path host` in the log.
   ```
   --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-stdeint model=stdeint,mode=bob
   --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-stdeint model=stdeint_fast,mode=bob,provider=cuda
-  --vpp-stdeint model=C:\models\stdeint.onnx,mode=normal,provider=tensorrt
+  --vpp-onnx-cache-dir C:\models\onnx-cache --vpp-stdeint model=C:\models\stdeint.onnx,mode=normal,provider=tensorrt,precision=auto
   ```
 
 ### --vpp-perf-monitor

@@ -78,6 +78,19 @@ static RGYOnnxRTProvider stdeint_provider(const tstring& provider) {
     return RGYOnnxRTProvider::Auto;
 }
 
+class StDeintCudaContextRestorer {
+public:
+    StDeintCudaContextRestorer() : m_context(nullptr), m_valid(cuCtxGetCurrent(&m_context) == CUDA_SUCCESS) {}
+    ~StDeintCudaContextRestorer() {
+        if (m_valid) {
+            cuCtxSetCurrent(m_context);
+        }
+    }
+private:
+    CUcontext m_context;
+    bool m_valid;
+};
+
 NVEncFilterStDeint::NVEncFilterStDeint() :
     NVEncFilter(), m_ov(), m_width(0), m_height(0), m_mode(VppStDeintMode::Bob), m_defaultTff(true),
     m_havePrevTimestamp(false), m_prevTimestamp(0), m_prevDuration(0),
@@ -86,7 +99,7 @@ NVEncFilterStDeint::NVEncFilterStDeint() :
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
     m_inputBuf(), m_outputBuf(), m_weaveBuf(), m_inputStaging(), m_outputStaging(),
     m_inputDevice(), m_outputDevice(), m_modelPath(), m_provider(RGYOnnxRTProvider::Auto),
-    m_deviceID(-1), m_cudaPathTried(false), m_cudaPath(false) {
+    m_precision(_T("fp32")), m_cacheDir(), m_deviceID(-1), m_cudaPathTried(false), m_cudaPath(false) {
     m_name = _T("stdeint");
 }
 
@@ -110,8 +123,9 @@ void NVEncFilterStDeint::close() {
 }
 
 tstring NVEncFilterParamStDeint::print() const {
-    return strsprintf(_T("stdeint: %s, mode %s, provider %s, precision %s, colormatrix %s, colorrange %s"), modelFile.c_str(),
+    return strsprintf(_T("stdeint: %s, mode %s, provider %s, precision %s, cache_dir %s, colormatrix %s, colorrange %s"), modelFile.c_str(),
         get_cx_desc(list_vpp_stdeint_mode, (int)mode), provider.c_str(), precision.c_str(),
+        cacheDir.empty() ? _T("disabled") : cacheDir.c_str(),
         stdeint_cx_desc_or_unknown(list_colormatrix, colormatrix), stdeint_cx_desc_or_unknown(list_colorrange, colorrange));
 }
 
@@ -203,8 +217,15 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     }
     m_modelPath = prm->modelFile;
     m_provider = stdeint_provider(prm->provider);
+    m_precision = prm->precision;
+    m_cacheDir = prm->cacheDir;
+    if (!m_cacheDir.empty() && !rgy_directory_exists(m_cacheDir) && !CreateDirectoryRecursive(m_cacheDir.c_str())) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to create TensorRT engine cache directory: %s\n"), m_cacheDir.c_str());
+        return RGY_ERR_FILE_OPEN;
+    }
     tstring errorMessage;
-    auto err = m_ov->init(m_modelPath, m_deviceID, m_provider, m_height, m_width, errorMessage);
+    auto err = m_ov->init(m_modelPath, m_deviceID, m_provider, m_height, m_width, errorMessage,
+        nullptr, m_precision, m_cacheDir);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to load/compile model: %s\n"), errorMessage.c_str());
         return err;
@@ -408,6 +429,7 @@ NVEncStDeintColorCoeffs NVEncFilterStDeint::colorCoeffs() const {
 }
 
 RGY_ERR NVEncFilterStDeint::initCudaPath(cudaStream_t stream) {
+    StDeintCudaContextRestorer contextRestorer;
     if (m_cudaPathTried) return m_cudaPath ? RGY_ERR_NONE : RGY_ERR_UNSUPPORTED;
     m_cudaPathTried = true;
     if (!m_inputDevice || !m_outputDevice || stream == nullptr) {
@@ -416,7 +438,8 @@ RGY_ERR NVEncFilterStDeint::initCudaPath(cudaStream_t stream) {
     }
     auto deviceSession = std::make_unique<RGYOnnxRTCUDA>();
     tstring errorMessage;
-    auto err = deviceSession->init(m_modelPath, m_deviceID, m_provider, m_height, m_width, errorMessage, stream);
+    auto err = deviceSession->init(m_modelPath, m_deviceID, m_provider, m_height, m_width, errorMessage,
+        stream, m_precision, m_cacheDir);
     if (err != RGY_ERR_NONE || !deviceSession->deviceIOAvailable()
         || deviceSession->inChannels() != 3 || deviceSession->outChannels() != 6
         || deviceSession->outHeight() != m_height / 2 || deviceSession->outWidth() != m_width) {

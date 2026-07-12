@@ -33,6 +33,7 @@
 #include <vector>
 #include <string>
 #include <mutex>
+#include <unordered_map>
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -131,7 +132,7 @@ RGYOnnxRTCUDA::~RGYOnnxRTCUDA() {}
 
 RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
                             const int height, const int width, tstring &errMessage,
-                            cudaStream_t userComputeStream) {
+                            cudaStream_t userComputeStream, const tstring &precision, const tstring &cacheDir) {
     CudaContextRestorer contextRestorer;
     loadOrtOnce();
     if (!s_ortReady) {
@@ -142,6 +143,7 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
         auto &I = *m_impl;
         I.deviceID = deviceID;
         I.provider = _T("cuda");
+        I.precision = _T("f32");
         I.deviceIO = false;
         I.deviceMemInfo.reset();
         I.deviceInput.reset();
@@ -169,20 +171,63 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
         // for any op TensorRT cannot run), so append TensorRT first, then CUDA.
         const bool wantTensorRT = (provider == RGYOnnxRTProvider::TensorRT);
         auto& ort = onnxRuntime();
-        if (wantTensorRT && ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
-            OrtStatus *stTrt = ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()(static_cast<OrtSessionOptions*>(opts), deviceID);
-            if (stTrt != nullptr) {
-                I.lastError = tstring(_T("AppendExecutionProvider_Tensorrt failed: "))
-                            + char_to_tstring(Ort::GetApi().GetErrorMessage(stTrt));
-                Ort::GetApi().ReleaseStatus(stTrt);
-                I.provider = _T("cuda");
+        bool tensorRTAttached = false;
+        if (wantTensorRT) {
+            tstring tensorRTV2Error;
+            const auto& api = Ort::GetApi();
+            if (api.CreateTensorRTProviderOptions != nullptr
+                && api.UpdateTensorRTProviderOptions != nullptr
+                && api.UpdateTensorRTProviderOptionsWithValue != nullptr
+                && api.SessionOptionsAppendExecutionProvider_TensorRT_V2 != nullptr) {
+                try {
+                    const bool useFP16 = tolowercase(precision) == _T("auto");
+                    Ort::TensorRTProviderOptions trtOptions;
+                    std::unordered_map<std::string, std::string> optionValues = {
+                        { "device_id", std::to_string(deviceID) },
+                        { "trt_fp16_enable", useFP16 ? "1" : "0" }
+                    };
+                    if (userComputeStream != nullptr) {
+                        optionValues["has_user_compute_stream"] = "1";
+                    }
+                    std::string cacheDirUtf8;
+                    if (!cacheDir.empty()) {
+                        cacheDirUtf8 = tchar_to_string(cacheDir, CP_UTF8);
+                        optionValues["trt_engine_cache_enable"] = "1";
+                        optionValues["trt_engine_cache_path"] = cacheDirUtf8;
+                    }
+                    trtOptions.Update(optionValues);
+                    if (userComputeStream != nullptr) {
+                        trtOptions.UpdateWithValue("user_compute_stream", userComputeStream);
+                    }
+                    opts.AppendExecutionProvider_TensorRT_V2(*trtOptions);
+                    tensorRTAttached = true;
+                    I.provider = _T("tensorrt");
+                    I.precision = useFP16 ? _T("f16") : _T("f32");
+                } catch (const Ort::Exception &e) {
+                    tensorRTV2Error = tstring(_T("TensorRT V2 provider options failed: ")) + char_to_tstring(e.what());
+                }
             } else {
-                I.provider = _T("tensorrt");
+                tensorRTV2Error = _T("TensorRT V2 provider options are unavailable.");
             }
-        } else if (wantTensorRT && !ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
-            // requested TensorRT but the runtime library has no TensorRT provider: fall back to CUDA.
-            I.provider = _T("cuda");
-            I.lastError = _T("TensorRT execution provider is unavailable.");
+            if (!tensorRTAttached && ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
+                OrtStatus *stTrt = ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()(static_cast<OrtSessionOptions*>(opts), deviceID);
+                if (stTrt == nullptr) {
+                    tensorRTAttached = true;
+                    I.provider = _T("tensorrt");
+                    I.precision = _T("f32");
+                    I.lastError = tensorRTV2Error;
+                } else {
+                    const auto legacyError = tstring(_T("AppendExecutionProvider_Tensorrt failed: "))
+                        + char_to_tstring(Ort::GetApi().GetErrorMessage(stTrt));
+                    Ort::GetApi().ReleaseStatus(stTrt);
+                    I.lastError = tensorRTV2Error.empty() ? legacyError : tensorRTV2Error + _T(" ") + legacyError;
+                }
+            }
+            if (!tensorRTAttached && !ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
+                I.lastError = tensorRTV2Error.empty()
+                    ? _T("TensorRT execution provider is unavailable.")
+                    : tensorRTV2Error + _T(" TensorRT legacy provider is unavailable.");
+            }
         }
         if (userComputeStream != nullptr) {
             try {
@@ -360,7 +405,8 @@ tstring RGYOnnxRTCUDA::lastError() const { return m_impl->lastError; }
 class RGYOnnxRTCUDA::Impl {};
 RGYOnnxRTCUDA::RGYOnnxRTCUDA() : m_impl(nullptr) {}
 RGYOnnxRTCUDA::~RGYOnnxRTCUDA() {}
-RGY_ERR RGYOnnxRTCUDA::init(const tstring &, const int, const RGYOnnxRTProvider, const int, const int, tstring &errMessage, cudaStream_t) {
+RGY_ERR RGYOnnxRTCUDA::init(const tstring &, const int, const RGYOnnxRTProvider, const int, const int, tstring &errMessage,
+                            cudaStream_t, const tstring &, const tstring &) {
     errMessage = _T("this build of NVEnc has no ONNX Runtime CUDA support.");
     return RGY_ERR_UNSUPPORTED;
 }

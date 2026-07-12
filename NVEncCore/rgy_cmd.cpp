@@ -6120,7 +6120,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-onnx-cache-dir") && ENABLE_VPP_FILTER_ONNX && ENABLE_OPENVINO) {
+    if (IS_OPTION("vpp-onnx-cache-dir")
+        && (ENABLE_VPP_FILTER_ONNX || ENABLE_VPP_FILTER_STDEINT)
+        && (ENABLE_OPENVINO || ENCODER_NVENC)) {
         i++;
         vpp->onnx.cacheDir = tstring(strInput[i]);
         return 0;
@@ -16441,16 +16443,16 @@ tstring gen_cmd_help_vpp() {
 #if ENCODER_NVENC
         _T("      provider=<string>           auto (default) / cuda / tensorrt\n")
         _T("                                  TensorRT builds an engine on the first run, which takes time.\n")
-        _T("      precision=<string>          fp32 (default) / auto (both run as fp32 currently)\n")
+        _T("      precision=<string>          fp32 (default) / auto (TensorRT fp16)\n")
 #endif
         _T("      colormatrix=<string>        same list as --colormatrix; supports\n")
         _T("                                  auto / auto_res / bt709 / smpte170m / bt470bg / bt2020nc\n")
         _T("      colorrange=<string>         same list as --colorrange; supports\n")
         _T("                                  auto / limited (tv) / full (pc)\n"));
 #endif
-#if ENABLE_OPENVINO
+#if ENABLE_OPENVINO || ENCODER_NVENC
     str += strsprintf(_T("\n")
-        _T("   --vpp-onnx-cache-dir <string>   Cache compiled ONNX models in this folder.\n"));
+        _T("   --vpp-onnx-cache-dir <string>   Cache compiled OpenVINO models or TensorRT engines in this folder.\n"));
 #endif
 #endif
 #if ENABLE_VPP_FILTER_SMOOTH

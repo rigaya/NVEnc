@@ -75,7 +75,9 @@ public:
     // error text. If TensorRT is requested but unavailable, falls back to CUDA.
     RGY_ERR init(const tstring &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
                  const int height, const int width, tstring &errMessage,
-                 cudaStream_t userComputeStream = nullptr);
+                 cudaStream_t userComputeStream = nullptr,
+                 const tstring &precision = _T("fp32"),
+                 const tstring &cacheDir = tstring());
 
     // Synchronous inference. in points to inChannels()*inHeight()*inWidth() floats
     // (CHW); out receives outChannels()*outHeight()*outWidth() floats (CHW).

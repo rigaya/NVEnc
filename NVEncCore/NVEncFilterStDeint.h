@@ -42,13 +42,14 @@ public:
     tstring modelDir;
     tstring provider;
     tstring precision;
+    tstring cacheDir;
     VppStDeintMode mode;
     CspMatrix colormatrix;
     CspColorRange colorrange;
     int deviceID;
 
     NVEncFilterParamStDeint() :
-        modelFile(), modelDir(), provider(_T("auto")), precision(_T("fp32")), mode(VppStDeintMode::Bob),
+        modelFile(), modelDir(), provider(_T("auto")), precision(_T("fp32")), cacheDir(), mode(VppStDeintMode::Bob),
         colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), deviceID(-1) {};
     virtual tstring print() const override;
 };
@@ -110,6 +111,8 @@ protected:
     std::unique_ptr<CUMemBuf> m_outputDevice;
     tstring m_modelPath;
     RGYOnnxRTProvider m_provider;
+    tstring m_precision;
+    tstring m_cacheDir;
     int m_deviceID;
     bool m_cudaPathTried;
     bool m_cudaPath;

@@ -266,6 +266,7 @@
   - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
   - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
+  - [--vpp-onnx-cache-dir \<string\>](#--vpp-onnx-cache-dir-string)
   - [--vpp-rife-ov \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-rife-ov-param1value1param2value2)
   - [--vpp-stdeint \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-stdeint-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
@@ -1891,6 +1892,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
+- [--vpp-onnx-cache-dir](#--vpp-onnx-cache-dir-string)
 - [--vpp-rife-ov](#--vpp-rife-ov-param1value1param2value2)
 - [--vpp-stdeint](#--vpp-stdeint-param1value1param2value2)
 
@@ -4446,6 +4448,15 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
 --vpp-onnx-model-dir C:\models\HWEnc-onnx-models
 ```
 
+### --vpp-onnx-cache-dir &lt;string&gt;
+`--vpp-stdeint provider=tensorrt` で使用するTensorRTエンジンのキャッシュ先ディレクトリを指定する。
+
+未指定時はキャッシュを無効にする。初回実行ではエンジンを構築し、同じモデル・精度・入力形状・GPUを使用する以降の実行ではキャッシュを読み込んで起動時間を大幅に短縮できる。
+
+```
+--vpp-onnx-cache-dir C:\models\HWEnc-onnx-cache
+```
+
 ### --vpp-rife-ov [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 ONNX Runtime CUDA/TensorRTでRIFE v4.x ONNXモデルを実行するフレーム補間フィルタ。入力は8bit YUV420で、幅・高さは32の倍数である必要がある。
 
@@ -4481,11 +4492,11 @@ ST-DeIntのONNXモデルを実行するデインターレースフィルタ。�
   - device=&lt;string&gt; (デフォルト: GPU.0)  
     エンコーダ間の互換性のため受け付ける。NVEncではNVEncCが選択したCUDAデバイスを使用する。
   - precision=&lt;string&gt; (デフォルト: fp32)  
-    `fp32` / `auto`。NVEncでは現在、どちらもfp32で動作する。
+    `fp32` / `auto`。CUDAではどちらもfp32で動作する。`provider=tensorrt` では `fp32` はfp32、`auto` はTensorRTのfp16を有効にする。
   - provider=&lt;string&gt; (デフォルト: auto)  
     `auto` / `cuda` / `tensorrt`。`auto` はCUDA execution providerを使用する。
     TensorRTは明示指定時のみ使用し、定常処理は約2倍高速になる場合があるが、
-    初回のエンジン構築に10～20秒程度かかる。TensorRTのランタイムDLLは別途導入し、
+    初回のエンジン構築に数十秒かかる場合がある。`--vpp-onnx-cache-dir` でエンジンをキャッシュすると以降の起動時間を短縮できる。TensorRTのランタイムDLLは別途導入し、
     `PATH`から参照可能にするか `NVEncC64.exe` と同じ場所へ配置する必要がある。
     TensorRTを利用できない場合は警告を表示し、CUDAへフォールバックする。
   - colormatrix=&lt;string&gt; (デフォルト: auto)  
@@ -4502,7 +4513,7 @@ host経路へフォールバックし、選択した経路をログの `path cud
   ```
   --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-stdeint model=stdeint,mode=bob
   --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-stdeint model=stdeint_fast,mode=bob,provider=cuda
-  --vpp-stdeint model=C:\models\stdeint.onnx,mode=normal,provider=tensorrt
+  --vpp-onnx-cache-dir C:\models\onnx-cache --vpp-stdeint model=C:\models\stdeint.onnx,mode=normal,provider=tensorrt,precision=auto
   ```
 
 ### --vpp-perf-monitor
