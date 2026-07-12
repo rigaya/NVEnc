@@ -31,6 +31,7 @@
 
 #include <memory>
 #include <cstdint>
+#include <cuda_runtime_api.h>
 #include "rgy_err.h"
 
 // Set ENABLE_ONNXRUNTIME to 1 by the build (preprocessor define) when NVEnc is built with the ONNX
@@ -73,12 +74,18 @@ public:
     // warms / builds the engine). On failure errMessage carries the ONNX Runtime
     // error text. If TensorRT is requested but unavailable, falls back to CUDA.
     RGY_ERR init(const tstring &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
-                 const int height, const int width, tstring &errMessage);
+                 const int height, const int width, tstring &errMessage,
+                 cudaStream_t userComputeStream = nullptr);
 
     // Synchronous inference. in points to inChannels()*inHeight()*inWidth() floats
     // (CHW); out receives outChannels()*outHeight()*outWidth() floats (CHW).
     // Blocking; in only needs to stay valid for the call.
     RGY_ERR infer(const float *in, float *out);
+
+    // CUDAデバイス上のCHW floatバッファを直接入出力に束縛する。
+    // init()でuserComputeStreamを指定して初期化できた場合のみ利用できる。
+    RGY_ERR inferDevice(const float *inDevice, float *outDevice);
+    bool deviceIOAvailable() const;
 
     int inChannels()  const;
     int inHeight()    const;

@@ -53,6 +53,18 @@ public:
     virtual tstring print() const override;
 };
 
+struct NVEncStDeintColorCoeffs {
+    float yOff, yScale, yRange, cOff, cScale, cRange;
+    float matVR, matUG, matVG, matUB;
+    float matRY, matGY, matBY, matRU, matGU, matBU, matRV, matGV, matBV;
+};
+
+RGY_ERR run_stdeint_pack_rgb(const RGYFrameInfo *input, float *output,
+    const NVEncStDeintColorCoeffs& coeffs, cudaStream_t stream);
+RGY_ERR run_stdeint_weave_yuv(RGYFrameInfo *output, const float *input,
+    const float *restoration, bool frameA, const NVEncStDeintColorCoeffs& coeffs,
+    cudaStream_t stream);
+
 class NVEncFilterStDeint : public NVEncFilter {
 public:
     NVEncFilterStDeint();
@@ -69,6 +81,12 @@ protected:
     void setOutputFrameProp(RGYFrameInfo *output, const RGYFrameInfo *input) const;
     void setBobTimestamp(const RGYFrameInfo *input, RGYFrameInfo **outputs);
     void weaveRestoration(float *dst, const float *restoration, bool frameA) const;
+    RGY_ERR initCudaPath(cudaStream_t stream);
+    RGY_ERR runCuda(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
+        const int sourceIndices[2], cudaStream_t stream);
+    RGY_ERR runHost(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
+        const int sourceIndices[2], cudaStream_t stream);
+    NVEncStDeintColorCoeffs colorCoeffs() const;
 
     std::unique_ptr<RGYOnnxRTCUDA> m_ov;
     int m_width;
@@ -88,6 +106,13 @@ protected:
     std::vector<float> m_weaveBuf;
     std::unique_ptr<CUFrameBuf> m_inputStaging;
     std::vector<std::unique_ptr<CUFrameBuf>> m_outputStaging;
+    std::unique_ptr<CUMemBuf> m_inputDevice;
+    std::unique_ptr<CUMemBuf> m_outputDevice;
+    tstring m_modelPath;
+    RGYOnnxRTProvider m_provider;
+    int m_deviceID;
+    bool m_cudaPathTried;
+    bool m_cudaPath;
 };
 
 #endif //__NVENC_FILTER_STDEINT_H__

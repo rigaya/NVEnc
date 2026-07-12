@@ -52,7 +52,9 @@ NVEncFilterStDeint::NVEncFilterStDeint() :
     m_yOff(0), m_yScale(1), m_yRange(255), m_cOff(128), m_cScale(1), m_cRange(255),
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
-    m_inputBuf(), m_outputBuf(), m_weaveBuf(), m_inputStaging(), m_outputStaging() {
+    m_inputBuf(), m_outputBuf(), m_weaveBuf(), m_inputStaging(), m_outputStaging(),
+    m_inputDevice(), m_outputDevice(), m_modelPath(), m_provider(RGYOnnxRTProvider::Auto),
+    m_deviceID(-1), m_cudaPathTried(false), m_cudaPath(false) {
     m_name = _T("stdeint");
 }
 
@@ -64,11 +66,15 @@ void NVEncFilterStDeint::close() {
     m_ov.reset();
     m_inputStaging.reset();
     m_outputStaging.clear();
+    m_inputDevice.reset();
+    m_outputDevice.reset();
     m_inputBuf.clear();
     m_outputBuf.clear();
     m_weaveBuf.clear();
     m_frameBuf.clear();
     m_havePrevTimestamp = false;
+    m_cudaPathTried = false;
+    m_cudaPath = false;
 }
 
 tstring NVEncFilterParamStDeint::print() const {
@@ -147,12 +153,14 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     m_defaultTff = (prm->frameIn.picstruct & RGY_PICSTRUCT_BFF) == 0;
 
     m_ov = std::make_unique<RGYOnnxRTCUDA>();
-    int deviceID = prm->deviceID;
-    if (deviceID < 0) {
-        cudaGetDevice(&deviceID);
+    m_deviceID = prm->deviceID;
+    if (m_deviceID < 0) {
+        cudaGetDevice(&m_deviceID);
     }
+    m_modelPath = prm->modelFile;
+    m_provider = stdeint_provider(prm->provider);
     tstring errorMessage;
-    auto err = m_ov->init(prm->modelFile, deviceID, stdeint_provider(prm->provider), m_height, m_width, errorMessage);
+    auto err = m_ov->init(m_modelPath, m_deviceID, m_provider, m_height, m_width, errorMessage);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to load/compile model: %s\n"), errorMessage.c_str());
         return err;
@@ -207,6 +215,16 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     m_inputBuf.resize(3 * plane);
     m_outputBuf.resize(m_ov->outElemCount());
     m_weaveBuf.resize(3 * plane);
+    m_cudaPathTried = false;
+    m_cudaPath = false;
+    m_inputDevice = std::make_unique<CUMemBuf>(m_inputBuf.size() * sizeof(float));
+    m_outputDevice = std::make_unique<CUMemBuf>(m_outputBuf.size() * sizeof(float));
+    if (m_inputDevice->alloc() != RGY_ERR_NONE || m_outputDevice->alloc() != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_WARN, _T("stdeint: CUDA zero-copy buffers could not be allocated; using host path.\n"));
+        m_inputDevice.reset();
+        m_outputDevice.reset();
+        m_cudaPathTried = true;
+    }
     m_inputStaging = std::make_unique<CUFrameBuf>();
     if (m_inputStaging->allocHost(m_width, m_height, inputCsp) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to allocate input staging frame buffer.\n"));
@@ -341,6 +359,79 @@ void NVEncFilterStDeint::weaveRestoration(float *dst, const float *restoration, 
     }
 }
 
+NVEncStDeintColorCoeffs NVEncFilterStDeint::colorCoeffs() const {
+    return NVEncStDeintColorCoeffs {
+        m_yOff, m_yScale, m_yRange, m_cOff, m_cScale, m_cRange,
+        m_matVR, m_matUG, m_matVG, m_matUB,
+        m_matRY, m_matGY, m_matBY, m_matRU, m_matGU, m_matBU,
+        m_matRV, m_matGV, m_matBV
+    };
+}
+
+RGY_ERR NVEncFilterStDeint::initCudaPath(cudaStream_t stream) {
+    if (m_cudaPathTried) return m_cudaPath ? RGY_ERR_NONE : RGY_ERR_UNSUPPORTED;
+    m_cudaPathTried = true;
+    if (!m_inputDevice || !m_outputDevice || stream == nullptr) {
+        AddMessage(RGY_LOG_WARN, _T("stdeint: CUDA zero-copy initialization is unavailable; using host path.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    auto deviceSession = std::make_unique<RGYOnnxRTCUDA>();
+    tstring errorMessage;
+    auto err = deviceSession->init(m_modelPath, m_deviceID, m_provider, m_height, m_width, errorMessage, stream);
+    if (err != RGY_ERR_NONE || !deviceSession->deviceIOAvailable()
+        || deviceSession->inChannels() != 3 || deviceSession->outChannels() != 6
+        || deviceSession->outHeight() != m_height / 2 || deviceSession->outWidth() != m_width) {
+        const auto reason = !errorMessage.empty() ? errorMessage : deviceSession->lastError();
+        AddMessage(RGY_LOG_WARN, _T("stdeint: CUDA zero-copy initialization failed; using host path: %s\n"), reason.c_str());
+        return (err != RGY_ERR_NONE) ? err : RGY_ERR_UNSUPPORTED;
+    }
+    m_ov = std::move(deviceSession);
+    m_cudaPath = true;
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamStDeint>(m_param);
+    if (prm) setFilterInfo(prm->print() + _T(", path cuda-zerocopy"));
+    AddMessage(RGY_LOG_INFO, _T("stdeint: path cuda-zerocopy initialized on the filter stream.\n"));
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterStDeint::runCuda(const RGYFrameInfo *input, RGYFrameInfo **outputs,
+    int outputCount, const int sourceIndices[2], cudaStream_t stream) {
+    auto err = run_stdeint_pack_rgb(input, (float *)m_inputDevice->ptr, colorCoeffs(), stream);
+    if (err != RGY_ERR_NONE) return err;
+    err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
+    if (err != RGY_ERR_NONE) return err;
+
+    const size_t restorationElements = (size_t)3 * m_width * (m_height / 2);
+    for (int i = 0; i < outputCount; i++) {
+        const int frameIndex = sourceIndices[i];
+        err = run_stdeint_weave_yuv(outputs[i], (const float *)m_inputDevice->ptr,
+            (const float *)m_outputDevice->ptr + (size_t)frameIndex * restorationElements,
+            frameIndex == 0, colorCoeffs(), stream);
+        if (err != RGY_ERR_NONE) return err;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterStDeint::runHost(const RGYFrameInfo *input, RGYFrameInfo **outputs,
+    int outputCount, const int sourceIndices[2], cudaStream_t stream) {
+    auto err = copyFrameAsync(&m_inputStaging->frame, input, stream);
+    if (err != RGY_ERR_NONE) return err;
+    err = err_to_rgy(cudaStreamSynchronize(stream));
+    if (err != RGY_ERR_NONE) return err;
+    yuvToRGB(m_inputStaging->frame, m_inputBuf.data());
+
+    err = m_ov->infer(m_inputBuf.data(), m_outputBuf.data());
+    if (err != RGY_ERR_NONE) return err;
+    const size_t restorationElements = (size_t)3 * m_width * (m_height / 2);
+    for (int i = 0; i < outputCount; i++) {
+        const int frameIndex = sourceIndices[i];
+        weaveRestoration(m_weaveBuf.data(), m_outputBuf.data() + (size_t)frameIndex * restorationElements, frameIndex == 0);
+        rgbToYUV(m_outputStaging[i]->frame, m_weaveBuf.data());
+        err = copyFrameAsync(outputs[i], &m_outputStaging[i]->frame, stream);
+        if (err != RGY_ERR_NONE) return err;
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR NVEncFilterStDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
     int *pOutputFrameNum, cudaStream_t stream) {
     *pOutputFrameNum = 0;
@@ -370,24 +461,6 @@ RGY_ERR NVEncFilterStDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         return RGY_ERR_NONE;
     }
 
-    auto err = copyFrameAsync(&m_inputStaging->frame, pInputFrame, stream);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to copy input to staging: %s.\n"), get_err_mes(err));
-        return err;
-    }
-    err = err_to_rgy(cudaStreamSynchronize(stream));
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: stream sync failed: %s.\n"), get_err_mes(err));
-        return err;
-    }
-    yuvToRGB(m_inputStaging->frame, m_inputBuf.data());
-
-    err = m_ov->infer(m_inputBuf.data(), m_outputBuf.data());
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: inference failed: %s.\n"), m_ov->lastError().c_str());
-        return err;
-    }
-    const size_t restorationElements = (size_t)3 * m_width * (m_height / 2);
     bool inputTff = m_defaultTff;
     if (pInputFrame->picstruct & RGY_PICSTRUCT_BFF) {
         inputTff = false;
@@ -398,16 +471,25 @@ RGY_ERR NVEncFilterStDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     const int sourceIndices[2] = { firstIndex, 1 - firstIndex };
     for (int i = 0; i < outputCount; i++) {
         auto output = &m_frameBuf[i]->frame;
-        const int frameIndex = sourceIndices[i];
-        weaveRestoration(m_weaveBuf.data(), m_outputBuf.data() + (size_t)frameIndex * restorationElements, frameIndex == 0);
-        rgbToYUV(m_outputStaging[i]->frame, m_weaveBuf.data());
-        err = copyFrameAsync(output, &m_outputStaging[i]->frame, stream);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to copy output from staging: %s.\n"), get_err_mes(err));
-            return err;
-        }
         setOutputFrameProp(output, pInputFrame);
         ppOutputFrames[i] = output;
+    }
+    if (!m_cudaPathTried) initCudaPath(stream);
+    auto err = m_cudaPath
+        ? runCuda(pInputFrame, ppOutputFrames, outputCount, sourceIndices, stream)
+        : runHost(pInputFrame, ppOutputFrames, outputCount, sourceIndices, stream);
+    if (err != RGY_ERR_NONE && m_cudaPath) {
+        AddMessage(RGY_LOG_WARN, _T("stdeint: CUDA zero-copy execution failed; falling back to host path: %s\n"),
+            m_ov->lastError().c_str());
+        m_cudaPath = false;
+        const auto prm = std::dynamic_pointer_cast<NVEncFilterParamStDeint>(m_param);
+        if (prm) setFilterInfo(prm->print() + _T(", path host"));
+        err = runHost(pInputFrame, ppOutputFrames, outputCount, sourceIndices, stream);
+    }
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: processing failed: %s (%s).\n"),
+            get_err_mes(err), m_ov->lastError().c_str());
+        return err;
     }
     *pOutputFrameNum = outputCount;
     if (bob) {

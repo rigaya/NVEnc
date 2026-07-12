@@ -116,13 +116,22 @@ public:
     tstring provider = _T("cuda");   // the EP actually used
     tstring precision = _T("f32");
     tstring lastError;
+    bool deviceIO = false;
+    std::unique_ptr<Ort::MemoryInfo> deviceMemInfo;
+    std::unique_ptr<Ort::Value> deviceInput;
+    std::unique_ptr<Ort::Value> deviceOutput;
+    std::unique_ptr<Ort::IoBinding> ioBinding;
+    std::unique_ptr<Ort::RunOptions> deviceRunOptions;
+    const float *boundInput = nullptr;
+    float *boundOutput = nullptr;
 };
 
 RGYOnnxRTCUDA::RGYOnnxRTCUDA() : m_impl(std::make_unique<Impl>()) {}
 RGYOnnxRTCUDA::~RGYOnnxRTCUDA() {}
 
 RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
-                            const int height, const int width, tstring &errMessage) {
+                            const int height, const int width, tstring &errMessage,
+                            cudaStream_t userComputeStream) {
     CudaContextRestorer contextRestorer;
     loadOrtOnce();
     if (!s_ortReady) {
@@ -133,6 +142,14 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
         auto &I = *m_impl;
         I.deviceID = deviceID;
         I.provider = _T("cuda");
+        I.deviceIO = false;
+        I.deviceMemInfo.reset();
+        I.deviceInput.reset();
+        I.deviceOutput.reset();
+        I.ioBinding.reset();
+        I.deviceRunOptions.reset();
+        I.boundInput = nullptr;
+        I.boundOutput = nullptr;
         I.lastError.clear();
         auto cudaerr = selectCudaDevice(I.deviceID);
         if (cudaerr != cudaSuccess) {
@@ -167,12 +184,29 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
             I.provider = _T("cuda");
             I.lastError = _T("TensorRT execution provider is unavailable.");
         }
-        OrtStatus *stCuda = ort.p_OrtSessionOptionsAppendExecutionProviderCUDA()(static_cast<OrtSessionOptions*>(opts), deviceID);
-        if (stCuda != nullptr) {
-            errMessage = tstring(_T("AppendExecutionProvider_CUDA failed: "))
-                       + char_to_tstring(Ort::GetApi().GetErrorMessage(stCuda));
-            Ort::GetApi().ReleaseStatus(stCuda);
-            return RGY_ERR_UNSUPPORTED;
+        if (userComputeStream != nullptr) {
+            try {
+                Ort::CUDAProviderOptions cudaOptions;
+                cudaOptions.Update({
+                    { "device_id", std::to_string(deviceID) },
+                    { "has_user_compute_stream", "1" }
+                });
+                cudaOptions.UpdateWithValue("user_compute_stream", userComputeStream);
+                opts.AppendExecutionProvider_CUDA_V2(*cudaOptions);
+                I.deviceIO = true;
+            } catch (const Ort::Exception &e) {
+                I.lastError = tstring(_T("CUDA V2 provider options failed: ")) + char_to_tstring(e.what());
+                I.deviceIO = false;
+            }
+        }
+        if (!I.deviceIO) {
+            OrtStatus *stCuda = ort.p_OrtSessionOptionsAppendExecutionProviderCUDA()(static_cast<OrtSessionOptions*>(opts), deviceID);
+            if (stCuda != nullptr) {
+                errMessage = tstring(_T("AppendExecutionProvider_CUDA failed: "))
+                           + char_to_tstring(Ort::GetApi().GetErrorMessage(stCuda));
+                Ort::GetApi().ReleaseStatus(stCuda);
+                return RGY_ERR_UNSUPPORTED;
+            }
         }
 
         I.session = std::make_unique<Ort::Session>(*I.env, modelPath.c_str(), opts);
@@ -265,6 +299,48 @@ RGY_ERR RGYOnnxRTCUDA::infer(const float *in, float *out) {
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYOnnxRTCUDA::inferDevice(const float *inDevice, float *outDevice) {
+    if (!m_impl->session || !m_impl->deviceIO) return RGY_ERR_UNSUPPORTED;
+    CudaContextRestorer contextRestorer;
+    try {
+        auto &I = *m_impl;
+        I.lastError.clear();
+        auto cudaerr = selectCudaDevice(I.deviceID);
+        if (cudaerr != cudaSuccess) {
+            I.lastError = cudaErrorMessage(_T("cudaSetDevice"), I.deviceID, cudaerr);
+            return RGY_ERR_CUDA;
+        }
+        cudaGetLastError();
+        std::vector<int64_t> inDims  = { 1, I.inC,  I.inH,  I.inW };
+        std::vector<int64_t> outDims = { 1, I.outC, I.outH, I.outW };
+        const size_t inCount  = (size_t)I.inC  * I.inH  * I.inW;
+        const size_t outCount = (size_t)I.outC * I.outH * I.outW;
+        if (!I.ioBinding || I.boundInput != inDevice || I.boundOutput != outDevice) {
+            I.deviceMemInfo = std::make_unique<Ort::MemoryInfo>("Cuda", OrtDeviceAllocator, I.deviceID, OrtMemTypeDefault);
+            I.deviceInput = std::make_unique<Ort::Value>(Ort::Value::CreateTensor<float>(*I.deviceMemInfo,
+                const_cast<float *>(inDevice), inCount, inDims.data(), inDims.size()));
+            I.deviceOutput = std::make_unique<Ort::Value>(Ort::Value::CreateTensor<float>(*I.deviceMemInfo,
+                outDevice, outCount, outDims.data(), outDims.size()));
+            I.ioBinding = std::make_unique<Ort::IoBinding>(*I.session);
+            I.ioBinding->BindInput(I.inName.c_str(), *I.deviceInput);
+            I.ioBinding->BindOutput(I.outName.c_str(), *I.deviceOutput);
+            I.deviceRunOptions = std::make_unique<Ort::RunOptions>();
+            I.boundInput = inDevice;
+            I.boundOutput = outDevice;
+        }
+        I.session->Run(*I.deviceRunOptions, *I.ioBinding);
+    } catch (const Ort::Exception &e) {
+        m_impl->lastError = char_to_tstring(e.what());
+        return RGY_ERR_UNKNOWN;
+    } catch (const std::exception &e) {
+        m_impl->lastError = char_to_tstring(e.what());
+        return RGY_ERR_UNKNOWN;
+    }
+    return RGY_ERR_NONE;
+}
+
+bool RGYOnnxRTCUDA::deviceIOAvailable() const { return m_impl->deviceIO; }
+
 int RGYOnnxRTCUDA::inChannels()  const { return m_impl->inC; }
 int RGYOnnxRTCUDA::inHeight()    const { return m_impl->inH; }
 int RGYOnnxRTCUDA::inWidth()     const { return m_impl->inW; }
@@ -284,11 +360,13 @@ tstring RGYOnnxRTCUDA::lastError() const { return m_impl->lastError; }
 class RGYOnnxRTCUDA::Impl {};
 RGYOnnxRTCUDA::RGYOnnxRTCUDA() : m_impl(nullptr) {}
 RGYOnnxRTCUDA::~RGYOnnxRTCUDA() {}
-RGY_ERR RGYOnnxRTCUDA::init(const tstring &, const int, const RGYOnnxRTProvider, const int, const int, tstring &errMessage) {
+RGY_ERR RGYOnnxRTCUDA::init(const tstring &, const int, const RGYOnnxRTProvider, const int, const int, tstring &errMessage, cudaStream_t) {
     errMessage = _T("this build of NVEnc has no ONNX Runtime CUDA support.");
     return RGY_ERR_UNSUPPORTED;
 }
 RGY_ERR RGYOnnxRTCUDA::infer(const float *, float *) { return RGY_ERR_UNSUPPORTED; }
+RGY_ERR RGYOnnxRTCUDA::inferDevice(const float *, float *) { return RGY_ERR_UNSUPPORTED; }
+bool RGYOnnxRTCUDA::deviceIOAvailable() const { return false; }
 int RGYOnnxRTCUDA::inChannels()  const { return 0; }
 int RGYOnnxRTCUDA::inHeight()    const { return 0; }
 int RGYOnnxRTCUDA::inWidth()     const { return 0; }
