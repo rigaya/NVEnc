@@ -84,6 +84,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_ANIME4K      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_ONNX         ((ENABLE_OPENVINO && ENCODER_QSV) || (ENABLE_ONNXRUNTIME && (ENCODER_NVENC || ENCODER_VCEENC)))
 #define ENABLE_VPP_FILTER_RIFE_OV      ((ENABLE_OPENVINO && ENCODER_QSV) || (ENABLE_ONNXRUNTIME && (ENCODER_NVENC || ENCODER_VCEENC)))
+#define ENABLE_VPP_FILTER_STDEINT      ((ENABLE_OPENVINO && ENCODER_QSV) || (ENABLE_ONNXRUNTIME && (ENCODER_NVENC || ENCODER_VCEENC)))
 #define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_FFT3D        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -184,6 +185,7 @@ enum class VppType : int {
     CL_KFM,
     CL_YADIF,
     CL_DECOMB,
+    CL_STDEINT,
     CL_IVTC,
     CL_DECIMATE,
     CL_MPDECIMATE,
@@ -3560,6 +3562,29 @@ struct VppRifeOV {
     tstring print() const;
 };
 
+enum class VppStDeintMode {
+    Bob,
+    Normal,
+};
+
+extern const CX_DESC list_vpp_stdeint_mode[];
+
+struct VppStDeint {
+    bool    enable;
+    tstring modelFile;
+    tstring device;
+    tstring provider;
+    tstring precision;
+    VppStDeintMode mode;
+    tstring colormatrix;
+    tstring colorrange;
+
+    VppStDeint();
+    bool operator==(const VppStDeint& x) const;
+    bool operator!=(const VppStDeint& x) const;
+    tstring print() const;
+};
+
 
 enum class VppSoftLightMode {
     NEUTRALIZE,
@@ -3826,6 +3851,7 @@ struct RGYParamVpp {
     VppKfm kfm;
     VppYadif yadif;
     VppDecomb decomb;
+    VppStDeint stdeint;
     VppIvtc ivtc;
     VppRff rff;
     VppSelectEvery selectevery;

@@ -6054,6 +6054,72 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-stdeint") && ENABLE_VPP_FILTER_STDEINT) {
+        vpp->stdeint.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "model", "device", "provider", "precision", "mode", "colormatrix", "colorrange" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            const auto pos = param.find_first_of(_T("="));
+            if (pos == tstring::npos) {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+            const auto name = tolowercase(param.substr(0, pos));
+            const auto value = param.substr(pos + 1);
+            if (name == _T("enable")) {
+                if (cmd_string_to_bool(&vpp->stdeint.enable, value)) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
+                    return 1;
+                }
+            } else if (name == _T("model")) {
+                vpp->stdeint.modelFile = value;
+            } else if (name == _T("device")) {
+                vpp->stdeint.device = touppercase(value);
+            } else if (name == _T("provider")) {
+                const auto normalized = tolowercase(value);
+                if (normalized != _T("auto") && normalized != _T("cuda") && normalized != _T("tensorrt")) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
+                    return 1;
+                }
+                vpp->stdeint.provider = normalized;
+            } else if (name == _T("precision")) {
+                const auto normalized = tolowercase(value);
+                if (normalized != _T("fp32") && normalized != _T("auto")) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
+                    return 1;
+                }
+                vpp->stdeint.precision = normalized;
+            } else if (name == _T("mode")) {
+                int mode = 0;
+                if (!get_list_value(list_vpp_stdeint_mode, value.c_str(), &mode)) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value, list_vpp_stdeint_mode);
+                    return 1;
+                }
+                vpp->stdeint.mode = (VppStDeintMode)mode;
+            } else if (name == _T("colormatrix")) {
+                const auto normalized = tolowercase(value);
+                if (normalized != _T("auto") && normalized != _T("bt601") && normalized != _T("bt709") && normalized != _T("bt2020")) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
+                    return 1;
+                }
+                vpp->stdeint.colormatrix = normalized;
+            } else if (name == _T("colorrange")) {
+                const auto normalized = tolowercase(value);
+                if (normalized != _T("auto") && normalized != _T("tv") && normalized != _T("limited") && normalized != _T("pc") && normalized != _T("full")) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
+                    return 1;
+                }
+                vpp->stdeint.colorrange = (normalized == _T("limited")) ? _T("tv") : (normalized == _T("full")) ? _T("pc") : normalized;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, name, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-onnx-cache-dir") && ENABLE_VPP_FILTER_ONNX && ENABLE_OPENVINO) {
         i++;
         vpp->onnx.cacheDir = tstring(strInput[i]);
@@ -13695,6 +13761,26 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         cmd << _T(" --vpp-rife-ov ") << tmp.str().substr(1);
     }
+    if (param->stdeint != defaultPrm->stdeint) {
+        tmp.str(tstring());
+        if (!param->stdeint.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->stdeint.enable || save_disabled_prm) {
+            if (!param->stdeint.modelFile.empty()) tmp << _T(",model=") << param->stdeint.modelFile;
+            tmp << _T(",device=") << param->stdeint.device;
+            tmp << _T(",provider=") << param->stdeint.provider;
+            tmp << _T(",precision=") << param->stdeint.precision;
+            tmp << _T(",mode=") << get_cx_desc(list_vpp_stdeint_mode, (int)param->stdeint.mode);
+            tmp << _T(",colormatrix=") << param->stdeint.colormatrix;
+            tmp << _T(",colorrange=") << param->stdeint.colorrange;
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-stdeint ") << tmp.str().substr(1);
+        } else if (param->stdeint.enable) {
+            cmd << _T(" --vpp-stdeint");
+        }
+    }
     if (!param->onnx.cacheDir.empty()) {
         cmd << _T(" --vpp-onnx-cache-dir ") << param->onnx.cacheDir;
     }
@@ -16336,6 +16422,26 @@ tstring gen_cmd_help_vpp() {
         _T("      multi=<int>                 frame-rate multiplier (>=2, default 2)\n")
 #if ENABLE_OPENVINO
         _T("      device=<string>             GPU.0 (default) / GPU / CPU / AUTO / NPU\n")
+#endif
+        _T("      colormatrix=<string>        auto / bt601 / bt709 / bt2020\n")
+        _T("      colorrange=<string>         auto / tv / pc\n"));
+#endif
+#if ENABLE_VPP_FILTER_STDEINT
+    str += strsprintf(_T("\n")
+        _T("   --vpp-stdeint [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     ST-DeInt deinterlacing using an ONNX model.\n")
+        _T("      model=<name|path>           Registered ST-DeInt model name or ONNX path (required)\n")
+        _T("                                  Names require --vpp-onnx-model-dir (stdeint_ov_models.json).\n")
+        _T("      mode=<string>               bob (default, double frame rate) / normal\n")
+#if ENABLE_OPENVINO
+        _T("      device=<string>             GPU.0 (default) / CPU / GPU / AUTO / NPU\n")
+        _T("      precision=<string>          fp32 (default, high quality) / auto (fast)\n")
+        _T("                                  Recommended: stdeint+fp32 for quality, stdeint_fast+auto for HD speed.\n")
+#endif
+#if ENCODER_NVENC
+        _T("      provider=<string>           auto (default) / cuda / tensorrt\n")
+        _T("                                  TensorRT builds an engine on the first run, which takes time.\n")
+        _T("      precision=<string>          fp32 (default) / auto (both run as fp32 currently)\n")
 #endif
         _T("      colormatrix=<string>        auto / bt601 / bt709 / bt2020\n")
         _T("      colorrange=<string>         auto / tv / pc\n"));
