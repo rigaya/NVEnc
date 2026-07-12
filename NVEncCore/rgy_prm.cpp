@@ -2147,8 +2147,8 @@ VppStDeint::VppStDeint() :
     provider(_T("auto")),
     precision(_T("fp32")),
     mode(VppStDeintMode::Bob),
-    colormatrix(_T("auto")),
-    colorrange(_T("auto")) {
+    colormatrix(RGY_MATRIX_AUTO),
+    colorrange(RGY_COLORRANGE_AUTO) {
 }
 
 bool VppStDeint::operator==(const VppStDeint& x) const {
@@ -2169,7 +2169,7 @@ bool VppStDeint::operator!=(const VppStDeint& x) const {
 tstring VppStDeint::print() const {
     return strsprintf(_T("model=%s,device=%s,provider=%s,precision=%s,mode=%s,colormatrix=%s,colorrange=%s"),
         modelFile.c_str(), device.c_str(), provider.c_str(), precision.c_str(), get_cx_desc(list_vpp_stdeint_mode, (int)mode),
-        colormatrix.c_str(), colorrange.c_str());
+        get_cx_desc(list_colormatrix, colormatrix), get_cx_desc(list_colorrange, colorrange));
 }
 
 VppAnime4k::VppAnime4k() :

@@ -4432,9 +4432,9 @@ Legacy models with ONNX weave output must be re-exported.
     installed separately and made visible through `PATH` or placed next to `NVEncC64.exe`.
     If TensorRT is unavailable, NVEncC prints a warning and falls back to CUDA.
   - colormatrix=&lt;string&gt; (default: auto)  
-    auto / bt601 / bt709 / bt2020.
+    Uses the same standard names as `--colormatrix`. Supported values: auto / auto_res / bt709 / smpte170m / bt470bg / bt2020nc.
   - colorrange=&lt;string&gt; (default: auto)  
-    auto / tv / pc.
+    Uses the same standard names as `--colorrange`. Supported values: auto / limited (tv) / full (pc).
 
 Progressive input passes through without pixel processing. With `mode=bob`, it is duplicated
 with the duration split in half to preserve the doubled-rate timeline.

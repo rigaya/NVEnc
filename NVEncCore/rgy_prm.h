@@ -3576,8 +3576,8 @@ struct VppStDeint {
     tstring provider;
     tstring precision;
     VppStDeintMode mode;
-    tstring colormatrix;
-    tstring colorrange;
+    CspMatrix colormatrix;
+    CspColorRange colorrange;
 
     VppStDeint();
     bool operator==(const VppStDeint& x) const;

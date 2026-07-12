@@ -39,6 +39,38 @@ static inline float stdeint_clampf(float value, float low, float high) {
     return value < low ? low : (value > high ? high : value);
 }
 
+static const TCHAR *stdeint_cx_desc_or_unknown(const CX_DESC *list, int value) {
+    const auto desc = get_cx_desc(list, value);
+    return (desc != nullptr) ? desc : _T("unknown");
+}
+
+static bool stdeint_matrix_to_coeff_id(CspMatrix matrix, int inputHeight, int& matrixSel) {
+    if (matrix == RGY_MATRIX_AUTO || (int)matrix == COLOR_VALUE_AUTO_RESOLUTION) {
+        matrixSel = (inputHeight <= 576) ? 601 : 709;
+        return true;
+    }
+    switch (matrix) {
+    case RGY_MATRIX_ST170_M:
+    case RGY_MATRIX_BT470_BG:
+        matrixSel = 601;
+        return true;
+    case RGY_MATRIX_BT709:
+        matrixSel = 709;
+        return true;
+    case RGY_MATRIX_BT2020_NCL:
+        matrixSel = 2020;
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool stdeint_supported_colorrange(CspColorRange range) {
+    return range == RGY_COLORRANGE_AUTO
+        || range == RGY_COLORRANGE_LIMITED
+        || range == RGY_COLORRANGE_FULL;
+}
+
 static RGYOnnxRTProvider stdeint_provider(const tstring& provider) {
     const auto normalized = tolowercase(provider);
     if (normalized == _T("tensorrt")) return RGYOnnxRTProvider::TensorRT;
@@ -78,8 +110,9 @@ void NVEncFilterStDeint::close() {
 }
 
 tstring NVEncFilterParamStDeint::print() const {
-    return strsprintf(_T("stdeint: %s, mode %s, provider %s, precision %s"), modelFile.c_str(),
-        get_cx_desc(list_vpp_stdeint_mode, (int)mode), provider.c_str(), precision.c_str());
+    return strsprintf(_T("stdeint: %s, mode %s, provider %s, precision %s, colormatrix %s, colorrange %s"), modelFile.c_str(),
+        get_cx_desc(list_vpp_stdeint_mode, (int)mode), provider.c_str(), precision.c_str(),
+        stdeint_cx_desc_or_unknown(list_colormatrix, colormatrix), stdeint_cx_desc_or_unknown(list_colorrange, colorrange));
 }
 
 void NVEncFilterStDeint::setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax) {
@@ -149,6 +182,17 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         AddMessage(RGY_LOG_ERROR, _T("stdeint: invalid output mode.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    int matrixSel = 0;
+    if (!stdeint_matrix_to_coeff_id(prm->colormatrix, m_height, matrixSel)) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: unsupported colormatrix %s.\n"),
+            stdeint_cx_desc_or_unknown(list_colormatrix, prm->colormatrix));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (!stdeint_supported_colorrange(prm->colorrange)) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: unsupported colorrange %s.\n"),
+            stdeint_cx_desc_or_unknown(list_colorrange, prm->colorrange));
+        return RGY_ERR_UNSUPPORTED;
+    }
     m_mode = prm->mode;
     m_defaultTff = (prm->frameIn.picstruct & RGY_PICSTRUCT_BFF) == 0;
 
@@ -184,12 +228,7 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return RGY_ERR_UNSUPPORTED;
     }
 
-    int matrixSel;
-    if      (prm->colormatrix == _T("bt601"))  matrixSel = 601;
-    else if (prm->colormatrix == _T("bt2020")) matrixSel = 2020;
-    else if (prm->colormatrix == _T("bt709"))  matrixSel = 709;
-    else                                         matrixSel = (m_height <= 576) ? 601 : 709;
-    setupColorCoeffs(matrixSel, prm->colorrange != _T("pc"), 255);
+    setupColorCoeffs(matrixSel, prm->colorrange != RGY_COLORRANGE_FULL, 255);
 
     prm->frameOut.csp = inputCsp;
     prm->frameOut.width = m_width;

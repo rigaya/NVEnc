@@ -4489,9 +4489,9 @@ ST-DeIntのONNXモデルを実行するデインターレースフィルタ。�
     `PATH`から参照可能にするか `NVEncC64.exe` と同じ場所へ配置する必要がある。
     TensorRTを利用できない場合は警告を表示し、CUDAへフォールバックする。
   - colormatrix=&lt;string&gt; (デフォルト: auto)  
-    auto / bt601 / bt709 / bt2020。
+    `--colormatrix` と同じ標準名を使用する。対応値は auto / auto_res / bt709 / smpte170m / bt470bg / bt2020nc。
   - colorrange=&lt;string&gt; (デフォルト: auto)  
-    auto / tv / pc。
+    `--colorrange` と同じ標準名を使用する。対応値は auto / limited (tv) / full (pc)。
 
 プログレッシブ入力は画素を変更せず素通しする。`mode=bob` ではタイムラインを維持するため、
 同じ画像をdurationを半分ずつに分けて2枚出力する。

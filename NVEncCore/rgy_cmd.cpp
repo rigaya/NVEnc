@@ -6100,19 +6100,19 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 vpp->stdeint.mode = (VppStDeintMode)mode;
             } else if (name == _T("colormatrix")) {
-                const auto normalized = tolowercase(value);
-                if (normalized != _T("auto") && normalized != _T("bt601") && normalized != _T("bt709") && normalized != _T("bt2020")) {
-                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
+                int matrix = 0;
+                if (!get_list_value(list_colormatrix, value.c_str(), &matrix)) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value, list_colormatrix);
                     return 1;
                 }
-                vpp->stdeint.colormatrix = normalized;
+                vpp->stdeint.colormatrix = (CspMatrix)matrix;
             } else if (name == _T("colorrange")) {
-                const auto normalized = tolowercase(value);
-                if (normalized != _T("auto") && normalized != _T("tv") && normalized != _T("limited") && normalized != _T("pc") && normalized != _T("full")) {
-                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
+                int range = 0;
+                if (!get_list_value(list_colorrange, value.c_str(), &range)) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value, list_colorrange);
                     return 1;
                 }
-                vpp->stdeint.colorrange = (normalized == _T("limited")) ? _T("tv") : (normalized == _T("full")) ? _T("pc") : normalized;
+                vpp->stdeint.colorrange = (CspColorRange)range;
             } else {
                 print_cmd_error_unknown_opt_param(option_name, name, paramList);
                 return 1;
@@ -13772,8 +13772,8 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             tmp << _T(",provider=") << param->stdeint.provider;
             tmp << _T(",precision=") << param->stdeint.precision;
             tmp << _T(",mode=") << get_cx_desc(list_vpp_stdeint_mode, (int)param->stdeint.mode);
-            tmp << _T(",colormatrix=") << param->stdeint.colormatrix;
-            tmp << _T(",colorrange=") << param->stdeint.colorrange;
+            tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->stdeint.colormatrix);
+            tmp << _T(",colorrange=") << get_cx_desc(list_colorrange, param->stdeint.colorrange);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-stdeint ") << tmp.str().substr(1);
@@ -16443,8 +16443,10 @@ tstring gen_cmd_help_vpp() {
         _T("                                  TensorRT builds an engine on the first run, which takes time.\n")
         _T("      precision=<string>          fp32 (default) / auto (both run as fp32 currently)\n")
 #endif
-        _T("      colormatrix=<string>        auto / bt601 / bt709 / bt2020\n")
-        _T("      colorrange=<string>         auto / tv / pc\n"));
+        _T("      colormatrix=<string>        same list as --colormatrix; supports\n")
+        _T("                                  auto / auto_res / bt709 / smpte170m / bt470bg / bt2020nc\n")
+        _T("      colorrange=<string>         same list as --colorrange; supports\n")
+        _T("                                  auto / limited (tv) / full (pc)\n"));
 #endif
 #if ENABLE_OPENVINO
     str += strsprintf(_T("\n")

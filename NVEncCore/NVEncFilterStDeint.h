@@ -43,13 +43,13 @@ public:
     tstring provider;
     tstring precision;
     VppStDeintMode mode;
-    tstring colormatrix;
-    tstring colorrange;
+    CspMatrix colormatrix;
+    CspColorRange colorrange;
     int deviceID;
 
     NVEncFilterParamStDeint() :
         modelFile(), modelDir(), provider(_T("auto")), precision(_T("fp32")), mode(VppStDeintMode::Bob),
-        colormatrix(_T("auto")), colorrange(_T("auto")), deviceID(-1) {};
+        colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), deviceID(-1) {};
     virtual tstring print() const override;
 };
 
