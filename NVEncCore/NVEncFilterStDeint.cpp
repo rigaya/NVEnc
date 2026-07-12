@@ -31,34 +31,26 @@
 #include "rgy_model_registry.h"
 #include <algorithm>
 
-static inline uint8_t stdeint_clamp_u8(int value) {
-    return (uint8_t)(value < 0 ? 0 : (value > 255 ? 255 : value));
-}
-
-static inline float stdeint_clampf(float value, float low, float high) {
-    return value < low ? low : (value > high ? high : value);
-}
-
 static const TCHAR *stdeint_cx_desc_or_unknown(const CX_DESC *list, int value) {
     const auto desc = get_cx_desc(list, value);
     return (desc != nullptr) ? desc : _T("unknown");
 }
 
-static bool stdeint_matrix_to_coeff_id(CspMatrix matrix, int inputHeight, int& matrixSel) {
+static bool stdeint_resolve_matrix(CspMatrix matrix, int inputHeight, CspMatrix& resolved) {
     if (matrix == RGY_MATRIX_AUTO || (int)matrix == COLOR_VALUE_AUTO_RESOLUTION) {
-        matrixSel = (inputHeight <= 576) ? 601 : 709;
+        resolved = (inputHeight <= 576) ? RGY_MATRIX_ST170_M : RGY_MATRIX_BT709;
         return true;
     }
     switch (matrix) {
     case RGY_MATRIX_ST170_M:
     case RGY_MATRIX_BT470_BG:
-        matrixSel = 601;
+        resolved = RGY_MATRIX_ST170_M;
         return true;
     case RGY_MATRIX_BT709:
-        matrixSel = 709;
+        resolved = RGY_MATRIX_BT709;
         return true;
     case RGY_MATRIX_BT2020_NCL:
-        matrixSel = 2020;
+        resolved = RGY_MATRIX_BT2020_NCL;
         return true;
     default:
         return false;
@@ -92,13 +84,10 @@ private:
 };
 
 NVEncFilterStDeint::NVEncFilterStDeint() :
-    NVEncFilter(), m_ov(), m_width(0), m_height(0), m_mode(VppStDeintMode::Bob), m_defaultTff(true),
+    NVEncFilter(), m_ov(), m_cropToRgb(), m_cropFromRgb(), m_width(0), m_height(0), m_mode(VppStDeintMode::Bob), m_defaultTff(true),
     m_havePrevTimestamp(false), m_prevTimestamp(0), m_prevDuration(0),
-    m_yOff(0), m_yScale(1), m_yRange(255), m_cOff(128), m_cScale(1), m_cRange(255),
-    m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
-    m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
-    m_inputBuf(), m_outputBuf(), m_weaveBuf(), m_inputStaging(), m_outputStaging(),
-    m_inputDevice(), m_outputDevice(), m_modelPath(), m_provider(RGYOnnxRTProvider::Auto),
+    m_inputBuf(), m_outputBuf(), m_inputDevice(), m_outputDevice(), m_weaveDevice(),
+    m_modelPath(), m_provider(RGYOnnxRTProvider::Auto),
     m_precision(_T("fp32")), m_cacheDir(), m_deviceID(-1), m_cudaPathTried(false), m_cudaPath(false) {
     m_name = _T("stdeint");
 }
@@ -109,13 +98,13 @@ NVEncFilterStDeint::~NVEncFilterStDeint() {
 
 void NVEncFilterStDeint::close() {
     m_ov.reset();
-    m_inputStaging.reset();
-    m_outputStaging.clear();
+    m_cropToRgb.reset();
+    m_cropFromRgb.reset();
     m_inputDevice.reset();
     m_outputDevice.reset();
+    m_weaveDevice.reset();
     m_inputBuf.clear();
     m_outputBuf.clear();
-    m_weaveBuf.clear();
     m_frameBuf.clear();
     m_havePrevTimestamp = false;
     m_cudaPathTried = false;
@@ -127,26 +116,6 @@ tstring NVEncFilterParamStDeint::print() const {
         get_cx_desc(list_vpp_stdeint_mode, (int)mode), provider.c_str(), precision.c_str(),
         cacheDir.empty() ? _T("disabled") : cacheDir.c_str(),
         stdeint_cx_desc_or_unknown(list_colormatrix, colormatrix), stdeint_cx_desc_or_unknown(list_colorrange, colorrange));
-}
-
-void NVEncFilterStDeint::setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax) {
-    float kr = 0.2126f, kb = 0.0722f;
-    if (matrixSel == 601)  { kr = 0.299f;  kb = 0.114f; }
-    if (matrixSel == 2020) { kr = 0.2627f; kb = 0.0593f; }
-    const float kg = 1.0f - kr - kb;
-    m_matVR = 2.0f * (1.0f - kr);
-    m_matUG = -2.0f * kb * (1.0f - kb) / kg;
-    m_matVG = -2.0f * kr * (1.0f - kr) / kg;
-    m_matUB = 2.0f * (1.0f - kb);
-    m_matRY = kr;                            m_matGY = kg;                            m_matBY = kb;
-    m_matRU = -kr / (2.0f * (1.0f - kb));    m_matGU = -kg / (2.0f * (1.0f - kb));    m_matBU = 0.5f;
-    m_matRV = 0.5f;                          m_matGV = -kg / (2.0f * (1.0f - kr));    m_matBV = -kb / (2.0f * (1.0f - kr));
-    m_yOff   = rangeTV ? (16.0f  * pixMax / 255.0f) : 0.0f;
-    m_yRange = rangeTV ? (219.0f * pixMax / 255.0f) : (float)pixMax;
-    m_yScale = 1.0f / m_yRange;
-    m_cOff   = rangeTV ? (128.0f * pixMax / 255.0f) : ((float)pixMax / 2.0f);
-    m_cRange = rangeTV ? (224.0f * pixMax / 255.0f) : (float)pixMax;
-    m_cScale = 1.0f / m_cRange;
 }
 
 RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -196,8 +165,8 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         AddMessage(RGY_LOG_ERROR, _T("stdeint: invalid output mode.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    int matrixSel = 0;
-    if (!stdeint_matrix_to_coeff_id(prm->colormatrix, m_height, matrixSel)) {
+    CspMatrix matrix = RGY_MATRIX_UNSPECIFIED;
+    if (!stdeint_resolve_matrix(prm->colormatrix, m_height, matrix)) {
         AddMessage(RGY_LOG_ERROR, _T("stdeint: unsupported colormatrix %s.\n"),
             stdeint_cx_desc_or_unknown(list_colormatrix, prm->colormatrix));
         return RGY_ERR_UNSUPPORTED;
@@ -249,8 +218,6 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return RGY_ERR_UNSUPPORTED;
     }
 
-    setupColorCoeffs(matrixSel, prm->colorrange != RGY_COLORRANGE_FULL, 255);
-
     prm->frameOut.csp = inputCsp;
     prm->frameOut.width = m_width;
     prm->frameOut.height = m_height;
@@ -274,30 +241,44 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     const size_t plane = (size_t)m_width * m_height;
     m_inputBuf.resize(3 * plane);
     m_outputBuf.resize(m_ov->outElemCount());
-    m_weaveBuf.resize(3 * plane);
     m_cudaPathTried = false;
     m_cudaPath = false;
     m_inputDevice = std::make_unique<CUMemBuf>(m_inputBuf.size() * sizeof(float));
     m_outputDevice = std::make_unique<CUMemBuf>(m_outputBuf.size() * sizeof(float));
-    if (m_inputDevice->alloc() != RGY_ERR_NONE || m_outputDevice->alloc() != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_WARN, _T("stdeint: CUDA zero-copy buffers could not be allocated; using host path.\n"));
-        m_inputDevice.reset();
-        m_outputDevice.reset();
-        m_cudaPathTried = true;
-    }
-    m_inputStaging = std::make_unique<CUFrameBuf>();
-    if (m_inputStaging->allocHost(m_width, m_height, inputCsp) != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to allocate input staging frame buffer.\n"));
+    m_weaveDevice = std::make_unique<CUMemBuf>(m_inputBuf.size() * sizeof(float));
+    if (m_inputDevice->alloc() != RGY_ERR_NONE || m_outputDevice->alloc() != RGY_ERR_NONE || m_weaveDevice->alloc() != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to allocate RGB tensor buffers.\n"));
         return RGY_ERR_MEMORY_ALLOC;
     }
-    m_outputStaging.clear();
-    for (int i = 0; i < outputCount; i++) {
-        auto staging = std::make_unique<CUFrameBuf>();
-        if (staging->allocHost(m_width, m_height, inputCsp) != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to allocate output staging frame buffer.\n"));
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-        m_outputStaging.push_back(std::move(staging));
+
+    auto rgbInfo = rgbFrame((float *)m_inputDevice->ptr);
+    auto cropToRgbParam = std::make_shared<NVEncFilterParamCrop>();
+    cropToRgbParam->frameIn = prm->frameIn;
+    cropToRgbParam->frameIn.picstruct = RGY_PICSTRUCT_FRAME;
+    cropToRgbParam->frameOut = rgbInfo;
+    cropToRgbParam->baseFps = prm->baseFps;
+    cropToRgbParam->matrix = matrix;
+    cropToRgbParam->colorrange = (prm->colorrange == RGY_COLORRANGE_FULL) ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_LIMITED;
+    cropToRgbParam->bOutOverwrite = false;
+    m_cropToRgb = std::make_unique<NVEncFilterCspCrop>();
+    err = m_cropToRgb->init(cropToRgbParam, m_pLog);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to initialize YUV-to-RGB conversion: %s.\n"), get_err_mes(err));
+        return err;
+    }
+
+    auto cropFromRgbParam = std::make_shared<NVEncFilterParamCrop>();
+    cropFromRgbParam->frameIn = rgbInfo;
+    cropFromRgbParam->frameOut = prm->frameOut;
+    cropFromRgbParam->baseFps = prm->baseFps;
+    cropFromRgbParam->matrix = matrix;
+    cropFromRgbParam->colorrange = cropToRgbParam->colorrange;
+    cropFromRgbParam->bOutOverwrite = false;
+    m_cropFromRgb = std::make_unique<NVEncFilterCspCrop>();
+    err = m_cropFromRgb->init(cropFromRgbParam, m_pLog);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to initialize RGB-to-YUV conversion: %s.\n"), get_err_mes(err));
+        return err;
     }
 
     m_havePrevTimestamp = false;
@@ -309,72 +290,38 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     return RGY_ERR_NONE;
 }
 
-void NVEncFilterStDeint::yuvToRGB(const RGYFrameInfo& input, float *dst) {
-    const size_t plane = (size_t)m_width * m_height;
-    const bool nv12 = input.csp == RGY_CSP_NV12;
-    const int chromaWidth = m_width / 2;
-    const int chromaHeight = m_height / 2;
-    const uint8_t *uPlane = input.ptr[1];
-    const uint8_t *vPlane = nv12 ? input.ptr[1] + 1 : input.ptr[2];
-    const int chromaStride = nv12 ? 2 : 1;
-    const int uPitch = input.pitch[1];
-    const int vPitch = nv12 ? input.pitch[1] : input.pitch[2];
-    float *red = dst;
-    float *green = dst + plane;
-    float *blue = dst + 2 * plane;
-    for (int y = 0; y < m_height; y++) {
-        const uint8_t *yRow = input.ptr[0] + (size_t)y * input.pitch[0];
-        const int cy = std::min(y / 2, chromaHeight - 1);
-        for (int x = 0; x < m_width; x++) {
-            const int cx = std::min(x / 2, chromaWidth - 1);
-            const float yn = ((float)yRow[x] - m_yOff) * m_yScale;
-            const float un = ((float)uPlane[(size_t)cy * uPitch + (size_t)cx * chromaStride] - m_cOff) * m_cScale;
-            const float vn = ((float)vPlane[(size_t)cy * vPitch + (size_t)cx * chromaStride] - m_cOff) * m_cScale;
-            const size_t index = (size_t)y * m_width + x;
-            red[index] = stdeint_clampf(yn + m_matVR * vn, 0.0f, 1.0f);
-            green[index] = stdeint_clampf(yn + m_matUG * un + m_matVG * vn, 0.0f, 1.0f);
-            blue[index] = stdeint_clampf(yn + m_matUB * un, 0.0f, 1.0f);
-        }
-    }
+RGYFrameInfo NVEncFilterStDeint::rgbFrame(float *ptr) const {
+    RGYFrameInfo frame;
+    frame.width = m_width;
+    frame.height = m_height;
+    frame.csp = RGY_CSP_RGB_F32;
+    frame.bitdepth = 32;
+    frame.mem_type = RGY_MEM_TYPE_GPU;
+    frame.picstruct = RGY_PICSTRUCT_FRAME;
+    const size_t planeBytes = (size_t)m_width * m_height * sizeof(float);
+    frame.ptr[0] = (uint8_t *)ptr;
+    frame.ptr[1] = (uint8_t *)ptr + planeBytes;
+    frame.ptr[2] = (uint8_t *)ptr + planeBytes * 2;
+    frame.pitch[0] = m_width * sizeof(float);
+    frame.pitch[1] = frame.pitch[0];
+    frame.pitch[2] = frame.pitch[0];
+    return frame;
 }
 
-void NVEncFilterStDeint::rgbToYUV(const RGYFrameInfo& output, const float *src) {
-    const size_t plane = (size_t)m_width * m_height;
-    const bool nv12 = output.csp == RGY_CSP_NV12;
-    const int chromaWidth = m_width / 2;
-    const int chromaHeight = m_height / 2;
-    const float *red = src;
-    const float *green = src + plane;
-    const float *blue = src + 2 * plane;
-    uint8_t *uPlane = output.ptr[1];
-    uint8_t *vPlane = nv12 ? output.ptr[1] + 1 : output.ptr[2];
-    const int chromaStride = nv12 ? 2 : 1;
-    const int uPitch = output.pitch[1];
-    const int vPitch = nv12 ? output.pitch[1] : output.pitch[2];
-    for (int y = 0; y < m_height; y++) {
-        uint8_t *yRow = output.ptr[0] + (size_t)y * output.pitch[0];
-        for (int x = 0; x < m_width; x++) {
-            const size_t index = (size_t)y * m_width + x;
-            const float luma = m_matRY * red[index] + m_matGY * green[index] + m_matBY * blue[index];
-            yRow[x] = stdeint_clamp_u8((int)(luma * m_yRange + m_yOff + 0.5f));
-        }
-    }
-    for (int cy = 0; cy < chromaHeight; cy++) {
-        for (int cx = 0; cx < chromaWidth; cx++) {
-            float u = 0.0f, v = 0.0f;
-            for (int dy = 0; dy < 2; dy++) {
-                for (int dx = 0; dx < 2; dx++) {
-                    const size_t index = (size_t)(cy * 2 + dy) * m_width + (cx * 2 + dx);
-                    u += m_matRU * red[index] + m_matGU * green[index] + m_matBU * blue[index];
-                    v += m_matRV * red[index] + m_matGV * green[index] + m_matBV * blue[index];
-                }
-            }
-            u *= 0.25f;
-            v *= 0.25f;
-            uPlane[(size_t)cy * uPitch + (size_t)cx * chromaStride] = stdeint_clamp_u8((int)(u * m_cRange + m_cOff + 0.5f));
-            vPlane[(size_t)cy * vPitch + (size_t)cx * chromaStride] = stdeint_clamp_u8((int)(v * m_cRange + m_cOff + 0.5f));
-        }
-    }
+RGY_ERR NVEncFilterStDeint::convertToRgb(const RGYFrameInfo *input, cudaStream_t stream) {
+    auto inputFrame = *input;
+    inputFrame.picstruct = RGY_PICSTRUCT_FRAME;
+    auto outputFrame = rgbFrame((float *)m_inputDevice->ptr);
+    RGYFrameInfo *outputs[1] = { &outputFrame };
+    int outputCount = 0;
+    return m_cropToRgb->filter(&inputFrame, outputs, &outputCount, stream);
+}
+
+RGY_ERR NVEncFilterStDeint::convertFromRgb(RGYFrameInfo *output, cudaStream_t stream) {
+    auto inputFrame = rgbFrame((float *)m_weaveDevice->ptr);
+    RGYFrameInfo *outputs[1] = { output };
+    int outputCount = 0;
+    return m_cropFromRgb->filter(&inputFrame, outputs, &outputCount, stream);
 }
 
 void NVEncFilterStDeint::setOutputFrameProp(RGYFrameInfo *output, const RGYFrameInfo *input) const {
@@ -399,33 +346,6 @@ void NVEncFilterStDeint::setBobTimestamp(const RGYFrameInfo *input, RGYFrameInfo
     m_prevTimestamp = input->timestamp;
     m_prevDuration = frameDuration;
     m_havePrevTimestamp = true;
-}
-
-void NVEncFilterStDeint::weaveRestoration(float *dst, const float *restoration, bool frameA) const {
-    const size_t plane = (size_t)m_width * m_height;
-    const size_t halfPlane = plane / 2;
-    for (int channel = 0; channel < 3; channel++) {
-        const auto inputPlane = m_inputBuf.data() + (size_t)channel * plane;
-        const auto restorePlane = restoration + (size_t)channel * halfPlane;
-        auto outputPlane = dst + (size_t)channel * plane;
-        for (int y = 0; y < m_height / 2; y++) {
-            const auto inputRow = inputPlane + (size_t)(y * 2 + (frameA ? 0 : 1)) * m_width;
-            const auto restoreRow = restorePlane + (size_t)y * m_width;
-            auto upperRow = outputPlane + (size_t)(y * 2) * m_width;
-            auto lowerRow = upperRow + m_width;
-            std::copy_n(frameA ? inputRow : restoreRow, m_width, upperRow);
-            std::copy_n(frameA ? restoreRow : inputRow, m_width, lowerRow);
-        }
-    }
-}
-
-NVEncStDeintColorCoeffs NVEncFilterStDeint::colorCoeffs() const {
-    return NVEncStDeintColorCoeffs {
-        m_yOff, m_yScale, m_yRange, m_cOff, m_cScale, m_cRange,
-        m_matVR, m_matUG, m_matVG, m_matUB,
-        m_matRY, m_matGY, m_matBY, m_matRU, m_matGU, m_matBU,
-        m_matRV, m_matGV, m_matBV
-    };
 }
 
 RGY_ERR NVEncFilterStDeint::initCudaPath(cudaStream_t stream) {
@@ -457,7 +377,7 @@ RGY_ERR NVEncFilterStDeint::initCudaPath(cudaStream_t stream) {
 
 RGY_ERR NVEncFilterStDeint::runCuda(const RGYFrameInfo *input, RGYFrameInfo **outputs,
     int outputCount, const int sourceIndices[2], cudaStream_t stream) {
-    auto err = run_stdeint_pack_rgb(input, (float *)m_inputDevice->ptr, colorCoeffs(), stream);
+    auto err = convertToRgb(input, stream);
     if (err != RGY_ERR_NONE) return err;
     err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
     if (err != RGY_ERR_NONE) return err;
@@ -465,9 +385,11 @@ RGY_ERR NVEncFilterStDeint::runCuda(const RGYFrameInfo *input, RGYFrameInfo **ou
     const size_t restorationElements = (size_t)3 * m_width * (m_height / 2);
     for (int i = 0; i < outputCount; i++) {
         const int frameIndex = sourceIndices[i];
-        err = run_stdeint_weave_yuv(outputs[i], (const float *)m_inputDevice->ptr,
+        err = run_stdeint_weave_rgb((float *)m_weaveDevice->ptr, (const float *)m_inputDevice->ptr,
             (const float *)m_outputDevice->ptr + (size_t)frameIndex * restorationElements,
-            frameIndex == 0, colorCoeffs(), stream);
+            frameIndex == 0, m_width, m_height, stream);
+        if (err != RGY_ERR_NONE) return err;
+        err = convertFromRgb(outputs[i], stream);
         if (err != RGY_ERR_NONE) return err;
     }
     return RGY_ERR_NONE;
@@ -475,20 +397,27 @@ RGY_ERR NVEncFilterStDeint::runCuda(const RGYFrameInfo *input, RGYFrameInfo **ou
 
 RGY_ERR NVEncFilterStDeint::runHost(const RGYFrameInfo *input, RGYFrameInfo **outputs,
     int outputCount, const int sourceIndices[2], cudaStream_t stream) {
-    auto err = copyFrameAsync(&m_inputStaging->frame, input, stream);
+    auto err = convertToRgb(input, stream);
     if (err != RGY_ERR_NONE) return err;
+    auto cudaerr = cudaMemcpyAsync(m_inputBuf.data(), m_inputDevice->ptr,
+        m_inputBuf.size() * sizeof(float), cudaMemcpyDeviceToHost, stream);
+    if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
     err = err_to_rgy(cudaStreamSynchronize(stream));
     if (err != RGY_ERR_NONE) return err;
-    yuvToRGB(m_inputStaging->frame, m_inputBuf.data());
 
     err = m_ov->infer(m_inputBuf.data(), m_outputBuf.data());
     if (err != RGY_ERR_NONE) return err;
+    cudaerr = cudaMemcpyAsync(m_outputDevice->ptr, m_outputBuf.data(),
+        m_outputBuf.size() * sizeof(float), cudaMemcpyHostToDevice, stream);
+    if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
     const size_t restorationElements = (size_t)3 * m_width * (m_height / 2);
     for (int i = 0; i < outputCount; i++) {
         const int frameIndex = sourceIndices[i];
-        weaveRestoration(m_weaveBuf.data(), m_outputBuf.data() + (size_t)frameIndex * restorationElements, frameIndex == 0);
-        rgbToYUV(m_outputStaging[i]->frame, m_weaveBuf.data());
-        err = copyFrameAsync(outputs[i], &m_outputStaging[i]->frame, stream);
+        err = run_stdeint_weave_rgb((float *)m_weaveDevice->ptr, (const float *)m_inputDevice->ptr,
+            (const float *)m_outputDevice->ptr + (size_t)frameIndex * restorationElements,
+            frameIndex == 0, m_width, m_height, stream);
+        if (err != RGY_ERR_NONE) return err;
+        err = convertFromRgb(outputs[i], stream);
         if (err != RGY_ERR_NONE) return err;
     }
     return RGY_ERR_NONE;
@@ -533,7 +462,6 @@ RGY_ERR NVEncFilterStDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     const int sourceIndices[2] = { firstIndex, 1 - firstIndex };
     for (int i = 0; i < outputCount; i++) {
         auto output = &m_frameBuf[i]->frame;
-        setOutputFrameProp(output, pInputFrame);
         ppOutputFrames[i] = output;
     }
     if (!m_cudaPathTried) initCudaPath(stream);
@@ -552,6 +480,9 @@ RGY_ERR NVEncFilterStDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         AddMessage(RGY_LOG_ERROR, _T("stdeint: processing failed: %s (%s).\n"),
             get_err_mes(err), m_ov->lastError().c_str());
         return err;
+    }
+    for (int i = 0; i < outputCount; i++) {
+        setOutputFrameProp(ppOutputFrames[i], pInputFrame);
     }
     *pOutputFrameNum = outputCount;
     if (bob) {

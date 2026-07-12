@@ -54,17 +54,8 @@ public:
     virtual tstring print() const override;
 };
 
-struct NVEncStDeintColorCoeffs {
-    float yOff, yScale, yRange, cOff, cScale, cRange;
-    float matVR, matUG, matVG, matUB;
-    float matRY, matGY, matBY, matRU, matGU, matBU, matRV, matGV, matBV;
-};
-
-RGY_ERR run_stdeint_pack_rgb(const RGYFrameInfo *input, float *output,
-    const NVEncStDeintColorCoeffs& coeffs, cudaStream_t stream);
-RGY_ERR run_stdeint_weave_yuv(RGYFrameInfo *output, const float *input,
-    const float *restoration, bool frameA, const NVEncStDeintColorCoeffs& coeffs,
-    cudaStream_t stream);
+RGY_ERR run_stdeint_weave_rgb(float *output, const float *input,
+    const float *restoration, bool frameA, int width, int height, cudaStream_t stream);
 
 class NVEncFilterStDeint : public NVEncFilter {
 public:
@@ -76,20 +67,19 @@ protected:
         int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
 
-    void yuvToRGB(const RGYFrameInfo& input, float *dst);
-    void rgbToYUV(const RGYFrameInfo& output, const float *src);
-    void setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax);
     void setOutputFrameProp(RGYFrameInfo *output, const RGYFrameInfo *input) const;
     void setBobTimestamp(const RGYFrameInfo *input, RGYFrameInfo **outputs);
-    void weaveRestoration(float *dst, const float *restoration, bool frameA) const;
+    RGYFrameInfo rgbFrame(float *ptr) const;
+    RGY_ERR convertToRgb(const RGYFrameInfo *input, cudaStream_t stream);
+    RGY_ERR convertFromRgb(RGYFrameInfo *output, cudaStream_t stream);
     RGY_ERR initCudaPath(cudaStream_t stream);
     RGY_ERR runCuda(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
         const int sourceIndices[2], cudaStream_t stream);
     RGY_ERR runHost(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
         const int sourceIndices[2], cudaStream_t stream);
-    NVEncStDeintColorCoeffs colorCoeffs() const;
-
     std::unique_ptr<RGYOnnxRTCUDA> m_ov;
+    std::unique_ptr<NVEncFilterCspCrop> m_cropToRgb;
+    std::unique_ptr<NVEncFilterCspCrop> m_cropFromRgb;
     int m_width;
     int m_height;
     VppStDeintMode m_mode;
@@ -98,17 +88,11 @@ protected:
     int64_t m_prevTimestamp;
     int64_t m_prevDuration;
 
-    float m_yOff, m_yScale, m_yRange, m_cOff, m_cScale, m_cRange;
-    float m_matVR, m_matUG, m_matVG, m_matUB;
-    float m_matRY, m_matGY, m_matBY, m_matRU, m_matGU, m_matBU, m_matRV, m_matGV, m_matBV;
-
     std::vector<float> m_inputBuf;
     std::vector<float> m_outputBuf;
-    std::vector<float> m_weaveBuf;
-    std::unique_ptr<CUFrameBuf> m_inputStaging;
-    std::vector<std::unique_ptr<CUFrameBuf>> m_outputStaging;
     std::unique_ptr<CUMemBuf> m_inputDevice;
     std::unique_ptr<CUMemBuf> m_outputDevice;
+    std::unique_ptr<CUMemBuf> m_weaveDevice;
     tstring m_modelPath;
     RGYOnnxRTProvider m_provider;
     tstring m_precision;

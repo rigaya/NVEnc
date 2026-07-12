@@ -247,7 +247,7 @@ void NVEncFilterDisabled::close() {
     m_pLog.reset();
 }
 
-NVEncFilterParamCrop::NVEncFilterParamCrop() : NVEncFilterParam(), crop(initCrop()), matrix(RGY_MATRIX_ST170_M) {};
+NVEncFilterParamCrop::NVEncFilterParamCrop() : NVEncFilterParam(), crop(initCrop()), matrix(RGY_MATRIX_ST170_M), colorrange(RGY_COLORRANGE_LIMITED) {};
 NVEncFilterParamCrop::~NVEncFilterParamCrop() {};
 
 bool check_if_nppi_dll_available() {
