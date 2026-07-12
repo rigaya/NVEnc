@@ -34,6 +34,7 @@
 #include <string>
 #include <mutex>
 
+#include <cuda.h>
 #include <cuda_runtime.h>
 #include "rgy_onnxruntime.h"
 #include "rgy_util.h"
@@ -72,6 +73,28 @@ namespace {
         return strsprintf(_T("%s(device=%d) failed: %s"),
             func, deviceID, char_to_tstring(cudaGetErrorString(err)).c_str());
     }
+
+    cudaError_t selectCudaDevice(const int deviceID) {
+        int currentDevice = -1;
+        const auto err = cudaGetDevice(&currentDevice);
+        if (err == cudaSuccess && currentDevice == deviceID) {
+            return cudaSuccess;
+        }
+        return cudaSetDevice(deviceID);
+    }
+
+    class CudaContextRestorer {
+    public:
+        CudaContextRestorer() : m_context(nullptr), m_valid(cuCtxGetCurrent(&m_context) == CUDA_SUCCESS) {}
+        ~CudaContextRestorer() {
+            if (m_valid) {
+                cuCtxSetCurrent(m_context);
+            }
+        }
+    private:
+        CUcontext m_context;
+        bool m_valid;
+    };
 }
 
 // ------------------------------- pimpl ---------------------------------------
@@ -100,6 +123,7 @@ RGYOnnxRTCUDA::~RGYOnnxRTCUDA() {}
 
 RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
                             const int height, const int width, tstring &errMessage) {
+    CudaContextRestorer contextRestorer;
     loadOrtOnce();
     if (!s_ortReady) {
         errMessage = s_ortError;
@@ -108,7 +132,9 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
     try {
         auto &I = *m_impl;
         I.deviceID = deviceID;
-        auto cudaerr = cudaSetDevice(I.deviceID);
+        I.provider = _T("cuda");
+        I.lastError.clear();
+        auto cudaerr = selectCudaDevice(I.deviceID);
         if (cudaerr != cudaSuccess) {
             errMessage = cudaErrorMessage(_T("cudaSetDevice"), I.deviceID, cudaerr);
             return RGY_ERR_CUDA;
@@ -129,15 +155,17 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
         if (wantTensorRT && ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
             OrtStatus *stTrt = ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()(static_cast<OrtSessionOptions*>(opts), deviceID);
             if (stTrt != nullptr) {
-                errMessage = tstring(_T("AppendExecutionProvider_Tensorrt failed: "))
-                           + char_to_tstring(Ort::GetApi().GetErrorMessage(stTrt));
+                I.lastError = tstring(_T("AppendExecutionProvider_Tensorrt failed: "))
+                            + char_to_tstring(Ort::GetApi().GetErrorMessage(stTrt));
                 Ort::GetApi().ReleaseStatus(stTrt);
-                return RGY_ERR_UNSUPPORTED;
+                I.provider = _T("cuda");
+            } else {
+                I.provider = _T("tensorrt");
             }
-            I.provider = _T("tensorrt");
         } else if (wantTensorRT && !ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
             // requested TensorRT but the runtime library has no TensorRT provider: fall back to CUDA.
             I.provider = _T("cuda");
+            I.lastError = _T("TensorRT execution provider is unavailable.");
         }
         OrtStatus *stCuda = ort.p_OrtSessionOptionsAppendExecutionProviderCUDA()(static_cast<OrtSessionOptions*>(opts), deviceID);
         if (stCuda != nullptr) {
@@ -178,7 +206,7 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
                                                          inDims.data(), inDims.size());
         const char *inNames[]  = { I.inName.c_str() };
         const char *outNames[] = { I.outName.c_str() };
-        cudaerr = cudaSetDevice(I.deviceID);
+        cudaerr = selectCudaDevice(I.deviceID);
         if (cudaerr != cudaSuccess) {
             errMessage = cudaErrorMessage(_T("cudaSetDevice"), I.deviceID, cudaerr);
             return RGY_ERR_CUDA;
@@ -205,10 +233,11 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
 
 RGY_ERR RGYOnnxRTCUDA::infer(const float *in, float *out) {
     if (!m_impl->session) return RGY_ERR_NULL_PTR;
+    CudaContextRestorer contextRestorer;
     try {
         auto &I = *m_impl;
         I.lastError.clear();
-        auto cudaerr = cudaSetDevice(I.deviceID);
+        auto cudaerr = selectCudaDevice(I.deviceID);
         if (cudaerr != cudaSuccess) {
             I.lastError = cudaErrorMessage(_T("cudaSetDevice"), I.deviceID, cudaerr);
             return RGY_ERR_CUDA;

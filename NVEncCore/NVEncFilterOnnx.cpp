@@ -290,6 +290,10 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
             errMsg.c_str());
         return err;
     }
+    if ((provStr == _T("tensorrt") || provStr == _T("trt")) && m_ov->providerName() != _T("tensorrt")) {
+        AddMessage(RGY_LOG_WARN, _T("onnx: TensorRT provider is unavailable; falling back to CUDA: %s\n"),
+            m_ov->lastError().c_str());
+    }
 
     // Infer the I/O convention from the compiled model's channel counts.
     m_inC  = m_ov->inChannels();

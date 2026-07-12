@@ -157,6 +157,10 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to load/compile model: %s\n"), errorMessage.c_str());
         return err;
     }
+    if (tolowercase(prm->provider) == _T("tensorrt") && m_ov->providerName() != _T("tensorrt")) {
+        AddMessage(RGY_LOG_WARN, _T("stdeint: TensorRT provider is unavailable; falling back to CUDA: %s\n"),
+            m_ov->lastError().c_str());
+    }
     if (m_ov->inChannels() != 3 || m_ov->outChannels() != 6) {
         AddMessage(RGY_LOG_ERROR, _T("stdeint: invalid model (expected 3ch input / 6ch output, got %dch / %dch).\n"),
             m_ov->inChannels(), m_ov->outChannels());
