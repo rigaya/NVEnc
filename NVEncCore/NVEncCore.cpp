@@ -86,6 +86,7 @@
 #include "NVEncFilterNGX.h"
 #include "NVEncFilterOnnx.h"
 #include "NVEncFilterRifeOV.h"
+#include "NVEncFilterStDeint.h"
 #include "NVEncFilterAnime4k.h"
 #include "NVEncFilterLibplacebo.h"
 #include "NVEncFilterDeband.h"
@@ -175,6 +176,7 @@ static int vpp_deinterlacer_filter_count_wo_vppnv(const InEncodeVideoParam *inpu
     if (inputParam->vpp.kfm.enable) deinterlacer++;
     if (inputParam->vpp.yadif.enable) deinterlacer++;
     if (inputParam->vpp.decomb.enable) deinterlacer++;
+    if (inputParam->vpp.stdeint.enable) deinterlacer++;
     if (inputParam->vpp.bwdif.enable) deinterlacer++;
     if (inputParam->vpp.ivtc.enable) deinterlacer++;
     return deinterlacer;
@@ -2954,6 +2956,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.rtgmc_edi.enable && !degrainLegacy) filterPipeline.push_back(VppType::CL_RTGMC_EDI);
     if (inputParam->vpp.yadif.enable)         filterPipeline.push_back(VppType::CL_YADIF);
     if (inputParam->vpp.decomb.enable)        filterPipeline.push_back(VppType::CL_DECOMB);
+    if (inputParam->vpp.stdeint.enable)       filterPipeline.push_back(VppType::CL_STDEINT);
     if (inputParam->vpp.bwdif.enable)         filterPipeline.push_back(VppType::CL_BWDIF);
     if (inputParam->vpp.ivtc.enable)          filterPipeline.push_back(VppType::CL_IVTC);
     if (inputParam->vpp.decimate.enable)      filterPipeline.push_back(VppType::CL_DECIMATE);
@@ -3685,6 +3688,32 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         //パラメータ情報を更新
         m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    if (vppType == VppType::CL_STDEINT) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterStDeint());
+        shared_ptr<NVEncFilterParamStDeint> param(new NVEncFilterParamStDeint());
+        param->modelFile = inputParam->vpp.stdeint.modelFile;
+        param->modelDir = inputParam->vpp.onnxModelDir;
+        param->provider = inputParam->vpp.stdeint.provider;
+        param->precision = inputParam->vpp.stdeint.precision;
+        param->mode = inputParam->vpp.stdeint.mode;
+        param->colormatrix = inputParam->vpp.stdeint.colormatrix;
+        param->colorrange = inputParam->vpp.stdeint.colorrange;
+        param->deviceID = m_dev->id();
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        cufilters.push_back(std::move(filter));
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         return RGY_ERR_NONE;

@@ -1,0 +1,93 @@
+﻿// -----------------------------------------------------------------------------------------
+//     NVEnc by rigaya
+// -----------------------------------------------------------------------------------------
+// The MIT License
+//
+// Copyright (c) 2019-2021 rigaya
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+// ------------------------------------------------------------------------------------------
+
+#pragma once
+#ifndef __NVENC_FILTER_STDEINT_H__
+#define __NVENC_FILTER_STDEINT_H__
+
+#include "NVEncFilter.h"
+#include "NVEncFilterParam.h"
+#include "rgy_prm.h"
+#include "rgy_onnxrt_cuda.h"
+#include <memory>
+#include <vector>
+
+class NVEncFilterParamStDeint : public NVEncFilterParam {
+public:
+    tstring modelFile;
+    tstring modelDir;
+    tstring provider;
+    tstring precision;
+    VppStDeintMode mode;
+    tstring colormatrix;
+    tstring colorrange;
+    int deviceID;
+
+    NVEncFilterParamStDeint() :
+        modelFile(), modelDir(), provider(_T("auto")), precision(_T("fp32")), mode(VppStDeintMode::Bob),
+        colormatrix(_T("auto")), colorrange(_T("auto")), deviceID(-1) {};
+    virtual tstring print() const override;
+};
+
+class NVEncFilterStDeint : public NVEncFilter {
+public:
+    NVEncFilterStDeint();
+    virtual ~NVEncFilterStDeint();
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+protected:
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
+        int *pOutputFrameNum, cudaStream_t stream) override;
+    virtual void close() override;
+
+    void yuvToRGB(const RGYFrameInfo& input, float *dst);
+    void rgbToYUV(const RGYFrameInfo& output, const float *src);
+    void setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax);
+    void setOutputFrameProp(RGYFrameInfo *output, const RGYFrameInfo *input) const;
+    void setBobTimestamp(const RGYFrameInfo *input, RGYFrameInfo **outputs);
+    void weaveRestoration(float *dst, const float *restoration, bool frameA) const;
+
+    std::unique_ptr<RGYOnnxRTCUDA> m_ov;
+    int m_width;
+    int m_height;
+    VppStDeintMode m_mode;
+    bool m_defaultTff;
+    bool m_havePrevTimestamp;
+    int64_t m_prevTimestamp;
+    int64_t m_prevDuration;
+
+    float m_yOff, m_yScale, m_yRange, m_cOff, m_cScale, m_cRange;
+    float m_matVR, m_matUG, m_matVG, m_matUB;
+    float m_matRY, m_matGY, m_matBY, m_matRU, m_matGU, m_matBU, m_matRV, m_matGV, m_matBV;
+
+    std::vector<float> m_inputBuf;
+    std::vector<float> m_outputBuf;
+    std::vector<float> m_weaveBuf;
+    std::unique_ptr<CUFrameBuf> m_inputStaging;
+    std::vector<std::unique_ptr<CUFrameBuf>> m_outputStaging;
+};
+
+#endif //__NVENC_FILTER_STDEINT_H__
