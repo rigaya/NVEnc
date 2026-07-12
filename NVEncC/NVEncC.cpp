@@ -519,8 +519,12 @@ int _tmain(int argc, TCHAR **argv) {
         return -1;
     }
 
+    // Do not call rgy_path_is_same on stdin / Windows named pipes: equivalent()
+    // would connect to a waiting pipe and consume the instance before open.
     if (encPrm.common.inputFilename != _T("-")
         && encPrm.common.outputFilename != _T("-")
+        && !rgy_path_is_windows_named_pipe(encPrm.common.inputFilename)
+        && !rgy_path_is_windows_named_pipe(encPrm.common.outputFilename)
         && rgy_path_is_same(encPrm.common.inputFilename, encPrm.common.outputFilename)) {
         _ftprintf(stderr, _T("destination file is equal to source file!\n"));
         return 1;

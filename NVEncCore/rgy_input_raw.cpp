@@ -27,6 +27,7 @@
 
 #include <sstream>
 #include <fcntl.h>
+#include "rgy_filesystem.h"
 #include "rgy_input_raw.h"
 
 #if ENABLE_RAW_READER
@@ -143,7 +144,10 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadParamCsp);
     m_chunkPipeHandle = reinterpret_cast<const RGYInputPrmRaw *>(prm)->chunkPipeHandle;
 
-    m_isPipe = _tcscmp(strFileName, _T("-")) == 0;
+    const bool isStdin = _tcscmp(strFileName, _T("-")) == 0;
+    // Treat Windows named pipes as non-seekable pipes (same as stdin).
+    // Opening still goes through _tfopen_s below — do not map them to stdin.
+    m_isPipe = isStdin || rgy_path_is_windows_named_pipe(strFileName);
     // 並列エンコード時
     // 親 -> 普通に標準入力を開いてヘッダ取得(m_chunkPipeHandleはセットされていない)
     // 子 -> m_chunkPipeHandle.handleを開いてヘッダ取得(担当するchunkPipeHandleがセットされている)
@@ -178,7 +182,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             m_firstKeyPts = rational_rescale(pts + duration, m_timecode->timebase(), getInputTimebase());
         }
         AddMessage(RGY_LOG_DEBUG, _T("Chunk FirstKeyPts: %lld.\n"), (long long int)GetVideoFirstKeyPts());
-    } else if (m_isPipe) {
+    } else if (isStdin) {
         m_fSource = stdin;
 #if defined(_WIN32) || defined(_WIN64)
         if (_setmode(_fileno(stdin), _O_BINARY) < 0) {

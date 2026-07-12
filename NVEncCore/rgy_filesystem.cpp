@@ -508,7 +508,31 @@ std::string getExeDirA() {
     return PathRemoveFileSpecFixed(getExePathA()).second;
 }
 
+bool rgy_path_is_windows_named_pipe(const TCHAR *path) {
+#if defined(_WIN32) || defined(_WIN64)
+    return path != nullptr && path == _tcsstr(path, _T(R"(\\.\pipe\)"));
+#else
+    (void)path;
+    return false;
+#endif
+}
+
+bool rgy_path_is_windows_named_pipe(const tstring& path) {
+    return rgy_path_is_windows_named_pipe(path.c_str());
+}
+
 bool rgy_path_is_same(const TCHAR *path1, const TCHAR *path2) {
+    // Avoid std::filesystem::equivalent on stdin / Windows named pipes:
+    // probing a waiting named pipe connects as a client and steals the instance.
+    if (path1 == nullptr || path2 == nullptr) {
+        return false;
+    }
+    if (0 == _tcscmp(path1, _T("-"))
+        || 0 == _tcscmp(path2, _T("-"))
+        || rgy_path_is_windows_named_pipe(path1)
+        || rgy_path_is_windows_named_pipe(path2)) {
+        return 0 == _tcscmp(path1, path2);
+    }
     try {
         const auto p1 = std::filesystem::path(path1);
         const auto p2 = std::filesystem::path(path2);
