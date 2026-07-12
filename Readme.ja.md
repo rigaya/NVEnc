@@ -105,6 +105,7 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
       - nnedi
       - yadif
       - decomb
+      - stdeint (ST-DeInt、ONNX Runtime)
     - decimate
     - mpdecimate
     - delogo
