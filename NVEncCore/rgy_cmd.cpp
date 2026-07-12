@@ -16445,6 +16445,11 @@ tstring gen_cmd_help_vpp() {
         _T("                                  TensorRT builds an engine on the first run, which takes time.\n")
         _T("      precision=<string>          fp32 (default) / auto (TensorRT fp16)\n")
 #endif
+#if ENCODER_VCEENC
+        _T("      device=<string>             compatibility parameter; DirectML uses the encoder GPU\n")
+        _T("      provider=<string>           auto (default, DirectML)\n")
+        _T("      precision=<string>          fp32 (default) / auto (both use authored fp32)\n")
+#endif
         _T("      colormatrix=<string>        same list as --colormatrix; supports\n")
         _T("                                  auto / auto_res / bt709 / smpte170m / bt470bg / bt2020nc\n")
         _T("      colorrange=<string>         same list as --colorrange; supports\n")
