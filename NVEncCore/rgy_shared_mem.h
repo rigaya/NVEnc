@@ -192,6 +192,10 @@ public:
             handle = key;
         }
         buffer = shmat(segment_id, 0, 0);
+        if (buffer == (void *)-1) {
+            buffer = nullptr;
+            return 1;
+        }
         shared_size = size;
         return 0;
     }
