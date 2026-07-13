@@ -172,6 +172,9 @@ void RGYDeviceUsage::check(const time_t now_time_from_epoch) {
             }
         }
         memcpy(m_entries, tmp.data(), sizeof(m_entries[0]) * tmp.size());
+        for (size_t i = tmp.size(); i < (size_t)RGY_DEVICE_USAGE_MAX_ENTRY; i++) {
+            m_entries[i].process_id = 0;
+        }
     }
 }
 
