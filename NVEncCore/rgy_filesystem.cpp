@@ -865,11 +865,11 @@ bool swap_file(const char *fileA, const char *fileB) {
     for (int i = 0; !i || rgy_file_exists(filetemp); i++) {
         filetemp = std::string(fileA) + ".swap" + std::to_string(i) + ".tmp";
     }
-    if (rgy_file_rename(fileA, filetemp))
+    if (!rgy_file_rename(fileA, filetemp))
         return FALSE;
-    if (rgy_file_rename(fileB, fileA))
+    if (!rgy_file_rename(fileB, fileA))
         return FALSE;
-    if (rgy_file_rename(filetemp, fileB))
+    if (!rgy_file_rename(filetemp, fileB))
         return FALSE;
     return TRUE;
 }
@@ -881,11 +881,11 @@ bool swap_file(const wchar_t *fileA, const wchar_t *fileB) {
     for (int i = 0; !i || rgy_file_exists(filetemp); i++) {
         filetemp = std::wstring(fileA) + L".swap" + std::to_wstring(i) + L".tmp";
     }
-    if (rgy_file_rename(fileA, filetemp))
+    if (!rgy_file_rename(fileA, filetemp))
         return FALSE;
-    if (rgy_file_rename(fileB, fileA))
+    if (!rgy_file_rename(fileB, fileA))
         return FALSE;
-    if (rgy_file_rename(filetemp, fileB))
+    if (!rgy_file_rename(filetemp, fileB))
         return FALSE;
     return TRUE;
 }
