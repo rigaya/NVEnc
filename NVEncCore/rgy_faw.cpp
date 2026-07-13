@@ -361,7 +361,8 @@ int RGYFAWDecoder::decodeBlock(std::vector<uint8_t>& output, RGYFAWBitstream& in
     if (posStart == RGY_MEMMEM_NOT_FOUND) {
         return 0;
     }
-    input.parseAACHeader(input.data() + posStart + fawstart1.size());
+    if (input.size() >= posStart + fawstart1.size() + AAC_HEADER_MIN_SIZE)
+        input.parseAACHeader(input.data() + posStart + fawstart1.size());
 
     auto posFin = funcMemMem(input.data() + posStart + fawstart1.size(), input.size() - posStart - fawstart1.size(), fawfin1.data(), fawfin1.size());
     if (posFin == RGY_MEMMEM_NOT_FOUND) {
@@ -376,7 +377,8 @@ int RGYFAWDecoder::decodeBlock(std::vector<uint8_t>& output, RGYFAWBitstream& in
             break;
         }
         posStart += ret + fawstart1.size();
-        input.parseAACHeader(input.data() + posStart + fawstart1.size());
+        if (input.size() >= posStart + fawstart1.size() + AAC_HEADER_MIN_SIZE)
+            input.parseAACHeader(input.data() + posStart + fawstart1.size());
     }
 
     if (posStart + fawstart1.size() + 4 >= posFin) {
