@@ -41,10 +41,13 @@ static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list v
     const auto rgy_log_level = log_level_av2rgy(level);
 
     char mes[4096];
+    va_list vl2;
+    va_copy(vl2, vl);
     av_log_format_line(ptr, level, fmt, vl, mes, sizeof(mes), &print_prefix);
     if (rgy_log_level > RGY_LOG_DEBUG) {
         // 不要なメッセージをフィルター
         if (strstr(mes, "Skipping NAL unit") != nullptr) {
+            va_end(vl2);
             return;
         }
     }
@@ -53,9 +56,10 @@ static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list v
             if (pQSVLog->logFileAvail()) {
                 pQSVLog->write_log(rgy_log_level, RGY_LOGT_LIBAV, char_to_tstring(mes, CP_UTF8).c_str(), true);
             }
-            av_log_default_callback(ptr, level, fmt, vl);
+            av_log_default_callback(ptr, level, fmt, vl2);
         }
     }
+    va_end(vl2);
 }
 
 void av_qsv_log_set(std::shared_ptr<RGYLog>& pQSVLog) {
