@@ -444,8 +444,8 @@ int ChapterRW::read_chapter_matroska_chapter_atom(tinyxml2::XMLElement *elem, in
         if (count == 0) {
             auto flagHidden = chapterAtom->FirstChildElement(CHAPTER_FLAG_HIDDEN);
             auto flagEnabled = chapterAtom->FirstChildElement(CHAPTER_FLAG_ENABLED);
-            const bool hidden  = ( flagHidden  && strtol(flagHidden->GetText(), nullptr, 10) != 0);
-            const bool enabled = (!flagEnabled || strtol(flagEnabled->GetText(), nullptr, 10) != 0);
+            const bool hidden  = ( flagHidden  && flagHidden->GetText()  && strtol(flagHidden->GetText(), nullptr, 10) != 0);
+            const bool enabled = (!flagEnabled || !flagEnabled->GetText() || strtol(flagEnabled->GetText(), nullptr, 10) != 0);
             if (!hidden && enabled) {
                 auto chapterTimeStart = chapterAtom->FirstChildElement(CHAPTER_TIME_START);
                 if (chapterTimeStart == nullptr) {
@@ -454,6 +454,9 @@ int ChapterRW::read_chapter_matroska_chapter_atom(tinyxml2::XMLElement *elem, in
                 auto chapterDisplay = chapterAtom->FirstChildElement(CHAPTER_DISPLAY);
 
                 auto timeStart = chapterTimeStart->GetText();
+                if (timeStart == nullptr) {
+                    return AUO_CHAP_ERR_PARSE_XML;
+                }
                 int time[4] = { 0 };
                 if (   4 != sscanf_s(timeStart, "%d:%d:%d:%03d", &time[0], &time[1], &time[2], &time[3])
                     && 4 != sscanf_s(timeStart, "%d:%d:%d.%03d", &time[0], &time[1], &time[2], &time[3])
@@ -475,7 +478,7 @@ int ChapterRW::read_chapter_matroska_chapter_atom(tinyxml2::XMLElement *elem, in
             count++;
         }
         auto chapterTimeEnd = chapterAtom->FirstChildElement(CHAPTER_TIME_END);
-        if (chapterTimeEnd) {
+        if (chapterTimeEnd && chapterTimeEnd->GetText()) {
             auto timeEnd = chapterTimeEnd->GetText();
             int time[4] = { 0 };
             if (   4 == sscanf_s(timeEnd, "%d:%d:%d:%03d", &time[0], &time[1], &time[2], &time[3])
