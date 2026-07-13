@@ -1013,8 +1013,8 @@ static void convert_yv12_high_to_nv12_simd(void **dst, const void **src, int wid
                 x0 = _mm_loadu_si128((const __m128i *)(src_ptr + 0));
                 x1 = _mm_loadu_si128((const __m128i *)(src_ptr + 8));
 
-                x0 = _mm_adds_epi16(x0, xrsftAdd);
-                x1 = _mm_adds_epi16(x1, xrsftAdd);
+                x0 = _mm_adds_epu16(x0, xrsftAdd);
+                x1 = _mm_adds_epu16(x1, xrsftAdd);
 
                 x0 = _mm_srli_epi16(x0, in_bit_depth - 8);
                 x1 = _mm_srli_epi16(x1, in_bit_depth - 8);
@@ -1042,8 +1042,8 @@ static void convert_yv12_high_to_nv12_simd(void **dst, const void **src, int wid
             x0 = _mm_loadu_si128((const __m128i *)src_u_ptr);
             x1 = _mm_loadu_si128((const __m128i *)src_v_ptr);
 
-            x0 = _mm_adds_epi16(x0, xrsftAdd);
-            x1 = _mm_adds_epi16(x1, xrsftAdd);
+            x0 = _mm_adds_epu16(x0, xrsftAdd);
+            x1 = _mm_adds_epu16(x1, xrsftAdd);
 
             x0 = _mm_srli_epi16(x0, in_bit_depth - 8);
             x1 = _mm_slli_epi16(x1, 16 - in_bit_depth);
@@ -1298,12 +1298,12 @@ static void RGY_FORCEINLINE copy_yuv444_high_to_ayuv444(void **dst, const void *
             __m128i pixY1 = _mm_loadu_si128((const __m128i *)(src_y_ptr + 8));
             __m128i pixU1 = _mm_loadu_si128((const __m128i *)(src_u_ptr + 8));
             __m128i pixV1 = _mm_loadu_si128((const __m128i *)(src_v_ptr + 8));
-            pixY0 = _mm_adds_epi16(pixY0, xrsftAdd);
-            pixU0 = _mm_adds_epi16(pixU0, xrsftAdd);
-            pixV0 = _mm_adds_epi16(pixV0, xrsftAdd);
-            pixY1 = _mm_adds_epi16(pixY1, xrsftAdd);
-            pixU1 = _mm_adds_epi16(pixU1, xrsftAdd);
-            pixV1 = _mm_adds_epi16(pixV1, xrsftAdd);
+            pixY0 = _mm_adds_epu16(pixY0, xrsftAdd);
+            pixU0 = _mm_adds_epu16(pixU0, xrsftAdd);
+            pixV0 = _mm_adds_epu16(pixV0, xrsftAdd);
+            pixY1 = _mm_adds_epu16(pixY1, xrsftAdd);
+            pixU1 = _mm_adds_epu16(pixU1, xrsftAdd);
+            pixV1 = _mm_adds_epu16(pixV1, xrsftAdd);
             pixY0 = _mm_srli_epi16(pixY0, in_bit_depth - 8);
             pixU0 = _mm_srli_epi16(pixU0, in_bit_depth - 8);
             pixV0 = _mm_srli_epi16(pixV0, in_bit_depth - 8);
@@ -1545,8 +1545,8 @@ static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_simd(void **dst, const
             for (int x = 0; x < y_width; x += 16, dst_ptr += 16, src_ptr += 16) {
                 __m128i x0 = _mm_loadu_si128((const __m128i *)(src_ptr + 0));
                 __m128i x1 = _mm_loadu_si128((const __m128i *)(src_ptr + 8));
-                x0 = _mm_adds_epi16(x0, xrsftAdd);
-                x1 = _mm_adds_epi16(x1, xrsftAdd);
+                x0 = _mm_adds_epu16(x0, xrsftAdd);
+                x1 = _mm_adds_epu16(x1, xrsftAdd);
                 x0 = _mm_srli_epi16(x0, in_bit_depth - 8);
                 x1 = _mm_srli_epi16(x1, in_bit_depth - 8);
                 x0 = _mm_packus_epi16(x0, x1);

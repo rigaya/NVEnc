@@ -209,8 +209,8 @@ void copy_p010_to_nv12_avx2(void **dst, const void **src, int width, int src_y_p
             for (int x = 0; x < y_width; x += 32, dst_ptr += 32, src_ptr += 32) {
                 __m256i y0 = _mm256_loadu2_m128i((const __m128i *)(src_ptr + 16), (const __m128i *)(src_ptr + 0));
                 __m256i y1 = _mm256_loadu2_m128i((const __m128i *)(src_ptr + 24), (const __m128i *)(src_ptr + 8));
-                y0 = _mm256_adds_epi16(y0, yrsftAdd);
-                y1 = _mm256_adds_epi16(y1, yrsftAdd);
+                y0 = _mm256_adds_epu16(y0, yrsftAdd);
+                y1 = _mm256_adds_epu16(y1, yrsftAdd);
                 y0 = _mm256_srli_epi16(y0, in_bit_depth - 8);
                 y1 = _mm256_srli_epi16(y1, in_bit_depth - 8);
                 y0 = _mm256_packus_epi16(y0, y1);
@@ -639,8 +639,8 @@ static void convert_yv12_high_to_nv12_avx2_base(void **dst, const void **src, in
                 y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(src_ptr + 16)), _mm_loadu_si128((__m128i*)(src_ptr +  0)));
                 y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(src_ptr + 24)), _mm_loadu_si128((__m128i*)(src_ptr +  8)));
 
-                y0 = _mm256_adds_epi16(y0, yrsftAdd);
-                y1 = _mm256_adds_epi16(y1, yrsftAdd);
+                y0 = _mm256_adds_epu16(y0, yrsftAdd);
+                y1 = _mm256_adds_epu16(y1, yrsftAdd);
 
                 y0 = _mm256_srli_epi16(y0, in_bit_depth - 8);
                 y1 = _mm256_srli_epi16(y1, in_bit_depth - 8);
@@ -668,8 +668,8 @@ static void convert_yv12_high_to_nv12_avx2_base(void **dst, const void **src, in
             y0 = _mm256_loadu_si256((const __m256i *)src_u_ptr);
             y1 = _mm256_loadu_si256((const __m256i *)src_v_ptr);
 
-            y0 = _mm256_adds_epi16(y0, yrsftAdd);
-            y1 = _mm256_adds_epi16(y1, yrsftAdd);
+            y0 = _mm256_adds_epu16(y0, yrsftAdd);
+            y1 = _mm256_adds_epu16(y1, yrsftAdd);
 
             y0 = _mm256_srli_epi16(y0, in_bit_depth - 8);
             y1 = _mm256_slli_epi16(y1, 16 - in_bit_depth);
@@ -727,8 +727,8 @@ void RGY_FORCEINLINE copy_y_plane(void *dst, int dst_y_pitch_byte, const void*sr
                 y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(src_ptr + 16)), _mm_loadu_si128((__m128i*)(src_ptr + 0)));
                 y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(src_ptr + 24)), _mm_loadu_si128((__m128i*)(src_ptr + 8)));
 
-                y0 = _mm256_adds_epi16(y0, yrsftAdd);
-                y1 = _mm256_adds_epi16(y1, yrsftAdd);
+                y0 = _mm256_adds_epu16(y0, yrsftAdd);
+                y1 = _mm256_adds_epu16(y1, yrsftAdd);
 
                 y0 = _mm256_srli_epi16(y0, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, 0>());
                 y1 = _mm256_srli_epi16(y1, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, 0>());
@@ -845,10 +845,10 @@ void convert_p010_to_yv12_avx2(void **dst, const void **src, int width, int src_
             __m256i uv1 = _mm256_loadu_si256((const __m256i *)(srcUV + 16));  // | 384 | 256 |
             __m256i uv2 = _mm256_loadu_si256((const __m256i *)(srcUV + 32));  // | 640 | 512 |
             __m256i uv3 = _mm256_loadu_si256((const __m256i *)(srcUV + 48));  // | 896 | 768 |
-            uv0 = _mm256_srli_epi16(_mm256_adds_epi16(uv0, yrsftAdd), 8);
-            uv1 = _mm256_srli_epi16(_mm256_adds_epi16(uv1, yrsftAdd), 8);
-            uv2 = _mm256_srli_epi16(_mm256_adds_epi16(uv2, yrsftAdd), 8);
-            uv3 = _mm256_srli_epi16(_mm256_adds_epi16(uv3, yrsftAdd), 8);
+            uv0 = _mm256_srli_epi16(_mm256_adds_epu16(uv0, yrsftAdd), 8);
+            uv1 = _mm256_srli_epi16(_mm256_adds_epu16(uv1, yrsftAdd), 8);
+            uv2 = _mm256_srli_epi16(_mm256_adds_epu16(uv2, yrsftAdd), 8);
+            uv3 = _mm256_srli_epi16(_mm256_adds_epu16(uv3, yrsftAdd), 8);
             __m256i uv01 = _mm256_packus_epi16(uv0, uv1);  // | 384 | 128 | 256 |   0 |
             __m256i uv23 = _mm256_packus_epi16(uv2, uv3);  // | 896 | 640 | 768 | 512 |
 
@@ -943,8 +943,8 @@ void convert_p010_to_yuv420_high_avx2(void **dst, const void **src, int width, i
             __m256i uv0 = _mm256_loadu_si256((const __m256i *)(srcUV +  0));
             __m256i uv1 = _mm256_loadu_si256((const __m256i *)(srcUV + 16));
             if (out_bit_depth < 16) {
-                uv0 = _mm256_adds_epi16(uv0, yrsftAdd);
-                uv1 = _mm256_adds_epi16(uv1, yrsftAdd);
+                uv0 = _mm256_adds_epu16(uv0, yrsftAdd);
+                uv1 = _mm256_adds_epu16(uv1, yrsftAdd);
                 uv0 = _mm256_srli_epi16(uv0, 16 - out_bit_depth);
                 uv1 = _mm256_srli_epi16(uv1, 16 - out_bit_depth);
             }
@@ -1307,12 +1307,12 @@ static void RGY_FORCEINLINE copy_yuv444_high_to_ayuv444_avx2(void **dst, const v
             __m256i pixY1 = _mm256_loadu_si256((const __m256i *)(src_y_ptr + 8)); // 31 - 16
             __m256i pixU1 = _mm256_loadu_si256((const __m256i *)(src_u_ptr + 8)); // 31 - 16
             __m256i pixV1 = _mm256_loadu_si256((const __m256i *)(src_v_ptr + 8)); // 31 - 16
-            pixY0 = _mm256_adds_epi16(pixY0, xrsftAdd);
-            pixU0 = _mm256_adds_epi16(pixU0, xrsftAdd);
-            pixV0 = _mm256_adds_epi16(pixV0, xrsftAdd);
-            pixY1 = _mm256_adds_epi16(pixY1, xrsftAdd);
-            pixU1 = _mm256_adds_epi16(pixU1, xrsftAdd);
-            pixV1 = _mm256_adds_epi16(pixV1, xrsftAdd);
+            pixY0 = _mm256_adds_epu16(pixY0, xrsftAdd);
+            pixU0 = _mm256_adds_epu16(pixU0, xrsftAdd);
+            pixV0 = _mm256_adds_epu16(pixV0, xrsftAdd);
+            pixY1 = _mm256_adds_epu16(pixY1, xrsftAdd);
+            pixU1 = _mm256_adds_epu16(pixU1, xrsftAdd);
+            pixV1 = _mm256_adds_epu16(pixV1, xrsftAdd);
             pixY0 = _mm256_srli_epi16(pixY0, in_bit_depth - 8);
             pixU0 = _mm256_srli_epi16(pixU0, in_bit_depth - 8);
             pixV0 = _mm256_srli_epi16(pixV0, in_bit_depth - 8);
@@ -1708,8 +1708,8 @@ static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_avx2_base(void **dst, 
             for (int x = 0; x < y_width; x += 32, dst_ptr += 32, src_ptr += 32) {
                 __m256i y0 = _mm256_loadu2_m128i((const __m128i *)(src_ptr + 16), (const __m128i *)(src_ptr +  0));
                 __m256i y1 = _mm256_loadu2_m128i((const __m128i *)(src_ptr + 24), (const __m128i *)(src_ptr +  8));
-                y0 = _mm256_adds_epi16(y0, yrsftAdd);
-                y1 = _mm256_adds_epi16(y1, yrsftAdd);
+                y0 = _mm256_adds_epu16(y0, yrsftAdd);
+                y1 = _mm256_adds_epu16(y1, yrsftAdd);
                 y0 = _mm256_srli_epi16(y0, in_bit_depth - 8);
                 y1 = _mm256_srli_epi16(y1, in_bit_depth - 8);
                 y0 = _mm256_packus_epi16(y0, y1);
