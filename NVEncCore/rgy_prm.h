@@ -3471,7 +3471,6 @@ const CX_DESC list_vpp_anime4k_darken[] = {
     { _T("hq"),       (int)VppAnime4kDarken::HQ       },
     { _T("fast"),     (int)VppAnime4kDarken::Fast     },
     { _T("veryfast"), (int)VppAnime4kDarken::VeryFast },
-    { NULL, 0 },
     { _T("false"),    (int)VppAnime4kDarken::Off      },
     { _T("true"),     (int)VppAnime4kDarken::HQ       },
     { NULL, 0 }
@@ -3482,7 +3481,6 @@ const CX_DESC list_vpp_anime4k_thin[] = {
     { _T("hq"),       (int)VppAnime4kThin::HQ         },
     { _T("fast"),     (int)VppAnime4kThin::Fast       },
     { _T("veryfast"), (int)VppAnime4kThin::VeryFast   },
-    { NULL, 0 },
     { _T("false"),    (int)VppAnime4kThin::Off        },
     { _T("true"),     (int)VppAnime4kThin::HQ         },
     { NULL, 0 }
@@ -3493,7 +3491,6 @@ const CX_DESC list_vpp_anime4k_denoise[] = {
     { _T("mean"),   (int)VppAnime4kDenoise::Mean   },
     { _T("median"), (int)VppAnime4kDenoise::Median },
     { _T("mode"),   (int)VppAnime4kDenoise::Mode   },
-    { NULL, 0 },
     { _T("false"),  (int)VppAnime4kDenoise::Off    },
     { NULL, 0 }
 };
