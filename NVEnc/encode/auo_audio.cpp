@@ -297,7 +297,7 @@ static void correct_header(FILE *f_out, int samples_read, uint64_t data_size64, 
         uint32_t riff_size32 = data_size32 + (data_size_pos - RIFF_SIZE_POS);
         _fseeki64(f_out, RIFF_SIZE_POS, SEEK_SET);
         fwrite(&riff_size32, sizeof(uint32_t), 1, f_out);
-        _fseeki64(f_out, data_size_pos - RIFF_SIZE_POS, SEEK_CUR);
+        _fseeki64(f_out, data_size_pos, SEEK_SET);
         fwrite(&data_size32, sizeof(uint32_t), 1, f_out);
     }
 }
