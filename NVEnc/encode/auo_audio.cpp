@@ -267,7 +267,7 @@ static uint32_t build_wave_header(BYTE *head, const int audio_ch, const int audi
         *(DWORD*)(head + offset) = (DWORD)sample_n; offset += 4; // dwSampleLength (per channel sample frames)
     }
     memcpy(head + offset, DATA_CHUNK, strlen(DATA_CHUNK)); offset += 4;
-    *(DWORD*)(head + offset) = rf64 ? 0xffffffff : sample_n * (size * audio_ch); offset += 4;
+    *(DWORD*)(head + offset) = rf64 ? 0xffffffff : (DWORD)((uint64_t)sample_n * (size * audio_ch)); offset += 4;
     return offset;
     //計44byte(WAVE_HEADER_SIZE)
 }
