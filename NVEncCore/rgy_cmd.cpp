@@ -1276,7 +1276,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                             print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                             return 1;
                         }
-                        return 1;
                     }
                     continue;
                 }
