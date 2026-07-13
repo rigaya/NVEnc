@@ -733,6 +733,7 @@ std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size) {
             if (next == RGY_MEMMEM_NOT_FOUND) break;
 
             i += next;
+            if (i + 3 >= (int64_t)size) break;
             if (nal_start.ptr) {
                 nal_list.push_back(nal_start);
             }
@@ -763,6 +764,7 @@ std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size) {
             if (next == RGY_MEMMEM_NOT_FOUND) break;
 
             i += next;
+            if (i + 4 >= (int64_t)size) break;
             if (nal_start.ptr) {
                 nal_list.push_back(nal_start);
             }
@@ -795,6 +797,7 @@ std::vector<nal_info> parse_nal_unit_vvc_c(const uint8_t *data, size_t size) {
             if (next == RGY_MEMMEM_NOT_FOUND) break;
 
             i += next;
+            if (i + 4 >= (int64_t)size) break;
             if (nal_start.ptr) {
                 nal_list.push_back(nal_start);
             }
