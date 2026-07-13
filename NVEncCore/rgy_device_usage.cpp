@@ -216,6 +216,9 @@ std::vector<std::pair<int, int64_t>> RGYDeviceUsage::getUsage(const RGYDeviceUsa
     if (!lock) {
         return usage;
     }
+    if (m_header == nullptr || m_entries == nullptr) {
+        return usage;
+    }
     std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
     const auto time_from_epoch = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
