@@ -3926,6 +3926,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && resize_fsr1 == x.resize_fsr1
         && resize_nis == x.resize_nis
         && resize_bicubic == x.resize_bicubic
+        && resize_libplacebo == x.resize_libplacebo
         && colorspace == x.colorspace
         && libplacebo_tonemapping == x.libplacebo_tonemapping
         && delogo == x.delogo
