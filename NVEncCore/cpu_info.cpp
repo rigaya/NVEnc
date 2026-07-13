@@ -613,7 +613,7 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
         const auto& targetCore = &cpu_info->proc_list[ip];
         uint64_t mask = 0;
         for (int index = 0; ; index++) {
-            cache_info_t cacheinfo;
+            cache_info_t cacheinfo = {};
 
             char buffer[256];
             sprintf_s(buffer, "/sys/devices/system/cpu/cpu%d/cache/index%d", targetCore->processor_id, index);
@@ -717,6 +717,7 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
     }
     for (const auto& c : caches) {
         const int ilevel = (int)c.level - 1;
+        if (ilevel < 0 || ilevel >= MAX_CACHE_LEVEL) continue;
         const int icacheidx = cpu_info->cache_count[ilevel]++;
         cpu_info->caches[ilevel][icacheidx] = c;
     }
