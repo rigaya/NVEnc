@@ -50,7 +50,8 @@ int RGYAACHeader::sampleRateIdxToRate(const uint32_t idx) {
 }
 
 bool RGYAACHeader::is_adts_sync(const uint16_t *ptr) {
-    return ptr[0] == 0xfff0;
+    const uint8_t *p = (const uint8_t *)ptr;
+    return p[0] == 0xff && (p[1] & 0xf0) == 0xf0;
 }
 
 bool RGYAACHeader::is_valid(const uint8_t *buf, const size_t size) {
