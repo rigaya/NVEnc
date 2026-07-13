@@ -416,7 +416,7 @@ std::string lstrip(const std::string& string, const char* trim) {
     auto result = string;
     auto left = string.find_first_not_of(trim);
     if (left != std::string::npos) {
-        result = string.substr(left, 0);
+        result = string.substr(left);
     }
     return result;
 }
@@ -444,7 +444,7 @@ std::wstring lstrip(const std::wstring& string, const WCHAR* trim) {
     auto result = string;
     auto left = string.find_first_not_of(trim);
     if (left != std::string::npos) {
-        result = string.substr(left, 0);
+        result = string.substr(left);
     }
     return result;
 }
