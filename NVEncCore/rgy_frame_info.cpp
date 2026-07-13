@@ -102,14 +102,13 @@ static RGYFrameInfo getPlaneSingleAlloc(const RGYFrameInfo *frameInfo, const RGY
                     }
                 }
             } else if (RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_YUV422) {
+                // base offset 'plane * pitch * height' already lands on the correct U/V/A
+                // plane (each plane occupies pitch[0]*height); the previous extra +=
+                // additions double-counted and pushed V/A one or two planes past the buffer.
                 planeInfo.ptr[0] += plane * frameInfo->pitch[0] * frameInfo->height;
                 planeInfo.width >>= 1;
-                if (plane == RGY_PLANE_V || plane == RGY_PLANE_A) {
-                    planeInfo.ptr[0] += planeInfo.pitch[0] * planeInfo.height;
-                    if (plane == RGY_PLANE_A) {
-                        planeInfo.ptr[0] += planeInfo.pitch[0] * planeInfo.height;
-                        planeInfo.width <<= 1;
-                    }
+                if (plane == RGY_PLANE_A) {
+                    planeInfo.width <<= 1;
                 }
             } else { //RGY_CHROMAFMT_YUV444 & RGY_CHROMAFMT_YUVA444 & RGY_CHROMAFMT_RGB
                 planeInfo.ptr[0] += plane * planeInfo.pitch[0] * planeInfo.height;
