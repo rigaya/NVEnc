@@ -474,7 +474,8 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
         switch (ptr->Relationship) {
         case RelationNumaNode:
             // Non-NUMA systems report a single record of this type.
-            s_cpu_info.nodes[s_cpu_info.node_count++].mask = ptr->ProcessorMask;
+            if (s_cpu_info.node_count < MAX_NODE_COUNT)
+                s_cpu_info.nodes[s_cpu_info.node_count++].mask = ptr->ProcessorMask;
             break;
         case RelationProcessorCore: {
             auto& proc = s_cpu_info.proc_list[s_cpu_info.physical_cores];
@@ -728,14 +729,16 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
     }
 
     //ノードの情報を作る
-    cpu_info->node_count = processor_list.back().socket_id + 1;
+    cpu_info->node_count = processor_list.empty() ? 1 : (processor_list.back().socket_id + 1);
+    if (cpu_info->node_count > MAX_NODE_COUNT) cpu_info->node_count = MAX_NODE_COUNT;
     //初期化
     for (int in = 0; in < cpu_info->node_count; in++) {
         cpu_info->nodes[in].mask = 0;
     }
     for (int ip = 0; ip < cpu_info->physical_cores; ip++) {
         auto& targetCore = cpu_info->proc_list[ip];
-        cpu_info->nodes[targetCore.socket_id].mask |= targetCore.mask;
+        if (targetCore.socket_id < cpu_info->node_count)
+            cpu_info->nodes[targetCore.socket_id].mask |= targetCore.mask;
     }
 
     getCPUHybridMasks(cpu_info);
