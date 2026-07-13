@@ -94,7 +94,7 @@ using std::shared_ptr;
 template<typename T>
 static bool rgy_is_pow2(T i) {
     static_assert(std::is_integral<T>::value, "rgy_is_pow2 is defined only for integer.");
-    return (i & (i - 1)) != 0;
+    return i != 0 && (i & (i - 1)) == 0;
 }
 template<typename T>
 static T rgy_ceil_int(T i, T div) {
