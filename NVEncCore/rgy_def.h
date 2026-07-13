@@ -154,7 +154,7 @@ struct RGY_CODEC_DATA {
     RGY_CODEC_DATA(RGY_CODEC _codec, int profile) : codec(_codec), codecProfile(profile) {}
 
     bool operator<(const RGY_CODEC_DATA &right) const {
-        return codec == right.codec ? codec < right.codec : codecProfile < right.codecProfile;
+        return codec != right.codec ? codec < right.codec : codecProfile < right.codecProfile;
     }
     bool operator==(const RGY_CODEC_DATA &right) const {
         return codec == right.codec && codecProfile == right.codecProfile;
