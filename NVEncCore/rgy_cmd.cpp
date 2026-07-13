@@ -10055,7 +10055,7 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
     if (IS_OPTION("avsw")) {
 #if ENABLE_AVSW_READER
         input->type = RGY_INPUT_FMT_AVSW;
-        if (i + 1 <= nArgNum && strInput[i+1][0] != _T('-')) {
+        if (i + 1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
             inprm->avswDecoder = strInput[i];
         }
