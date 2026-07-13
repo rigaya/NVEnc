@@ -493,7 +493,7 @@ void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TC
 #ifdef UNICODE
                 if (!stderr_write_to_console) { //出力先がリダイレクトされるならANSIで
                     buffer_char = wstring_to_string(tchar_to_wstring(line), CP_UTF8);
-                    fprintf(stderr, buffer_ptr);
+                    fprintf(stderr, "%s", buffer_char.c_str());
                 }
                 if (stderr_write_to_console) //出力先がコンソールならWCHARで
 #endif
