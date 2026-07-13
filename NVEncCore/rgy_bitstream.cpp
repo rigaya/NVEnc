@@ -37,8 +37,8 @@
 std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
     std::vector<uint8_t> data;
     data.reserve(len);
-    data.push_back(ptr[0]);
-    data.push_back(ptr[1]);
+    if (len > 0) data.push_back(ptr[0]);
+    if (len > 1) data.push_back(ptr[1]);
     for (size_t i = 2; i < len; i++) {
         if (ptr[i-2] == 0x00 && ptr[i-1] == 0x00 && ptr[i] == 0x03) {
             //skip
