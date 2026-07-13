@@ -3210,6 +3210,11 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
             pkt.reset();
         } else {
             AVDemuxStream *pStream = getPacketStreamData(pkt.get());
+            if (pStream == nullptr) {
+                //選択されていないtrack(音声/字幕)のパケットは破棄する
+                pkt.reset();
+                continue;
+            }
             const auto delay_ts = (int64_t)(pStream->addDelayMs * 0.001 / av_q2d(pStream->timebase) + 0.5);
             if (pkt->pts != AV_NOPTS_VALUE) pkt->pts += delay_ts;
             if (pkt->dts != AV_NOPTS_VALUE) pkt->dts += delay_ts;
