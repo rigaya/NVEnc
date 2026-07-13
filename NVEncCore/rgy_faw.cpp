@@ -518,7 +518,7 @@ int RGYFAWEncoder::encode(std::vector<uint8_t>& output) {
     }
     bufferIn.parseAACHeader(bufferIn.data());
     auto aacBlockSize = bufferIn.aacFrameSize();
-    if (aacBlockSize > bufferIn.size()) {
+    if (aacBlockSize == 0 || aacBlockSize > bufferIn.size()) {
         return 0;
     }
     auto ret0 = rgy_find_aacsync_c(bufferIn.data() + aacBlockSize, bufferIn.size() - aacBlockSize);
@@ -545,7 +545,7 @@ int RGYFAWEncoder::encode(std::vector<uint8_t>& output) {
         }
         bufferIn.parseAACHeader(bufferIn.data());
         aacBlockSize = bufferIn.aacFrameSize();
-        if (aacBlockSize > bufferIn.size()) {
+        if (aacBlockSize == 0 || aacBlockSize > bufferIn.size()) {
             break;
         }
         ret0 = rgy_find_aacsync_c(bufferIn.data() + aacBlockSize, bufferIn.size() - aacBlockSize);
