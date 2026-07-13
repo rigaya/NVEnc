@@ -884,14 +884,15 @@ static std::unique_ptr<unit_info> get_unit(const uint8_t *data, const size_t siz
         unit->unit_data.resize(ret);
     } else {
         size_t obu_size = 0;
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 8 && data < start_pos + size; i++) {
             uint8_t byte = *data++;
             obu_size |= (uint64_t)(byte & 0x7f) << (i * 7);
             if (!(byte & 0x80))
                 break;
         }
 
-        const size_t ret = obu_size + (data - start_pos);
+        size_t ret = obu_size + (data - start_pos);
+        if (ret > size) ret = size; // clamp to the bytes actually available in this unit
         unit->unit_data.resize(ret);
     }
     unit->obu_offset = (int)(data - start_pos);
