@@ -1254,8 +1254,8 @@ std::string CPerfMonitor::write(int nSelect) {
     }
     if (nSelect & PERF_MONITOR_PCIE_LOAD) {
         str += strsprintf(",PCIe %dx%d", pInfo->pcie_gen, pInfo->pcie_link);
-        str += strsprintf(",%lf", pInfo->pcie_throughput_tx_per_sec);
-        str += strsprintf(",%lf", pInfo->pcie_throughput_rx_per_sec);
+        str += strsprintf(",%lf", (double)pInfo->pcie_throughput_tx_per_sec);
+        str += strsprintf(",%lf", (double)pInfo->pcie_throughput_rx_per_sec);
     }
     if (nSelect & PERF_MONITOR_QUEUE_VID_IN) {
         str += strsprintf(",%d", (int)m_QueueInfo.usage_vid_in);
