@@ -141,8 +141,11 @@ RGY_ERR RGYDeviceUsage::open() {
 }
 
 std::unique_ptr<RGYDeviceUsageLockManager> RGYDeviceUsage::lock() {
-    if (!m_sharedMem) {
+    if (m_header == nullptr) {
         open();
+    }
+    if (m_header == nullptr) {
+        return nullptr;
     }
     return std::make_unique<RGYDeviceUsageLockManager>(m_header);
 }
