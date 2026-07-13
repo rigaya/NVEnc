@@ -401,7 +401,7 @@ HANDLE DeviceVulkan::getMemHandle(VkDeviceMemory memory) {
     win32_handle_info.sType      = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
     win32_handle_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
     win32_handle_info.memory     = memory;
-    GetVulkan()->vkGetMemoryWin32HandleKHR(m_device, &win32_handle_info, &handle);
+    GetVulkan()->vkGetMemoryWin32HandleKHR(m_vkDevice, &win32_handle_info, &handle);
     return handle;
 }
 
@@ -411,7 +411,7 @@ HANDLE DeviceVulkan::getSemaphoreHandle(VkSemaphore &sempahore) {
     win32_handle_info.sType      = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR;
     win32_handle_info.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT;
     win32_handle_info.semaphore  = sempahore;
-    GetVulkan()->vkGetSemaphoreWin32HandleKHR(m_device, &win32_handle_info, &handle);
+    GetVulkan()->vkGetSemaphoreWin32HandleKHR(m_vkDevice, &win32_handle_info, &handle);
     return handle;
 }
 #else
