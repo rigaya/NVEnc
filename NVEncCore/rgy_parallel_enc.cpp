@@ -62,9 +62,6 @@ void RGYParallelEncodeStatusData::set(const EncodeStatusData& data) {
 }
 
 bool RGYParallelEncodeStatusData::get(EncodeStatusData& data) {
-    if (!encStatusData) {
-        return false;
-    }
     std::lock_guard<std::mutex> lock(mtx_);
     if (!encStatusData) {
         return false;
