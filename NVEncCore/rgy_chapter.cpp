@@ -395,9 +395,15 @@ int ChapterRW::read_chapter_apple() {
         sts = AUO_CHAP_ERR_INIT_READ_STREAM;
     } else {
         auto elemTextStream = xml.FirstChildElement("TextStream");
+        if (elemTextStream == nullptr) {
+            return AUO_CHAP_ERR_PARSE_XML;
+        }
         for (auto element = elemTextStream->FirstChildElement(ELEMENT_NAME); element != nullptr; element = element->NextSiblingElement(ELEMENT_NAME)) {
             int time[4] = { 0 };
             auto pSampleTime = element->Attribute(ATTRIBUTE_NAME);
+            if (pSampleTime == nullptr) {
+                return AUO_CHAP_ERR_PARSE_XML;
+            }
             if (   4 != sscanf_s(pSampleTime, "%d:%d:%d:%03d", &time[0], &time[1], &time[2], &time[3])
                 && 4 != sscanf_s(pSampleTime, "%d:%d:%d.%03d", &time[0], &time[1], &time[2], &time[3])
                 && 4 != sscanf_s(pSampleTime, "%d:%d.%d.%03d", &time[0], &time[1], &time[2], &time[3])
