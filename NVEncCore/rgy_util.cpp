@@ -484,6 +484,10 @@ std::string add_indent(const std::string& str, const int indentLength) {
         ret.append("\n");
         current = found + 1;
     }
+    if (current < str.length()) {
+        ret.append(indent);
+        ret.append(std::string(str, current));
+    }
     return ret;
 }
 
@@ -502,6 +506,10 @@ std::wstring add_indent(const std::wstring& str, const int indentLength) {
         ret.append(segment);
         ret.append(L"\n");
         current = found + 1;
+    }
+    if (current < str.length()) {
+        ret.append(indent);
+        ret.append(std::wstring(str, current));
     }
     return ret;
 }
