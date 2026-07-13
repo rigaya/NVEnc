@@ -38,7 +38,7 @@ const TCHAR* rgy_thread_priority_mode_to_str(RGYThreadPriority mode) {
     for (const auto& p : RGY_THREAD_PRIORITY_STR) {
         if (p.first == mode) return p.second;
     }
-    return nullptr;
+    return _T("unknown");
 }
 RGYThreadPriority rgy_str_to_thread_priority_mode(const TCHAR* str) {
     tstring target(str);
@@ -52,7 +52,7 @@ const TCHAR* rgy_thread_power_throttoling_mode_to_str(RGYThreadPowerThrottlingMo
     for (const auto& p : RGY_THREAD_POWER_THROTTOLING_MODE_STR) {
         if (p.first == mode) return p.second;
     }
-    return nullptr;
+    return _T("unknown");
 }
 
 RGYThreadPowerThrottlingMode rgy_str_to_thread_power_throttoling_mode(const TCHAR* str) {
