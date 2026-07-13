@@ -903,14 +903,35 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
         }
         model.reset(model_ptr);
         model_collection.reset(model_collection_ptr);
-        m_vmaf.error = m_libvmaf.p_vmaf_use_features_from_model_collection()(vmaf.get(), model_collection.get());
     } else {
         if (m_vmaf.error) {
             AddMessage(RGY_LOG_ERROR, isModelPath ? _T("problem loading model file: %s\n") : _T("problem loading model version: %s\n"), prm->vmaf.model.c_str());
             return RGY_ERR_UNKNOWN;
         }
         model.reset(model_ptr);
-        m_vmaf.error = m_libvmaf.p_vmaf_use_features_from_model()(vmaf.get(), model.get());
+    }
+    const auto useModelFeatures = [&]() {
+        if (model_collection) {
+            return m_libvmaf.p_vmaf_use_features_from_model_collection()(vmaf.get(), model_collection.get());
+        }
+        return m_libvmaf.p_vmaf_use_features_from_model()(vmaf.get(), model.get());
+    };
+    m_vmaf.error = useModelFeatures();
+    if (m_vmaf.error && tryCuda) {
+        AddMessage(RGY_LOG_WARN, _T("VMAF model contains CPU-only feature extractors, falling back to CPU feature extraction.\n"));
+        vmaf.reset();
+        cfg.n_threads = prm->vmaf.threads;
+        if (cfg.n_threads == 0) {
+            cfg.n_threads = get_cpu_info().physical_cores;
+        }
+        VmafContext *cpuVmafptr = nullptr;
+        m_vmaf.error = m_libvmaf.p_vmaf_init()(&cpuVmafptr, cfg);
+        if (!m_vmaf.error) {
+            vmaf.reset(cpuVmafptr);
+            useCuda = false;
+            setFilterInfo(prm->print(false) + _T("(") + RGY_CSP_NAMES[frameInfo.csp] + _T(")"));
+            m_vmaf.error = useModelFeatures();
+        }
     }
     if (m_vmaf.error) {
         AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model: %s\n"), prm->vmaf.model.c_str());
