@@ -281,11 +281,11 @@ tstring RGYPipeProcessLinux::getOutput() {
     while (stdOutRead(bufferOut) >= 0
         || ((m_pipe.stdErr.mode & (PIPE_MODE_ENABLE | PIPE_MODE_MUXED)) == (PIPE_MODE_ENABLE | PIPE_MODE_MUXED) && stdErrRead(bufferErr) >= 0)) {
         if (bufferOut.size() > 0) {
-            outstr += (const char *)bufferOut.data();
+            outstr.append((const char *)bufferOut.data(), bufferOut.size());
             bufferOut.clear();
         }
         if (bufferErr.size() > 0) {
-            outstr += (const char *)bufferErr.data();
+            outstr.append((const char *)bufferErr.data(), bufferErr.size());
             bufferErr.clear();
         }
     }
@@ -294,11 +294,11 @@ tstring RGYPipeProcessLinux::getOutput() {
         stdErrRead(bufferErr);
     }
     if (bufferOut.size() > 0) {
-        outstr += (const char *)bufferOut.data();
+        outstr.append((const char *)bufferOut.data(), bufferOut.size());
         bufferOut.clear();
     }
     if (bufferErr.size() > 0) {
-        outstr += (const char *)bufferErr.data();
+        outstr.append((const char *)bufferErr.data(), bufferErr.size());
         bufferErr.clear();
     }
     return char_to_tstring(outstr);
