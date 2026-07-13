@@ -625,7 +625,7 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
                 && str_has_char(exstg->s_aud_int[DEFAULT_AUDIO_ENCODER_IN].filename));
             if (cnf_aud->encoder < 0 || exstg->s_aud_int_count <= cnf_aud->encoder) {
                 if (default_audenc_cnf_avail) {
-                    cnf_aud->encoder = exstg->s_local.default_audio_encoder_ext;
+                    cnf_aud->encoder = exstg->s_local.default_audio_encoder_in;
                     warning_use_default_audio_encoder(exstg->s_aud_int[cnf_aud->encoder].dispname);
                 } else if (default_audenc_auo_avail) {
                     cnf_aud->encoder = DEFAULT_AUDIO_ENCODER_IN;
