@@ -700,7 +700,7 @@ tstring getTimestampString(int64_t ts, const AVRational& timebase) {
 
 uint32_t tagFromStr(std::string tagstr) {
     uint32_t tag = 0x00;
-    for (size_t i = 0; i < std::max<size_t>(tagstr.length(), 4); i++) {
+    for (size_t i = 0; i < std::min<size_t>(tagstr.length(), 4); i++) {
         tag |= tagstr[i] << (i*8);
     }
     return tag;
