@@ -10488,8 +10488,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                         src.format = channel.substr(option_split + 1);
                         continue;
                     } else if (channel.substr(0, option_split) == _T("input_opt")) {
-                        src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split + 1)), tstring(channel_select_list[ichannel + 1])));
-                        ichannel++;
+                        if (ichannel + 1 < channel_select_list.size()) {
+                            src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split + 1)), tstring(channel_select_list[ichannel + 1])));
+                            ichannel++;
+                        }
                         continue;
                     }
                 }
@@ -11266,8 +11268,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                         src.format = channel.substr(option_split + 1);
                         continue;
                     } else if (channel.substr(0, option_split) == _T("input_opt")) {
-                        src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split + 1)), tstring(channel_select_list[ichannel + 1])));
-                        ichannel++;
+                        if (ichannel + 1 < channel_select_list.size()) {
+                            src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split + 1)), tstring(channel_select_list[ichannel + 1])));
+                            ichannel++;
+                        }
                         continue;
                     }
                 }
