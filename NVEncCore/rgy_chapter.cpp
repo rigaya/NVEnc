@@ -521,7 +521,10 @@ int ChapterRW::read_chapter_matroska() {
         sts = AUO_CHAP_ERR_INIT_READ_STREAM;
     } else {
         auto root = xml.FirstChildElement(ROOT);
-        for (auto element = root->FirstChildElement(EDITION_ENTRY); element != nullptr; element = root->NextSiblingElement(EDITION_ENTRY)) {
+        if (root == nullptr) {
+            return AUO_CHAP_ERR_PARSE_XML;
+        }
+        for (auto element = root->FirstChildElement(EDITION_ENTRY); element != nullptr; element = element->NextSiblingElement(EDITION_ENTRY)) {
             int count = 0;
             if ((sts = read_chapter_matroska_chapter_atom(element, count)) != AUO_CHAP_ERR_NONE) {
                 return sts;
