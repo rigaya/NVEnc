@@ -86,60 +86,21 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 - Supports decode using libavcodec
 - Parallel encoding supporting multi GPU
 - Calculation of ssim/psnr/vmaf/ssimulacra2/butteraugli/cvvdp of the encode
-- High performance filtering (VPP, Video Pre-Processing)
-  - cuvid built-in hw processing
-    - resize
-    - deinterlace (normal / bob)
-  - GPU filtering by CUDA
-    - rff (apply rff flag)
-    - deinterlacer
-      - afs (Automatic field shift)
-      - nnedi
-      - yadif
-      - decomb
-      - stdeint (ST-DeInt, ONNX Runtime)
-    - decimate
-    - mpdecimate
-    - colorspace conversion (x64 version only)
-      - hdr2sdr
-      - sdr2hdr (NGX TrueHDR)
-      - tonemap ([libplacebo](https://code.videolan.org/videolan/libplacebo))
-      - lut3d
-    - delogo
-    - subburn
-    - custom shader ([libplacebo](https://code.videolan.org/videolan/libplacebo))
-    - resize
-      - bilinear
-      - spline16, spline36, spline64
-      - lanczos2, lanczos3, lanczos4
-      - various algorithms by [npp](https://developer.nvidia.com/npp) library are available (x64 version only)
-      - [nvvfx-superres](https://github.com/NVIDIA/MAXINE-VFX-SDK)
-      - [ngx-vsr](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html)
-      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
-    - transpose / rotate / flip
-    - padding
-    - select-every
-    - stab
-    - deband
-      - deband
-      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
-    - noise reduction
-      - smooth (dct based denoise)
-      - denoise-dct (another dct based denoise)
-      - fft3d (fft based 3D denoise)
-      - knn (K-nearest neighbor)
-      - pmd (modified pmd method)
-      - gauss ([npp](https://developer.nvidia.com/npp) library, x64 version only)
-      - convolution3d
-      - nvvfx-artifact-reduction
-      - nvvfx-denoise
-    - edge / detail enhancement
-      - unsharp
-      - edgelevel (edge ​​level adjustment)
-      - dehalo
-      - finedehalo
-      - hqdering
-      - warpsharp
+- VPP (Video Pre-Processing) filters
+
+  | Category | Filters |
+  |:--|:--|
+  | Deinterlace | deinterlace (CUVID), afs, bwdif, yadif, nnedi, rtgmc, kfm, decomb, stdeint |
+  | Inverse Telecine / Decimation | rff, ivtc, decimate, mpdecimate, select-every |
+  | Noise Reduction | knn, pmd, nlmeans, hqdn3d, smooth, denoise-dct, fft3d, msmooth, degrain, convolution3d, gauss, nvvfx-denoise, nvvfx-artifact-reduction |
+  | Resize | resize (various algorithms, [npp](https://developer.nvidia.com/npp), [nvvfx](https://github.com/NVIDIA/MAXINE-VFX-SDK), [ngx-vsr](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html), [libplacebo](https://code.videolan.org/videolan/libplacebo)), descale |
+  | Edge / Detail Enhancement | unsharp, edgelevel, warpsharp, maa, cas, msharpen, detailsharpen |
+  | Dehalo / Deringing | dehalo, finedehalo, hqdering, vinverse |
+  | Color Adjustment | tweak, curves, softlight, chromashift, colorfix |
+  | Color Space / HDR | colorspace, libplacebo-tonemapping, ngx-truehdr |
+  | Debanding | deband, libplacebo-deband |
+  | Frame Interpolation | fruc, rife-ov |
+  | Other | delogo, subburn, pad, overlay, rotate, transform, stab, deflicker, deblock, libplacebo-shader, onnx, anime4k-shader |
 
 ### NVEnc.auo (Aviutl plugin)
 - Audio encoding

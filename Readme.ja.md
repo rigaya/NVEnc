@@ -94,60 +94,21 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
 - avs, vpy, y4m, rawなど各種形式に対応
 - マルチGPUも活用した並列エンコード
 - エンコード結果のSSIM/PSNR/VMAFを計算
-- GPUを使用した高速フィルタリング
-  - cuvid内蔵のhw処理
-    - リサイズ
-    - インタレ解除 (normal / bob)
-  - CUDAによるGPUフィルタリング
-    - rff (rffフラグの適用)
-    - インタレ解除
-      - afs (自動フィールドシフト)
-      - nnedi
-      - yadif
-      - decomb
-      - stdeint (ST-DeInt、ONNX Runtime)
-    - decimate
-    - mpdecimate
-    - delogo
-    - 字幕焼きこみ
-    - 色空間変換 (x64版のみ)
-      - hdr2sdr
-      - sdr2hdr (NGX TrueHDR)
-      - tonemap ([libplacebo](https://code.videolan.org/videolan/libplacebo))
-      - lut3d
-    - custom shader ([libplacebo](https://code.videolan.org/videolan/libplacebo))
-    - リサイズ  
-      - bilinear
-      - spline16, spline36, spline64
-      - lanczos2, lanczos3, lanczos4
-      - [npp](https://developer.nvidia.com/npp)ライブラリによる各種アルゴリズム (x64版のみ)
-      - [nvvfx-superres](https://github.com/NVIDIA/MAXINE-VFX-SDK)
-      - [ngx-vsr](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html)
-      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
-    - 回転 / 反転
-    - パディング(黒帯)の追加
-    - フレーム間引き(select every)
-    - stab
-    - バンディング低減
-      - deband
-      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
-    - ノイズ除去
-      - smooth (dctベースのノイズ除去)
-      - denoise-dct (dctベースのノイズ除去)
-      - fft3d (FFTベースの3Dノイズ除去)
-      - knn (K-nearest neighbor)
-      - pmd (正則化pmd法)
-      - gauss ([npp](https://developer.nvidia.com/npp)ライブラリ、x64版のみ)
-      - convolution3d
-      - nvvfx-artifact-reduction
-      - nvvfx-denoise
-    - 輪郭・ディテール強調
-      - unsharp
-      - edgelevel (エッジレベル調整)
-      - dehalo
-      - finedehalo
-      - hqdering
-      - warpsharp
+- VPPフィルタ
+
+  | カテゴリ | フィルタ |
+  |:--|:--|
+  | インタレ解除 | deinterlace (CUVID), afs, bwdif, yadif, nnedi, rtgmc, kfm, decomb, stdeint |
+  | 逆テレシネ・間引き | rff, ivtc, decimate, mpdecimate, select-every |
+  | ノイズ除去 | knn, pmd, nlmeans, hqdn3d, smooth, denoise-dct, fft3d, msmooth, degrain, convolution3d, gauss, nvvfx-denoise, nvvfx-artifact-reduction |
+  | リサイズ | resize (様々なアルゴリズム, [npp](https://developer.nvidia.com/npp), [nvvfx](https://github.com/NVIDIA/MAXINE-VFX-SDK), [ngx-vsr](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html), [libplacebo](https://code.videolan.org/videolan/libplacebo)), descale |
+  | 輪郭・ディテール強調 | unsharp, edgelevel, warpsharp, maa, cas, msharpen, detailsharpen |
+  | デハロ・リンギング除去 | dehalo, finedehalo, hqdering, vinverse |
+  | 色調補正 | tweak, curves, softlight, chromashift, colorfix |
+  | 色空間変換・HDR | colorspace, libplacebo-tonemapping, ngx-truehdr |
+  | バンディング低減 | deband, libplacebo-deband |
+  | フレーム補間 | fruc, rife-ov |
+  | その他 | delogo, subburn, pad, overlay, rotate, transform, stab, deflicker, deblock, libplacebo-shader, onnx, anime4k-shader |
 
 
 ## マルチGPU環境でのGPU自動選択
