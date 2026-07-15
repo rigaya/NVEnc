@@ -756,7 +756,7 @@ const CX_DESC list_vpp_denoise[] = {
 #if ENABLE_VPP_FILTER_MSMOOTH
     { _T("msmooth"), 11 },
 #endif
-#if ENCODER_QSV
+#if ENABLE_VPP_FILTER_DEGRAIN
     { _T("degrain"), 12 },
 #endif
 #if ENCODER_VCEENC
