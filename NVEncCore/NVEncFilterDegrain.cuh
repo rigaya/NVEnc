@@ -1494,26 +1494,63 @@ __device__ __forceinline__ void degrainMotionSearchRefineSquare8(
         newCandidateCostScale);
 }
 
-template<typename TypePixel, int blockSize>
-__device__ __forceinline__ uint32_t degrainMotionSearchSourceBlockVariance(
-    const TypePixel *sourceBlockPixels) {
-    int64_t sum = 0;
-    int64_t sumSq = 0;
-    const int count = blockSize * blockSize;
-    for (int i = 0; i < count; i++) {
-        const int value = (int)sourceBlockPixels[i];
-        sum += value;
-        sumSq += (int64_t)value * (int64_t)value;
+// ブロック全体でuint32の部分和を総和し、全スレッドへ同一の合計値を返す。
+// 整数加算のみのため加算順序に依らず結果は一意。
+// 内部で__syncthreads()を使うので、ブロック全スレッドから一様に呼び出すこと。
+template<int blockSize>
+__device__ __forceinline__ uint32_t degrainMotionSearchBlockReduceAdd(
+    uint32_t *laneSums,
+    const uint32_t value,
+    const int localThreadId) {
+    laneSums[localThreadId] = value;
+    __syncthreads();
+    for (int offset = (blockSize * DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS) >> 1; offset > 0; offset >>= 1) {
+        if (localThreadId < offset) {
+            laneSums[localThreadId] += laneSums[localThreadId + offset];
+        }
+        __syncthreads();
     }
+    const uint32_t total = laneSums[0];
+    __syncthreads();
+    return total;
+}
+
+// source blockの分散をブロック並列で求める。
+// 内部で__syncthreads()を使うので、ブロック全スレッドから一様に呼び出すこと。
+template<typename TypePixel, int blockSize>
+__device__ __forceinline__ uint32_t degrainMotionSearchSourceBlockVarianceParallel(
+    const TypePixel *sourceBlockPixels,
+    uint32_t *laneSums,
+    const int localThreadId) {
+    const int count = blockSize * blockSize;
+    const int localSize = blockSize * DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS;
+    uint32_t partialSum = 0u;
+    // 16bit画素は2乗和の合計が32bitを超えるため、v^2 (32bitに収まる) を上位/下位に分けて総和する
+    uint32_t partialSumSqLo = 0u;
+    uint32_t partialSumSqHi = 0u;
+    for (int i = localThreadId; i < count; i += localSize) {
+        const uint32_t value = (uint32_t)sourceBlockPixels[i];
+        partialSum += value;
+        const uint32_t valueSq = value * value;
+        partialSumSqLo += valueSq & 0xffffu;
+        partialSumSqHi += valueSq >> 16;
+    }
+    const int64_t sum = (int64_t)degrainMotionSearchBlockReduceAdd<blockSize>(laneSums, partialSum, localThreadId);
+    const int64_t sumSqLo = (int64_t)degrainMotionSearchBlockReduceAdd<blockSize>(laneSums, partialSumSqLo, localThreadId);
+    const int64_t sumSqHi = (int64_t)degrainMotionSearchBlockReduceAdd<blockSize>(laneSums, partialSumSqHi, localThreadId);
+    const int64_t sumSq = (sumSqHi << 16) + sumSqLo;
     const int64_t mean = sum / count;
     const int64_t varianceNumer = sumSq - mean * sum;
     return (varianceNumer <= 0) ? 0u : (uint32_t)(varianceNumer / count);
 }
 
+// full-block SADをブロック並列で求める。レーン分割は探索時のSAD計算と同一。
+// 内部で__syncthreads()を使うので、ブロック全スレッドから一様に呼び出すこと。
 template<typename TypePixel, int blockSize, int pel, int subpelInterp>
-__device__ __forceinline__ uint32_t degrainMotionSearchFullBlockSad(
+__device__ __forceinline__ uint32_t degrainMotionSearchFullBlockSadParallel(
     const TypePixel *sourceBlockPixels,
     const uint8_t *referencePlane,
+    uint32_t *laneSums,
     const int pitch,
     const int width,
     const int height,
@@ -1521,10 +1558,11 @@ __device__ __forceinline__ uint32_t degrainMotionSearchFullBlockSad(
     const int blockGridY,
     const int step,
     const int motionOffsetX,
-    const int motionOffsetY) {
-    uint32_t sad = 0u;
-    for (int sadLane = 0; sadLane < blockSize; sadLane++) {
-        sad += degrainMotionSearchAccumulateLumaSadLane<TypePixel, blockSize, pel, subpelInterp>(
+    const int motionOffsetY,
+    const int localThreadId) {
+    uint32_t partialSad = 0u;
+    if (localThreadId < blockSize) {
+        partialSad = degrainMotionSearchAccumulateLumaSadLane<TypePixel, blockSize, pel, subpelInterp>(
             sourceBlockPixels,
             referencePlane,
             pitch,
@@ -1535,58 +1573,31 @@ __device__ __forceinline__ uint32_t degrainMotionSearchFullBlockSad(
             step,
             motionOffsetX,
             motionOffsetY,
-            sadLane);
+            localThreadId);
     }
-    return sad;
+    return degrainMotionSearchBlockReduceAdd<blockSize>(laneSums, partialSad, localThreadId);
 }
 
+// 探索勝者のSAD再検証とflat領域補正 (分散0のブロックはMVの信頼性がないためzero MVへ寄せる)。
+// 分散はブロック内で同一値になるため、flat分岐は全スレッド一様で__syncthreads()安全。
+// 内部で__syncthreads()を使うので、ブロック全スレッドから同一のbestを渡して一様に呼び出すこと。
 template<typename TypePixel, int blockSize, int pel, int subpelInterp>
-__device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSearchApplyFlatRegionMvCorrection(
+__device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSearchFinalizeCandidateCostParallel(
     const TypePixel *sourceBlockPixels,
     const uint8_t *referencePlane,
+    uint32_t *laneSums,
     const int pitch,
     const int width,
     const int height,
     const int blockGridX,
     const int blockGridY,
     const int step,
-    RGYDegrainMotionSearchCandidateCost best) {
-    if (degrainMotionSearchSourceBlockVariance<TypePixel, blockSize>(sourceBlockPixels) != 0u) {
-        return best;
-    }
-
-    const uint32_t sadZero = degrainMotionSearchFullBlockSad<TypePixel, blockSize, pel, subpelInterp>(
+    RGYDegrainMotionSearchCandidateCost best,
+    const int localThreadId) {
+    const uint32_t verifiedSad = degrainMotionSearchFullBlockSadParallel<TypePixel, blockSize, pel, subpelInterp>(
         sourceBlockPixels,
         referencePlane,
-        pitch,
-        width,
-        height,
-        blockGridX,
-        blockGridY,
-        step,
-        0,
-        0);
-    best.pos_x = 0;
-    best.pos_y = 0;
-    best.sad_metric = sadZero;
-    best.score_primary = sadZero;
-    return best;
-}
-
-template<typename TypePixel, int blockSize, int pel, int subpelInterp>
-__device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSearchFinalizeCandidateCost(
-    const TypePixel *sourceBlockPixels,
-    const uint8_t *referencePlane,
-    const int pitch,
-    const int width,
-    const int height,
-    const int blockGridX,
-    const int blockGridY,
-    const int step,
-    RGYDegrainMotionSearchCandidateCost best) {
-    const uint32_t verifiedSad = degrainMotionSearchFullBlockSad<TypePixel, blockSize, pel, subpelInterp>(
-        sourceBlockPixels,
-        referencePlane,
+        laneSums,
         pitch,
         width,
         height,
@@ -1594,19 +1605,31 @@ __device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSear
         blockGridY,
         step,
         (int)best.pos_x,
-        (int)best.pos_y);
+        (int)best.pos_y,
+        localThreadId);
     best.sad_metric = verifiedSad;
     best.score_primary = verifiedSad;
-    return degrainMotionSearchApplyFlatRegionMvCorrection<TypePixel, blockSize, pel, subpelInterp>(
-        sourceBlockPixels,
-        referencePlane,
-        pitch,
-        width,
-        height,
-        blockGridX,
-        blockGridY,
-        step,
-        best);
+
+    if (degrainMotionSearchSourceBlockVarianceParallel<TypePixel, blockSize>(sourceBlockPixels, laneSums, localThreadId) == 0u) {
+        const uint32_t sadZero = degrainMotionSearchFullBlockSadParallel<TypePixel, blockSize, pel, subpelInterp>(
+            sourceBlockPixels,
+            referencePlane,
+            laneSums,
+            pitch,
+            width,
+            height,
+            blockGridX,
+            blockGridY,
+            step,
+            0,
+            0,
+            localThreadId);
+        best.pos_x = 0;
+        best.pos_y = 0;
+        best.sad_metric = sadZero;
+        best.score_primary = sadZero;
+    }
+    return best;
 }
 
 __device__ __forceinline__ RGYDegrainMotionSearchCandidate degrainMotionSearchLoadBaseCandidate(
@@ -1764,19 +1787,22 @@ __device__ __forceinline__ void degrainMotionSearchSearchOneBlock(
         localThreadId, sadLane, candidateGroupIndex, blockGridX, blockGridY, step, pitch, width, height,
         newCandidateCostScale);
 
+    // bestCandidateCostは直前のrefine末尾の__syncthreads()により全スレッドから可視
+    const RGYDegrainMotionSearchCandidateCost finalizedBest = degrainMotionSearchFinalizeCandidateCostParallel<TypePixel, blockSize, pel, subpelInterp>(
+        sourceBlockPixels,
+        referencePlane,
+        candidateLaneSums,
+        pitch,
+        width,
+        height,
+        blockGridX,
+        blockGridY,
+        step,
+        *bestCandidateCost,
+        localThreadId);
     if (localThreadId == 0) {
-        *bestCandidateCost = degrainMotionSearchFinalizeCandidateCost<TypePixel, blockSize, pel, subpelInterp>(
-            sourceBlockPixels,
-            referencePlane,
-            pitch,
-            width,
-            height,
-            blockGridX,
-            blockGridY,
-            step,
-            *bestCandidateCost);
         vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)] =
-            degrainMotionSearchCandidateCostToSavedVector(*bestCandidateCost);
+            degrainMotionSearchCandidateCostToSavedVector(finalizedBest);
     }
 }
 
@@ -1999,19 +2025,22 @@ static __global__ void kernel_degrain_mv_spatial_refine_cuda(
         localThreadId, sadLane, candidateGroupIndex, blockGridX, blockGridY, step, pitch, width, height,
         newCandidateCostScale);
 
+    // bestCandidateCostは直前のrefine末尾の__syncthreads()により全スレッドから可視
+    const RGYDegrainMotionSearchCandidateCost finalizedBest = degrainMotionSearchFinalizeCandidateCostParallel<TypePixel, blockSize, pel, subpelInterp>(
+        sourceBlockPixels,
+        referencePlane,
+        candidateLaneSums,
+        pitch,
+        width,
+        height,
+        blockGridX,
+        blockGridY,
+        step,
+        bestCandidateCost,
+        localThreadId);
     if (localThreadId == 0) {
-        bestCandidateCost = degrainMotionSearchFinalizeCandidateCost<TypePixel, blockSize, pel, subpelInterp>(
-            sourceBlockPixels,
-            referencePlane,
-            pitch,
-            width,
-            height,
-            blockGridX,
-            blockGridY,
-            step,
-            bestCandidateCost);
         vectorsFinal[degrainMotionSearchVecFinalIndex(finalBase, blockCount, block)] =
-            degrainMotionSearchCandidateCostToSavedVector(bestCandidateCost);
+            degrainMotionSearchCandidateCostToSavedVector(finalizedBest);
     }
 }
 
