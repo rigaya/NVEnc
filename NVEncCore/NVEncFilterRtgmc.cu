@@ -661,7 +661,7 @@ RGY_ERR NVEncFilterRtgmc::attachEdiReference(RGYFrameInfo *frame, cudaStream_t s
         return err;
     }
     copyFramePropWithoutRes(&sharedFrame->frame, frame);
-    auto frameData = std::make_shared<RGYFrameDataRtgmcEdi>(sharedFrame);
+    auto frameData = std::make_shared<RGYFrameDataRtgmcEdi>(sharedFrame, frame->ptr[0]);
     frame->dataList.push_back(frameData);
     storeEdiReference(frame, frameData, event ? *event : RGYCudaEvent());
     return RGY_ERR_NONE;

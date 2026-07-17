@@ -1077,12 +1077,37 @@ RGY_ERR NVEncFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, cuda
         return err;
     }
     if (prm && prm->zeroCopyCache) {
+        // アンカー判定はいずれもptr[0]の一致検証を必須とする。dataListは
+        // FILTER_PATHTHROUGH_DATAで別バッファのフレームへ継承され得るため、
+        // 添付情報の存在だけを根拠にすると誤ったバッファに寿命保証が付く。
+        RGYFrameInfo zeroCopyRef;
+        std::shared_ptr<CUFrameBuf> zeroCopyOwner;
         auto owner = rtgmcGetAttachedFrameRef(pInputFrame);
         if (owner && owner->frame.ptr[0]
+            && owner->frame.ptr[0] == pInputFrame->ptr[0]
             && !cmpFrameInfoCspResolution(&owner->frame, pInputFrame)
             && RGY_CSP_BIT_DEPTH[owner->frame.csp] == RGY_CSP_BIT_DEPTH[pInputFrame->csp]) {
-            m_cacheFrameRefs[index] = *pInputFrame;
-            m_cacheFrameOwners[index] = owner;
+            // 入力フレーム自体がプール所有 → そのまま参照
+            zeroCopyRef = *pInputFrame;
+            zeroCopyOwner = owner;
+        } else if (auto edi = rtgmcGetAttachedEdi(pInputFrame); edi
+            && edi->frameRef() && edi->frame() && edi->frame()->ptr[0]
+            && edi->sourcePtr0() == pInputFrame->ptr[0]
+            && !cmpFrameInfoCspResolution(edi->frame(), pInputFrame)
+            && RGY_CSP_BIT_DEPTH[edi->frame()->csp] == RGY_CSP_BIT_DEPTH[pInputFrame->csp]) {
+            // EDI側データのプールコピーは入力と内容同一 (sourcePtr0一致で検証) なので
+            // アンカーに使える。プロパティは入力側、バッファはプールコピー側で構成する。
+            // コピー(rtgmc.edi_ref)は同一streamへ先行発行済みのため順序保証あり。
+            zeroCopyRef = *pInputFrame;
+            for (int i = 0; i < RGY_CSP_PLANES[pInputFrame->csp]; i++) {
+                zeroCopyRef.ptr[i] = edi->frame()->ptr[i];
+                zeroCopyRef.pitch[i] = edi->frame()->pitch[i];
+            }
+            zeroCopyOwner = edi->frameRef();
+        }
+        if (zeroCopyOwner) {
+            m_cacheFrameRefs[index] = zeroCopyRef;
+            m_cacheFrameOwners[index] = zeroCopyOwner;
             err = degrainRecordEvent(stream, event);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to record degrain zero-copy cache event: %s.\n"), get_err_mes(err));

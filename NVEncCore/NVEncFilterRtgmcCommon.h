@@ -34,15 +34,21 @@
 
 class RGYFrameDataRtgmcEdi : public RGYFrameData {
 public:
-    explicit RGYFrameDataRtgmcEdi(std::shared_ptr<CUFrameBuf> frame) :
-        m_frame(frame) {}
+    explicit RGYFrameDataRtgmcEdi(std::shared_ptr<CUFrameBuf> frame, const void *sourcePtr0 = nullptr) :
+        m_frame(frame), m_sourcePtr0(sourcePtr0) {}
     virtual ~RGYFrameDataRtgmcEdi() {}
 
     const RGYFrameInfo *frame() const { return m_frame ? &m_frame->frame : nullptr; }
     CUFrameBuf *cuFrame() const { return m_frame.get(); }
+    std::shared_ptr<CUFrameBuf> frameRef() const { return m_frame; }
+    const void *sourcePtr0() const { return m_sourcePtr0; }
 
 protected:
     std::shared_ptr<CUFrameBuf> m_frame;
+    // コピー元(EDI出力)フレームの先頭ptr。dataListの継承で無関係なフレームに
+    // 添付が伝播しても、これとptr[0]の一致検証で「このフレームの内容同一コピー」
+    // であることを確認できる (degrainゼロコピーキャッシュのアンカー判定用)。
+    const void *m_sourcePtr0;
 };
 
 enum class RGYRtgmcCompDirection {
