@@ -1894,7 +1894,6 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
 - [--vpp-onnx-cache-dir](#--vpp-onnx-cache-dir-string)
 - [--vpp-rife-ov](#--vpp-rife-ov-param1value1param2value2)
-- [--vpp-stdeint](#--vpp-stdeint-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 色空間変換を行う。x64版のみ使用可能。  
@@ -4449,7 +4448,7 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
 ```
 
 ### --vpp-onnx-cache-dir &lt;string&gt;
-`--vpp-stdeint provider=tensorrt` で使用するTensorRTエンジンのキャッシュ先ディレクトリを指定する。
+TensorRTエンジンのキャッシュ先ディレクトリを指定する。
 
 未指定時はキャッシュを無効にする。初回実行ではエンジンを構築し、同じモデル・精度・入力形状・GPUを使用する以降の実行ではキャッシュを読み込んで起動時間を大幅に短縮できる。
 
@@ -4475,45 +4474,6 @@ ONNX Runtime CUDA/TensorRTでRIFE v4.x ONNXモデルを実行するフレーム�
   ```
   --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-rife-ov model=rife_v4_6,multi=2
   --vpp-rife-ov model=C:\models\rife_v4.6.onnx,multi=2
-  ```
-
-### --vpp-stdeint [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-ST-DeIntのONNXモデルを実行するデインターレースフィルタ。入力は8bit YUV420で、
-高さは4以上の偶数である必要がある。モデルは現在の `export_stdeint.py` で生成した
-半高6ch復元出力形式が必要。旧weave込みモデルは再exportが必要。
-
-- **パラメータ**
-  - model=&lt;string&gt;  
-    登録済みST-DeIntモデル名、またはONNXモデルのパス (必須)。
-    `--vpp-onnx-model-dir` 指定時は、`stdeint_ov_models.json` の `stdeint` と `stdeint_fast` を使用できる。
-  - mode=&lt;string&gt; (デフォルト: bob)  
-    `bob` は各入力から時間順に2フレームを出力してフレームレートを2倍にする。
-    `normal` は先行フィールドに対応する1フレームだけを出力する。
-  - device=&lt;string&gt; (デフォルト: GPU.0)  
-    エンコーダ間の互換性のため受け付ける。NVEncではNVEncCが選択したCUDAデバイスを使用する。
-  - precision=&lt;string&gt; (デフォルト: fp32)  
-    `fp32` / `auto`。CUDAではどちらもfp32で動作する。`provider=tensorrt` では `fp32` はfp32、`auto` はTensorRTのfp16を有効にする。
-  - provider=&lt;string&gt; (デフォルト: auto)  
-    `auto` / `cuda` / `tensorrt`。`auto` はCUDA execution providerを使用する。
-    TensorRTは明示指定時のみ使用し、定常処理は約2倍高速になる場合があるが、
-    初回のエンジン構築に数十秒かかる場合がある。`--vpp-onnx-cache-dir` でエンジンをキャッシュすると以降の起動時間を短縮できる。TensorRTのランタイムDLLは別途導入し、
-    `PATH`から参照可能にするか `NVEncC64.exe` と同じ場所へ配置する必要がある。
-    TensorRTを利用できない場合は警告を表示し、CUDAへフォールバックする。
-  - colormatrix=&lt;string&gt; (デフォルト: auto)  
-    `--colormatrix` と同じ標準名を使用する。対応値は auto / auto_res / bt709 / smpte170m / bt470bg / bt2020nc。
-  - colorrange=&lt;string&gt; (デフォルト: auto)  
-    `--colorrange` と同じ標準名を使用する。対応値は auto / limited (tv) / full (pc)。
-
-プログレッシブ入力は画素を変更せず素通しする。`mode=bob` ではタイムラインを維持するため、
-同じ画像をdurationを半分ずつに分けて2枚出力する。
-
-CUDAデバイス経路ではzero-copy device tensorを使用する。初期化または実行に失敗した場合は
-host経路へフォールバックし、選択した経路をログの `path cuda-zerocopy` / `path host` に表示する。
-
-  ```
-  --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-stdeint model=stdeint,mode=bob
-  --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-stdeint model=stdeint_fast,mode=bob,provider=cuda
-  --vpp-onnx-cache-dir C:\models\onnx-cache --vpp-stdeint model=C:\models\stdeint.onnx,mode=normal,provider=tensorrt,precision=auto
   ```
 
 ### --vpp-perf-monitor
