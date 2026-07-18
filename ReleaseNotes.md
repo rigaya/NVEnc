@@ -1,5 +1,15 @@
 # NVEnc Release Notes
 
+## 9.25
+
+- Add Windows named pipe support. ( #785 )
+- Improve accuracy of [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2).
+- Speed up [--vpp-degrain](./NVEncC_Options.en.md#--vpp-degrain-param1value1) / [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1) with zero-copy cache references and parallelized motion search.
+- Update libvmaf and enable float. ( #783 )
+- Add automatic CPU fallback for libvmaf. ( #783 )
+- Fix [--vpp-libplacebo-tonemapping](./NVEncC_Options.en.md#--vpp-libplacebo-tonemapping-param1value1param2value2) rejecting bool strings for `use_dovi`.
+- Fix potential issues.
+
 ## 9.24
 
 - Improve [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) performance for long processing.
