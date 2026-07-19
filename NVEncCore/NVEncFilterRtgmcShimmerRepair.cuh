@@ -493,6 +493,198 @@ __device__ int rtgmcRepairLimitedDelta(
 }
 
 template<typename Type>
+__device__ int rtgmcRepairStageRead(
+    const uint8_t *src, const int pitch, const int x, const int bufferY
+) {
+    return (int)(*(const Type *)(src + bufferY * pitch + x * sizeof(Type)));
+}
+
+template<typename Type>
+__device__ void rtgmcRepairStageWrite(
+    uint8_t *dst, const int pitch, const int x, const int bufferY, const int value
+) {
+    *(Type *)(dst + bufferY * pitch + x * sizeof(Type)) = (Type)value;
+}
+
+template<typename Type>
+__global__ void kernel_rtgmc_shimmer_repair_stage_vertical(
+    uint8_t *pVerticalContractPositive,
+    uint8_t *pVerticalExpandNegative,
+    const int stagePitch,
+    const uint8_t *pInput, const int inputPitch,
+    const uint8_t *pReference, const int referencePitch,
+    const int width,
+    const int height,
+    const int stageYOffset,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int bufferY = blockIdx.y * blockDim.y + threadIdx.y;
+    const int stagedHeight = height + stageYOffset * 2;
+    if (ix >= width || bufferY >= stagedHeight) return;
+
+    const int logicalY = bufferY - stageYOffset;
+    int positive = maxVal;
+    int negative = 0;
+    for (int dy = -2; dy <= 2; dy++) {
+        const int sample = rtgmcRepairDeltaCentered<Type>(
+            pInput, inputPitch, pReference, referencePitch,
+            ix, logicalY + dy, width, height, rangeHalf, maxVal);
+        positive = min(positive, sample);
+        negative = max(negative, sample);
+    }
+    rtgmcRepairStageWrite<Type>(pVerticalContractPositive, stagePitch, ix, bufferY, positive);
+    rtgmcRepairStageWrite<Type>(pVerticalExpandNegative, stagePitch, ix, bufferY, negative);
+}
+
+template<typename Type>
+__global__ void kernel_rtgmc_shimmer_repair_stage_local(
+    uint8_t *pLocalContractPositive,
+    uint8_t *pLocalExpandNegative,
+    const uint8_t *pVerticalContractPositive,
+    const uint8_t *pVerticalExpandNegative,
+    const int stagePitch,
+    const int width,
+    const int height,
+    const int stageYOffset
+) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int bufferY = blockIdx.y * blockDim.y + threadIdx.y;
+    const int stagedHeight = height + stageYOffset * 2;
+    if (ix >= width || bufferY >= stagedHeight) return;
+
+    const int logicalY = bufferY - stageYOffset;
+    const int centerPositive = rtgmcRepairStageRead<Type>(pVerticalContractPositive, stagePitch, ix, bufferY);
+    const int centerNegative = rtgmcRepairStageRead<Type>(pVerticalExpandNegative, stagePitch, ix, bufferY);
+    int positive = centerPositive;
+    int negative = centerNegative;
+    if (ix > 0 && ix < width - 1 && logicalY > 0 && logicalY < height - 1) {
+        int sumPositive = 0;
+        int sumNegative = 0;
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                sumPositive += rtgmcRepairStageRead<Type>(
+                    pVerticalContractPositive, stagePitch, ix + dx, bufferY + dy);
+                sumNegative += rtgmcRepairStageRead<Type>(
+                    pVerticalExpandNegative, stagePitch, ix + dx, bufferY + dy);
+            }
+        }
+        positive = min(centerPositive, (sumPositive + 4) / 9);
+        negative = max(centerNegative, (sumNegative + 4) / 9);
+    }
+    rtgmcRepairStageWrite<Type>(pLocalContractPositive, stagePitch, ix, bufferY, positive);
+    rtgmcRepairStageWrite<Type>(pLocalExpandNegative, stagePitch, ix, bufferY, negative);
+}
+
+template<typename Type>
+__device__ int rtgmcRepairStagedLimitedDelta(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const uint8_t *localContractPositive,
+    const uint8_t *localExpandNegative,
+    const int stagePitch,
+    const int x,
+    const int y,
+    const int width,
+    const int height,
+    const int stageYOffset,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int diff = rtgmcRepairDeltaCentered<Type>(
+        input, inputPitch, reference, referencePitch,
+        x, y, width, height, rangeHalf, maxVal);
+    if (diff >= rangeHalf + 1) {
+        int upperEnvelope = rtgmcRepairStageRead<Type>(
+            localContractPositive, stagePitch, x, y - 2 + stageYOffset);
+        for (int dy = -1; dy <= 2; dy++) {
+            upperEnvelope = max(upperEnvelope, rtgmcRepairStageRead<Type>(
+                localContractPositive, stagePitch, x, y + dy + stageYOffset));
+        }
+        diff = max(upperEnvelope, rangeHalf);
+    } else if (diff <= rangeHalf - 1) {
+        int lowerEnvelope = rtgmcRepairStageRead<Type>(
+            localExpandNegative, stagePitch, x, y - 2 + stageYOffset);
+        for (int dy = -1; dy <= 2; dy++) {
+            lowerEnvelope = min(lowerEnvelope, rtgmcRepairStageRead<Type>(
+                localExpandNegative, stagePitch, x, y + dy + stageYOffset));
+        }
+        diff = min(lowerEnvelope, rangeHalf);
+    }
+    return clamp(diff, 0, maxVal);
+}
+
+template<typename Type>
+__global__ void kernel_rtgmc_shimmer_repair_apply_staged(
+    uint8_t *pDst, const int dstPitch,
+    const uint8_t *pInput, const int inputPitch,
+    const uint8_t *pReference, const int referencePitch,
+    const uint8_t *pLocalContractPositive,
+    const uint8_t *pLocalExpandNegative,
+    const int stagePitch,
+    const int width,
+    const int height,
+    const int stageYOffset,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= width || iy >= height) return;
+
+    const int inputValue = rtgmc_read_pix<Type>(pInput, ix, iy, inputPitch, width, height);
+    const int mergedDiff = rtgmcRepairStagedLimitedDelta<Type>(
+        pInput, inputPitch, pReference, referencePitch,
+        pLocalContractPositive, pLocalExpandNegative, stagePitch,
+        ix, iy, width, height, stageYOffset, rangeHalf, maxVal);
+    rtgmc_write_pix<Type>(pDst, ix, iy, dstPitch,
+        clamp(inputValue + mergedDiff - rangeHalf, 0, maxVal));
+}
+
+template<typename Type>
+__global__ void kernel_rtgmc_shimmer_repair_apply_fused_staged(
+    uint8_t *pDst, const int dstPitch,
+    uint8_t *pCorrectionDelta, const int correctionDeltaPitch,
+    uint8_t *pPositiveCorrectionGate, const int positiveCorrectionGatePitch,
+    uint8_t *pNegativeCorrectionGate, const int negativeCorrectionGatePitch,
+    const uint8_t *pInput, const int inputPitch,
+    const uint8_t *pReference, const int referencePitch,
+    const uint8_t *pLocalContractPositive,
+    const uint8_t *pLocalExpandNegative,
+    const int stagePitch,
+    const int width,
+    const int height,
+    const int stageYOffset,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= width || iy >= height) return;
+
+    const int inputValue = rtgmc_read_pix<Type>(pInput, ix, iy, inputPitch, width, height);
+    const int referenceValue = rtgmc_read_pix<Type>(pReference, ix, iy, referencePitch, width, height);
+    const int signedDelta = referenceValue - inputValue;
+    const int mergedDiff = rtgmcRepairStagedLimitedDelta<Type>(
+        pInput, inputPitch, pReference, referencePitch,
+        pLocalContractPositive, pLocalExpandNegative, stagePitch,
+        ix, iy, width, height, stageYOffset, rangeHalf, maxVal);
+    const int selectedSigned = mergedDiff - rangeHalf;
+    const int positiveGateSigned = (signedDelta > 0 && selectedSigned > 0) ? selectedSigned : 0;
+    const int negativeGateSigned = (signedDelta < 0 && selectedSigned < 0) ? selectedSigned : 0;
+
+    rtgmc_write_pix<Type>(pCorrectionDelta, ix, iy, correctionDeltaPitch,
+        rtgmcShimmerRepairSignedToDiff<Type>(signedDelta, rangeHalf, maxVal));
+    rtgmc_write_pix<Type>(pPositiveCorrectionGate, ix, iy, positiveCorrectionGatePitch,
+        rtgmcShimmerRepairSignedToDiff<Type>(positiveGateSigned, rangeHalf, maxVal));
+    rtgmc_write_pix<Type>(pNegativeCorrectionGate, ix, iy, negativeCorrectionGatePitch,
+        rtgmcShimmerRepairSignedToDiff<Type>(negativeGateSigned, rangeHalf, maxVal));
+    rtgmc_write_pix<Type>(pDst, ix, iy, dstPitch,
+        clamp(inputValue + selectedSigned, 0, maxVal));
+}
+
+template<typename Type>
 __global__ void kernel_rtgmc_shimmer_repair_copy(
     uint8_t *pDst, const int dstPitch,
     const uint8_t *pSrc, const int srcPitch,
@@ -653,6 +845,51 @@ static bool launchRtgmcShimmerRepairFusedByProfile(
 
 #if defined(NVENC_RTGMC_SHIMMER_REPAIR_KERNEL_ONLY)
 #if defined(NVENC_RTGMC_SHIMMER_REPAIR_BUILD_APPLY)
+bool NVENC_RTGMC_SHIMMER_REPAIR_STAGED_LAUNCH_NAME(
+    const dim3 gridSize, const dim3 stagedGridSize, const dim3 blockSize, cudaStream_t stream,
+    uint8_t *pDst, const int dstPitch,
+    uint8_t *pCorrectionDelta, const int correctionDeltaPitch,
+    uint8_t *pPositiveCorrectionGate, const int positiveCorrectionGatePitch,
+    uint8_t *pNegativeCorrectionGate, const int negativeCorrectionGatePitch,
+    const uint8_t *pInput, const int inputPitch,
+    const uint8_t *pReference, const int referencePitch,
+    uint8_t *pVerticalContractPositive,
+    uint8_t *pVerticalExpandNegative,
+    uint8_t *pLocalContractPositive,
+    uint8_t *pLocalExpandNegative,
+    const int stagePitch,
+    const int width, const int height, const int stageYOffset,
+    const int rangeHalf, const int maxVal) {
+    kernel_rtgmc_shimmer_repair_stage_vertical<NVENC_RTGMC_SHIMMER_REPAIR_TYPE><<<stagedGridSize, blockSize, 0, stream>>>(
+        pVerticalContractPositive, pVerticalExpandNegative, stagePitch,
+        pInput, inputPitch, pReference, referencePitch,
+        width, height, stageYOffset, rangeHalf, maxVal);
+    kernel_rtgmc_shimmer_repair_stage_local<NVENC_RTGMC_SHIMMER_REPAIR_TYPE><<<stagedGridSize, blockSize, 0, stream>>>(
+        pLocalContractPositive, pLocalExpandNegative,
+        pVerticalContractPositive, pVerticalExpandNegative, stagePitch,
+        width, height, stageYOffset);
+    const bool fused = pCorrectionDelta != nullptr
+        && pPositiveCorrectionGate != nullptr
+        && pNegativeCorrectionGate != nullptr;
+    if (fused) {
+        kernel_rtgmc_shimmer_repair_apply_fused_staged<NVENC_RTGMC_SHIMMER_REPAIR_TYPE><<<gridSize, blockSize, 0, stream>>>(
+            pDst, dstPitch,
+            pCorrectionDelta, correctionDeltaPitch,
+            pPositiveCorrectionGate, positiveCorrectionGatePitch,
+            pNegativeCorrectionGate, negativeCorrectionGatePitch,
+            pInput, inputPitch, pReference, referencePitch,
+            pLocalContractPositive, pLocalExpandNegative, stagePitch,
+            width, height, stageYOffset, rangeHalf, maxVal);
+    } else {
+        kernel_rtgmc_shimmer_repair_apply_staged<NVENC_RTGMC_SHIMMER_REPAIR_TYPE><<<gridSize, blockSize, 0, stream>>>(
+            pDst, dstPitch,
+            pInput, inputPitch, pReference, referencePitch,
+            pLocalContractPositive, pLocalExpandNegative, stagePitch,
+            width, height, stageYOffset, rangeHalf, maxVal);
+    }
+    return true;
+}
+
 bool NVENC_RTGMC_SHIMMER_REPAIR_COPY_LAUNCH_NAME(
     const dim3 gridSize, const dim3 blockSize, cudaStream_t stream,
     uint8_t *pDst, const int dstPitch, const uint8_t *pSrc, const int srcPitch,

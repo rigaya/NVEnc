@@ -13,12 +13,31 @@
 namespace {
 static constexpr int RTGMC_SHIMMER_REPAIR_BLOCK_X = 32;
 static constexpr int RTGMC_SHIMMER_REPAIR_BLOCK_Y = 8;
+static constexpr int RTGMC_SHIMMER_REPAIR_STAGE_Y_OFFSET = 2;
+static constexpr int RTGMC_SHIMMER_REPAIR_STAGE_BUFFER_COUNT = 4;
 static constexpr int RTGMC_SHIMMER_REPAIR_FRAME_OUTPUT = 0;
 static constexpr int RTGMC_SHIMMER_REPAIR_FRAME_DELTA = 1;
 static constexpr int RTGMC_SHIMMER_REPAIR_FRAME_POS_GATE = 2;
 static constexpr int RTGMC_SHIMMER_REPAIR_FRAME_NEG_GATE = 3;
 static constexpr int RTGMC_SHIMMER_REPAIR_FRAME_INPUT_TMP = 6;
 static constexpr int RTGMC_SHIMMER_REPAIR_FRAME_REF_TMP = 7;
+
+enum RtgmcShimmerRepairStageBuffer : int {
+    RTGMC_SHIMMER_REPAIR_STAGE_VC_POS = 0,
+    RTGMC_SHIMMER_REPAIR_STAGE_VC_NEG,
+    RTGMC_SHIMMER_REPAIR_STAGE_LC_POS,
+    RTGMC_SHIMMER_REPAIR_STAGE_LC_NEG,
+};
+
+static bool rtgmcShimmerRepairEnvFlagNotDisabled(const char *name) {
+    const auto value = std::getenv(name);
+    return !(value && value[0] == '0' && value[1] == '\0');
+}
+
+static bool rtgmcShimmerRepairStagedEnabled() {
+    static const bool enabled = rtgmcShimmerRepairEnvFlagNotDisabled("NVENC_RTGMC_SHIMMER_REPAIR_STAGED");
+    return enabled;
+}
 
 static const char *rtgmcShimmerRepairTargetName(const RGYRtgmcShimmerRepairStage stage) {
     return (stage == RGYRtgmcShimmerRepairStage::PreRetouch) ? "rep1" : "rep2";
@@ -79,7 +98,11 @@ NVEncFilterRtgmcShimmerRepair::NVEncFilterRtgmcShimmerRepair() :
     m_lumaDumpEnabled(false),
     m_lumaDumpHeaderWritten(false),
     m_lumaDumpFullYuv(false),
-    m_useKernel(false) {
+    m_useKernel(false),
+    m_useStagedThin4Pad0(false),
+    m_stagedBuffers(),
+    m_stagedPitch(0),
+    m_stagedHeight(0) {
     m_name = _T("rtgmc-shimmer-repair");
 }
 
@@ -419,6 +442,92 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::launchRtgmcShimmerRepairApply(
     return RGY_ERR_NONE;
 }
 
+RGY_ERR NVEncFilterRtgmcShimmerRepair::launchRtgmcShimmerRepairStaged(
+    RGYFrameInfo *pOutputFrame,
+    RGYFrameInfo *pCorrectionDeltaFrame,
+    RGYFrameInfo *pPositiveCorrectionGateFrame,
+    RGYFrameInfo *pNegativeCorrectionGateFrame,
+    const RGYFrameInfo *pInputFrame,
+    const RGYFrameInfo *pRefFrame,
+    int iplane, cudaStream_t stream) {
+    const auto outPlane = getPlane(pOutputFrame, (RGY_PLANE)iplane);
+    const auto inputPlane = getPlane(pInputFrame, (RGY_PLANE)iplane);
+    const auto refPlane = getPlane(pRefFrame, (RGY_PLANE)iplane);
+    const int stagedHeight = outPlane.height + RTGMC_SHIMMER_REPAIR_STAGE_Y_OFFSET * 2;
+    const int pixelBytes = (RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8) ? 2 : 1;
+    if (m_stagedPitch < outPlane.width * pixelBytes || m_stagedHeight < stagedHeight) {
+        AddMessage(RGY_LOG_ERROR, _T("rtgmc shimmer repair staged buffer is too small for plane %d.\n"), iplane);
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+
+    uint8_t *correctionDelta = nullptr;
+    uint8_t *positiveCorrectionGate = nullptr;
+    uint8_t *negativeCorrectionGate = nullptr;
+    int correctionDeltaPitch = 0;
+    int positiveCorrectionGatePitch = 0;
+    int negativeCorrectionGatePitch = 0;
+    if (pCorrectionDeltaFrame != nullptr
+        && pPositiveCorrectionGateFrame != nullptr
+        && pNegativeCorrectionGateFrame != nullptr) {
+        const auto deltaPlane = getPlane(pCorrectionDeltaFrame, (RGY_PLANE)iplane);
+        const auto positivePlane = getPlane(pPositiveCorrectionGateFrame, (RGY_PLANE)iplane);
+        const auto negativePlane = getPlane(pNegativeCorrectionGateFrame, (RGY_PLANE)iplane);
+        correctionDelta = (uint8_t *)deltaPlane.ptr[0];
+        correctionDeltaPitch = deltaPlane.pitch[0];
+        positiveCorrectionGate = (uint8_t *)positivePlane.ptr[0];
+        positiveCorrectionGatePitch = positivePlane.pitch[0];
+        negativeCorrectionGate = (uint8_t *)negativePlane.ptr[0];
+        negativeCorrectionGatePitch = negativePlane.pitch[0];
+    }
+
+    const int bitdepth = RGY_CSP_BIT_DEPTH[pOutputFrame->csp];
+    const int maxVal = (bitdepth >= 16) ? ((1 << 16) - 1) : ((1 << bitdepth) - 1);
+    const int rangeHalf = 1 << (bitdepth - 1);
+    const dim3 blockSize(RTGMC_SHIMMER_REPAIR_BLOCK_X, RTGMC_SHIMMER_REPAIR_BLOCK_Y);
+    const dim3 gridSize(divCeil(outPlane.width, blockSize.x), divCeil(outPlane.height, blockSize.y));
+    const dim3 stagedGridSize(divCeil(outPlane.width, blockSize.x), divCeil(stagedHeight, blockSize.y));
+    const bool launched = (bitdepth <= 8)
+        ? launchRtgmcShimmerRepairStagedU8(
+            gridSize, stagedGridSize, blockSize, stream,
+            (uint8_t *)outPlane.ptr[0], outPlane.pitch[0],
+            correctionDelta, correctionDeltaPitch,
+            positiveCorrectionGate, positiveCorrectionGatePitch,
+            negativeCorrectionGate, negativeCorrectionGatePitch,
+            (const uint8_t *)inputPlane.ptr[0], inputPlane.pitch[0],
+            (const uint8_t *)refPlane.ptr[0], refPlane.pitch[0],
+            (uint8_t *)m_stagedBuffers[RTGMC_SHIMMER_REPAIR_STAGE_VC_POS].ptr,
+            (uint8_t *)m_stagedBuffers[RTGMC_SHIMMER_REPAIR_STAGE_VC_NEG].ptr,
+            (uint8_t *)m_stagedBuffers[RTGMC_SHIMMER_REPAIR_STAGE_LC_POS].ptr,
+            (uint8_t *)m_stagedBuffers[RTGMC_SHIMMER_REPAIR_STAGE_LC_NEG].ptr,
+            m_stagedPitch, outPlane.width, outPlane.height,
+            RTGMC_SHIMMER_REPAIR_STAGE_Y_OFFSET, rangeHalf, maxVal)
+        : launchRtgmcShimmerRepairStagedU16(
+            gridSize, stagedGridSize, blockSize, stream,
+            (uint8_t *)outPlane.ptr[0], outPlane.pitch[0],
+            correctionDelta, correctionDeltaPitch,
+            positiveCorrectionGate, positiveCorrectionGatePitch,
+            negativeCorrectionGate, negativeCorrectionGatePitch,
+            (const uint8_t *)inputPlane.ptr[0], inputPlane.pitch[0],
+            (const uint8_t *)refPlane.ptr[0], refPlane.pitch[0],
+            (uint8_t *)m_stagedBuffers[RTGMC_SHIMMER_REPAIR_STAGE_VC_POS].ptr,
+            (uint8_t *)m_stagedBuffers[RTGMC_SHIMMER_REPAIR_STAGE_VC_NEG].ptr,
+            (uint8_t *)m_stagedBuffers[RTGMC_SHIMMER_REPAIR_STAGE_LC_POS].ptr,
+            (uint8_t *)m_stagedBuffers[RTGMC_SHIMMER_REPAIR_STAGE_LC_NEG].ptr,
+            m_stagedPitch, outPlane.width, outPlane.height,
+            RTGMC_SHIMMER_REPAIR_STAGE_Y_OFFSET, rangeHalf, maxVal);
+    if (!launched) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const auto cudaerr = cudaGetLastError();
+    if (cudaerr != cudaSuccess) {
+        const auto err = err_to_rgy(cudaerr);
+        AddMessage(RGY_LOG_ERROR, _T("error at rtgmc shimmer repair staged apply (plane %d): %s.\n"),
+            iplane, get_err_mes(err));
+        return err;
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR NVEncFilterRtgmcShimmerRepair::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamRtgmcShimmerRepair>(pParam);
@@ -456,6 +565,34 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::init(shared_ptr<NVEncFilterParam> pParam,
     }
     for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
+    }
+    m_useStagedThin4Pad0 = m_useKernel
+        && prm->repairThin == 4
+        && prm->repairPad == 0
+        && rtgmcShimmerRepairStagedEnabled();
+    if (m_useStagedThin4Pad0) {
+        const int pixelBytes = (RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8) ? 2 : 1;
+        m_stagedPitch = ALIGN(prm->frameOut.width * pixelBytes, 128);
+        m_stagedHeight = prm->frameOut.height + RTGMC_SHIMMER_REPAIR_STAGE_Y_OFFSET * 2;
+        const size_t stagedBytes = (size_t)m_stagedPitch * (size_t)m_stagedHeight;
+        for (int i = 0; i < RTGMC_SHIMMER_REPAIR_STAGE_BUFFER_COUNT; i++) {
+            auto& buffer = m_stagedBuffers[i];
+            if (buffer.ptr == nullptr || buffer.nSize != stagedBytes) {
+                buffer.clear();
+                buffer.nSize = stagedBytes;
+                sts = buffer.alloc();
+                if (sts != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate rtgmc shimmer repair staged buffer %d.\n"), i);
+                    return RGY_ERR_MEMORY_ALLOC;
+                }
+            }
+        }
+    } else {
+        for (auto& buffer : m_stagedBuffers) {
+            buffer.clear();
+        }
+        m_stagedPitch = 0;
+        m_stagedHeight = 0;
     }
     sts = initLumaDump(prm->frameOut, *prm);
     if (sts != RGY_ERR_NONE) {
@@ -544,12 +681,19 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::processFrame(RGYFrameInfo *pOutputFrame, 
         RGYFrameInfo *positiveCorrectionGate = &m_frameBuf[RTGMC_SHIMMER_REPAIR_FRAME_POS_GATE]->frame;
         RGYFrameInfo *negativeCorrectionGate = &m_frameBuf[RTGMC_SHIMMER_REPAIR_FRAME_NEG_GATE]->frame;
 
-        const auto err = m_lumaDumpEnabled
-            ? launchRtgmcShimmerRepairFused(
-                pOutputFrame, correctionDelta, positiveCorrectionGate, negativeCorrectionGate,
-                pInputFrame, pRefFrame, prm, iplane, stream)
-            : launchRtgmcShimmerRepairApply(
-                pOutputFrame, pInputFrame, pRefFrame, prm, iplane, stream);
+        const auto err = m_useStagedThin4Pad0 && iplane == 0
+            ? launchRtgmcShimmerRepairStaged(
+                pOutputFrame,
+                m_lumaDumpEnabled ? correctionDelta : nullptr,
+                m_lumaDumpEnabled ? positiveCorrectionGate : nullptr,
+                m_lumaDumpEnabled ? negativeCorrectionGate : nullptr,
+                pInputFrame, pRefFrame, iplane, stream)
+            : (m_lumaDumpEnabled
+                ? launchRtgmcShimmerRepairFused(
+                    pOutputFrame, correctionDelta, positiveCorrectionGate, negativeCorrectionGate,
+                    pInputFrame, pRefFrame, prm, iplane, stream)
+                : launchRtgmcShimmerRepairApply(
+                    pOutputFrame, pInputFrame, pRefFrame, prm, iplane, stream));
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -671,4 +815,10 @@ void NVEncFilterRtgmcShimmerRepair::close() {
     m_buildOptions.clear();
     m_frameBuf.clear();
     m_useKernel = false;
+    m_useStagedThin4Pad0 = false;
+    for (auto& buffer : m_stagedBuffers) {
+        buffer.clear();
+    }
+    m_stagedPitch = 0;
+    m_stagedHeight = 0;
 }

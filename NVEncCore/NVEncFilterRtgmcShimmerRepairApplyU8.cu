@@ -3,4 +3,5 @@
 #define NVENC_RTGMC_SHIMMER_REPAIR_TYPE uint8_t
 #define NVENC_RTGMC_SHIMMER_REPAIR_LAUNCH_NAME launchRtgmcShimmerRepairApplyU8
 #define NVENC_RTGMC_SHIMMER_REPAIR_COPY_LAUNCH_NAME launchRtgmcShimmerRepairCopyU8
+#define NVENC_RTGMC_SHIMMER_REPAIR_STAGED_LAUNCH_NAME launchRtgmcShimmerRepairStagedU8
 #include "NVEncFilterRtgmcShimmerRepair.cuh"
