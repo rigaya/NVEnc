@@ -1020,6 +1020,7 @@ av1 :  0, 1
 
 ### --vship-ssimulacra2
 使用Vship库计算SSIMULACRA2分数(GPU加速)。
+结束时，日志会在平均值所在的同一行显示标准差、中位数、5百分位数、95百分位数、最小值和最大值。
 
 ### --vship-butteraugli [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 使用Vship库计算Butteraugli分数(GPU加速)。

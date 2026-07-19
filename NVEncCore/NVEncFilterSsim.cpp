@@ -176,6 +176,7 @@ NVEncFilterVshipData::NVEncFilterVshipData() :
     error(0),
     ssimu2Total(0.0),
     ssimu2Frames(0),
+    ssimu2Scores(),
     butteraugliTotalNormQ(0.0),
     butteraugliTotalNorm3(0.0),
     butteraugliTotalNorminf(0.0),
@@ -677,8 +678,25 @@ void NVEncFilterSsim::showResult() {
 #if ENABLE_LIBVSHIP
     if (prm->vshipSsimu2.enable) {
         if (m_vship.ssimu2Frames > 0) {
-            AddMessage(RGY_LOG_INFO, _T("SSIMU2 Score %.6f (Frames: %d)\n"),
-                m_vship.ssimu2Total / m_vship.ssimu2Frames, m_vship.ssimu2Frames);
+            auto scores = m_vship.ssimu2Scores;
+            std::sort(scores.begin(), scores.end());
+            const auto percentile = [&scores](double p) {
+                const double index = (scores.size() - 1) * p;
+                const auto lower = (size_t)index;
+                const auto upper = std::min(lower + 1, scores.size() - 1);
+                return scores[lower] + (scores[upper] - scores[lower]) * (index - lower);
+            };
+            double squaredDiffTotal = 0.0;
+            const double average = m_vship.ssimu2Total / m_vship.ssimu2Frames;
+            for (const auto score : scores) {
+                const double diff = score - average;
+                squaredDiffTotal += diff * diff;
+            }
+            AddMessage(RGY_LOG_INFO, _T("SSIMU2 Score %.6f (Frames: %d), StdDev %.6f, Median %.6f, P5 %.6f, P95 %.6f, Min %.6f, Max %.6f\n"),
+                average, m_vship.ssimu2Frames,
+                std::sqrt(squaredDiffTotal / scores.size()),
+                percentile(0.50), percentile(0.05), percentile(0.95),
+                scores.front(), scores.back());
         }
     }
     if (prm->vshipButteraugli.enable) {
@@ -1217,6 +1235,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vship(RGYParamThread threadParam) {
     m_vship.error = 0;
     m_vship.ssimu2Total = 0.0;
     m_vship.ssimu2Frames = 0;
+    m_vship.ssimu2Scores.clear();
     m_vship.butteraugliTotalNormQ = 0.0;
     m_vship.butteraugliTotalNorm3 = 0.0;
     m_vship.butteraugliTotalNorminf = 0.0;
@@ -1344,6 +1363,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vship(RGYParamThread threadParam) {
                     m_vship.error = (int)err;
                 } else {
                     m_vship.ssimu2Total += score;
+                    m_vship.ssimu2Scores.push_back(score);
                     m_vship.ssimu2Frames++;
                 }
             }

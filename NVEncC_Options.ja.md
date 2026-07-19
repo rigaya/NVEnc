@@ -1135,6 +1135,7 @@ picture timing SEIを挿入する。
 
 ### --vship-ssimulacra2
 Vshipライブラリを使用してSSIMULACRA2スコアを算出する(GPU加速)。
+終了時に、平均値に加えて標準偏差、中央値、5パーセンタイル、95パーセンタイル、最小値、最大値を1行で表示する。
 
 ### --vship-butteraugli [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 Vshipライブラリを使用してButteraugliスコアを算出する(GPU加速)。

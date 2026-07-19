@@ -1124,6 +1124,7 @@ and is highly likely to become a bottleneck and result in poor encoding performa
 
 ### --vship-ssimulacra2
 Calculate SSIMULACRA2 score using Vship library (GPU accelerated).
+At the end, the log also shows the standard deviation, median, 5th percentile, 95th percentile, minimum, and maximum in the same line as the average score.
 
 ### --vship-butteraugli [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 Calculate Butteraugli score using Vship library (GPU accelerated).
