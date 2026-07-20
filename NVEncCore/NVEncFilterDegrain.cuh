@@ -1578,7 +1578,7 @@ __device__ __forceinline__ uint32_t degrainMotionSearchFullBlockSadParallel(
     return degrainMotionSearchBlockReduceAdd<blockSize>(laneSums, partialSad, localThreadId);
 }
 
-// 探索勝者のSAD再検証とflat領域補正 (分散0のブロックはMVの信頼性がないためzero MVへ寄せる)。
+// 探索勝者のraw SAD確定とflat領域補正 (分散0のブロックはMVの信頼性がないためzero MVへ寄せる)。
 // 分散はブロック内で同一値になるため、flat分岐は全スレッド一様で__syncthreads()安全。
 // 内部で__syncthreads()を使うので、ブロック全スレッドから同一のbestを渡して一様に呼び出すこと。
 template<typename TypePixel, int blockSize, int pel, int subpelInterp>
@@ -1594,21 +1594,8 @@ __device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSear
     const int step,
     RGYDegrainMotionSearchCandidateCost best,
     const int localThreadId) {
-    const uint32_t verifiedSad = degrainMotionSearchFullBlockSadParallel<TypePixel, blockSize, pel, subpelInterp>(
-        sourceBlockPixels,
-        referencePlane,
-        laneSums,
-        pitch,
-        width,
-        height,
-        blockGridX,
-        blockGridY,
-        step,
-        (int)best.pos_x,
-        (int)best.pos_y,
-        localThreadId);
-    best.sad_metric = verifiedSad;
-    best.score_primary = verifiedSad;
+    // 探索時に保持したraw SADを再利用し、勝者位置の同一SAD計算を省略する。
+    best.score_primary = best.sad_metric;
 
     if (degrainMotionSearchSourceBlockVarianceParallel<TypePixel, blockSize>(sourceBlockPixels, laneSums, localThreadId) == 0u) {
         const uint32_t sadZero = degrainMotionSearchFullBlockSadParallel<TypePixel, blockSize, pel, subpelInterp>(
