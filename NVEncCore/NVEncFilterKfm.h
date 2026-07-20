@@ -487,8 +487,10 @@ protected:
         const RGYFrameInfo *pTelecineSuperFrame, const TCHAR *stageLabel);
     RGY_ERR renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameInfo *pContainsCombeFrame, RGYFrameInfo *pCombeMaskFrame,
         const RGYFrameInfo *pTelecineSuperPrevFrame, const RGYFrameInfo *pTelecineSuperFrame, const RGYFrameInfo *pTelecineSuperNextFrame,
-        const char *switchFlagStage, const char *containsCombeStage, const char *combeMaskStage,
+        const char *switchFlagStage, const char *containsCombeStage, const char *combeMaskStage, bool generateCombeMask,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, KfmContainsCombeReadback *containsCombeReadback = nullptr);
+    RGY_ERR renderCombeMask(RGYFrameInfo *pCombeMaskFrame, const RGYFrameInfo *pSwitchFlagFrame, const RGYFrameInfo *pTelecineSuperFrame,
+        const char *combeMaskStage, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     RGY_ERR resolveContainsCombeCount(KfmContainsCombeReadback& readback, uint32_t *containsCombeCount);
     RGY_ERR patchCombe(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pBaseFrame, const RGYFrameInfo *pPatchFrame, const RGYFrameInfo *pMaskFrame,
         int frameIndex, const char *stageName, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
@@ -630,7 +632,9 @@ protected:
         int64_t cleanSuperCacheHits;
         int64_t cleanSuperCacheMisses;
         int64_t cleanSuperCacheAvoidedFields;
-        KfmProfileStats() : enabled(false), cleanSuperCacheHits(0), cleanSuperCacheMisses(0), cleanSuperCacheAvoidedFields(0) {};
+        int64_t fullCombeMaskGenerated;
+        int64_t fullCombeMaskAvoided;
+        KfmProfileStats() : enabled(false), cleanSuperCacheHits(0), cleanSuperCacheMisses(0), cleanSuperCacheAvoidedFields(0), fullCombeMaskGenerated(0), fullCombeMaskAvoided(0) {};
     };
 
     std::unique_ptr<NVEncFilterRtgmc> m_rtgmc;
