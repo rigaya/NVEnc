@@ -16398,6 +16398,7 @@ tstring gen_cmd_help_vpp() {
 #if ENCODER_NVENC
         _T("      provider=<string>           execution provider for inference\n")
         _T("                                    auto (default, = cuda), cuda, tensorrt\n")
+        _T("      prec=<string>               auto (default, TensorRT fp16) / fp16 / fp32\n")
 #endif
         _T("      colormatrix=<string>        same list as --colormatrix; onnx supports\n")
         _T("                                    auto / auto_res / smpte170m / bt470bg\n")

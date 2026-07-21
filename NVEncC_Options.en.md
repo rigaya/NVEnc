@@ -4310,8 +4310,10 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
 - **Parameters**
   - model=&lt;string&gt;  
     Path to the ONNX model file (required). A model registered in models.json can be specified without extension when `--vpp-onnx-model-dir` is specified.
-  - provider=&lt;string&gt; (default: auto)  
+  - provider=&lt;string&gt; (default: auto)
     Execution provider. auto / cuda / tensorrt (trt)
+  - prec=&lt;string&gt; (default: auto)
+    TensorRT calculation precision. auto / fp16 (f16) / fp32 (f32). auto uses fp16 with TensorRT. The CUDA provider uses fp32.
   - colormatrix=&lt;string&gt; (default: auto)
     Accepts the same names as [`--colormatrix`](#--colormatrix-string). `--vpp-onnx` supports auto / auto_res / smpte170m / bt470bg / bt709 / bt2020nc. The legacy names bt601 and bt2020 are also accepted as aliases for smpte170m and bt2020nc.
   - colormatrix_out=&lt;string&gt; (default: auto)
@@ -4392,7 +4394,9 @@ This option only specifies where model files are located. The ONNX Runtime GPU, 
 ### --vpp-onnx-cache-dir &lt;string&gt;
 Directory used to cache TensorRT engines.
 
-The cache is disabled when this option is omitted. The first run builds an engine, while later runs with the same model, precision, input shape, and GPU can load the cached engine and substantially reduce startup time.
+The cache is disabled when this option is omitted. The first run builds an engine, while later runs with the same model content, precision, input shape, and runtime environment can load the cached engine and substantially reduce startup time.
+
+Separate directories are used for each NVEnc version and revision, ONNX Runtime version, CUDA driver API version, and GPU. A TensorRT version mismatch is detected by TensorRT's own engine compatibility check, after which the affected engine is rebuilt once. Models in the same runtime environment share a timing cache. Directories for older environments are not removed automatically.
 
 ```
 --vpp-onnx-cache-dir C:\models\HWEnc-onnx-cache

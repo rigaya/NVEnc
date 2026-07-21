@@ -4369,8 +4369,10 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
 - **パラメータ**
   - model=&lt;string&gt;  
     ONNXモデルファイルのパス (必須)。`--vpp-onnx-model-dir` 指定時は、models.json に登録されたモデル名を拡張子なしで指定可能。
-  - provider=&lt;string&gt; (デフォルト: auto)  
+  - provider=&lt;string&gt; (デフォルト: auto)
     推論に使用する実行プロバイダ。auto / cuda / tensorrt (trt)
+  - prec=&lt;string&gt; (デフォルト: auto)
+    TensorRTの演算精度。auto / fp16 (f16) / fp32 (f32)。autoはTensorRTでfp16を使用する。CUDA providerではfp32を使用する。
   - colormatrix=&lt;string&gt; (デフォルト: auto)
     [`--colormatrix`](#--colormatrix-string) と同じ名前を受け付ける。`--vpp-onnx` で対応するのは auto / auto_res / smpte170m / bt470bg / bt709 / bt2020nc。互換性のため、旧指定名の bt601 と bt2020 も smpte170m / bt2020nc の別名として受け付ける。
   - colormatrix_out=&lt;string&gt; (デフォルト: auto)
@@ -4451,7 +4453,9 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
 ### --vpp-onnx-cache-dir &lt;string&gt;
 TensorRTエンジンのキャッシュ先ディレクトリを指定する。
 
-未指定時はキャッシュを無効にする。初回実行ではエンジンを構築し、同じモデル・精度・入力形状・GPUを使用する以降の実行ではキャッシュを読み込んで起動時間を大幅に短縮できる。
+未指定時はキャッシュを無効にする。初回実行ではエンジンを構築し、同じモデル内容・精度・入力形状・実行環境を使用する以降の実行ではキャッシュを読み込んで起動時間を大幅に短縮できる。
+
+キャッシュはNVEncのバージョンとrevision、ONNX Runtimeのバージョン、CUDAドライバAPIのバージョン、GPUごとに別ディレクトリへ保存する。TensorRTのバージョン不一致はTensorRT自身のengine互換性検証で検出し、該当engineを1回だけ自動再構築する。同じ実行環境ではモデル間でtiming cacheを共有する。古い環境用ディレクトリは自動削除しない。
 
 ```
 --vpp-onnx-cache-dir C:\models\HWEnc-onnx-cache

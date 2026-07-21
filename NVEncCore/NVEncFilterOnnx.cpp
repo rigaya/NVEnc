@@ -284,8 +284,10 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     m_ov = std::make_unique<RGYOnnxRTCUDA>();
     tstring errMsg;
 
-    if (provider == RGYOnnxRTProvider::TensorRT && !prm->onnx.cacheDir.empty()) {
-        AddMessage(RGY_LOG_INFO, _T("onnx: building/loading TensorRT engine (first run per model/resolution/precision may take minutes)...\n"));
+    if (provider == RGYOnnxRTProvider::TensorRT) {
+        AddMessage(RGY_LOG_INFO, prm->onnx.cacheDir.empty()
+            ? _T("onnx: building TensorRT engine (this may take minutes)...\n")
+            : _T("onnx: building/loading TensorRT engine (first run per model/resolution/precision may take minutes)...\n"));
     }
     RGY_ERR err = m_ov->init(prm->onnx.modelFile, deviceID, provider, inH, inW, errMsg,
         nullptr, prm->onnx.precision, prm->onnx.cacheDir);

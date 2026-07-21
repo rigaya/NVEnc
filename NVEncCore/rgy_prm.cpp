@@ -2085,6 +2085,10 @@ tstring VppOnnx::print() const {
     tstring s = strsprintf(_T("model=%s"), modelFile.c_str());
 #if ENCODER_NVENC
     s += strsprintf(_T(",provider=%s"), provider.c_str());
+    s += strsprintf(_T(",prec=%s"), precision.c_str());
+    if (!cacheDir.empty()) {
+        s += strsprintf(_T(",cache_dir=%s"), cacheDir.c_str());
+    }
 #elif ENABLE_OPENVINO
     s += strsprintf(_T(",device=%s"), device.c_str());
     s += strsprintf(_T(",interop=%s"), interop.c_str());
