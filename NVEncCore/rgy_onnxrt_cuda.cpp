@@ -43,6 +43,7 @@
 #include "rgy_onnxruntime.h"
 #include "rgy_util.h"
 #include "rgy_filesystem.h"
+#include "rgy_rev.h"
 
 // ------- one-time dynamic load of ONNX Runtime + Ort C++ API init -------------
 
@@ -106,6 +107,44 @@ namespace {
         return out;
     }
 
+    tstring tensorRTCacheEnvironment(const cudaDeviceProp& prop) {
+        tstring fingerprint = char_to_tstring(ENCODER_NAME) + _T("_") + VER_STR_FILEVERSION_TCHAR
+            + _T("_rev") + char_to_tstring(ENCODER_REV);
+        if (const auto getApiBase = onnxRuntime().p_OrtGetApiBase(); getApiBase != nullptr) {
+            if (const auto version = getApiBase()->GetVersionString(); version != nullptr && version[0] != '\0') {
+                fingerprint += _T("_ort") + char_to_tstring(version);
+            }
+        }
+        int cudaDriverVersion = 0;
+        if (cudaDriverGetVersion(&cudaDriverVersion) == cudaSuccess && cudaDriverVersion > 0) {
+            fingerprint += strsprintf(_T("_cuda%d"), cudaDriverVersion);
+        }
+        fingerprint += strsprintf(_T("_sm%d%d_%s"), prop.major, prop.minor,
+            sanitizeForDirName(char_to_tstring(prop.name)).c_str());
+        return fingerprint;
+    }
+
+    bool clearTensorRTEngineCache(const tstring& dir, tstring& errorMessage) {
+        std::error_code ec;
+        const auto cacheDir = std::filesystem::path(dir);
+        for (const auto& entry : std::filesystem::directory_iterator(cacheDir, ec)) {
+            if (ec) break;
+            const auto extension = entry.path().extension();
+            if (entry.is_regular_file(ec)
+                && (extension == std::filesystem::path(_T(".engine")) || extension == std::filesystem::path(_T(".profile")))) {
+                if (!std::filesystem::remove(entry.path(), ec) || ec) {
+                    break;
+                }
+            }
+        }
+        if (ec) {
+            errorMessage = strsprintf(_T("TensorRT engine cacheの削除に失敗しました: %s: %s"),
+                dir.c_str(), char_to_tstring(ec.message()).c_str());
+            return false;
+        }
+        return true;
+    }
+
     tstring cudaErrorMessage(const TCHAR *func, const int deviceID, const cudaError_t err) {
         return strsprintf(_T("%s(device=%d) failed: %s"),
             func, deviceID, char_to_tstring(cudaGetErrorString(err)).c_str());
@@ -155,6 +194,7 @@ public:
     tstring lastError;
     tstring engineCacheDir;          // per-key TensorRT engine cache dir ("" = caching off)
     bool engineCacheHadFiles = false; // a cached engine existed there before session create
+    bool engineCacheLoadFailure = false;
     bool deviceIO = false;
     std::unique_ptr<Ort::MemoryInfo> deviceMemInfo;
     std::unique_ptr<Ort::Value> deviceInput;
@@ -175,10 +215,11 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
     // A cached TensorRT engine is deserialized without content validation; a stale or
     // corrupt cache file fails the whole session instead of triggering a rebuild. If a
     // pre-existing cache was in play, clear that key directory and retry once cold.
-    if (err != RGY_ERR_NONE && m_impl->engineCacheHadFiles && !m_impl->engineCacheDir.empty()) {
-        std::error_code ec;
-        for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::path(m_impl->engineCacheDir), ec)) {
-            std::filesystem::remove_all(entry.path(), ec);
+    if (err != RGY_ERR_NONE && m_impl->engineCacheLoadFailure && !m_impl->engineCacheDir.empty()) {
+        tstring clearError;
+        if (!clearTensorRTEngineCache(m_impl->engineCacheDir, clearError)) {
+            errMessage += _T(" (") + clearError + _T(")");
+            return err;
         }
         tstring retryMessage;
         err = initImpl(modelPath, deviceID, provider, height, width, retryMessage, userComputeStream, precision, cacheDir);
@@ -195,6 +236,13 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
 RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
                             const int height, const int width, tstring &errMessage,
                             cudaStream_t userComputeStream, const tstring &precision, const tstring &cacheDir) {
+    enum class InitStage {
+        Other,
+        TensorRTSessionCreate,
+        TensorRTProbe
+    };
+    auto initStage = InitStage::Other;
+    auto &I = *m_impl;
     CudaContextRestorer contextRestorer;
     loadOrtOnce();
     if (!s_ortReady) {
@@ -202,12 +250,12 @@ RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, co
         return RGY_ERR_UNSUPPORTED;
     }
     try {
-        auto &I = *m_impl;
         I.deviceID = deviceID;
         I.provider = _T("cuda");
         I.precision = _T("f32");
         I.engineCacheDir.clear();
         I.engineCacheHadFiles = false;
+        I.engineCacheLoadFailure = false;
         I.deviceIO = false;
         I.deviceMemInfo.reset();
         I.deviceInput.reset();
@@ -264,30 +312,38 @@ RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, co
                         cudaDeviceProp prop;
                         memset(&prop, 0, sizeof(prop));
                         cudaGetDeviceProperties(&prop, deviceID);
-                        const auto keyDirName = strsprintf(_T("trt_m%016llx_%dx%d_%s_sm%d%d_%s"),
+                        const auto keyDirName = strsprintf(_T("trt_m%016llx_%dx%d_%s"),
                             (unsigned long long)fnv1a64File(modelPath), width, height,
-                            useFP16 ? _T("fp16") : _T("fp32"), prop.major, prop.minor,
-                            sanitizeForDirName(char_to_tstring(prop.name)).c_str());
-                        const auto engineCacheDir = cacheDir + _T("/") + keyDirName;
-                        const auto timingCacheDir = cacheDir + _T("/trt_timing");
-                        CreateDirectoryRecursive(engineCacheDir.c_str());
-                        CreateDirectoryRecursive(timingCacheDir.c_str());
+                            useFP16 ? _T("fp16") : _T("fp32"));
+                        // NVEnc・ORT・CUDAドライバAPI・GPUの環境が変わった場合は、
+                        // TensorRTに古いキャッシュを渡さず別の親ディレクトリを使う。
+                        const auto environmentDir = cacheDir + _T("/") + tensorRTCacheEnvironment(prop);
+                        const auto engineCacheDir = environmentDir + _T("/") + keyDirName;
+                        const auto timingCacheDir = environmentDir + _T("/trt_timing");
+                        const bool engineCacheCreated = CreateDirectoryRecursive(engineCacheDir.c_str());
+                        const bool timingCacheCreated = CreateDirectoryRecursive(timingCacheDir.c_str());
                         if (rgy_directory_exists(engineCacheDir)) {
                             optionValues["trt_engine_cache_enable"] = "1";
                             optionValues["trt_engine_cache_path"] = tchar_to_string(engineCacheDir, CP_UTF8);
                             I.engineCacheDir = engineCacheDir;
                             std::error_code ec;
                             for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::path(engineCacheDir), ec)) {
-                                (void)entry;
-                                I.engineCacheHadFiles = true;
-                                break;
+                                if (entry.is_regular_file(ec) && entry.path().extension() == std::filesystem::path(_T(".engine"))) {
+                                    I.engineCacheHadFiles = true;
+                                    break;
+                                }
                             }
+                        } else if (!engineCacheCreated) {
+                            I.lastError = _T("TensorRT engine cacheディレクトリを作成できないため、キャッシュを無効にしました: ") + engineCacheDir;
                         }
                         if (rgy_directory_exists(timingCacheDir)) {
                             // kernel tactic timings; keyed per compute capability inside the cache and
                             // shared across models, so cold engine builds on this GPU get much shorter
                             optionValues["trt_timing_cache_enable"] = "1";
                             optionValues["trt_timing_cache_path"] = tchar_to_string(timingCacheDir, CP_UTF8);
+                        } else if (!timingCacheCreated) {
+                            const auto timingError = _T("TensorRT timing cacheディレクトリを作成できないため、timing cacheを無効にしました: ") + timingCacheDir;
+                            I.lastError += (I.lastError.empty() ? tstring() : _T(" ")) + timingError;
                         }
                     }
                     trtOptions.Update(optionValues);
@@ -351,7 +407,9 @@ RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, co
             }
         }
 
+        initStage = (tensorRTAttached && I.engineCacheHadFiles) ? InitStage::TensorRTSessionCreate : InitStage::Other;
         I.session = std::make_unique<Ort::Session>(*I.env, modelPath.c_str(), opts);
+        initStage = InitStage::Other;
 
         if (I.session->GetInputCount() < 1 || I.session->GetOutputCount() < 1) {
             errMessage = _T("model has no input/output tensor.");
@@ -388,7 +446,9 @@ RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, co
             return RGY_ERR_CUDA;
         }
         cudaGetLastError();
+        initStage = (tensorRTAttached && I.engineCacheHadFiles) ? InitStage::TensorRTProbe : InitStage::Other;
         auto outs = I.session->Run(Ort::RunOptions{ nullptr }, inNames, &inT, 1, outNames, 1);
+        initStage = InitStage::Other;
         auto oShape = outs[0].GetTensorTypeAndShapeInfo().GetShape();
         if (oShape.size() != 4) {
             errMessage = _T("model output is not a 4D NCHW tensor.");
@@ -398,9 +458,11 @@ RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, co
         I.outH = (int)oShape[2];
         I.outW = (int)oShape[3];
     } catch (const Ort::Exception &e) {
+        I.engineCacheLoadFailure = (initStage != InitStage::Other);
         errMessage = char_to_tstring(e.what());
         return RGY_ERR_UNKNOWN;
     } catch (const std::exception &e) {
+        I.engineCacheLoadFailure = (initStage != InitStage::Other);
         errMessage = char_to_tstring(e.what());
         return RGY_ERR_UNKNOWN;
     }

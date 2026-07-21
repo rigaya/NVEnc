@@ -297,6 +297,8 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     if ((provStr == _T("tensorrt") || provStr == _T("trt")) && m_ov->providerName() != _T("tensorrt")) {
         AddMessage(RGY_LOG_WARN, _T("onnx: TensorRT provider is unavailable; falling back to CUDA: %s\n"),
             m_ov->lastError().c_str());
+    } else if (!m_ov->lastError().empty()) {
+        AddMessage(RGY_LOG_WARN, _T("onnx: %s\n"), m_ov->lastError().c_str());
     }
     if (!m_ov->cacheInfo().empty()) {
         AddMessage(RGY_LOG_INFO, _T("onnx: %s\n"), m_ov->cacheInfo().c_str());
