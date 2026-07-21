@@ -284,7 +284,11 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     m_ov = std::make_unique<RGYOnnxRTCUDA>();
     tstring errMsg;
 
-    RGY_ERR err = m_ov->init(prm->onnx.modelFile, deviceID, provider, inH, inW, errMsg);
+    if (provider == RGYOnnxRTProvider::TensorRT && !prm->onnx.cacheDir.empty()) {
+        AddMessage(RGY_LOG_INFO, _T("onnx: building/loading TensorRT engine (first run per model/resolution/precision may take minutes)...\n"));
+    }
+    RGY_ERR err = m_ov->init(prm->onnx.modelFile, deviceID, provider, inH, inW, errMsg,
+        nullptr, prm->onnx.precision, prm->onnx.cacheDir);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile model: %s\n"),
             errMsg.c_str());
@@ -293,6 +297,9 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     if ((provStr == _T("tensorrt") || provStr == _T("trt")) && m_ov->providerName() != _T("tensorrt")) {
         AddMessage(RGY_LOG_WARN, _T("onnx: TensorRT provider is unavailable; falling back to CUDA: %s\n"),
             m_ov->lastError().c_str());
+    }
+    if (!m_ov->cacheInfo().empty()) {
+        AddMessage(RGY_LOG_INFO, _T("onnx: %s\n"), m_ov->cacheInfo().c_str());
     }
 
     // Infer the I/O convention from the compiled model's channel counts.
