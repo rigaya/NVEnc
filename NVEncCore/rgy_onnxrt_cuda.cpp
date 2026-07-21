@@ -30,15 +30,19 @@
 #if ENABLE_ONNXRUNTIME
 
 #include <cstring>
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <mutex>
 #include <unordered_map>
+#include <fstream>
+#include <filesystem>
 
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "rgy_onnxruntime.h"
 #include "rgy_util.h"
+#include "rgy_filesystem.h"
 
 // ------- one-time dynamic load of ONNX Runtime + Ort C++ API init -------------
 
@@ -68,6 +72,38 @@ namespace {
             return char_to_tstring(prop.name);
         }
         return tstring();
+    }
+
+    // FNV-1a 64bit over the model file bytes. The engine cache must key on the model
+    // CONTENT: ORT's own cache filename hash covers only the file NAME and the graph
+    // node names (not the weights, not the tensor shapes), so a re-exported model
+    // under the same name would silently reuse a stale engine built from old weights.
+    uint64_t fnv1a64File(const tstring &path) {
+        uint64_t h = 14695981039346656037ULL;
+        std::ifstream f(std::filesystem::path(path), std::ios::binary);
+        if (!f.good()) return 0;
+        std::vector<char> buf(1 << 20);
+        for (;;) {
+            f.read(buf.data(), buf.size());
+            const auto n = f.gcount();
+            if (n <= 0) break;
+            for (std::streamsize i = 0; i < n; i++) {
+                h ^= (uint64_t)(uint8_t)buf[i];
+                h *= 1099511628211ULL;
+            }
+        }
+        return h;
+    }
+
+    tstring sanitizeForDirName(const tstring &name) {
+        tstring out;
+        for (const auto c : name) {
+            if ((c >= _T('0') && c <= _T('9')) || (c >= _T('a') && c <= _T('z')) || (c >= _T('A') && c <= _T('Z'))) {
+                out.push_back(c);
+            }
+        }
+        if (out.length() > 24) out.resize(24);
+        return out;
     }
 
     tstring cudaErrorMessage(const TCHAR *func, const int deviceID, const cudaError_t err) {
@@ -117,6 +153,8 @@ public:
     tstring provider = _T("cuda");   // the EP actually used
     tstring precision = _T("f32");
     tstring lastError;
+    tstring engineCacheDir;          // per-key TensorRT engine cache dir ("" = caching off)
+    bool engineCacheHadFiles = false; // a cached engine existed there before session create
     bool deviceIO = false;
     std::unique_ptr<Ort::MemoryInfo> deviceMemInfo;
     std::unique_ptr<Ort::Value> deviceInput;
@@ -133,6 +171,30 @@ RGYOnnxRTCUDA::~RGYOnnxRTCUDA() {}
 RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
                             const int height, const int width, tstring &errMessage,
                             cudaStream_t userComputeStream, const tstring &precision, const tstring &cacheDir) {
+    auto err = initImpl(modelPath, deviceID, provider, height, width, errMessage, userComputeStream, precision, cacheDir);
+    // A cached TensorRT engine is deserialized without content validation; a stale or
+    // corrupt cache file fails the whole session instead of triggering a rebuild. If a
+    // pre-existing cache was in play, clear that key directory and retry once cold.
+    if (err != RGY_ERR_NONE && m_impl->engineCacheHadFiles && !m_impl->engineCacheDir.empty()) {
+        std::error_code ec;
+        for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::path(m_impl->engineCacheDir), ec)) {
+            std::filesystem::remove_all(entry.path(), ec);
+        }
+        tstring retryMessage;
+        err = initImpl(modelPath, deviceID, provider, height, width, retryMessage, userComputeStream, precision, cacheDir);
+        if (err == RGY_ERR_NONE) {
+            m_impl->lastError = tstring(_T("cached TensorRT engine was unusable and has been rebuilt: ")) + errMessage;
+            errMessage.clear();
+        } else {
+            errMessage += tstring(_T(" (retry after clearing engine cache: ")) + retryMessage + _T(")");
+        }
+    }
+    return err;
+}
+
+RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
+                            const int height, const int width, tstring &errMessage,
+                            cudaStream_t userComputeStream, const tstring &precision, const tstring &cacheDir) {
     CudaContextRestorer contextRestorer;
     loadOrtOnce();
     if (!s_ortReady) {
@@ -144,6 +206,8 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
         I.deviceID = deviceID;
         I.provider = _T("cuda");
         I.precision = _T("f32");
+        I.engineCacheDir.clear();
+        I.engineCacheHadFiles = false;
         I.deviceIO = false;
         I.deviceMemInfo.reset();
         I.deviceInput.reset();
@@ -190,11 +254,41 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
                     if (userComputeStream != nullptr) {
                         optionValues["has_user_compute_stream"] = "1";
                     }
-                    std::string cacheDirUtf8;
                     if (!cacheDir.empty()) {
-                        cacheDirUtf8 = tchar_to_string(cacheDir, CP_UTF8);
-                        optionValues["trt_engine_cache_enable"] = "1";
-                        optionValues["trt_engine_cache_path"] = cacheDirUtf8;
+                        // ORT reuses a cached engine whenever its filename hash matches, but that
+                        // hash covers neither the model weights nor the input shape: the same model
+                        // at another resolution, or a re-exported model under the same name, maps to
+                        // the same cache file and the stale engine fails the session (or worse, runs
+                        // with the old weights). Key a subdirectory on everything a TensorRT engine
+                        // is actually specific to: model content, WxH, precision, GPU (SM + name).
+                        cudaDeviceProp prop;
+                        memset(&prop, 0, sizeof(prop));
+                        cudaGetDeviceProperties(&prop, deviceID);
+                        const auto keyDirName = strsprintf(_T("trt_m%016llx_%dx%d_%s_sm%d%d_%s"),
+                            (unsigned long long)fnv1a64File(modelPath), width, height,
+                            useFP16 ? _T("fp16") : _T("fp32"), prop.major, prop.minor,
+                            sanitizeForDirName(char_to_tstring(prop.name)).c_str());
+                        const auto engineCacheDir = cacheDir + _T("/") + keyDirName;
+                        const auto timingCacheDir = cacheDir + _T("/trt_timing");
+                        CreateDirectoryRecursive(engineCacheDir.c_str());
+                        CreateDirectoryRecursive(timingCacheDir.c_str());
+                        if (rgy_directory_exists(engineCacheDir)) {
+                            optionValues["trt_engine_cache_enable"] = "1";
+                            optionValues["trt_engine_cache_path"] = tchar_to_string(engineCacheDir, CP_UTF8);
+                            I.engineCacheDir = engineCacheDir;
+                            std::error_code ec;
+                            for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::path(engineCacheDir), ec)) {
+                                (void)entry;
+                                I.engineCacheHadFiles = true;
+                                break;
+                            }
+                        }
+                        if (rgy_directory_exists(timingCacheDir)) {
+                            // kernel tactic timings; keyed per compute capability inside the cache and
+                            // shared across models, so cold engine builds on this GPU get much shorter
+                            optionValues["trt_timing_cache_enable"] = "1";
+                            optionValues["trt_timing_cache_path"] = tchar_to_string(timingCacheDir, CP_UTF8);
+                        }
                     }
                     trtOptions.Update(optionValues);
                     if (userComputeStream != nullptr) {
@@ -206,6 +300,8 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
                     I.precision = useFP16 ? _T("f16") : _T("f32");
                 } catch (const Ort::Exception &e) {
                     tensorRTV2Error = tstring(_T("TensorRT V2 provider options failed: ")) + char_to_tstring(e.what());
+                    I.engineCacheDir.clear();
+                    I.engineCacheHadFiles = false;
                 }
             } else {
                 tensorRTV2Error = _T("TensorRT V2 provider options are unavailable.");
@@ -400,6 +496,12 @@ tstring RGYOnnxRTCUDA::deviceFullName() const { return m_impl->deviceName; }
 tstring RGYOnnxRTCUDA::inferencePrecision() const { return m_impl->precision; }
 tstring RGYOnnxRTCUDA::providerName() const { return m_impl->provider; }
 tstring RGYOnnxRTCUDA::lastError() const { return m_impl->lastError; }
+tstring RGYOnnxRTCUDA::cacheInfo() const {
+    if (m_impl->engineCacheDir.empty()) return tstring();
+    return strsprintf(_T("TensorRT engine cache %s: %s"),
+        m_impl->engineCacheHadFiles ? _T("hit") : _T("cold, engine built"),
+        m_impl->engineCacheDir.c_str());
+}
 
 #else // !ENABLE_ONNXRUNTIME
 
@@ -425,5 +527,6 @@ tstring RGYOnnxRTCUDA::deviceFullName() const { return tstring(); }
 tstring RGYOnnxRTCUDA::inferencePrecision() const { return tstring(); }
 tstring RGYOnnxRTCUDA::providerName() const { return tstring(); }
 tstring RGYOnnxRTCUDA::lastError() const { return tstring(); }
+tstring RGYOnnxRTCUDA::cacheInfo() const { return tstring(); }
 
 #endif // ENABLE_ONNXRUNTIME

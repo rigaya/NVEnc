@@ -101,12 +101,17 @@ public:
     tstring inferencePrecision() const; // "f32"
     tstring providerName() const;       // "cuda" or "tensorrt" (the EP actually used)
     tstring lastError() const;
+    tstring cacheInfo() const;          // engine cache state ("" when caching is off)
 
     static bool available() { return ENABLE_ONNXRUNTIME != 0; }
 
 private:
     RGYOnnxRTCUDA(const RGYOnnxRTCUDA &) = delete;
     void operator=(const RGYOnnxRTCUDA &) = delete;
+
+    RGY_ERR initImpl(const tstring &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
+                     const int height, const int width, tstring &errMessage,
+                     cudaStream_t userComputeStream, const tstring &precision, const tstring &cacheDir);
 
     class Impl;
     std::unique_ptr<Impl> m_impl;
