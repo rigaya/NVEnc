@@ -180,7 +180,8 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
                 && api.UpdateTensorRTProviderOptionsWithValue != nullptr
                 && api.SessionOptionsAppendExecutionProvider_TensorRT_V2 != nullptr) {
                 try {
-                    const bool useFP16 = tolowercase(precision) == _T("auto");
+                    const auto precLower = tolowercase(precision);
+                    const bool useFP16 = (precLower == _T("auto") || precLower == _T("fp16") || precLower == _T("f16"));
                     Ort::TensorRTProviderOptions trtOptions;
                     std::unordered_map<std::string, std::string> optionValues = {
                         { "device_id", std::to_string(deviceID) },
