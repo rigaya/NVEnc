@@ -7361,7 +7361,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                shader.params.push_back(std::make_pair(param_arg, param_val));
+                if (param_arg == _T("custom")) {
+                    auto eqpos = param_val.find_first_of(_T("="));
+                    if (eqpos == tstring::npos) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" custom="), param_val);
+                        return 1;
+                    }
+                    shader.custom_params.push_back(std::make_pair(param_val.substr(0, eqpos), param_val.substr(eqpos + 1)));
+                    continue;
+                }
+                shader.params.push_back(std::make_pair(param.substr(0, pos), param_val));
                 continue;
             } else {
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
