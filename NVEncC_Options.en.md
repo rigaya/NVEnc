@@ -4329,6 +4329,8 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
     Color space for 3ch models. rgb / ycbcr (for ArtCNN *_YCbCr models)
   - noise=&lt;int&gt; (default: 15, range: 0 - 255)  
     Noise sigma for noise models.
+  - frames=&lt;int&gt; (default: 1)  
+    Temporal window size for models with `T*3` RGB input channels and 3 output channels. Specify a positive odd number so that the output corresponds to the centre frame.
   - out_res=&lt;WxH&gt;  
     End-of-chain resize to an arbitrary final size, applied after model inference.
     A negative value on one axis keeps the source aspect (e.g. out_res=-2x1080).

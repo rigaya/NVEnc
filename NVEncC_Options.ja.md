@@ -4388,6 +4388,8 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
     3chモデルの色空間。rgb / ycbcr (ArtCNN *_YCbCr 用)
   - noise=&lt;int&gt; (デフォルト: 15, 範囲: 0 - 255)  
     ノイズモデル用のノイズシグマ値。
+  - frames=&lt;int&gt; (デフォルト: 1)  
+    時系列モデルへ渡すフレームウィンドウのサイズ。3ch RGB フレームをチャンネル軸に連結した `T*3` 入力・3ch 出力モデルで使用します。中央フレームを出力するため、1 以上の奇数を指定してください。
   - out_res=&lt;WxH&gt;  
     モデル実行後の最終リサイズ。任意の最終サイズに合わせられる。
     片方の軸に負の値を指定するとアスペクト比を保持 (例: out_res=-2x1080)。
