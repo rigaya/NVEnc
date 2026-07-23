@@ -5955,8 +5955,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
-                    if (vpp->onnx.frames < 1) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("framesは1以上で指定してください"));
+                    if (vpp->onnx.frames < 1 || (vpp->onnx.frames % 2) == 0) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("framesは正の奇数で指定してください"));
                         return 1;
                     }
                     continue;
@@ -16439,6 +16439,7 @@ tstring gen_cmd_help_vpp() {
         _T("                                    auto (default, tv) / tv / limited / pc / full\n")
         _T("      colorspace=<string>         rgb(default) or ycbcr (for 3ch models)\n")
         _T("      noise=<int>                 noise sigma 0-255 for noise models (default 15)\n")
+        _T("      frames=<int>                正の奇数の時系列窓サイズ（T*3ch RGBモデル、既定値1）\n")
         _T("      out_res=<WxH>               end-of-chain resize to an arbitrary final size,\n")
         _T("                                  applied AFTER the network so CNN upscale + fit run\n")
         _T("                                  in one pass, e.g. out_res=1440x1080. A negative\n")
