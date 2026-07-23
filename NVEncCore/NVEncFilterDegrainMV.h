@@ -453,26 +453,43 @@ struct RGYDegrainMotionSearchWorkspace {
     RGYDegrainMotionSearchLevelWorkspace level0;
     RGYDegrainMotionSearchLevelWorkspace level1;
     std::unique_ptr<CUMemBuf> frameAverageMV;
+    // pel=2用: 参照ごとに4位相サブペルプレーン (整数/H/V/HV) をパックしたバッファ
+    std::array<std::unique_ptr<CUMemBuf>, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> subpelLevel0;
+    std::array<std::unique_ptr<CUMemBuf>, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> subpelLevel1;
     std::string buildOptionsLevel0;
     std::string buildOptionsLevel1;
     size_t frameAverageMVBytes;
+    size_t subpelLevel0Bytes;
+    size_t subpelLevel1Bytes;
 
     RGYDegrainMotionSearchWorkspace() :
         level0(),
         level1(),
         frameAverageMV(),
+        subpelLevel0(),
+        subpelLevel1(),
         buildOptionsLevel0(),
         buildOptionsLevel1(),
-        frameAverageMVBytes(0) {
+        frameAverageMVBytes(0),
+        subpelLevel0Bytes(0),
+        subpelLevel1Bytes(0) {
     }
 
     void reset() {
         level0.reset();
         level1.reset();
         frameAverageMV.reset();
+        for (auto &buf : subpelLevel0) {
+            buf.reset();
+        }
+        for (auto &buf : subpelLevel1) {
+            buf.reset();
+        }
         buildOptionsLevel0.clear();
         buildOptionsLevel1.clear();
         frameAverageMVBytes = 0;
+        subpelLevel0Bytes = 0;
+        subpelLevel1Bytes = 0;
     }
 };
 

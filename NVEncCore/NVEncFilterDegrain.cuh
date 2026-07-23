@@ -775,6 +775,8 @@ template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 __device__ __forceinline__ uint32_t degrainMotionSearchAccumulateLumaSadLane(
     const TypePixel *sourceBlockPixels,
     const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
     const int refPitch,
     const int width,
     const int height,
@@ -792,14 +794,24 @@ __device__ __forceinline__ uint32_t degrainMotionSearchAccumulateLumaSadLane(
     const int firstLaneRow = sadLane / lanesPerRow;
     uint32_t sad = 0u;
     if constexpr (sizeof(TypePixel) == 1) {
-        const int useFastPath = degrainMotionSearchRefIsIntegerPel<pel>(motionOffsetX, motionOffsetY)
+        const uint8_t *fastReferencePlane = referencePlane;
+        int useFastPath = degrainMotionSearchRefIsIntegerPel<pel>(motionOffsetX, motionOffsetY)
             && referenceX >= 0 && referenceY >= 0
             && referenceX + blockSize <= width
             && referenceY + blockSize <= height;
+        if constexpr (pel == 2) {
+            if (subpelPlaneStride != 0) {
+                const int subpelPhase = (motionOffsetX & 1) + ((motionOffsetY & 1) << 1);
+                fastReferencePlane = subpelPlanes + (size_t)subpelPhase * (size_t)subpelPlaneStride;
+                useFastPath = referenceX >= 0 && referenceY >= 0
+                    && referenceX + blockSize <= width
+                    && referenceY + blockSize <= height;
+            }
+        }
         if (useFastPath) {
             for (int y = firstLaneRow; y < blockSize; y += rowsPerLane) {
                 const int sourceBase = y * blockSize + x;
-                const uint8_t *referenceLine = referencePlane + (referenceY + y) * refPitch + referenceX + x;
+                const uint8_t *referenceLine = fastReferencePlane + (referenceY + y) * refPitch + referenceX + x;
                 const uint32_t sourcePacked = *reinterpret_cast<const uint32_t *>(sourceBlockPixels + sourceBase);
                 const uint32_t referencePacked =
                     ((uint32_t)referenceLine[0] <<  0)
@@ -1370,6 +1382,8 @@ template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 __device__ __forceinline__ void degrainMotionSearchRefineEvaluateCandidates(
     const TypePixel *sourceBlockPixels,
     const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
     const RGYDegrainMotionSearchContext *context,
     RGYDegrainMotionSearchCandidateCost *candidateCosts,
     uint32_t *candidateLaneSums,
@@ -1392,6 +1406,8 @@ __device__ __forceinline__ void degrainMotionSearchRefineEvaluateCandidates(
         sad = degrainMotionSearchAccumulateLumaSadLane<TypePixel, blockSize, pel, subpelInterp>(
             sourceBlockPixels,
             referencePlane,
+            subpelPlanes,
+            subpelPlaneStride,
             refPitch,
             width,
             height,
@@ -1423,6 +1439,8 @@ template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 __device__ __forceinline__ void degrainMotionSearchRefinePreparedCandidates(
     const TypePixel *sourceBlockPixels,
     const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
     const RGYDegrainMotionSearchContext *context,
     RGYDegrainMotionSearchCandidateCost *candidateCosts,
     uint32_t *candidateLaneSums,
@@ -1439,7 +1457,7 @@ __device__ __forceinline__ void degrainMotionSearchRefinePreparedCandidates(
     const int candidateCount,
     const int newCandidateCostScale) {
     degrainMotionSearchRefineEvaluateCandidates<TypePixel, blockSize, pel, subpelInterp>(
-        sourceBlockPixels, referencePlane, context, candidateCosts, candidateLaneSums, bestCandidateCost,
+        sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, context, candidateCosts, candidateLaneSums, bestCandidateCost,
         localThreadId, sadLane, candidateGroupIndex, candidateCount, blockX, blockY, step, refPitch, width, height,
         newCandidateCostScale);
 }
@@ -1448,6 +1466,8 @@ template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 __device__ __forceinline__ void degrainMotionSearchRefineHex2(
     const TypePixel *sourceBlockPixels,
     const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
     const RGYDegrainMotionSearchContext *context,
     RGYDegrainMotionSearchCandidateCost *candidateCosts,
     uint32_t *candidateLaneSums,
@@ -1464,7 +1484,7 @@ __device__ __forceinline__ void degrainMotionSearchRefineHex2(
     const int newCandidateCostScale) {
     degrainMotionSearchRefinePrepareHexCandidates(context, candidateCosts, bestCandidateCost, localThreadId, bestCandidateCost->pos_x, bestCandidateCost->pos_y);
     degrainMotionSearchRefinePreparedCandidates<TypePixel, blockSize, pel, subpelInterp>(
-        sourceBlockPixels, referencePlane, context, candidateCosts, candidateLaneSums, bestCandidateCost,
+        sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, context, candidateCosts, candidateLaneSums, bestCandidateCost,
         localThreadId, sadLane, candidateGroupIndex, blockX, blockY, step, refPitch, width, height, 6,
         newCandidateCostScale);
 }
@@ -1473,6 +1493,8 @@ template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 __device__ __forceinline__ void degrainMotionSearchRefineSquare8(
     const TypePixel *sourceBlockPixels,
     const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
     const RGYDegrainMotionSearchContext *context,
     RGYDegrainMotionSearchCandidateCost *candidateCosts,
     uint32_t *candidateLaneSums,
@@ -1489,7 +1511,7 @@ __device__ __forceinline__ void degrainMotionSearchRefineSquare8(
     const int newCandidateCostScale) {
     degrainMotionSearchRefinePrepareSquareCandidates(context, candidateCosts, bestCandidateCost, localThreadId, bestCandidateCost->pos_x, bestCandidateCost->pos_y);
     degrainMotionSearchRefinePreparedCandidates<TypePixel, blockSize, pel, subpelInterp>(
-        sourceBlockPixels, referencePlane, context, candidateCosts, candidateLaneSums, bestCandidateCost,
+        sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, context, candidateCosts, candidateLaneSums, bestCandidateCost,
         localThreadId, sadLane, candidateGroupIndex, blockX, blockY, step, refPitch, width, height, 8,
         newCandidateCostScale);
 }
@@ -1550,6 +1572,8 @@ template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 __device__ __forceinline__ uint32_t degrainMotionSearchFullBlockSadParallel(
     const TypePixel *sourceBlockPixels,
     const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
     uint32_t *laneSums,
     const int pitch,
     const int width,
@@ -1565,6 +1589,8 @@ __device__ __forceinline__ uint32_t degrainMotionSearchFullBlockSadParallel(
         partialSad = degrainMotionSearchAccumulateLumaSadLane<TypePixel, blockSize, pel, subpelInterp>(
             sourceBlockPixels,
             referencePlane,
+            subpelPlanes,
+            subpelPlaneStride,
             pitch,
             width,
             height,
@@ -1585,6 +1611,8 @@ template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 __device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSearchFinalizeCandidateCostParallel(
     const TypePixel *sourceBlockPixels,
     const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
     uint32_t *laneSums,
     const int pitch,
     const int width,
@@ -1601,6 +1629,8 @@ __device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSear
         const uint32_t sadZero = degrainMotionSearchFullBlockSadParallel<TypePixel, blockSize, pel, subpelInterp>(
             sourceBlockPixels,
             referencePlane,
+            subpelPlanes,
+            subpelPlaneStride,
             laneSums,
             pitch,
             width,
@@ -1647,6 +1677,8 @@ template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 __device__ __forceinline__ void degrainMotionSearchSearchOneBlock(
     const uint8_t *sourcePlane,
     const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
     RGYDegrainMotionSearchVector *vectors,
     const int pitch,
     const int width,
@@ -1713,6 +1745,8 @@ __device__ __forceinline__ void degrainMotionSearchSearchOneBlock(
         sad = degrainMotionSearchAccumulateLumaSadLane<TypePixel, blockSize, pel, subpelInterp>(
             sourceBlockPixels,
             referencePlane,
+            subpelPlanes,
+            subpelPlaneStride,
             pitch,
             width,
             height,
@@ -1768,13 +1802,13 @@ __device__ __forceinline__ void degrainMotionSearchSearchOneBlock(
     // searchparam<=1はsquare8のみ、searchparam>=2はwide6+square8を実行する。
     if (searchParam >= 2) {
         degrainMotionSearchRefineHex2<TypePixel, blockSize, pel, subpelInterp>(
-            sourceBlockPixels, referencePlane, context, candidateCosts, candidateLaneSums, bestCandidateCost,
+            sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, context, candidateCosts, candidateLaneSums, bestCandidateCost,
             localThreadId, sadLane, candidateGroupIndex, blockGridX, blockGridY, step, pitch, width, height,
             newCandidateCostScale);
     }
 
     degrainMotionSearchRefineSquare8<TypePixel, blockSize, pel, subpelInterp>(
-        sourceBlockPixels, referencePlane, context, candidateCosts, candidateLaneSums, bestCandidateCost,
+        sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, context, candidateCosts, candidateLaneSums, bestCandidateCost,
         localThreadId, sadLane, candidateGroupIndex, blockGridX, blockGridY, step, pitch, width, height,
         newCandidateCostScale);
 
@@ -1782,6 +1816,8 @@ __device__ __forceinline__ void degrainMotionSearchSearchOneBlock(
     const RGYDegrainMotionSearchCandidateCost finalizedBest = degrainMotionSearchFinalizeCandidateCostParallel<TypePixel, blockSize, pel, subpelInterp>(
         sourceBlockPixels,
         referencePlane,
+        subpelPlanes,
+        subpelPlaneStride,
         candidateLaneSums,
         pitch,
         width,
@@ -1801,6 +1837,8 @@ template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 static __global__ void kernel_degrain_mv_search_parallel_cuda(
     const uint8_t *sourcePlane,
     const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
     RGYDegrainMotionSearchVector *vectors,
     const int pitch,
     const int width,
@@ -1844,6 +1882,8 @@ static __global__ void kernel_degrain_mv_search_parallel_cuda(
     degrainMotionSearchSearchOneBlock<TypePixel, blockSize, pel, subpelInterp>(
         sourcePlane,
         referencePlane,
+        subpelPlanes,
+        subpelPlaneStride,
         vectors,
         pitch,
         width,
@@ -1880,6 +1920,8 @@ template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 static __global__ void kernel_degrain_mv_spatial_refine_cuda(
     const uint8_t *sourcePlane,
     const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
     RGYDegrainMotionSearchVector *vectors,
     const RGYDegrainMotionSearchVector *vectorsPrev,
     RGYDegrainMotionSearchVector *vectorsFinal,
@@ -1969,7 +2011,7 @@ static __global__ void kernel_degrain_mv_spatial_refine_cuda(
         } else {
             const RGYDegrainMotionSearchCandidate motionVector = candidate[candidateGroupIndex];
             sad = degrainMotionSearchAccumulateLumaSadLane<TypePixel, blockSize, pel, subpelInterp>(
-                sourceBlockPixels, referencePlane, pitch, width, height, blockGridX, blockGridY, step,
+                sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, pitch, width, height, blockGridX, blockGridY, step,
                 motionVector.pos_x, motionVector.pos_y, sadLane);
         }
     }
@@ -2014,7 +2056,7 @@ static __global__ void kernel_degrain_mv_spatial_refine_cuda(
     __syncthreads();
 
     degrainMotionSearchRefineSquare8<TypePixel, blockSize, pel, subpelInterp>(
-        sourceBlockPixels, referencePlane, &context, candidateCosts, candidateLaneSums, &bestCandidateCost,
+        sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, &context, candidateCosts, candidateLaneSums, &bestCandidateCost,
         localThreadId, sadLane, candidateGroupIndex, blockGridX, blockGridY, step, pitch, width, height,
         newCandidateCostScale);
 
@@ -2022,6 +2064,8 @@ static __global__ void kernel_degrain_mv_spatial_refine_cuda(
     const RGYDegrainMotionSearchCandidateCost finalizedBest = degrainMotionSearchFinalizeCandidateCostParallel<TypePixel, blockSize, pel, subpelInterp>(
         sourceBlockPixels,
         referencePlane,
+        subpelPlanes,
+        subpelPlaneStride,
         candidateLaneSums,
         pitch,
         width,
@@ -2273,6 +2317,52 @@ static RGY_ERR launchNVEncDegrainDownsampleLuma2xImpl(
             src.width, src.height, dstWidth, dstHeight);
     }
     return err_to_rgy(cudaGetLastError());
+}
+
+template<int subpelInterp>
+static __global__ void kernel_degrain_mv_build_subpel_planes_cuda(
+    const uint8_t *src,
+    const int pitch,
+    uint8_t *dst,
+    const int planeStride,
+    const int width,
+    const int height) {
+    const int x = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    const int y = (int)(blockIdx.y * blockDim.y + threadIdx.y);
+    if (x >= width || y >= height) {
+        return;
+    }
+    const int p0 = degrainPixelLoad<uint8_t>(src, pitch, width, height, x, y);
+    const int p1 = degrainInterpHalfpelWeightedMirror<uint8_t>(src, pitch, width, height, x, y, 1, 0, subpelInterp);
+    const int p2 = degrainInterpHalfpelWeightedMirror<uint8_t>(src, pitch, width, height, x, y, 0, 1, subpelInterp);
+    const int p3 = degrainInterpHalfpelWeightedMirror<uint8_t>(src, pitch, width, height, x, y, 1, 1, subpelInterp);
+    const int idx = y * pitch + x;
+    dst[idx] = (uint8_t)degrainClampInt(p0, 0, 255);
+    dst[(size_t)planeStride + idx] = (uint8_t)degrainClampInt(p1, 0, 255);
+    dst[(size_t)planeStride * 2 + idx] = (uint8_t)degrainClampInt(p2, 0, 255);
+    dst[(size_t)planeStride * 3 + idx] = (uint8_t)degrainClampInt(p3, 0, 255);
+}
+
+template<int subpelInterp>
+static RGY_ERR launchNVEncDegrainBuildSubpelPlanesFixed(
+    const uint8_t *src, const int pitch, CUMemBuf &dst, const int planeStride,
+    const int width, const int height, cudaStream_t stream) {
+    const auto block = dim3(DEGRAIN_BLOCK_X, DEGRAIN_BLOCK_Y);
+    const auto grid = dim3(divCeil(width, DEGRAIN_BLOCK_X), divCeil(height, DEGRAIN_BLOCK_Y));
+    kernel_degrain_mv_build_subpel_planes_cuda<subpelInterp><<<grid, block, 0, stream>>>(
+        src, pitch, reinterpret_cast<uint8_t *>(dst.ptr), planeStride, width, height);
+    return err_to_rgy(cudaGetLastError());
+}
+
+static RGY_ERR launchNVEncDegrainBuildSubpelPlanesImpl(
+    const uint8_t *src, const int pitch, CUMemBuf &dst, const int planeStride,
+    const int width, const int height, const int subpelInterp, cudaStream_t stream) {
+    switch (subpelInterp) {
+    case 0: return launchNVEncDegrainBuildSubpelPlanesFixed<0>(src, pitch, dst, planeStride, width, height, stream);
+    case 1: return launchNVEncDegrainBuildSubpelPlanesFixed<1>(src, pitch, dst, planeStride, width, height, stream);
+    case 2: return launchNVEncDegrainBuildSubpelPlanesFixed<2>(src, pitch, dst, planeStride, width, height, stream);
+    default: return RGY_ERR_INVALID_PARAM;
+    }
 }
 
 __device__ __forceinline__ int degrainPrimaryBlockIndex(const int x, const int y, const int blocksX, const int blocksY, const int step) {
@@ -4196,7 +4286,8 @@ static RGY_ERR launchNVEncDegrainMotionSearchExportSadImpl(
 
 template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 static RGY_ERR launchNVEncDegrainMotionSearchSearchParallelFixed(
-    const uint8_t *sourcePlane, const uint8_t *referencePlane, CUMemBuf &vectors,
+    const uint8_t *sourcePlane, const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes, const int subpelPlaneStride, CUMemBuf &vectors,
     const int pitch, const int width, const int height, const int planeBase, const int blockCount,
     const RGYDegrainBlockLayout &layout,
     const int pad, const int motionCostScale, const int lowSadWeightScale,
@@ -4206,7 +4297,7 @@ static RGY_ERR launchNVEncDegrainMotionSearchSearchParallelFixed(
     const int block = blockSize * DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS;
     const int grid = blockCount;
     kernel_degrain_mv_search_parallel_cuda<TypePixel, blockSize, pel, subpelInterp><<<grid, block, 0, stream>>>(
-        sourcePlane, referencePlane, reinterpret_cast<RGYDegrainMotionSearchVector *>(vectors.ptr),
+        sourcePlane, referencePlane, subpelPlanes, subpelPlaneStride, reinterpret_cast<RGYDegrainMotionSearchVector *>(vectors.ptr),
         pitch, width, height, planeBase, blockCount, layout.blocksX, layout.blocksY, layout.step,
         pad, motionCostScale, lowSadWeightScale,
         zeroCandidateCostScale, frameAverageCandidateCostScale, newCandidateCostScale,
@@ -4217,6 +4308,7 @@ static RGY_ERR launchNVEncDegrainMotionSearchSearchParallelFixed(
 template<typename TypePixel, int blockSize, int pel, int subpelInterp>
 static RGY_ERR launchNVEncDegrainMotionSearchSpatialRefineFixed(
     const uint8_t *sourcePlane, const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes, const int subpelPlaneStride,
     CUMemBuf &vectors, const CUMemBuf &vectorsPrev, CUMemBuf &vectorsFinal,
     const int pitch, const int width, const int height, const int planeBase, const int finalBase,
     const int blockCount, const RGYDegrainBlockLayout &layout,
@@ -4225,7 +4317,7 @@ static RGY_ERR launchNVEncDegrainMotionSearchSpatialRefineFixed(
     const int block = blockSize * DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS;
     const int grid = blockCount;
     kernel_degrain_mv_spatial_refine_cuda<TypePixel, blockSize, pel, subpelInterp><<<grid, block, 0, stream>>>(
-        sourcePlane, referencePlane,
+        sourcePlane, referencePlane, subpelPlanes, subpelPlaneStride,
         reinterpret_cast<RGYDegrainMotionSearchVector *>(vectors.ptr),
         reinterpret_cast<const RGYDegrainMotionSearchVector *>(vectorsPrev.ptr),
         reinterpret_cast<RGYDegrainMotionSearchVector *>(vectorsFinal.ptr),
@@ -4236,7 +4328,8 @@ static RGY_ERR launchNVEncDegrainMotionSearchSpatialRefineFixed(
 
 template<typename TypePixel, int blockSize>
 static RGY_ERR launchNVEncDegrainMotionSearchSearchParallelBlock(
-    const uint8_t *sourcePlane, const uint8_t *referencePlane, CUMemBuf &vectors,
+    const uint8_t *sourcePlane, const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes, const int subpelPlaneStride, CUMemBuf &vectors,
     const int pitch, const int width, const int height, const int planeBase, const int blockCount,
     const RGYDegrainBlockLayout &layout, const int pel, const int subpelInterp,
     const int pad, const int motionCostScale, const int lowSadWeightScale,
@@ -4248,7 +4341,7 @@ static RGY_ERR launchNVEncDegrainMotionSearchSearchParallelBlock(
     }
 #define NVENC_DEGRAIN_LAUNCH_SEARCH(PEL, SUBPEL) \
     return launchNVEncDegrainMotionSearchSearchParallelFixed<TypePixel, blockSize, PEL, SUBPEL>( \
-        sourcePlane, referencePlane, vectors, pitch, width, height, planeBase, blockCount, layout, \
+        sourcePlane, referencePlane, subpelPlanes, subpelPlaneStride, vectors, pitch, width, height, planeBase, blockCount, layout, \
         pad, motionCostScale, lowSadWeightScale, zeroCandidateCostScale, frameAverageCandidateCostScale, \
         newCandidateCostScale, searchParam, level, stream)
     switch (pel) {
@@ -4281,6 +4374,7 @@ static RGY_ERR launchNVEncDegrainMotionSearchSearchParallelBlock(
 template<typename TypePixel, int blockSize>
 static RGY_ERR launchNVEncDegrainMotionSearchSpatialRefineBlock(
     const uint8_t *sourcePlane, const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes, const int subpelPlaneStride,
     CUMemBuf &vectors, const CUMemBuf &vectorsPrev, CUMemBuf &vectorsFinal,
     const int pitch, const int width, const int height, const int planeBase, const int finalBase,
     const int blockCount, const RGYDegrainBlockLayout &layout,
@@ -4291,7 +4385,7 @@ static RGY_ERR launchNVEncDegrainMotionSearchSpatialRefineBlock(
     }
 #define NVENC_DEGRAIN_LAUNCH_REFINE(PEL, SUBPEL) \
     return launchNVEncDegrainMotionSearchSpatialRefineFixed<TypePixel, blockSize, PEL, SUBPEL>( \
-        sourcePlane, referencePlane, vectors, vectorsPrev, vectorsFinal, pitch, width, height, planeBase, finalBase, \
+        sourcePlane, referencePlane, subpelPlanes, subpelPlaneStride, vectors, vectorsPrev, vectorsFinal, pitch, width, height, planeBase, finalBase, \
         blockCount, layout, pad, motionCostScale, lowSadWeightScale, newCandidateCostScale, stream)
     switch (pel) {
     case 1:
