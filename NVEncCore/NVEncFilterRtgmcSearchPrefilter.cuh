@@ -52,7 +52,7 @@
 
 static constexpr int RTGMC_SEARCH_PREFILTER_BLOCK_X = 16;
 static constexpr int RTGMC_SEARCH_PREFILTER_BLOCK_Y = 16;
-static constexpr bool RTGMC_SEARCH_PREFILTER_USE_SEARCH_REFINE1_CHAIN = false;
+static constexpr bool RTGMC_SEARCH_PREFILTER_USE_SEARCH_REFINE1_CHAIN = true;
 static constexpr int RTGMC_SEARCH_PREFILTER_PIXEL_MAX_8 = 255;
 static constexpr int RTGMC_SEARCH_PREFILTER_PIXEL_MAX_16 = 65535;
 static constexpr int RTGMC_SEARCH_PREFILTER_SCENECHANGE = 28;
@@ -77,6 +77,8 @@ struct NVEncRtgmcSearchPrefilterLaunchFuncs {
     RGY_ERR (*softenedSearchBlendStabilized)(const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, int, cudaStream_t);
     RGY_ERR (*stabilizedSearch)(const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, int, cudaStream_t);
     RGY_ERR (*halfSearch)(bool, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, uint32_t, int, cudaStream_t);
+    RGY_ERR (*halfSearchBaseFromGuide)(const RGYFrameInfo&, const RGYFrameInfo&, cudaStream_t);
+    RGY_ERR (*halfResolutionUpsample)(const RGYFrameInfo&, const RGYFrameInfo&, int, cudaStream_t);
     RGY_ERR (*rangeConvert)(const RGYFrameInfo&, int, cudaStream_t);
     RGY_ERR (*debug)(int, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, uint32_t, int, cudaStream_t);
 };
@@ -782,6 +784,116 @@ __device__ int rtgmc_search_prefilter_half_search_smoothed_value(
     return rtgmc_search_prefilter_blur3x3_weighted(p00, p10, p20, p01, p11, p21, p02, p12, p22);
 }
 
+// search_refine=1 段階実行用。half_search_base_value と同じ係数・丸め手順で、
+// 実体化済みの field-corrected plane から半解像度 base を生成する。
+template<typename TypePixel>
+__device__ __forceinline__ int rtgmc_search_prefilter_to_full_range(const int value, const int planeMode);
+
+template<typename TypePixel>
+__device__ int rtgmc_search_prefilter_half_search_base_from_guide_value(
+    const uint8_t *guide, const int guidePitch, const int srcWidth, const int srcHeight, const int hx, const int hy) {
+    const int filterSize = 4;
+    const float filterSupport = 2.0f;
+    const float filterStep = 0.5f;
+    const float posY = 0.5f + 2.0f * (float)hy;
+    int endY = (int)(posY + filterSupport);
+    endY = min(endY, srcHeight - 1);
+    const int startY = max(endY - filterSize + 1, 0);
+    const float okPosY = rtgmc_search_prefilter_clamp_float(posY, 0.0f, (float)(srcHeight - 1));
+
+    float totalY = 0.0f;
+    float coeffY[4];
+    for (int iy = 0; iy < filterSize; iy++) {
+        const float d = fabsf(((float)(startY + iy) - okPosY) * filterStep);
+        coeffY[iy] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalY += coeffY[iy];
+    }
+    totalY = (totalY == 0.0f) ? 1.0f : totalY;
+
+    const float posX = 0.5f + 2.0f * (float)hx;
+    int endX = (int)(posX + filterSupport);
+    endX = min(endX, srcWidth - 1);
+    const int startX = max(endX - filterSize + 1, 0);
+    const float okPosX = rtgmc_search_prefilter_clamp_float(posX, 0.0f, (float)(srcWidth - 1));
+
+    float totalX = 0.0f;
+    float coeffX[4];
+    for (int ix = 0; ix < filterSize; ix++) {
+        const float d = fabsf(((float)(startX + ix) - okPosX) * filterStep);
+        coeffX[ix] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalX += coeffX[ix];
+    }
+    totalX = (totalX == 0.0f) ? 1.0f : totalX;
+
+    float sumY = 0.5f;
+    for (int iy = 0; iy < filterSize; iy++) {
+        float sumX = 0.5f;
+        for (int ix = 0; ix < filterSize; ix++) {
+            const int sample = rtgmc_search_prefilter_pixel_load<TypePixel>(guide, guidePitch, srcWidth, srcHeight, startX + ix, startY + iy);
+            sumX += (coeffX[ix] / totalX) * (float)sample;
+        }
+        const int rowValue = rtgmc_search_prefilter_clamp_int((int)sumX, 0, rtgmc_search_prefilter_pixel_max<TypePixel>());
+        sumY += (coeffY[iy] / totalY) * (float)rowValue;
+    }
+    return rtgmc_search_prefilter_clamp_int((int)sumY, 0, rtgmc_search_prefilter_pixel_max<TypePixel>());
+}
+
+// search_refine=1 段階実行用。half_resolution_search_value と同じ係数・丸め手順で、
+// 半解像度 smoothed plane をフル解像度へ戻し、fullRangeMode を同時に適用する。
+template<typename TypePixel>
+__device__ int rtgmc_search_prefilter_half_resolution_upsample_value(
+    const uint8_t *smoothed, const int smoothedPitch, const int width, const int height, const int px, const int py, const int fullRangeMode) {
+    const int halfWidth = max(width >> 1, 1);
+    const int halfHeight = max(height >> 1, 1);
+    const int filterSize = 2;
+    const float filterSupport = 1.0f;
+    const float posY = -0.25f + 0.5f * (float)py;
+    int endY = (int)(posY + filterSupport);
+    endY = min(endY, halfHeight - 1);
+    const int startY = max(endY - filterSize + 1, 0);
+    const float okPosY = rtgmc_search_prefilter_clamp_float(posY, 0.0f, (float)(halfHeight - 1));
+
+    float totalY = 0.0f;
+    float coeffY[2];
+    for (int iy = 0; iy < filterSize; iy++) {
+        const float d = fabsf((float)(startY + iy) - okPosY);
+        coeffY[iy] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalY += coeffY[iy];
+    }
+    totalY = (totalY == 0.0f) ? 1.0f : totalY;
+
+    const float posX = -0.25f + 0.5f * (float)px;
+    int endX = (int)(posX + filterSupport);
+    endX = min(endX, halfWidth - 1);
+    const int startX = max(endX - filterSize + 1, 0);
+    const float okPosX = rtgmc_search_prefilter_clamp_float(posX, 0.0f, (float)(halfWidth - 1));
+
+    float totalX = 0.0f;
+    float coeffX[2];
+    for (int ix = 0; ix < filterSize; ix++) {
+        const float d = fabsf((float)(startX + ix) - okPosX);
+        coeffX[ix] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalX += coeffX[ix];
+    }
+    totalX = (totalX == 0.0f) ? 1.0f : totalX;
+
+    float sumY = 0.5f;
+    for (int iy = 0; iy < filterSize; iy++) {
+        float sumX = 0.5f;
+        for (int ix = 0; ix < filterSize; ix++) {
+            const int sample = rtgmc_search_prefilter_pixel_load<TypePixel>(
+                smoothed, smoothedPitch, halfWidth, halfHeight,
+                rtgmc_search_prefilter_clamp_int(startX + ix, 0, halfWidth - 1),
+                rtgmc_search_prefilter_clamp_int(startY + iy, 0, halfHeight - 1));
+            sumX += (coeffX[ix] / totalX) * (float)sample;
+        }
+        const int rowValue = rtgmc_search_prefilter_clamp_int((int)sumX, 0, rtgmc_search_prefilter_pixel_max<TypePixel>());
+        sumY += (coeffY[iy] / totalY) * (float)rowValue;
+    }
+    return rtgmc_search_prefilter_to_full_range<TypePixel>(
+        rtgmc_search_prefilter_clamp_int((int)sumY, 0, rtgmc_search_prefilter_pixel_max<TypePixel>()), fullRangeMode);
+}
+
 template<typename TypePixel, int SMOOTH_RADIUS>
 __device__ int rtgmc_search_prefilter_half_resolution_search_value(
     const uint8_t *srcPrev2, const uint8_t *srcPrev, const uint8_t *srcCur, const uint8_t *srcNext, const uint8_t *srcNext2,
@@ -1097,6 +1209,34 @@ __global__ void kernel_rtgmc_search_prefilter_half_search_smoothed_cuda(
     const int value = rtgmc_search_prefilter_half_search_smoothed_value<TypePixel, SMOOTH_RADIUS>(
         prev2, prev, cur, next, next2, src_pitch, width, height, x, y, repairProfile, smoothRadius);
     rtgmc_search_prefilter_pixel_store<TypePixel>(dst, dst_pitch, x, y, value);
+}
+
+template<typename TypePixel>
+__global__ void kernel_rtgmc_search_prefilter_half_search_base_from_guide_cuda(
+    const uint8_t *guide, const int guidePitch, uint8_t *dst, const int dstPitch, const int width, const int height) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    const int halfWidth = max(width >> 1, 1);
+    const int halfHeight = max(height >> 1, 1);
+    if (x >= halfWidth || y >= halfHeight) {
+        return;
+    }
+    const int value = rtgmc_search_prefilter_half_search_base_from_guide_value<TypePixel>(guide, guidePitch, width, height, x, y);
+    rtgmc_search_prefilter_pixel_store<TypePixel>(dst, dstPitch, x, y, value);
+}
+
+template<typename TypePixel>
+__global__ void kernel_rtgmc_search_prefilter_half_resolution_upsample_cuda(
+    const uint8_t *smoothed, const int smoothedPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height, const int fullRangeMode) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) {
+        return;
+    }
+    const int value = rtgmc_search_prefilter_half_resolution_upsample_value<TypePixel>(
+        smoothed, smoothedPitch, width, height, x, y, fullRangeMode);
+    rtgmc_search_prefilter_pixel_store<TypePixel>(dst, dstPitch, x, y, value);
 }
 
 template<typename TypePixel>
@@ -1458,6 +1598,26 @@ static RGY_ERR launchRtgmcSearchPrefilterHalfSearchTyped(
 }
 
 template<typename TypePixel>
+static RGY_ERR launchRtgmcSearchPrefilterHalfSearchBaseFromGuideTyped(
+    const RGYFrameInfo &guide, const RGYFrameInfo &dst, cudaStream_t stream) {
+    const auto block = rtgmcSearchPrefilterBlock();
+    const auto grid = rtgmcSearchPrefilterGrid(dst);
+    kernel_rtgmc_search_prefilter_half_search_base_from_guide_cuda<TypePixel><<<grid, block, 0, stream>>>(
+        guide.ptr[0], guide.pitch[0], dst.ptr[0], dst.pitch[0], guide.width, guide.height);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename TypePixel>
+static RGY_ERR launchRtgmcSearchPrefilterHalfResolutionUpsampleTyped(
+    const RGYFrameInfo &smoothed, const RGYFrameInfo &dst, const int fullRangeMode, cudaStream_t stream) {
+    const auto block = rtgmcSearchPrefilterBlock();
+    const auto grid = rtgmcSearchPrefilterGrid(dst);
+    kernel_rtgmc_search_prefilter_half_resolution_upsample_cuda<TypePixel><<<grid, block, 0, stream>>>(
+        smoothed.ptr[0], smoothed.pitch[0], dst.ptr[0], dst.pitch[0], dst.width, dst.height, fullRangeMode);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename TypePixel>
 static RGY_ERR launchRtgmcSearchPrefilterRangeConvertTyped(
     const RGYFrameInfo &dst, const int fullRangeMode, cudaStream_t stream) {
     const auto block = rtgmcSearchPrefilterBlock();
@@ -1502,6 +1662,8 @@ static const NVEncRtgmcSearchPrefilterLaunchFuncs *getNVEncRtgmcSearchPrefilterL
         highbit ? launchRtgmcSearchPrefilterSoftenedSearchBlendStabilizedU16 : launchRtgmcSearchPrefilterSoftenedSearchBlendStabilizedU8,
         highbit ? launchRtgmcSearchPrefilterStabilizedSearchU16 : launchRtgmcSearchPrefilterStabilizedSearchU8,
         launchRtgmcSearchPrefilterHalfSearchTyped<TypePixel, SMOOTH_RADIUS>,
+        launchRtgmcSearchPrefilterHalfSearchBaseFromGuideTyped<TypePixel>,
+        launchRtgmcSearchPrefilterHalfResolutionUpsampleTyped<TypePixel>,
         highbit ? launchRtgmcSearchPrefilterRangeConvertU16 : launchRtgmcSearchPrefilterRangeConvertU8,
         highbit ? launchRtgmcSearchPrefilterDebugU16 : launchRtgmcSearchPrefilterDebugU8
     };
