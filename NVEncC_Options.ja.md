@@ -3189,6 +3189,8 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
 - **パラメータ**
     - shader=&lt;string&gt;  
       対象のshaderファイルのパス。(glslファイル)
+    - custom=&lt;name&gt;=&lt;value&gt;
+      シェーダー内の `//!PARAM` で宣言された実行時パラメータを設定します。複数指定できます。
     - res=&lt;int&gt;x&lt;int&gt;  
       フィルタの出力解像度。
     - csp=&lt;string&gt;  
@@ -3255,6 +3257,9 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
     ``` 
     例: カスタムシェーダを使用した 1280x720 -> 2560x1440 へのリサイズ。
     --vpp-libplacebo-shader shader=default-shader-pack-2.1.0\Anime4K_Upscale_CNN_x2_L.glsl,res=2560x1440
+
+    例: シェーダーの //!PARAM を設定。
+    --vpp-libplacebo-shader shader=example.glsl,custom=GAIN=1.5
     ```
   
 ### --vpp-resize &lt;string&gt; or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

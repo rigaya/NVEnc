@@ -3132,6 +3132,8 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
 - **Parameters**
     - shader=&lt;string&gt;  
       Target shader file path. (glsl file)
+    - custom=&lt;name&gt;=&lt;value&gt;
+      Set a runtime parameter declared with `//!PARAM` in the shader. This parameter may be specified multiple times.
     - res=&lt;int&gt;x&lt;int&gt;  
       Output resolution of the filter.
     - csp=&lt;string&gt;  
@@ -3196,6 +3198,9 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
     ``` 
     Example: Apply a custom shader (1280x720 -> 2560x1440)
     --vpp-libplacebo-shader shader=default-shader-pack-2.1.0\Anime4K_Upscale_CNN_x2_L.glsl,res=2560x1440
+
+    Example: Set a shader //!PARAM.
+    --vpp-libplacebo-shader shader=example.glsl,custom=GAIN=1.5
     ```
 
 ### --vpp-resize &lt;string&gt; or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
