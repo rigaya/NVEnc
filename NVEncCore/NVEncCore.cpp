@@ -5128,6 +5128,8 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         param->onnx = inputParam->vpp.onnx;
         param->modelDir = inputParam->vpp.onnxModelDir;
         param->deviceID = m_dev->id();
+        param->sar[0] = inputParam->input.sar[0];
+        param->sar[1] = inputParam->input.sar[1];
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;

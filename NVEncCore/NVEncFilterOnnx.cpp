@@ -415,6 +415,11 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         }
         return initMask(prm, inW, inH, inCsp);
     }
+    if (m_ov->inWidth() != inW || m_ov->inHeight() != inH) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: model input %dx%d does not match the frame size %dx%d.\n"),
+            m_ov->inWidth(), m_ov->inHeight(), inW, inH);
+        return RGY_ERR_UNSUPPORTED;
+    }
     m_temporalT = std::max(1, prm->onnx.frames);
     if (m_temporalT > 1) {
         if (m_inC != m_temporalT * 3 || m_outC != 3) {
@@ -677,7 +682,7 @@ RGY_ERR NVEncFilterOnnx::initMask(const std::shared_ptr<NVEncFilterParamOnnx> &p
         AddMessage(RGY_LOG_ERROR, _T("onnx: mask=とout_res=は同時に指定できません。\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if (m_ov->inputCount() != 2 || m_ov->outChannels() != 3) {
+    if (m_ov->inputCount() != 2 || m_ov->outputCount() != 1 || m_ov->outChannels() != 3) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: mask=には2入力（画像+マスク）と3ch出力のモデルが必要です。\n"));
         return RGY_ERR_UNSUPPORTED;
     }

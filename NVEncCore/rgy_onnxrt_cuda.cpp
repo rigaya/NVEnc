@@ -608,6 +608,7 @@ int RGYOnnxRTCUDA::inputCount() const { return (int)m_impl->inNames.size(); }
 int RGYOnnxRTCUDA::inputChannels(int index) const { return (index >= 0 && index < (int)m_impl->inCs.size()) ? m_impl->inCs[index] : 0; }
 int RGYOnnxRTCUDA::inputHeight(int index) const { return (index >= 0 && index < (int)m_impl->inHs.size()) ? m_impl->inHs[index] : 0; }
 int RGYOnnxRTCUDA::inputWidth(int index) const { return (index >= 0 && index < (int)m_impl->inWs.size()) ? m_impl->inWs[index] : 0; }
+int RGYOnnxRTCUDA::outputCount() const { return (int)m_impl->outNames.size(); }
 int RGYOnnxRTCUDA::inHeight()    const { return m_impl->inH; }
 int RGYOnnxRTCUDA::inWidth()     const { return m_impl->inW; }
 int RGYOnnxRTCUDA::outChannels() const { return m_impl->outC; }
@@ -638,9 +639,15 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &, const int, const RGYOnnxRTProvider,
     return RGY_ERR_UNSUPPORTED;
 }
 RGY_ERR RGYOnnxRTCUDA::infer(const float *, float *) { return RGY_ERR_UNSUPPORTED; }
+RGY_ERR RGYOnnxRTCUDA::inferMulti(const std::vector<const float *> &, const std::vector<float *> &) { return RGY_ERR_UNSUPPORTED; }
 RGY_ERR RGYOnnxRTCUDA::inferDevice(const float *, float *) { return RGY_ERR_UNSUPPORTED; }
 bool RGYOnnxRTCUDA::deviceIOAvailable() const { return false; }
 int RGYOnnxRTCUDA::inChannels()  const { return 0; }
+int RGYOnnxRTCUDA::inputCount() const { return 0; }
+int RGYOnnxRTCUDA::inputChannels(int) const { return 0; }
+int RGYOnnxRTCUDA::inputHeight(int) const { return 0; }
+int RGYOnnxRTCUDA::inputWidth(int) const { return 0; }
+int RGYOnnxRTCUDA::outputCount() const { return 0; }
 int RGYOnnxRTCUDA::inHeight()    const { return 0; }
 int RGYOnnxRTCUDA::inWidth()     const { return 0; }
 int RGYOnnxRTCUDA::outChannels() const { return 0; }

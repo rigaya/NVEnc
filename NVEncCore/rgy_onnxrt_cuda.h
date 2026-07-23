@@ -98,6 +98,7 @@ public:
     int inputChannels(int index) const;
     int inputHeight(int index) const;
     int inputWidth(int index) const;
+    int outputCount() const;
     int inHeight()    const;
     int inWidth()     const;
     int outChannels() const;
