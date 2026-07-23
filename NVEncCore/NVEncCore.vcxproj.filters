@@ -701,6 +701,8 @@
     <ClInclude Include="NVEncFilterSmooth.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilterLensCorrection.h" />
+    <ClInclude Include="NVEncFilterV360.h" />
     <ClInclude Include="NVEncFilterTransform.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -1003,6 +1005,8 @@
     <CudaCompile Include="NVEncFilterSmooth.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
+    <CudaCompile Include="NVEncFilterLensCorrection.cu" />
+    <CudaCompile Include="NVEncFilterV360.cu" />
     <CudaCompile Include="NVEncFilterTransform.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
