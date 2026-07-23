@@ -1703,6 +1703,8 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             || inputParam->vpp.curves.enable
             || inputParam->vpp.softlight.enable
             || inputParam->vpp.transform.enable
+            || inputParam->vpp.lenscorrection.enable
+            || inputParam->vpp.v360.enable
             || inputParam->vpp.colorspace.enable
             || inputParam->vpp.libplacebo_tonemapping.enable
             || inputParam->vpp.subburn.size() > 0
