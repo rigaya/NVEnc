@@ -4331,6 +4331,8 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
     Noise sigma for noise models.
   - frames=&lt;int&gt; (default: 1)  
     Temporal window size for models with `T*3` RGB input channels and 3 output channels. Specify a positive odd number so that the output corresponds to the centre frame.
+  - mask=&lt;string&gt;  
+    Grayscale mask image for a two-input ONNX model. White pixels are processed and black pixels are retained. This is intended for static masks such as logo or watermark removal.
   - out_res=&lt;WxH&gt;  
     End-of-chain resize to an arbitrary final size, applied after model inference.
     A negative value on one axis keeps the source aspect (e.g. out_res=-2x1080).
