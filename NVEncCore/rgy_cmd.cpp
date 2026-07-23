@@ -7174,7 +7174,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
         const auto paramList = std::vector<std::string>{
             "shader", "res", "width", "height", "csp", "chromaloc", "colorsystem", "transfer", "resampler",
-            "radius", "clamp", "taper", "blur", "antiring", "linear", "sigmoid", "sigmoid_center", "sigmoid_slope"
+            "radius", "clamp", "taper", "blur", "antiring", "linear", "sigmoid", "sigmoid_center", "sigmoid_slope", "custom"
         };
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -14065,6 +14065,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                     && param->libplacebo_shader[i].sigmoid_slope) {
                     tmp << _T(",sigmoid_slope=") << std::setprecision(3) << *param->libplacebo_shader[i].sigmoid_slope;
                 }
+                for (const auto& custom : param->libplacebo_shader[i].custom_params) {
+                    tmp << _T(",custom=") << custom.first << _T("=") << custom.second;
+                }
             }
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-libplacebo-shader \"") << tmp.str().substr(1) << _T("\"");
@@ -16650,6 +16653,7 @@ tstring gen_cmd_help_vpp() {
         _T("     Apply custom shader using libplacebo.\n")
         _T("    params\n")
         _T("      shader=<string>           Target shader file path.\n")
+        _T("      custom=<name>=<value>     Set a //!PARAM value declared by the shader.\n")
         _T("      res=<int>x<int>           Output resolution of filter, must be positive value.\n")
         _T("      csp=<string>              Input csp to pass to libplacebo.\n")
         _T("                                  default: %s\n"), get_cx_desc(list_vpp_libplacebo_shader_csp, FILTER_DEFAULT_LIBPLACEBO_SHADER_CSP)
