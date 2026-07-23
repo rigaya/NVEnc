@@ -2695,6 +2695,30 @@ Rotate video. 90, 180, 270 degrees is allowed.
 
   - transpose=&lt;bool&gt;
 
+### --vpp-lenscorrection [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+Correct radial lens distortion using Brown-Conrady coefficients.
+
+- k1=&lt;float&gt;, k2=&lt;float&gt;: radial distortion coefficients.
+- cx=&lt;float&gt;, cy=&lt;float&gt;: correction centre in normalized image coordinates (default: 0.5).
+
+```
+--vpp-lenscorrection k1=-0.20,k2=0.04
+```
+
+### --vpp-v360 [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+Convert between equirect, flat, and cubemap projections.
+
+- in=&lt;string&gt;, out=&lt;string&gt;: input/output projection: equirect / flat / cubemap.
+- yaw=&lt;float&gt;, pitch=&lt;float&gt;, roll=&lt;float&gt;: view rotation in degrees.
+- h_fov=&lt;float&gt;: horizontal field of view for flat output.
+- w=&lt;int&gt;, h=&lt;int&gt;: output resolution.
+
+```
+--vpp-v360 in=equirect,out=flat,yaw=30,pitch=0,h_fov=90,w=1920,h=1080
+```
+
 ### --vpp-convolution3d [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 3d noise reduction.
 

@@ -2740,6 +2740,30 @@ decombによるインタレ解除を行う。
 
   - transpose=&lt;bool&gt;
 
+### --vpp-lenscorrection [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+Brown-Conrady の放射歪み係数でレンズ歪みを補正します。
+
+- k1=&lt;float&gt;, k2=&lt;float&gt;: 放射歪み係数。
+- cx=&lt;float&gt;, cy=&lt;float&gt;: 補正中心を画像幅・高さに対する 0.0 - 1.0 で指定します (デフォルト: 0.5)。
+
+```
+--vpp-lenscorrection k1=-0.20,k2=0.04
+```
+
+### --vpp-v360 [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+equirect、flat、cubemap 間の投影変換を行います。
+
+- in=&lt;string&gt;, out=&lt;string&gt;: 入出力投影。equirect / flat / cubemap。
+- yaw=&lt;float&gt;, pitch=&lt;float&gt;, roll=&lt;float&gt;: 視点回転角度。
+- h_fov=&lt;float&gt;: flat 出力の水平画角。
+- w=&lt;int&gt;, h=&lt;int&gt;: 出力解像度。
+
+```
+--vpp-v360 in=equirect,out=flat,yaw=30,pitch=0,h_fov=90,w=1920,h=1080
+```
+
 ### --vpp-convolution3d [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 3次元ノイズ除去フィルタ。
 
