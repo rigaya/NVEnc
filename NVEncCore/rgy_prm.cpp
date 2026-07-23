@@ -2059,6 +2059,7 @@ VppOnnx::VppOnnx() :
     colorrange(RGY_COLORRANGE_AUTO),
     colorspace(_T("rgb")),
     noise(15),
+    frames(1),
     postResizeW(0),
     postResizeH(0),
     postResizeAlgo(RGY_VPP_RESIZE_AUTO) {
@@ -2078,6 +2079,7 @@ bool VppOnnx::operator==(const VppOnnx &x) const {
         && colorrange == x.colorrange
         && colorspace == x.colorspace
         && noise == x.noise
+        && frames == x.frames
         && postResizeW == x.postResizeW
         && postResizeH == x.postResizeH
         && postResizeAlgo == x.postResizeAlgo;
@@ -2109,6 +2111,9 @@ tstring VppOnnx::print() const {
     s += strsprintf(_T(",colorrange=%s"), get_cx_desc(list_colorrange, colorrange));
     s += strsprintf(_T(",colorspace=%s"), colorspace.c_str());
     s += strsprintf(_T(",noise=%d"), noise);
+    if (frames > 1) {
+        s += strsprintf(_T(",frames=%d"), frames);
+    }
     if (postResizeW != 0 && postResizeH != 0) {
         s += strsprintf(_T(",out_res=%dx%d"), postResizeW, postResizeH);
         s += strsprintf(_T(",resize=%s"), get_cx_desc(list_vpp_resize, postResizeAlgo));

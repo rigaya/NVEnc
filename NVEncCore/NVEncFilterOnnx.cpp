@@ -44,7 +44,8 @@ NVEncFilterOnnx::NVEncFilterOnnx() :
     m_yOff(0.0f), m_yScale(1.0f), m_yRange(255.0f), m_cOff(128.0f), m_cScale(1.0f), m_cRange(255.0f),
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
-    m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444() {
+    m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444(),
+    m_temporalT(1), m_ring(), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0) {
     m_name = _T("onnx");
 }
 
@@ -309,7 +310,15 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     // Infer the I/O convention from the compiled model's channel counts.
     m_inC  = m_ov->inChannels();
     m_outC = m_ov->outChannels();
-    if      (m_inC == 1 && m_outC == 1) m_io = OnnxIO::LumaSR;
+    m_temporalT = std::max(1, prm->onnx.frames);
+    if (m_temporalT > 1) {
+        if (m_inC != m_temporalT * 3 || m_outC != 3) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: frames=%dには%dch入力と3ch出力のRGBモデルが必要です（現在%dch/%dch）。\n"),
+                m_temporalT, m_temporalT * 3, m_inC, m_outC);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        m_io = OnnxIO::RGB;
+    } else if (m_inC == 1 && m_outC == 1) m_io = OnnxIO::LumaSR;
     else if (m_inC == 2 && m_outC == 1) m_io = OnnxIO::GrayNoise;
     else if (m_inC == 3 && m_outC == 2) m_io = OnnxIO::Chroma;
     else if (m_inC == 3 && m_outC == 3) m_io = OnnxIO::RGB;
@@ -425,6 +434,9 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     if (m_io == OnnxIO::GrayNoise || m_io == OnnxIO::RGBNoise) {
         info += strsprintf(_T(" noise=%d"), noiseClamped);
     }
+    if (m_temporalT > 1) {
+        info += strsprintf(_T(" frames=%d"), m_temporalT);
+    }
     if (!m_ov->deviceFullName().empty()) {
         info += strsprintf(_T(" [%s]"), m_ov->deviceFullName().c_str());
     }
@@ -442,6 +454,9 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
 }
 
 RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+    if (m_temporalT > 1) {
+        return runTemporal(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
+    }
     if (pInputFrame->ptr[0] == nullptr) {
         *pOutputFrameNum = 0;
         return RGY_ERR_NONE;
@@ -470,6 +485,116 @@ RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
         AddMessage(RGY_LOG_ERROR, _T("onnx: end-of-chain resize failed: %s.\n"), get_err_mes(rerr));
         return rerr;
     }
+    ppOutputFrames[0] = resizeOut[0];
+    *pOutputFrameNum = 1;
+    return RGY_ERR_NONE;
+}
+
+void NVEncFilterOnnx::packFrameRGB(const RGYFrameInfo &hin, float *dst) {
+    const int w = hin.width, h = hin.height;
+    const size_t chSize = (size_t)w * h;
+    const bool nv12 = (hin.csp == RGY_CSP_NV12);
+    const int cw = w / 2, ch = h / 2;
+    const uint8_t *pU = hin.ptr[1];
+    const uint8_t *pV = nv12 ? (hin.ptr[1] + 1) : hin.ptr[2];
+    const int cStride = nv12 ? 2 : 1;
+    const int cPitchU = hin.pitch[1], cPitchV = nv12 ? hin.pitch[1] : hin.pitch[2];
+    if (m_ycbcr) {
+        for (int y = 0; y < h; y++) {
+            const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
+            float *c0 = dst + (size_t)y * w;
+            float *c1 = dst + chSize + (size_t)y * w;
+            float *c2 = dst + 2 * chSize + (size_t)y * w;
+            for (int x = 0; x < w; x++) {
+                c0[x] = (float)yrow[x] / m_maxval;
+                c1[x] = sample_chroma_up2(pU, cPitchU, cStride, cw, ch, x, y) / m_maxval;
+                c2[x] = sample_chroma_up2(pV, cPitchV, cStride, cw, ch, x, y) / m_maxval;
+            }
+        }
+    } else {
+        for (int y = 0; y < h; y++) {
+            const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
+            float *rd = dst + (size_t)y * w;
+            float *gd = dst + chSize + (size_t)y * w;
+            float *bd = dst + 2 * chSize + (size_t)y * w;
+            for (int x = 0; x < w; x++) {
+                const float yn = ((float)yrow[x] - m_yOff) * m_yScale;
+                const float un = (sample_chroma_up2(pU, cPitchU, cStride, cw, ch, x, y) - m_cOff) * m_cScale;
+                const float vn = (sample_chroma_up2(pV, cPitchV, cStride, cw, ch, x, y) - m_cOff) * m_cScale;
+                rd[x] = clampf(yn + m_matVR * vn, 0.0f, 1.0f);
+                gd[x] = clampf(yn + m_matUG * un + m_matVG * vn, 0.0f, 1.0f);
+                bd[x] = clampf(yn + m_matUB * un, 0.0f, 1.0f);
+            }
+        }
+    }
+}
+
+RGY_ERR NVEncFilterOnnx::runTemporal(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+    const int k = (m_temporalT - 1) / 2;
+    const size_t frameSize = (size_t)m_ov->inWidth() * m_ov->inHeight();
+    if (pInputFrame->ptr[0] != nullptr) {
+        auto err = copyFrameAsync(&m_inStaging->frame, pInputFrame, stream);
+        if (err != RGY_ERR_NONE) return err;
+        err = err_to_rgy(cudaStreamSynchronize(stream));
+        if (err != RGY_ERR_NONE) return err;
+        RingFrame rf;
+        rf.rgb.resize(3 * frameSize);
+        packFrameRGB(m_inStaging->frame, rf.rgb.data());
+        rf.timestamp = pInputFrame->timestamp;
+        rf.duration = pInputFrame->duration;
+        rf.picstruct = pInputFrame->picstruct;
+        rf.flags = pInputFrame->flags;
+        rf.inputFrameId = pInputFrame->inputFrameId;
+        m_ring.push_back(std::move(rf));
+        m_recvCount++;
+        while ((int)m_ring.size() > m_temporalT) { m_ring.pop_front(); m_ringBaseIdx++; }
+        if (m_recvCount - 1 >= m_emitCount + k) {
+            return emitTemporalOutput(m_emitCount++, ppOutputFrames, pOutputFrameNum, stream);
+        }
+        *pOutputFrameNum = 0;
+        return RGY_ERR_NONE;
+    }
+    if (m_emitCount < m_recvCount) {
+        return emitTemporalOutput(m_emitCount++, ppOutputFrames, pOutputFrameNum, stream);
+    }
+    *pOutputFrameNum = 0;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterOnnx::emitTemporalOutput(int64_t outIdx, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+    const int k = (m_temporalT - 1) / 2;
+    const int ringN = (int)m_ring.size();
+    if (ringN <= 0) { *pOutputFrameNum = 0; return RGY_ERR_NONE; }
+    const size_t frameSize = (size_t)m_ov->inWidth() * m_ov->inHeight();
+    for (int j = 0; j < m_temporalT; j++) {
+        int64_t r = outIdx - k + j - m_ringBaseIdx;
+        if (r < 0) r = 0; else if (r >= ringN) r = ringN - 1;
+        std::copy(m_ring[(size_t)r].rgb.begin(), m_ring[(size_t)r].rgb.end(),
+            m_inBuf.begin() + (size_t)j * 3 * frameSize);
+    }
+    auto err = m_ov->infer(m_inBuf.data(), m_outBuf.data());
+    if (err != RGY_ERR_NONE) return err;
+    writeOutputHost(m_outStaging->frame, m_inStaging->frame);
+    auto coreFrame = &m_frameBuf[0]->frame;
+    err = copyFrameAsync(coreFrame, &m_outStaging->frame, stream);
+    if (err != RGY_ERR_NONE) return err;
+    int64_t cr = outIdx - m_ringBaseIdx;
+    if (cr < 0) cr = 0; else if (cr >= ringN) cr = ringN - 1;
+    const auto &centre = m_ring[(size_t)cr];
+    coreFrame->timestamp = centre.timestamp;
+    coreFrame->duration = centre.duration;
+    coreFrame->picstruct = centre.picstruct;
+    coreFrame->flags = centre.flags;
+    coreFrame->inputFrameId = centre.inputFrameId;
+    if (!m_postResize) {
+        ppOutputFrames[0] = coreFrame;
+        *pOutputFrameNum = 1;
+        return RGY_ERR_NONE;
+    }
+    RGYFrameInfo *resizeOut[1] = { nullptr };
+    int resizeNum = 0;
+    err = m_postResize->filter(coreFrame, resizeOut, &resizeNum, stream);
+    if (err != RGY_ERR_NONE) return err;
     ppOutputFrames[0] = resizeOut[0];
     *pOutputFrameNum = 1;
     return RGY_ERR_NONE;
@@ -676,5 +801,10 @@ void NVEncFilterOnnx::close() {
     m_outBuf.clear();
     m_u444.clear();
     m_v444.clear();
+    m_ring.clear();
+    m_ringBaseIdx = 0;
+    m_recvCount = 0;
+    m_emitCount = 0;
+    m_temporalT = 1;
     m_frameBuf.clear();
 }

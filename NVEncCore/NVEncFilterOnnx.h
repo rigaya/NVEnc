@@ -35,6 +35,7 @@
 #include "rgy_onnxrt_cuda.h"
 #include <vector>
 #include <memory>
+#include <deque>
 
 class NVEncFilterResize; // opt-in end-of-chain resize sub-filter (out_res=/resize=)
 
@@ -91,6 +92,11 @@ protected:
     // compute the YUV<->RGB matrix + range coefficients.
     void setupColorCoeffs(int matrixSelIn, int matrixSelOut, bool rangeTV, int pixMax);
 
+    // 時系列窓用のRGBパックと遅延出力。
+    void packFrameRGB(const RGYFrameInfo &hin, float *dst);
+    RGY_ERR runTemporal(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
+    RGY_ERR emitTemporalOutput(int64_t outIdx, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
+
     std::unique_ptr<RGYOnnxRTCUDA> m_ov;
     OnnxIO m_io;                          // I/O convention inferred from channel counts
     int   m_inC, m_outC;                        // model input / output channel counts
@@ -110,6 +116,20 @@ protected:
     std::vector<float>           m_inBuf;       // network input tensor  (inC*inW*inH, CHW)
     std::vector<float>           m_outBuf;      // network output tensor (outC*outW*outH, CHW)
     std::vector<float>           m_u444, m_v444;// normalised chroma at output luma res (for 4:2:0 downsample)
+
+    int m_temporalT;
+    struct RingFrame {
+        std::vector<float> rgb;
+        int64_t timestamp;
+        int64_t duration;
+        RGY_PICSTRUCT picstruct;
+        RGY_FRAME_FLAGS flags;
+        int inputFrameId;
+    };
+    std::deque<RingFrame> m_ring;
+    int64_t m_ringBaseIdx;
+    int64_t m_recvCount;
+    int64_t m_emitCount;
 
     // opt-in end-of-chain resize (out_res=): runs after the network core, fitting
     // the integer-scaled output to the requested final resolution. null when out_res=

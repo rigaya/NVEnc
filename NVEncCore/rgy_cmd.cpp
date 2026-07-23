@@ -5833,7 +5833,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 
         const auto paramList = std::vector<std::string>{
             "enable", "model", "modelfile", "provider", "device", "interop", "precision",
-            "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "out_res", "resize"
+            "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "frames", "out_res", "resize"
         };
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -5944,6 +5944,19 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         vpp->onnx.noise = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("frames")) {
+                    try {
+                        vpp->onnx.frames = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    if (vpp->onnx.frames < 1) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("framesは1以上で指定してください"));
                         return 1;
                     }
                     continue;
@@ -13747,6 +13760,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             tmp << _T(",colorrange=") << get_cx_desc(list_colorrange, param->onnx.colorrange);
             tmp << _T(",colorspace=") << param->onnx.colorspace;
             tmp << _T(",noise=") << param->onnx.noise;
+            if (param->onnx.frames > 1) {
+                tmp << _T(",frames=") << param->onnx.frames;
+            }
             if (param->onnx.postResizeW != 0 && param->onnx.postResizeH != 0) {
                 tmp << _T(",out_res=") << param->onnx.postResizeW << _T("x") << param->onnx.postResizeH;
                 tmp << _T(",resize=") << get_cx_desc(list_vpp_resize, param->onnx.postResizeAlgo);
