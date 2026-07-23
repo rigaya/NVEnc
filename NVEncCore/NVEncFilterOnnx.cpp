@@ -423,6 +423,8 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
             return RGY_ERR_UNSUPPORTED;
         }
         m_io = OnnxIO::RGB;
+        m_pathThrough = (FILTER_PATHTHROUGH_FRAMEINFO)(m_pathThrough &
+            (~(uint32_t)(FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_FLAGS)));
     } else if (m_inC == 1 && m_outC == 1) m_io = OnnxIO::LumaSR;
     else if (m_inC == 2 && m_outC == 1) m_io = OnnxIO::GrayNoise;
     else if (m_inC == 3 && m_outC == 2) m_io = OnnxIO::Chroma;
@@ -653,6 +655,7 @@ RGY_ERR NVEncFilterOnnx::runTemporal(const RGYFrameInfo *pInputFrame, RGYFrameIn
         rf.picstruct = pInputFrame->picstruct;
         rf.flags = pInputFrame->flags;
         rf.inputFrameId = pInputFrame->inputFrameId;
+        rf.dataList = pInputFrame->dataList;
         m_ring.push_back(std::move(rf));
         m_recvCount++;
         while ((int)m_ring.size() > m_temporalT) { m_ring.pop_front(); m_ringBaseIdx++; }
@@ -815,6 +818,7 @@ RGY_ERR NVEncFilterOnnx::emitTemporalOutput(int64_t outIdx, RGYFrameInfo **ppOut
     coreFrame->picstruct = centre.picstruct;
     coreFrame->flags = centre.flags;
     coreFrame->inputFrameId = centre.inputFrameId;
+    coreFrame->dataList = centre.dataList;
     if (!m_postResize) {
         ppOutputFrames[0] = coreFrame;
         *pOutputFrameNum = 1;

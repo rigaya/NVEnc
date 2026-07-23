@@ -127,6 +127,7 @@ protected:
         RGY_PICSTRUCT picstruct;
         RGY_FRAME_FLAGS flags;
         int inputFrameId;
+        std::vector<std::shared_ptr<RGYFrameData>> dataList;
     };
     std::deque<RingFrame> m_ring;
     int64_t m_ringBaseIdx;
