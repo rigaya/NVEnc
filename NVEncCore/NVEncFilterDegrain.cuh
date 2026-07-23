@@ -3998,6 +3998,47 @@ static __global__ void kernel_degrain_mv_seed_anchor_vectors_cuda(
         0u);
 }
 
+static constexpr int DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE = 256;
+
+// level1(coarse)の最終ベクトルの平均をlevel0のGLOBALアンカーに書き込む。
+// 平均はcoarse→fineのスケール(x2)を適用してlevel0の内部単位に揃える。
+static __global__ void kernel_degrain_mv_seed_global_from_coarse_cuda(
+    RGYDegrainMotionSearchVector *dstVectors,
+    const RGYDegrainMotionSearchVector *srcVectorsFinal,
+    const int dstPlaneBase,
+    const int srcFinalBase,
+    const int srcBlockCount) {
+    __shared__ int sumX[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
+    __shared__ int sumY[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
+    const int tid = (int)threadIdx.x;
+    int sx = 0, sy = 0;
+    for (int i = tid; i < srcBlockCount; i += DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE) {
+        const auto vec = srcVectorsFinal[degrainMotionSearchVecFinalIndex(srcFinalBase, srcBlockCount, i)];
+        sx += vec.pos_x;
+        sy += vec.pos_y;
+    }
+    sumX[tid] = sx;
+    sumY[tid] = sy;
+    __syncthreads();
+    for (int stride = DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            sumX[tid] += sumX[tid + stride];
+            sumY[tid] += sumY[tid + stride];
+        }
+        __syncthreads();
+    }
+    if (tid == 0 && srcBlockCount > 0) {
+        const int roundHalf = srcBlockCount >> 1;
+        const int avgX = (sumX[0] >= 0) ? (sumX[0] + roundHalf) / srcBlockCount : -((-sumX[0] + roundHalf) / srcBlockCount);
+        const int avgY = (sumY[0] >= 0) ? (sumY[0] + roundHalf) / srcBlockCount : -((-sumY[0] + roundHalf) / srcBlockCount);
+        dstVectors[degrainMotionSearchVecGlobalIndex(dstPlaneBase)] = degrainMotionSearchMakeVector(
+            avgX * 2,
+            avgY * 2,
+            0u,
+            0u);
+    }
+}
+
 static __global__ void kernel_degrain_mv_seed_zero_vectors_cuda(
     RGYDegrainMotionSearchVector *vectors,
     RGYDegrainMotionSearchVector *vectorsPrev,
@@ -4098,6 +4139,16 @@ static RGY_ERR launchNVEncDegrainMotionSearchSeedAnchorVectorsImpl(
         reinterpret_cast<RGYDegrainMotionSearchVector *>(vectors.ptr),
         reinterpret_cast<const int2 *>(frameAverageMV.ptr),
         planeBase, planeStride, planeCount, pel);
+    return err_to_rgy(cudaGetLastError());
+}
+
+static RGY_ERR launchNVEncDegrainMotionSearchSeedGlobalFromCoarseImpl(
+    CUMemBuf &dstVectors, const CUMemBuf &srcVectorsFinal,
+    const int dstPlaneBase, const int srcFinalBase, const int srcBlockCount, cudaStream_t stream) {
+    kernel_degrain_mv_seed_global_from_coarse_cuda<<<1, DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE, 0, stream>>>(
+        reinterpret_cast<RGYDegrainMotionSearchVector *>(dstVectors.ptr),
+        reinterpret_cast<const RGYDegrainMotionSearchVector *>(srcVectorsFinal.ptr),
+        dstPlaneBase, srcFinalBase, srcBlockCount);
     return err_to_rgy(cudaGetLastError());
 }
 

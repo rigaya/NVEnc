@@ -54,6 +54,9 @@ RGY_ERR launchNVEncDegrainDownsampleLuma2x(
 RGY_ERR launchNVEncDegrainMotionSearchSeedAnchorVectors(
     CUMemBuf &vectors, const CUMemBuf &frameAverageMV, int planeBase, int planeStride,
     int planeCount, int pel, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainMotionSearchSeedGlobalFromCoarse(
+    CUMemBuf &dstVectors, const CUMemBuf &srcVectorsFinal,
+    int dstPlaneBase, int srcFinalBase, int srcBlockCount, cudaStream_t stream);
 RGY_ERR launchNVEncDegrainMotionSearchSeedZeroVectors(
     CUMemBuf &vectors, CUMemBuf &vectorsPrev, CUMemBuf &sads, int planeBase,
     int sadBase, int blockCount, cudaStream_t stream);
@@ -2945,6 +2948,20 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo 
 
         const int planeBase0 = levelPlaneBase(dir, planeStride0);
         const int blockBase0 = blockPlaneBase(dir, blockCount0);
+        if (prm->degrain.globalMotion) {
+            // level1の平均ベクトルをlevel0のGLOBALアンカーに反映する
+            err = launchNVEncDegrainMotionSearchSeedGlobalFromCoarse(
+                *ws.level0.vectors,
+                *ws.level1.vectorsFinal,
+                planeBase0,
+                blockBase1,
+                blockCount1,
+                stream);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to seed degrain motion search global vector from coarse level: %s.\n"), get_err_mes(err));
+                return err;
+            }
+        }
         RGYCudaEvent interpolateEvent;
         profileStepStart = profileNow();
         err = degrainWaitEvents(stream, { exportLevel1Event, initLevel0Event });

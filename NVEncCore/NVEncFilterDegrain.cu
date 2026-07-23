@@ -71,6 +71,13 @@ RGY_ERR launchNVEncDegrainMotionSearchSeedAnchorVectors(
     return launchNVEncDegrainMotionSearchSeedAnchorVectorsImpl(vectors, frameAverageMV, frameAverageIndex, planeStride, refs, pel, stream);
 }
 
+RGY_ERR launchNVEncDegrainMotionSearchSeedGlobalFromCoarse(
+    CUMemBuf& dstVectors, const CUMemBuf& srcVectorsFinal,
+    const int dstPlaneBase, const int srcFinalBase, const int srcBlockCount, cudaStream_t stream) {
+    return launchNVEncDegrainMotionSearchSeedGlobalFromCoarseImpl(
+        dstVectors, srcVectorsFinal, dstPlaneBase, srcFinalBase, srcBlockCount, stream);
+}
+
 RGY_ERR launchNVEncDegrainMotionSearchSeedZeroVectors(
     CUMemBuf& vectors, CUMemBuf& vectorsPrev, CUMemBuf& sads,
     const int planeBase, const int sadBase, const int blockCount, cudaStream_t stream) {
