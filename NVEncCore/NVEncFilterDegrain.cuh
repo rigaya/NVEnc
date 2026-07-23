@@ -4008,10 +4008,10 @@ static __global__ void kernel_degrain_mv_seed_global_from_coarse_cuda(
     const int dstPlaneBase,
     const int srcFinalBase,
     const int srcBlockCount) {
-    __shared__ int sumX[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
-    __shared__ int sumY[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
+    __shared__ int64_t sumX[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
+    __shared__ int64_t sumY[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
     const int tid = (int)threadIdx.x;
-    int sx = 0, sy = 0;
+    int64_t sx = 0, sy = 0;
     for (int i = tid; i < srcBlockCount; i += DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE) {
         const auto vec = srcVectorsFinal[degrainMotionSearchVecFinalIndex(srcFinalBase, srcBlockCount, i)];
         sx += vec.pos_x;
@@ -4028,12 +4028,17 @@ static __global__ void kernel_degrain_mv_seed_global_from_coarse_cuda(
         __syncthreads();
     }
     if (tid == 0 && srcBlockCount > 0) {
-        const int roundHalf = srcBlockCount >> 1;
-        const int avgX = (sumX[0] >= 0) ? (sumX[0] + roundHalf) / srcBlockCount : -((-sumX[0] + roundHalf) / srcBlockCount);
-        const int avgY = (sumY[0] >= 0) ? (sumY[0] + roundHalf) / srcBlockCount : -((-sumY[0] + roundHalf) / srcBlockCount);
+        // coarse→fineの2倍を除算前に適用し、0.5 coarse pixel相当の精度を保持する。
+        const int64_t roundHalf = (int64_t)srcBlockCount >> 1;
+        const int64_t scaledSumX = sumX[0] * 2;
+        const int64_t scaledSumY = sumY[0] * 2;
+        const int64_t avgX = (scaledSumX >= 0) ? (scaledSumX + roundHalf) / srcBlockCount : -((-scaledSumX + roundHalf) / srcBlockCount);
+        const int64_t avgY = (scaledSumY >= 0) ? (scaledSumY + roundHalf) / srcBlockCount : -((-scaledSumY + roundHalf) / srcBlockCount);
+        const int globalX = (int)((avgX < -32768) ? -32768 : (avgX > 32767) ? 32767 : avgX);
+        const int globalY = (int)((avgY < -32768) ? -32768 : (avgY > 32767) ? 32767 : avgY);
         dstVectors[degrainMotionSearchVecGlobalIndex(dstPlaneBase)] = degrainMotionSearchMakeVector(
-            avgX * 2,
-            avgY * 2,
+            globalX,
+            globalY,
             0u,
             0u);
     }
