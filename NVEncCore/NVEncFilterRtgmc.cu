@@ -415,6 +415,16 @@ RGY_ERR NVEncFilterRtgmc::checkParam(const std::shared_ptr<NVEncFilterParamRtgmc
         AddMessage(RGY_LOG_ERROR, _T("rtgmc mv_spatial_refine must be -1 or greater.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (prm->rtgmc.rep1.repThin < 0 || prm->rtgmc.rep1.repThin > 7
+        || prm->rtgmc.rep2.repThin < 0 || prm->rtgmc.rep2.repThin > 7) {
+        AddMessage(RGY_LOG_ERROR, _T("rtgmc rep1-thin/rep2-thin must be 0 - 7.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->rtgmc.rep1.repPad < 0 || prm->rtgmc.rep1.repPad > 3
+        || prm->rtgmc.rep2.repPad < 0 || prm->rtgmc.rep2.repPad > 3) {
+        AddMessage(RGY_LOG_ERROR, _T("rtgmc rep1-pad/rep2-pad must be 0 - 3.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (rtgmcInputTypeBlendEnabled(prm->rtgmc) && !RGY_HAS_RTGMC_MMASK_FILTER) {
         AddMessage(RGY_LOG_ERROR, _T("rtgmc input_type=2/3 with prog_sad_mask>0 requires rtgmc-mmask filter, but it is not available in this build.\n"));
         return RGY_ERR_UNSUPPORTED;
@@ -1595,10 +1605,10 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
         if (sts != RGY_ERR_NONE) return sts;
     }
     {
-        if (prm->rtgmc.rep1.repThin <= 0 && prm->rtgmc.rep1.repPad <= 0) {
+        if (prm->rtgmc.rep1.repThin == 0) {
             auto sts = initBypass();
             if (sts != RGY_ERR_NONE) return sts;
-            AddMessage(RGY_LOG_DEBUG, _T("rep1 shimmer repair stage is skipped because rep-thin=0 and rep-pad=0.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("rep1 shimmer repair stage is skipped because rep-thin=0.\n"));
         } else {
             auto filter = std::make_unique<NVEncFilterRtgmcShimmerRepair>();
             auto param = std::make_shared<NVEncFilterParamRtgmcShimmerRepair>();
@@ -1661,10 +1671,10 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
         }
     }
     {
-        if (prm->rtgmc.rep2.repThin <= 0 && prm->rtgmc.rep2.repPad <= 0) {
+        if (prm->rtgmc.rep2.repThin == 0) {
             auto sts = initBypass();
             if (sts != RGY_ERR_NONE) return sts;
-            AddMessage(RGY_LOG_DEBUG, _T("rep2 shimmer repair stage is skipped because rep-thin=0 and rep-pad=0.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("rep2 shimmer repair stage is skipped because rep-thin=0.\n"));
         } else {
             auto filter = std::make_unique<NVEncFilterRtgmcShimmerRepair>();
             auto param = std::make_shared<NVEncFilterParamRtgmcShimmerRepair>();
