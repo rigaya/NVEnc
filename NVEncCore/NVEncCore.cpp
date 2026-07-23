@@ -122,6 +122,8 @@
 #include "NVEncFilterSoftLight.h"
 #include "NVEncFilterTweak.h"
 #include "NVEncFilterTransform.h"
+#include "NVEncFilterLensCorrection.h"
+#include "NVEncFilterV360.h"
 #include "NVEncFilterColorspace.h"
 #include "NVEncFilterSubburn.h"
 #include "NVEncFilterSelectEvery.h"
@@ -2967,6 +2969,8 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     }
     if (inputParam->vpp.selectevery.enable)   filterPipeline.push_back(VppType::CL_SELECT_EVERY);
     if (inputParam->vpp.transform.enable)     filterPipeline.push_back(VppType::CL_TRANSFORM);
+    if (inputParam->vpp.lenscorrection.enable) filterPipeline.push_back(VppType::CL_LENSCORRECTION);
+    if (inputParam->vpp.v360.enable)           filterPipeline.push_back(VppType::CL_V360);
     if (inputParam->vpp.convolution3d.enable) filterPipeline.push_back(VppType::CL_CONVOLUTION3D);
     if (inputParam->vppnv.nvvfxDenoise.enable) filterPipeline.push_back(VppType::NVVFX_DENOISE);
     if (inputParam->vppnv.nvvfxArtifactReduction.enable) filterPipeline.push_back(VppType::NVVFX_ARTIFACT_REDUCTION);
@@ -4044,6 +4048,40 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         //パラメータ情報を更新
         m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    if (vppType == VppType::CL_LENSCORRECTION) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterLensCorrection());
+        shared_ptr<NVEncFilterParamLensCorrection> param(new NVEncFilterParamLensCorrection());
+        param->lenscorrection = inputParam->vpp.lenscorrection;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) return sts;
+        cufilters.push_back(std::move(filter));
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    if (vppType == VppType::CL_V360) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterV360());
+        shared_ptr<NVEncFilterParamV360> param(new NVEncFilterParamV360());
+        param->v360 = inputParam->vpp.v360;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) return sts;
+        cufilters.push_back(std::move(filter));
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         return RGY_ERR_NONE;

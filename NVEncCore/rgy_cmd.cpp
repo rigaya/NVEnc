@@ -9296,6 +9296,64 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-v360")) {
+        vpp->v360.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) return 0;
+        i++;
+        const auto paramList = std::vector<std::string>{ "in", "out", "yaw", "pitch", "roll", "in_hfov", "h_fov", "w", "h" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos == std::string::npos) { print_cmd_error_unknown_opt_param(option_name, param, paramList); return 1; }
+            auto param_arg = tolowercase(param.substr(0, pos));
+            auto param_val = param.substr(pos + 1);
+            if (param_arg == _T("enable")) {
+                bool b = false; if (!cmd_string_to_bool(&b, param_val)) vpp->v360.enable = b;
+                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" enable="), param_val); return 1; }
+            } else if (param_arg == _T("in") || param_arg == _T("out")) {
+                int value = 0;
+                if (!get_list_value(list_vpp_v360_proj, param_val.c_str(), &value)) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_v360_proj); return 1; }
+                if (param_arg == _T("in")) vpp->v360.in_proj = value; else vpp->v360.out_proj = value;
+            } else if (param_arg == _T("yaw") || param_arg == _T("pitch") || param_arg == _T("roll") || param_arg == _T("in_hfov") || param_arg == _T("h_fov")) {
+                try {
+                    const float value = std::stof(param_val);
+                    if (param_arg == _T("yaw")) vpp->v360.yaw = value;
+                    else if (param_arg == _T("pitch")) vpp->v360.pitch = value;
+                    else if (param_arg == _T("roll")) vpp->v360.roll = value;
+                    else if (param_arg == _T("in_hfov")) vpp->v360.in_hfov = value;
+                    else vpp->v360.out_hfov = value;
+                } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+            } else if (param_arg == _T("w") || param_arg == _T("h")) {
+                try { const int value = std::stoi(param_val); if (param_arg == _T("w")) vpp->v360.w = value; else vpp->v360.h = value; }
+                catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+            } else { print_cmd_error_unknown_opt_param(option_name, param_arg, paramList); return 1; }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-lenscorrection")) {
+        vpp->lenscorrection.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) return 0;
+        i++;
+        const auto paramList = std::vector<std::string>{ "k1", "k2", "cx", "cy" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos == std::string::npos) { print_cmd_error_unknown_opt_param(option_name, param, paramList); return 1; }
+            auto param_arg = tolowercase(param.substr(0, pos));
+            auto param_val = param.substr(pos + 1);
+            if (param_arg == _T("enable")) {
+                bool b = false; if (!cmd_string_to_bool(&b, param_val)) vpp->lenscorrection.enable = b;
+                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" enable="), param_val); return 1; }
+            } else if (param_arg == _T("k1") || param_arg == _T("k2") || param_arg == _T("cx") || param_arg == _T("cy")) {
+                try {
+                    const float value = std::stof(param_val);
+                    if (param_arg == _T("k1")) vpp->lenscorrection.k1 = value;
+                    else if (param_arg == _T("k2")) vpp->lenscorrection.k2 = value;
+                    else if (param_arg == _T("cx")) vpp->lenscorrection.cx = value;
+                    else vpp->lenscorrection.cy = value;
+                } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+            } else { print_cmd_error_unknown_opt_param(option_name, param_arg, paramList); return 1; }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-transform")) {
         vpp->transform.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {

@@ -104,6 +104,8 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_RFF,                  _T("rff")),
     std::make_pair(VppType::CL_DELOGO,               _T("delogo")),
     std::make_pair(VppType::CL_TRANSFORM,            _T("transform")),
+    std::make_pair(VppType::CL_LENSCORRECTION,       _T("lenscorrection")),
+    std::make_pair(VppType::CL_V360,                 _T("v360")),
     std::make_pair(VppType::CL_CONVOLUTION3D,        _T("convolution3d")),
     std::make_pair(VppType::CL_DENOISE_KNN,          _T("knn")),
     std::make_pair(VppType::CL_DENOISE_NLMEANS,      _T("nlmeans")),
@@ -3704,6 +3706,33 @@ tstring VppTransform::print() const {
             ON_OFF(transpose), ON_OFF(flipX), ON_OFF(flipY));
     }
 #undef ON_OFF
+}
+
+VppLensCorrection::VppLensCorrection() :
+    enable(false), k1(0.0f), k2(0.0f), cx(0.5f), cy(0.5f) {
+}
+bool VppLensCorrection::operator==(const VppLensCorrection &x) const {
+    return enable == x.enable && k1 == x.k1 && k2 == x.k2 && cx == x.cx && cy == x.cy;
+}
+bool VppLensCorrection::operator!=(const VppLensCorrection &x) const { return !(*this == x); }
+tstring VppLensCorrection::print() const {
+    return strsprintf(_T("lenscorrection: k1 %.4f, k2 %.4f, cx %.3f, cy %.3f"), k1, k2, cx, cy);
+}
+
+VppV360::VppV360() :
+    enable(false), in_proj((int)VppV360Proj::EQUIRECT), out_proj((int)VppV360Proj::FLAT),
+    yaw(0.0f), pitch(0.0f), roll(0.0f), in_hfov(90.0f), out_hfov(90.0f), w(0), h(0) {
+}
+bool VppV360::operator==(const VppV360 &x) const {
+    return enable == x.enable && in_proj == x.in_proj && out_proj == x.out_proj
+        && yaw == x.yaw && pitch == x.pitch && roll == x.roll
+        && in_hfov == x.in_hfov && out_hfov == x.out_hfov && w == x.w && h == x.h;
+}
+bool VppV360::operator!=(const VppV360 &x) const { return !(*this == x); }
+tstring VppV360::print() const {
+    return strsprintf(_T("v360: in %s, out %s, yaw %.1f, pitch %.1f, roll %.1f, h_fov %.1f, %dx%d"),
+        get_cx_desc(list_vpp_v360_proj, in_proj), get_cx_desc(list_vpp_v360_proj, out_proj),
+        yaw, pitch, roll, out_hfov, w, h);
 }
 
 VppOverlayAlphaKey::VppOverlayAlphaKey() :

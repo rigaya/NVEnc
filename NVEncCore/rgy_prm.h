@@ -193,6 +193,8 @@ enum class VppType : int {
     CL_DELOGO,
     CL_SELECT_EVERY,
     CL_TRANSFORM,
+    CL_LENSCORRECTION,
+    CL_V360,
 
     CL_CONVOLUTION3D,
     CL_DENOISE_KNN,
@@ -3681,6 +3683,54 @@ struct VppTransform {
     tstring print() const;
 };
 
+struct VppLensCorrection {
+    bool enable;
+    float k1;
+    float k2;
+    float cx;
+    float cy;
+
+    VppLensCorrection();
+    bool operator==(const VppLensCorrection &x) const;
+    bool operator!=(const VppLensCorrection &x) const;
+    tstring print() const;
+};
+
+enum class VppV360Proj {
+    EQUIRECT = 0,
+    FLAT = 1,
+    CUBE3X2 = 2,
+};
+
+const CX_DESC list_vpp_v360_proj[] = {
+    { _T("e"),           (int)VppV360Proj::EQUIRECT },
+    { _T("equirect"),    (int)VppV360Proj::EQUIRECT },
+    { _T("flat"),        (int)VppV360Proj::FLAT },
+    { _T("rectilinear"), (int)VppV360Proj::FLAT },
+    { _T("c3x2"),        (int)VppV360Proj::CUBE3X2 },
+    { _T("cubemap"),     (int)VppV360Proj::CUBE3X2 },
+    { _T("cube"),        (int)VppV360Proj::CUBE3X2 },
+    { NULL, 0 }
+};
+
+struct VppV360 {
+    bool enable;
+    int in_proj;
+    int out_proj;
+    float yaw;
+    float pitch;
+    float roll;
+    float in_hfov;
+    float out_hfov;
+    int w;
+    int h;
+
+    VppV360();
+    bool operator==(const VppV360 &x) const;
+    bool operator!=(const VppV360 &x) const;
+    tstring print() const;
+};
+
 
 enum class VppCurvesPreset {
     NONE,
@@ -3904,6 +3954,8 @@ struct RGYParamVpp {
     VppSoftLight softlight;
     VppTweak tweak;
     VppTransform transform;
+    VppLensCorrection lenscorrection;
+    VppV360 v360;
     VppDeband deband;
     VppLibplaceboDeband libplacebo_deband;
     std::vector<VppOverlay> overlay;
