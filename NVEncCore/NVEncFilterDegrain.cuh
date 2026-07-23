@@ -2332,10 +2332,12 @@ static __global__ void kernel_degrain_mv_build_subpel_planes_cuda(
     if (x >= width || y >= height) {
         return;
     }
-    const int p0 = degrainPixelLoad<uint8_t>(src, pitch, width, height, x, y);
-    const int p1 = degrainInterpHalfpelWeightedMirror<uint8_t>(src, pitch, width, height, x, y, 1, 0, subpelInterp);
-    const int p2 = degrainInterpHalfpelWeightedMirror<uint8_t>(src, pitch, width, height, x, y, 0, 1, subpelInterp);
-    const int p3 = degrainInterpHalfpelWeightedMirror<uint8_t>(src, pitch, width, height, x, y, 1, 1, subpelInterp);
+    const int xPel = x * 2;
+    const int yPel = y * 2;
+    const int p0 = degrainPixelLoadPelMirror<uint8_t, 2, subpelInterp>(src, pitch, width, height, xPel + 0, yPel + 0);
+    const int p1 = degrainPixelLoadPelMirror<uint8_t, 2, subpelInterp>(src, pitch, width, height, xPel + 1, yPel + 0);
+    const int p2 = degrainPixelLoadPelMirror<uint8_t, 2, subpelInterp>(src, pitch, width, height, xPel + 0, yPel + 1);
+    const int p3 = degrainPixelLoadPelMirror<uint8_t, 2, subpelInterp>(src, pitch, width, height, xPel + 1, yPel + 1);
     const int idx = y * pitch + x;
     dst[idx] = (uint8_t)degrainClampInt(p0, 0, 255);
     dst[(size_t)planeStride + idx] = (uint8_t)degrainClampInt(p1, 0, 255);
