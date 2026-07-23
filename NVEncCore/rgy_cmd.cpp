@@ -5833,7 +5833,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 
         const auto paramList = std::vector<std::string>{
             "enable", "model", "modelfile", "provider", "device", "interop", "precision",
-            "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "frames", "out_res", "resize"
+            "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "frames", "mask", "out_res", "resize"
         };
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -5959,6 +5959,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("framesは正の奇数で指定してください"));
                         return 1;
                     }
+                    continue;
+                }
+                if (param_arg == _T("mask")) {
+                    vpp->onnx.maskFile = param_val;
                     continue;
                 }
                 if (param_arg == _T("out_res")) {
@@ -13762,6 +13766,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             tmp << _T(",noise=") << param->onnx.noise;
             if (param->onnx.frames > 1) {
                 tmp << _T(",frames=") << param->onnx.frames;
+            }
+            if (!param->onnx.maskFile.empty()) {
+                tmp << _T(",mask=") << param->onnx.maskFile;
             }
             if (param->onnx.postResizeW != 0 && param->onnx.postResizeH != 0) {
                 tmp << _T(",out_res=") << param->onnx.postResizeW << _T("x") << param->onnx.postResizeH;

@@ -31,6 +31,7 @@
 
 #include <memory>
 #include <cstdint>
+#include <vector>
 #include <cuda_runtime_api.h>
 #include "rgy_err.h"
 
@@ -84,12 +85,19 @@ public:
     // Blocking; in only needs to stay valid for the call.
     RGY_ERR infer(const float *in, float *out);
 
+    // 2入力以上のNCHWモデルをホストバッファで実行する。
+    RGY_ERR inferMulti(const std::vector<const float *> &inputs, const std::vector<float *> &outputs);
+
     // CUDAデバイス上のCHW floatバッファを直接入出力に束縛する。
     // init()でuserComputeStreamを指定して初期化できた場合のみ利用できる。
     RGY_ERR inferDevice(const float *inDevice, float *outDevice);
     bool deviceIOAvailable() const;
 
     int inChannels()  const;
+    int inputCount() const;
+    int inputChannels(int index) const;
+    int inputHeight(int index) const;
+    int inputWidth(int index) const;
     int inHeight()    const;
     int inWidth()     const;
     int outChannels() const;

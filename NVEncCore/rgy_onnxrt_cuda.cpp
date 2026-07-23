@@ -32,6 +32,7 @@
 #include <cstring>
 #include <cstdint>
 #include <vector>
+#include <array>
 #include <string>
 #include <mutex>
 #include <unordered_map>
@@ -184,7 +185,9 @@ public:
     std::unique_ptr<Ort::Env> env;
     std::unique_ptr<Ort::AllocatorWithDefaultOptions> alloc;
     std::unique_ptr<Ort::Session> session{ nullptr };
-    std::string inName, outName;     // owned copies of the model's first I/O names
+    std::string inName, outName;     // 互換用の先頭I/O名
+    std::vector<std::string> inNames, outNames;
+    std::vector<int> inCs, inHs, inWs, outCs, outHs, outWs;
     int inC = 0, inH = 0, inW = 0;
     int outC = 0, outH = 0, outW = 0;
     int deviceID = 0;
@@ -416,30 +419,43 @@ RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, co
             return RGY_ERR_UNSUPPORTED;
         }
         // names (own the strings; the AllocatedStringPtr frees on scope exit)
-        {
-            auto inN  = I.session->GetInputNameAllocated(0, *I.alloc);
-            auto outN = I.session->GetOutputNameAllocated(0, *I.alloc);
-            I.inName  = inN.get();
-            I.outName = outN.get();
+        I.inNames.clear(); I.inCs.clear(); I.inHs.clear(); I.inWs.clear();
+        for (size_t i = 0; i < I.session->GetInputCount(); i++) {
+            auto name = I.session->GetInputNameAllocated(i, *I.alloc);
+            I.inNames.emplace_back(name.get());
+            auto shape = I.session->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
+            const int c = (shape.size() >= 2 && shape[1] > 0) ? (int)shape[1] : 1;
+            const int h = (shape.size() >= 4 && shape[2] > 0) ? (int)shape[2] : height;
+            const int w = (shape.size() >= 4 && shape[3] > 0) ? (int)shape[3] : width;
+            I.inCs.push_back(c); I.inHs.push_back(h); I.inWs.push_back(w);
         }
-        // input channel count from the model (dim 1); N/H/W are pinned by us
-        auto inTypeInfo = I.session->GetInputTypeInfo(0);
-        auto inInfo  = inTypeInfo.GetTensorTypeAndShapeInfo();
-        auto inShape = inInfo.GetShape(); // may contain -1 for dynamic dims
-        I.inC = (inShape.size() >= 2 && inShape[1] > 0) ? (int)inShape[1] : 1;
-        I.inH = height;
-        I.inW = width;
+        I.inName = I.inNames.front();
+        I.inC = I.inCs.front(); I.inH = I.inHs.front(); I.inW = I.inWs.front();
+        I.outNames.clear(); I.outCs.clear(); I.outHs.clear(); I.outWs.clear();
+        for (size_t i = 0; i < I.session->GetOutputCount(); i++) {
+            auto name = I.session->GetOutputNameAllocated(i, *I.alloc);
+            I.outNames.emplace_back(name.get());
+        }
+        I.outName = I.outNames.front();
         I.deviceName = cudaDeviceName(deviceID);
 
         // Probe inference with a zero input to discover the output shape and warm
         // the provider (for TensorRT the first run builds the engine).
-        std::vector<int64_t> inDims = { 1, I.inC, I.inH, I.inW };
-        std::vector<float> zero((size_t)I.inC * I.inH * I.inW, 0.0f);
         Ort::MemoryInfo memCpu = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-        Ort::Value inT = Ort::Value::CreateTensor<float>(memCpu, zero.data(), zero.size(),
-                                                         inDims.data(), inDims.size());
-        const char *inNames[]  = { I.inName.c_str() };
-        const char *outNames[] = { I.outName.c_str() };
+        std::vector<Ort::Value> inTensors;
+        std::vector<std::vector<float>> zero;
+        inTensors.reserve(I.inNames.size());
+        zero.reserve(I.inNames.size());
+        std::vector<std::array<int64_t, 4>> inDims(I.inNames.size());
+        for (size_t i = 0; i < I.inNames.size(); i++) {
+            inDims[i] = { 1, I.inCs[i], I.inHs[i], I.inWs[i] };
+            zero.emplace_back((size_t)I.inCs[i] * I.inHs[i] * I.inWs[i], 0.0f);
+            inTensors.emplace_back(Ort::Value::CreateTensor<float>(memCpu, zero.back().data(), zero.back().size(), inDims[i].data(), 4));
+        }
+        std::vector<const char *> inNames;
+        for (const auto &n : I.inNames) inNames.push_back(n.c_str());
+        std::vector<const char *> outNames;
+        for (const auto &n : I.outNames) outNames.push_back(n.c_str());
         cudaerr = selectCudaDevice(I.deviceID);
         if (cudaerr != cudaSuccess) {
             errMessage = cudaErrorMessage(_T("cudaSetDevice"), I.deviceID, cudaerr);
@@ -447,16 +463,17 @@ RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, co
         }
         cudaGetLastError();
         initStage = (tensorRTAttached && I.engineCacheHadFiles) ? InitStage::TensorRTProbe : InitStage::Other;
-        auto outs = I.session->Run(Ort::RunOptions{ nullptr }, inNames, &inT, 1, outNames, 1);
+        auto outs = I.session->Run(Ort::RunOptions{ nullptr }, inNames.data(), inTensors.data(), inTensors.size(), outNames.data(), outNames.size());
         initStage = InitStage::Other;
-        auto oShape = outs[0].GetTensorTypeAndShapeInfo().GetShape();
-        if (oShape.size() != 4) {
-            errMessage = _T("model output is not a 4D NCHW tensor.");
-            return RGY_ERR_UNSUPPORTED;
+        for (const auto &out : outs) {
+            auto oShape = out.GetTensorTypeAndShapeInfo().GetShape();
+            if (oShape.size() != 4) {
+                errMessage = _T("model output is not a 4D NCHW tensor.");
+                return RGY_ERR_UNSUPPORTED;
+            }
+            I.outCs.push_back((int)oShape[1]); I.outHs.push_back((int)oShape[2]); I.outWs.push_back((int)oShape[3]);
         }
-        I.outC = (int)oShape[1];
-        I.outH = (int)oShape[2];
-        I.outW = (int)oShape[3];
+        I.outC = I.outCs.front(); I.outH = I.outHs.front(); I.outW = I.outWs.front();
     } catch (const Ort::Exception &e) {
         I.engineCacheLoadFailure = (initStage != InitStage::Other);
         errMessage = char_to_tstring(e.what());
@@ -493,6 +510,47 @@ RGY_ERR RGYOnnxRTCUDA::infer(const float *in, float *out) {
         const char *inNames[]  = { I.inName.c_str() };
         const char *outNames[] = { I.outName.c_str() };
         I.session->Run(Ort::RunOptions{ nullptr }, inNames, &inT, 1, outNames, &outT, 1);
+    } catch (const Ort::Exception &e) {
+        m_impl->lastError = char_to_tstring(e.what());
+        return RGY_ERR_UNKNOWN;
+    } catch (const std::exception &e) {
+        m_impl->lastError = char_to_tstring(e.what());
+        return RGY_ERR_UNKNOWN;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYOnnxRTCUDA::inferMulti(const std::vector<const float *> &inputs, const std::vector<float *> &outputs) {
+    if (!m_impl->session || inputs.size() != m_impl->inNames.size() || outputs.size() != m_impl->outNames.size()) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    CudaContextRestorer contextRestorer;
+    try {
+        auto &I = *m_impl;
+        I.lastError.clear();
+        auto cudaerr = selectCudaDevice(I.deviceID);
+        if (cudaerr != cudaSuccess) {
+            I.lastError = cudaErrorMessage(_T("cudaSetDevice"), I.deviceID, cudaerr);
+            return RGY_ERR_CUDA;
+        }
+        cudaGetLastError();
+        Ort::MemoryInfo memCpu = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+        std::vector<Ort::Value> inTensors, outTensors;
+        std::vector<std::array<int64_t, 4>> inDims(I.inNames.size()), outDims(I.outNames.size());
+        for (size_t i = 0; i < I.inNames.size(); i++) {
+            inDims[i] = { 1, I.inCs[i], I.inHs[i], I.inWs[i] };
+            const size_t count = (size_t)I.inCs[i] * I.inHs[i] * I.inWs[i];
+            inTensors.emplace_back(Ort::Value::CreateTensor<float>(memCpu, const_cast<float *>(inputs[i]), count, inDims[i].data(), 4));
+        }
+        for (size_t i = 0; i < I.outNames.size(); i++) {
+            outDims[i] = { 1, I.outCs[i], I.outHs[i], I.outWs[i] };
+            const size_t count = (size_t)I.outCs[i] * I.outHs[i] * I.outWs[i];
+            outTensors.emplace_back(Ort::Value::CreateTensor<float>(memCpu, outputs[i], count, outDims[i].data(), 4));
+        }
+        std::vector<const char *> inNames, outNames;
+        for (const auto &n : I.inNames) inNames.push_back(n.c_str());
+        for (const auto &n : I.outNames) outNames.push_back(n.c_str());
+        I.session->Run(Ort::RunOptions{ nullptr }, inNames.data(), inTensors.data(), inTensors.size(), outNames.data(), outTensors.data(), outTensors.size());
     } catch (const Ort::Exception &e) {
         m_impl->lastError = char_to_tstring(e.what());
         return RGY_ERR_UNKNOWN;
@@ -546,6 +604,10 @@ RGY_ERR RGYOnnxRTCUDA::inferDevice(const float *inDevice, float *outDevice) {
 bool RGYOnnxRTCUDA::deviceIOAvailable() const { return m_impl->deviceIO; }
 
 int RGYOnnxRTCUDA::inChannels()  const { return m_impl->inC; }
+int RGYOnnxRTCUDA::inputCount() const { return (int)m_impl->inNames.size(); }
+int RGYOnnxRTCUDA::inputChannels(int index) const { return (index >= 0 && index < (int)m_impl->inCs.size()) ? m_impl->inCs[index] : 0; }
+int RGYOnnxRTCUDA::inputHeight(int index) const { return (index >= 0 && index < (int)m_impl->inHs.size()) ? m_impl->inHs[index] : 0; }
+int RGYOnnxRTCUDA::inputWidth(int index) const { return (index >= 0 && index < (int)m_impl->inWs.size()) ? m_impl->inWs[index] : 0; }
 int RGYOnnxRTCUDA::inHeight()    const { return m_impl->inH; }
 int RGYOnnxRTCUDA::inWidth()     const { return m_impl->inW; }
 int RGYOnnxRTCUDA::outChannels() const { return m_impl->outC; }

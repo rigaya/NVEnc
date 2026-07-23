@@ -29,6 +29,7 @@
 #include "rgy_aspect_ratio.h"  // set_auto_resolution() for out_res= negative auto-aspect
 #include "rgy_filesystem.h"
 #include "rgy_model_registry.h"
+#include "rgy_avutil.h"
 #include <cmath>
 #include <cstring>
 #include <algorithm>
@@ -45,7 +46,9 @@ NVEncFilterOnnx::NVEncFilterOnnx() :
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
     m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444(),
-    m_temporalT(1), m_ring(), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0) {
+    m_temporalT(1), m_ring(), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
+    m_maskModelW(0), m_maskModelH(0), m_imgPortIdx(0), m_mskPortIdx(1), m_maskOutScale(0.0f),
+    m_maskFrame(), m_maskModel(), m_frameRGB(), m_modelIn(), m_modelOut(), m_maskMode(false) {
     m_name = _T("onnx");
 }
 
@@ -175,6 +178,101 @@ static void copy_plane_u8(uint8_t *dst, const int dstPitch, const int dstStride,
     }
 }
 } // namespace
+
+// マスク画像を1フレームだけ読み込み、0..1の輝度配列に変換する。
+#if ENABLE_AVSW_READER
+static RGY_ERR loadMaskGray(const tstring &path, std::vector<float> &gray, int &width, int &height, tstring &message) {
+    const auto pathA = tchar_to_string(path, CP_UTF8);
+    AVFormatContext *fmt = nullptr;
+    if (avformat_open_input(&fmt, pathA.c_str(), nullptr, nullptr) != 0) {
+        message = _T("マスク画像を開けません");
+        return RGY_ERR_FILE_OPEN;
+    }
+    AVCodecContext *dec = nullptr;
+    AVFrame *frame = av_frame_alloc();
+    AVPacket *pkt = av_packet_alloc();
+    RGY_ERR ret = RGY_ERR_INVALID_DATA_TYPE;
+    do {
+        if (avformat_find_stream_info(fmt, nullptr) < 0) break;
+        int stream = -1;
+        for (unsigned int i = 0; i < fmt->nb_streams; i++) {
+            if (fmt->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) { stream = (int)i; break; }
+        }
+        if (stream < 0) break;
+        const AVCodec *codec = avcodec_find_decoder(fmt->streams[stream]->codecpar->codec_id);
+        if (!codec) break;
+        dec = avcodec_alloc_context3(codec);
+        if (!dec || avcodec_parameters_to_context(dec, fmt->streams[stream]->codecpar) < 0 || avcodec_open2(dec, codec, nullptr) < 0) break;
+        bool got = false;
+        while (!got && av_read_frame(fmt, pkt) >= 0) {
+            if (pkt->stream_index == stream && avcodec_send_packet(dec, pkt) == 0 && avcodec_receive_frame(dec, frame) == 0) got = true;
+            av_packet_unref(pkt);
+        }
+        if (!got) { avcodec_send_packet(dec, nullptr); got = (avcodec_receive_frame(dec, frame) == 0); }
+        if (!got) break;
+        width = frame->width; height = frame->height;
+        gray.resize((size_t)width * height);
+        const auto fmtpix = (AVPixelFormat)frame->format;
+        int bpp = 0, coff = 0;
+        if (fmtpix == AV_PIX_FMT_RGB24 || fmtpix == AV_PIX_FMT_BGR24) bpp = 3;
+        else if (fmtpix == AV_PIX_FMT_RGBA || fmtpix == AV_PIX_FMT_BGRA) bpp = 4;
+        else if (fmtpix == AV_PIX_FMT_ARGB || fmtpix == AV_PIX_FMT_ABGR) { bpp = 4; coff = 1; }
+        if (bpp > 0) {
+            for (int y = 0; y < height; y++) {
+                const uint8_t *src = frame->data[0] + (size_t)y * frame->linesize[0];
+                for (int x = 0; x < width; x++) {
+                    const uint8_t *px = src + (size_t)x * bpp + coff;
+                    gray[(size_t)y * width + x] = (px[0] + px[1] + px[2]) / (3.0f * 255.0f);
+                }
+            }
+            ret = RGY_ERR_NONE;
+        } else if (fmtpix == AV_PIX_FMT_GRAY8 || fmtpix == AV_PIX_FMT_YUV420P || fmtpix == AV_PIX_FMT_YUVJ420P || fmtpix == AV_PIX_FMT_NV12) {
+            for (int y = 0; y < height; y++) {
+                const uint8_t *src = frame->data[0] + (size_t)y * frame->linesize[0];
+                for (int x = 0; x < width; x++) gray[(size_t)y * width + x] = src[x] / 255.0f;
+            }
+            ret = RGY_ERR_NONE;
+        } else {
+            message = _T("対応していないマスク画像形式です");
+        }
+    } while (false);
+    av_packet_free(&pkt); av_frame_free(&frame);
+    if (dec) avcodec_free_context(&dec);
+    avformat_close_input(&fmt);
+    return ret;
+}
+#else
+static RGY_ERR loadMaskGray(const tstring &, std::vector<float> &, int &, int &, tstring &message) {
+    message = _T("このビルドではマスク画像の読み込みに対応していません");
+    return RGY_ERR_UNSUPPORTED;
+}
+#endif
+
+static void resizeMaskPlane(const float *src, int sw, int sh, float *dst, int dw, int dh) {
+    for (int y = 0; y < dh; y++) {
+        const float fy = (dh > 1) ? ((y + 0.5f) * sh / dh - 0.5f) : 0.0f;
+        int y0 = (int)std::floor(fy); const float wy = fy - y0;
+        const int y1 = std::min(y0 + 1, sh - 1); y0 = std::max(y0, 0);
+        for (int x = 0; x < dw; x++) {
+            const float fx = (dw > 1) ? ((x + 0.5f) * sw / dw - 0.5f) : 0.0f;
+            int x0 = (int)std::floor(fx); const float wx = fx - x0;
+            const int x1 = std::min(x0 + 1, sw - 1); x0 = std::max(x0, 0);
+            const float a = src[(size_t)y0 * sw + x0] * (1.0f - wx) + src[(size_t)y0 * sw + x1] * wx;
+            const float b = src[(size_t)y1 * sw + x0] * (1.0f - wx) + src[(size_t)y1 * sw + x1] * wx;
+            dst[(size_t)y * dw + x] = a * (1.0f - wy) + b * wy;
+        }
+    }
+}
+
+static inline float sampleMaskPlane(const float *src, int sw, int sh, float fx, float fy) {
+    int x0 = (int)std::floor(fx), y0 = (int)std::floor(fy);
+    const float wx = fx - x0, wy = fy - y0;
+    const int x1 = std::min(x0 + 1, sw - 1), y1 = std::min(y0 + 1, sh - 1);
+    x0 = std::max(x0, 0); y0 = std::max(y0, 0);
+    const float a = src[(size_t)y0 * sw + x0] * (1.0f - wx) + src[(size_t)y0 * sw + x1] * wx;
+    const float b = src[(size_t)y1 * sw + x0] * (1.0f - wx) + src[(size_t)y1 * sw + x1] * wx;
+    return a * (1.0f - wy) + b * wy;
+}
 
 void NVEncFilterOnnx::setupColorCoeffs(int matrixSelIn, int matrixSelOut, bool rangeTV, int pixMax) {
     float Kr = 0.2126f, Kb = 0.0722f;        // BT.709 default
@@ -310,6 +408,13 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     // Infer the I/O convention from the compiled model's channel counts.
     m_inC  = m_ov->inChannels();
     m_outC = m_ov->outChannels();
+    if (!prm->onnx.maskFile.empty()) {
+        if (prm->onnx.frames > 1) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: mask=とframes=は同時に指定できません。\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        return initMask(prm, inW, inH, inCsp);
+    }
     m_temporalT = std::max(1, prm->onnx.frames);
     if (m_temporalT > 1) {
         if (m_inC != m_temporalT * 3 || m_outC != 3) {
@@ -454,6 +559,9 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
 }
 
 RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+    if (m_maskMode) {
+        return runMask(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
+    }
     if (m_temporalT > 1) {
         return runTemporal(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
     }
@@ -558,6 +666,127 @@ RGY_ERR NVEncFilterOnnx::runTemporal(const RGYFrameInfo *pInputFrame, RGYFrameIn
         return emitTemporalOutput(m_emitCount++, ppOutputFrames, pOutputFrameNum, stream);
     }
     *pOutputFrameNum = 0;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterOnnx::initMask(const std::shared_ptr<NVEncFilterParamOnnx> &prm, int inW, int inH, RGY_CSP inCsp) {
+    if (prm->onnx.postResizeW != 0 || prm->onnx.postResizeH != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: mask=とout_res=は同時に指定できません。\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (m_ov->inputCount() != 2 || m_ov->outChannels() != 3) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: mask=には2入力（画像+マスク）と3ch出力のモデルが必要です。\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (m_ov->inputChannels(0) == 3 && m_ov->inputChannels(1) == 1) {
+        m_imgPortIdx = 0; m_mskPortIdx = 1;
+    } else if (m_ov->inputChannels(0) == 1 && m_ov->inputChannels(1) == 3) {
+        m_imgPortIdx = 1; m_mskPortIdx = 0;
+    } else {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: mask=には3ch画像入力と1chマスク入力が必要です。\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    m_maskModelW = m_ov->inputWidth(m_imgPortIdx);
+    m_maskModelH = m_ov->inputHeight(m_imgPortIdx);
+    if (m_maskModelW <= 0 || m_maskModelH <= 0
+        || m_ov->inputWidth(m_mskPortIdx) != m_maskModelW || m_ov->inputHeight(m_mskPortIdx) != m_maskModelH
+        || m_ov->inputWidth(0) <= 0 || m_ov->outWidth() != m_maskModelW || m_ov->outHeight() != m_maskModelH) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: mask=の入力・出力サイズが一致していません。\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (!rgy_file_exists(prm->onnx.maskFile)) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: maskファイルが見つかりません: %s\n"), prm->onnx.maskFile.c_str());
+        return RGY_ERR_FILE_OPEN;
+    }
+    std::vector<float> native;
+    int maskW = 0, maskH = 0;
+    tstring errMessage;
+    auto err = loadMaskGray(prm->onnx.maskFile, native, maskW, maskH, errMessage);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: mask画像の読み込みに失敗しました: %s\n"), errMessage.c_str());
+        return err;
+    }
+    m_maskFrame.resize((size_t)inW * inH);
+    m_maskModel.resize((size_t)m_maskModelW * m_maskModelH);
+    resizeMaskPlane(native.data(), maskW, maskH, m_maskFrame.data(), inW, inH);
+    resizeMaskPlane(native.data(), maskW, maskH, m_maskModel.data(), m_maskModelW, m_maskModelH);
+    for (auto &v : m_maskFrame) v = (v >= 0.5f) ? 1.0f : 0.0f;
+    for (auto &v : m_maskModel) v = (v >= 0.5f) ? 1.0f : 0.0f;
+
+    m_maskMode = true;
+    m_io = OnnxIO::RGB;
+    m_ycbcr = false;
+    m_scale = 1;
+    m_maxval = 255.0f;
+    m_frameRGB.resize((size_t)3 * inW * inH);
+    m_modelIn.resize((size_t)3 * m_maskModelW * m_maskModelH);
+    m_modelOut.resize((size_t)3 * m_maskModelW * m_maskModelH);
+    m_outBuf.resize((size_t)3 * inW * inH);
+    m_u444.resize((size_t)inW * inH);
+    m_v444.resize((size_t)inW * inH);
+    int matrixSel = 0, matrixSelOut = 0;
+    onnx_matrix_to_coeff_id(prm->onnx.colormatrix, inH, matrixSel);
+    if (prm->onnx.colormatrixOut == RGY_MATRIX_AUTO) matrixSelOut = matrixSel;
+    else onnx_matrix_to_coeff_id(prm->onnx.colormatrixOut, inH, matrixSelOut);
+    setupColorCoeffs(matrixSel, matrixSelOut, prm->onnx.colorrange != RGY_COLORRANGE_FULL, 255);
+
+    auto frameOut = prm->frameOut;
+    frameOut.csp = inCsp; frameOut.width = inW; frameOut.height = inH;
+    prm->frameOut = frameOut;
+    err = AllocFrameBuf(prm->frameOut, 1);
+    if (err != RGY_ERR_NONE) return err;
+    for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
+    m_inStaging = std::make_unique<CUFrameBuf>();
+    m_outStaging = std::make_unique<CUFrameBuf>();
+    if (m_inStaging->allocHost(inW, inH, inCsp) != RGY_ERR_NONE || m_outStaging->allocHost(inW, inH, inCsp) != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: mask stagingバッファの確保に失敗しました。\n"));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    setFilterInfo(strsprintf(_T("onnx: %s %dx%d io=rgb+mask (model %dx%d) backend=%s"),
+        PathGetFilename(prm->onnx.modelFile).c_str(), inW, inH, m_maskModelW, m_maskModelH, m_ov->providerName().c_str()));
+    m_param = prm;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterOnnx::runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+    if (pInputFrame->ptr[0] == nullptr) { *pOutputFrameNum = 0; return RGY_ERR_NONE; }
+    const size_t frameSize = (size_t)pInputFrame->width * pInputFrame->height;
+    const size_t modelSize = (size_t)m_maskModelW * m_maskModelH;
+    auto err = copyFrameAsync(&m_inStaging->frame, pInputFrame, stream);
+    if (err != RGY_ERR_NONE) return err;
+    err = err_to_rgy(cudaStreamSynchronize(stream));
+    if (err != RGY_ERR_NONE) return err;
+    packFrameRGB(m_inStaging->frame, m_frameRGB.data());
+    for (int c = 0; c < 3; c++) {
+        resizeMaskPlane(m_frameRGB.data() + c * frameSize, pInputFrame->width, pInputFrame->height,
+            m_modelIn.data() + c * modelSize, m_maskModelW, m_maskModelH);
+    }
+    std::vector<const float *> inputs(2);
+    inputs[m_imgPortIdx] = m_modelIn.data(); inputs[m_mskPortIdx] = m_maskModel.data();
+    std::vector<float *> outputs = { m_modelOut.data() };
+    err = m_ov->inferMulti(inputs, outputs);
+    if (err != RGY_ERR_NONE) return err;
+    if (m_maskOutScale == 0.0f) {
+        float maxv = 0.0f; for (const auto v : m_modelOut) maxv = std::max(maxv, v);
+        m_maskOutScale = (maxv > 2.0f) ? (1.0f / 255.0f) : 1.0f;
+    }
+    for (int c = 0; c < 3; c++) {
+        const float *src = m_modelOut.data() + c * modelSize;
+        const float *base = m_frameRGB.data() + c * frameSize;
+        float *dst = m_outBuf.data() + c * frameSize;
+        for (int y = 0; y < pInputFrame->height; y++) for (int x = 0; x < pInputFrame->width; x++) {
+            const size_t pos = (size_t)y * pInputFrame->width + x;
+            const float fx = ((x + 0.5f) * m_maskModelW) / pInputFrame->width - 0.5f;
+            const float fy = ((y + 0.5f) * m_maskModelH) / pInputFrame->height - 0.5f;
+            dst[pos] = m_maskFrame[pos] > 0.5f ? clampf(sampleMaskPlane(src, m_maskModelW, m_maskModelH, fx, fy) * m_maskOutScale, 0.0f, 1.0f) : base[pos];
+        }
+    }
+    writeOutputHost(m_outStaging->frame, m_inStaging->frame);
+    auto coreFrame = &m_frameBuf[0]->frame;
+    err = copyFrameAsync(coreFrame, &m_outStaging->frame, stream);
+    if (err != RGY_ERR_NONE) return err;
+    copyFramePropWithoutRes(coreFrame, pInputFrame);
+    ppOutputFrames[0] = coreFrame; *pOutputFrameNum = 1;
     return RGY_ERR_NONE;
 }
 
@@ -806,5 +1035,13 @@ void NVEncFilterOnnx::close() {
     m_recvCount = 0;
     m_emitCount = 0;
     m_temporalT = 1;
+    m_maskModelW = m_maskModelH = 0;
+    m_maskOutScale = 0.0f;
+    m_maskFrame.clear();
+    m_maskModel.clear();
+    m_frameRGB.clear();
+    m_modelIn.clear();
+    m_modelOut.clear();
+    m_maskMode = false;
     m_frameBuf.clear();
 }

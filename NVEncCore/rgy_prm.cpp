@@ -2060,6 +2060,7 @@ VppOnnx::VppOnnx() :
     colorspace(_T("rgb")),
     noise(15),
     frames(1),
+    maskFile(),
     postResizeW(0),
     postResizeH(0),
     postResizeAlgo(RGY_VPP_RESIZE_AUTO) {
@@ -2080,6 +2081,7 @@ bool VppOnnx::operator==(const VppOnnx &x) const {
         && colorspace == x.colorspace
         && noise == x.noise
         && frames == x.frames
+        && maskFile == x.maskFile
         && postResizeW == x.postResizeW
         && postResizeH == x.postResizeH
         && postResizeAlgo == x.postResizeAlgo;
@@ -2113,6 +2115,9 @@ tstring VppOnnx::print() const {
     s += strsprintf(_T(",noise=%d"), noise);
     if (frames > 1) {
         s += strsprintf(_T(",frames=%d"), frames);
+    }
+    if (!maskFile.empty()) {
+        s += strsprintf(_T(",mask=%s"), maskFile.c_str());
     }
     if (postResizeW != 0 && postResizeH != 0) {
         s += strsprintf(_T(",out_res=%dx%d"), postResizeW, postResizeH);

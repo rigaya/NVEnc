@@ -96,6 +96,8 @@ protected:
     void packFrameRGB(const RGYFrameInfo &hin, float *dst);
     RGY_ERR runTemporal(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
     RGY_ERR emitTemporalOutput(int64_t outIdx, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
+    RGY_ERR initMask(const std::shared_ptr<NVEncFilterParamOnnx> &prm, int inW, int inH, RGY_CSP inCsp);
+    RGY_ERR runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
 
     std::unique_ptr<RGYOnnxRTCUDA> m_ov;
     OnnxIO m_io;                          // I/O convention inferred from channel counts
@@ -130,6 +132,12 @@ protected:
     int64_t m_ringBaseIdx;
     int64_t m_recvCount;
     int64_t m_emitCount;
+
+    int m_maskModelW, m_maskModelH;
+    int m_imgPortIdx, m_mskPortIdx;
+    float m_maskOutScale;
+    std::vector<float> m_maskFrame, m_maskModel, m_frameRGB, m_modelIn, m_modelOut;
+    bool m_maskMode;
 
     // opt-in end-of-chain resize (out_res=): runs after the network core, fitting
     // the integer-scaled output to the requested final resolution. null when out_res=
