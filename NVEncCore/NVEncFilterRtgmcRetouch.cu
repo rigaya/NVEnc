@@ -1993,6 +1993,7 @@ RGY_ERR NVEncFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const 
                 }
             }
             const RGYFrameInfo *blurInput = pInputFrame;
+            RGYFrameInfo *blurOutput = work1;
             if (prm.rtgmc_retouch.smode == 2) {
                 blurInput = work0;
                 if (prm.rtgmc_retouch.precise) {
@@ -2007,19 +2008,20 @@ RGY_ERR NVEncFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const 
                         }
                     }
                     blurInput = work1;
+                    blurOutput = work0; // 3x3 RemoveGrainは入出力に同じbufferを使用できない
                 }
             }
-            err = launchRemoveGrain(work1, blurInput, iplane, smoothingMode);
+            err = launchRemoveGrain(blurOutput, blurInput, iplane, smoothingMode);
             if (err != RGY_ERR_NONE) {
                 return err;
             }
             if (iplane == 0) {
-                err = dumpStageFrame("detail_boost_blur_ref", work1, "retouch", stream, {});
+                err = dumpStageFrame("detail_boost_blur_ref", blurOutput, "retouch", stream, {});
                 if (err != RGY_ERR_NONE) {
                     return err;
                 }
             }
-            err = launchDetailBoost(curDst, pInputFrame, work1, iplane, prm.rtgmc_retouch.smode == 2 ? std::vector<RGYCudaEvent>() : waitHere);
+            err = launchDetailBoost(curDst, pInputFrame, blurOutput, iplane, prm.rtgmc_retouch.smode == 2 ? std::vector<RGYCudaEvent>() : waitHere);
             if (err != RGY_ERR_NONE) {
                 return err;
             }
