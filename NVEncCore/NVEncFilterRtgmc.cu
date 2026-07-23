@@ -81,6 +81,12 @@ static int rtgmcNestedAnalyzeDelta(const VppRtgmc &rtgmc) {
     return std::max({ 1, std::min(rtgmc.analyze.delta, RGY_DEGRAIN_MAX_DELTA), std::min(rtgmc.tr1.delta, RGY_DEGRAIN_MAX_DELTA), std::min(rtgmc.tr2.delta, RGY_DEGRAIN_MAX_DELTA) });
 }
 
+static bool rtgmcDegrainOverlapSupported(const VppDegrain &degrain) {
+    return degrain.overlap == 0
+        || degrain.overlap == degrain.blksize / 4
+        || degrain.overlap == degrain.blksize / 2;
+}
+
 static bool rtgmcInputTypeBlendEnabled(const VppRtgmc &rtgmc) {
     return (rtgmc.inputType == 2 || rtgmc.inputType == 3) && rtgmc.progSADMask > 0.0f;
 }
@@ -511,7 +517,7 @@ RGY_ERR NVEncFilterRtgmc::initRetouchCompFilters(const std::shared_ptr<NVEncFilt
         param->baseFps = baseFps;
         param->bOutOverwrite = false;
         param->degrain = prm->rtgmc.tr1;
-        if (param->degrain.overlap != 0 && param->degrain.overlap * 2 != param->degrain.blksize && param->degrain.overlap * 4 != param->degrain.blksize) {
+        if (!rtgmcDegrainOverlapSupported(param->degrain)) {
             AddMessage(RGY_LOG_WARN,
                 _T("retouch helper overlap=%d is adjusted to %d because the current Degrain backend supports overlap=0, blksize/4 or blksize/2.\n"),
                 param->degrain.overlap, param->degrain.blksize / 2);
@@ -606,7 +612,7 @@ RGY_ERR NVEncFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr
             auto param = std::make_shared<NVEncFilterParamDegrain>();
             param->degrain = (stageIdx == 0) ? prm->rtgmc.tr1 : prm->rtgmc.tr2;
             param->degrain.chroma = processSourceMatchChroma;
-            if (param->degrain.overlap != 0 && param->degrain.overlap * 2 != param->degrain.blksize && param->degrain.overlap * 4 != param->degrain.blksize) {
+            if (!rtgmcDegrainOverlapSupported(param->degrain)) {
                 AddMessage(RGY_LOG_WARN,
                     _T("source-match correction overlap=%d is adjusted to %d because the current Degrain backend supports overlap=0, blksize/4 or blksize/2.\n"),
                     param->degrain.overlap, param->degrain.blksize / 2);
@@ -1431,7 +1437,7 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
         return RGY_ERR_NONE;
     };
     auto rtgDegrainRuntimeParam = [&](VppDegrain degrain, const TCHAR *stage) {
-        if (degrain.overlap != 0 && degrain.overlap * 2 != degrain.blksize && degrain.overlap * 4 != degrain.blksize) {
+        if (!rtgmcDegrainOverlapSupported(degrain)) {
             AddMessage(RGY_LOG_WARN,
                 _T("%s overlap=%d is adjusted to %d because the current Degrain backend supports overlap=0, blksize/4 or blksize/2.\n"),
                 stage, degrain.overlap, degrain.blksize / 2);
