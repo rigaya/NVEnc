@@ -686,8 +686,9 @@ RGY_ERR NVEncFilterDegrain::checkParam(const std::shared_ptr<NVEncFilterParamDeg
         AddMessage(RGY_LOG_ERROR, _T("degrain overlap must satisfy 0 <= overlap < blksize.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if (prm->degrain.overlap != 0 && prm->degrain.overlap != prm->degrain.blksize / 2) {
-        AddMessage(RGY_LOG_ERROR, _T("degrain Step2a currently supports only overlap=0 or overlap=blksize/2.\n"));
+    if (prm->degrain.overlap != 0 && prm->degrain.overlap != prm->degrain.blksize / 2
+        && prm->degrain.overlap != prm->degrain.blksize / 4) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain Step2a currently supports only overlap=0, blksize/4 or blksize/2.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     if (prm->degrain.delta < 1 || prm->degrain.delta > 5) {
