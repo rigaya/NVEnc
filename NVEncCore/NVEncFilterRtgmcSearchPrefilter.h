@@ -286,8 +286,6 @@ protected:
     std::deque<PendingSearchPrefilterFrame> m_pendingSearchPrefilterFrames;
     std::array<SearchRefine1PlaneResources, 2> m_searchRefine1PlaneResources;
     std::array<SearchRefine2PlaneResources, 2> m_searchRefine2PlaneResources;
-    std::array<std::unique_ptr<NVEncFilterResizePlaneProxy>, 2> m_searchRefine1ResizeDown;
-    std::array<std::unique_ptr<NVEncFilterResizePlaneProxy>, 2> m_searchRefine1ResizeUp;
     std::array<std::unique_ptr<NVEncFilterResizePlaneProxy>, 2> m_searchRefine2ResizeEdgeSoftenedSearch;
     std::shared_ptr<SharedFramePool> m_cacheFramePool;
     std::shared_ptr<SharedFramePool> m_searchLumaPool;
