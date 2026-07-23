@@ -6,11 +6,12 @@ RGY_ERR launchNVEncDegrainMotionSearchSearchParallelU8Blk32(
     const RGYDegrainBlockLayout &layout, const int pel, const int subpelInterp,
     const int pad, const int motionCostScale, const int lowSadWeightScale,
     const int zeroCandidateCostScale, const int frameAverageCandidateCostScale,
-    const int newCandidateCostScale, const int level, cudaStream_t stream) {
+    const int newCandidateCostScale, const int searchMode, const int searchParam,
+    const int level, cudaStream_t stream) {
     return launchNVEncDegrainMotionSearchSearchParallelBlock<uint8_t, 32>(
         sourcePlane, referencePlane, vectors, pitch, width, height, planeBase, blockCount, layout,
         pel, subpelInterp, pad, motionCostScale, lowSadWeightScale, zeroCandidateCostScale,
-        frameAverageCandidateCostScale, newCandidateCostScale, level, stream);
+        frameAverageCandidateCostScale, newCandidateCostScale, searchMode, searchParam, level, stream);
 }
 
 RGY_ERR launchNVEncDegrainMotionSearchSpatialRefineU8Blk32(

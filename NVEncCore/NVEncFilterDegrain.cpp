@@ -71,7 +71,8 @@ RGY_ERR launchNVEncDegrainMotionSearchSearchParallel(
     const RGYDegrainBlockLayout &layout, int pixelBytes, int pel, int subpelInterp,
     int pad, int motionCostScale, int lowSadWeightScale,
     int zeroCandidateCostScale, int frameAverageCandidateCostScale,
-    int newCandidateCostScale, int level, cudaStream_t stream);
+    int newCandidateCostScale, int searchMode, int searchParam,
+    int level, cudaStream_t stream);
 RGY_ERR launchNVEncDegrainMotionSearchSpatialRefine(
     const uint8_t *sourcePlane, const uint8_t *referencePlane,
     CUMemBuf &vectors, const CUMemBuf &vectorsPrev, CUMemBuf &vectorsFinal,
@@ -2836,6 +2837,8 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo 
                 motionSearchConfigLevel1.zeroCandidateCostScale,
                 motionSearchConfigLevel1.frameAverageCandidateCostScale,
                 motionSearchConfigLevel1.newCandidateCostScale,
+                motionSearchConfigLevel1.searchMode,
+                motionSearchConfigLevel1.searchParam,
                 motionSearchConfigLevel1.level,
                 stream);
         }
@@ -2997,6 +3000,8 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo 
                 motionSearchConfig.zeroCandidateCostScale,
                 motionSearchConfig.frameAverageCandidateCostScale,
                 motionSearchConfig.newCandidateCostScale,
+                motionSearchConfig.searchMode,
+                motionSearchConfig.searchParam,
                 motionSearchConfig.level,
                 stream);
         }
