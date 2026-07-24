@@ -32,6 +32,8 @@
 #include "rgy_filesystem.h"
 #include "rgy_util.h"
 
+#include <filesystem>
+
 #if defined(_WIN32) || defined(_WIN64)
 const TCHAR *RGY_ONNXRUNTIME_DLL_NAME = _T("onnxruntime.dll");
 #else
@@ -57,7 +59,13 @@ bool RGYOnnxRuntimeLoader::load() {
     }
     m_errMessage.clear();
 
-    if ((m_hModule = RGY_LOAD_LIBRARY(RGY_ONNXRUNTIME_DLL_NAME)) == nullptr) {
+#if defined(_WIN32) || defined(_WIN64)
+    const auto runtimePath = PathCombineS(std::filesystem::path(getExePath()).remove_filename().wstring(), RGY_ONNXRUNTIME_DLL_NAME);
+    m_hModule = RGY_LOAD_LIBRARY(runtimePath.c_str());
+#else
+    m_hModule = RGY_LOAD_LIBRARY(RGY_ONNXRUNTIME_DLL_NAME);
+#endif
+    if (m_hModule == nullptr) {
 #if defined(_WIN32) || defined(_WIN64)
         const auto errorCode = GetLastError();
         m_errMessage = strsprintf(_T("could not load %s (Win32 error %u). ")
