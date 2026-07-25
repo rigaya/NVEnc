@@ -1047,7 +1047,9 @@ __device__ __forceinline__ int rtgmc_search_prefilter_to_full_range(const int va
     if (planeMode == 1) {
         const int minY = RTGMC_SEARCH_PREFILTER_LIMITED_Y_MIN_8 * scale;
         const int rangeY = RTGMC_SEARCH_PREFILTER_LIMITED_Y_RANGE_8 * scale;
-        return ((value - minY) * pixelMax + (rangeY >> 1)) / rangeY;
+        const float lumaScale = (float)pixelMax / (float)rangeY;
+        const float lumaOffset = -(float)minY * lumaScale;
+        return rtgmc_search_prefilter_clamp_int(__float2int_rn(fmaf((float)value, lumaScale, lumaOffset)), 0, pixelMax);
     }
     if (planeMode == 2) {
         const float rangeHalfF = (float)((pixelMax + 1) >> 1);
