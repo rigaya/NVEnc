@@ -214,6 +214,17 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2026.07.25 (9.26)
+- --vpp-lenscorrectionと--vpp-v360を追加。
+- --vpp-onnxにマスク入力とマルチフレーム(時系列)対応を追加。
+- --vpp-libplacebo-shaderにcustom指定を追加。
+- --vpp-onnxのfp16指定がTensorRTでfp32になる問題を修正。
+- --vpp-kfm/--vpp-degrainを高速化。
+- --vpp-rtgmcの精度・動作を修正し、高速化。
+- --vpp-rtgmcの10bitでのオーバーフローを修正。
+- --vship-ssimulacra2の統計情報をログに追加。
+- TensorRTキャッシュを実行環境・入力条件ごとに分離。
+
 2026.07.18 (9.25)
 - Windowsの名前付きパイプに対応。 ( #785 )
 - --vpp-kfmの精度を改善。

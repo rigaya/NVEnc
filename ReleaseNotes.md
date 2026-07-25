@@ -1,5 +1,17 @@
 # NVEnc Release Notes
 
+## 9.26
+
+- Add [--vpp-lenscorrection](./NVEncC_Options.en.md#--vpp-lenscorrection-param1value1param2value2) and [--vpp-v360](./NVEncC_Options.en.md#--vpp-v360-param1value1param2value2).
+- Add mask input and multi-frame (temporal) support to [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
+- Add custom parameter support to [--vpp-libplacebo-shader](./NVEncC_Options.en.md#--vpp-libplacebo-shader-param1value1param2value2).
+- Fix [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) fp16 being treated as fp32 with TensorRT.
+- Speed up [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) / [--vpp-degrain](./NVEncC_Options.en.md#--vpp-degrain-param1value1).
+- Fix and speed up [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Fix 10-bit overflow in [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Add statistics to [--vship-ssimulacra2](./NVEncC_Options.en.md#--vship-ssimulacra2) log output.
+- Separate TensorRT caches by runtime environment and input conditions.
+
 ## 9.25
 
 - Add Windows named pipe support. ( #785 )
