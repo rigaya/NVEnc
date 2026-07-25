@@ -3213,8 +3213,10 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
 - **パラメータ**
     - shader=&lt;string&gt;  
       対象のshaderファイルのパス。(glslファイル)
+    - &lt;name&gt;=&lt;value&gt;
+      シェーダーを解析する前に、シェーダー内の `#define &lt;name&gt; ...` の値を置換します。シェーダーソースに対するコンパイル時パラメータで、複数指定できます。`custom=` で指定するパラメータとは別のものです。
     - custom=&lt;name&gt;=&lt;value&gt;
-      シェーダー内の `//!PARAM` で宣言された実行時パラメータを設定します。複数指定できます。
+      シェーダー内の `//!PARAM` で宣言された実行時パラメータを設定します。libplaceboによって型と範囲が検証されます。複数指定できます。
     - res=&lt;int&gt;x&lt;int&gt;  
       フィルタの出力解像度。
     - csp=&lt;string&gt;  
@@ -3284,6 +3286,9 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
 
     例: シェーダーの //!PARAM を設定。
     --vpp-libplacebo-shader shader=example.glsl,custom=GAIN=1.5
+
+    例: シェーダーの #define を設定。
+    --vpp-libplacebo-shader shader=example.glsl,GAIN=1.5
     ```
   
 ### --vpp-resize &lt;string&gt; or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
