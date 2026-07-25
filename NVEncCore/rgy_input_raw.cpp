@@ -145,8 +145,8 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_chunkPipeHandle = reinterpret_cast<const RGYInputPrmRaw *>(prm)->chunkPipeHandle;
 
     const bool isStdin = _tcscmp(strFileName, _T("-")) == 0;
-    // Treat Windows named pipes as non-seekable pipes (same as stdin).
-    // Opening still goes through _tfopen_s below — do not map them to stdin.
+    // Windows 名前付きパイプは標準入力と同様に seek 不可のパイプとして扱う。
+    // 開く処理は _tfopen_s を通すため、標準入力へは割り当てない。
     m_isPipe = isStdin || rgy_path_is_windows_named_pipe(strFileName);
     // 並列エンコード時
     // 親 -> 普通に標準入力を開いてヘッダ取得(m_chunkPipeHandleはセットされていない)

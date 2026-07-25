@@ -142,6 +142,8 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_ssim_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_smooth_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_subburn_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_transform_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_lenscorrection_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_v360_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_tweak_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_unsharp_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_chromashift_cl);
@@ -268,6 +270,8 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_SMOOTH_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_smooth_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_SUBBURN_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_subburn_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_TRANSFORM_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_transform_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_LENSCORRECTION_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_lenscorrection_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_V360_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_v360_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_TWEAK_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_tweak_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_UNSHARP_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_unsharp_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_CHROMASHIFT_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_chromashift_cl) },

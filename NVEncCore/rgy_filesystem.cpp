@@ -522,8 +522,8 @@ bool rgy_path_is_windows_named_pipe(const tstring& path) {
 }
 
 bool rgy_path_is_same(const TCHAR *path1, const TCHAR *path2) {
-    // Avoid std::filesystem::equivalent on stdin / Windows named pipes:
-    // probing a waiting named pipe connects as a client and steals the instance.
+    // 標準入力や Windows 名前付きパイプに std::filesystem::equivalent を使わない。
+    // 待機中のパイプへ接続してインスタンスを消費する可能性があるため。
     if (path1 == nullptr || path2 == nullptr) {
         return false;
     }

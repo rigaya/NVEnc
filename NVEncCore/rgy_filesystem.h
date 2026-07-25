@@ -94,9 +94,9 @@ bool check_ext(const wchar_t *filename, const wchar_t *ext);
 std::string rgy_get_extension(const std::string& filename);
 std::wstring rgy_get_extension(const std::wstring& filename);
 
-// Windows named pipe path ("\\.\pipe\...") — must not be probed via
- // GetFileAttributes / std::filesystem::equivalent, which connect as a client
- // and consume the single waiting pipe instance.
+// Windows 名前付きパイプのパス（"\\.\pipe\..."）は、待機中の
+// パイプへクライアントとして接続してインスタンスを消費するため、
+// GetFileAttributes / std::filesystem::equivalent で調査してはならない。
 bool rgy_path_is_windows_named_pipe(const TCHAR *path);
 bool rgy_path_is_windows_named_pipe(const tstring& path);
 
