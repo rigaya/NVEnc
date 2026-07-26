@@ -1605,6 +1605,8 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     }
     if (prm->kfm.mode == VppKfmMode::VFR) {
         prm->baseFps *= 2;
+    } else if (prm->kfm.mode == VppKfmMode::P24) {
+        prm->baseFps *= rgy_rational<int>(4, 5);
     }
 
     m_sourceCache.clear();
@@ -1688,6 +1690,19 @@ int NVEncFilterKfm::sourceCacheTrimFloor() const {
             }
         }
         trimFloor = std::max(0, (m_nextSwitchN60 >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND - lazyLookbehind);
+    } else if (prm->kfm.mode == VppKfmMode::P24) {
+        if (!m_analyzer || m_nextTelecine24Frame <= 0 || m_analyzerOutputResults.empty()) {
+            return 0;
+        }
+        const int frame24Index = m_nextTelecine24Frame - 1;
+        try {
+            const auto& result = m_analyzerOutputResults[clamp(frame24Index / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
+            const auto info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
+            const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
+            trimFloor = std::max(0, ((firstField & ~1) >> 1) - 2);
+        } catch (...) {
+            return 0;
+        }
     } else if (prm->kfm.mode == VppKfmMode::P60) {
         int lookbehind = KFM_VFR_SOURCE_TRIM_LOOKBEHIND;
         if (prm->kfm.ucf && (m_before60Rtgmc || m_after60Rtgmc)) {
@@ -1725,6 +1740,20 @@ int NVEncFilterKfm::deint60CacheTrimFloor() const {
             return 0;
         }
         return std::max(0, m_nextSwitchN60 - KFM_VFR_DEINT60_TRIM_LOOKBEHIND);
+    }
+    if (prm->kfm.mode == VppKfmMode::P24) {
+        if (!m_analyzer || m_nextTelecine24Frame <= 0 || m_analyzerOutputResults.empty()) {
+            return 0;
+        }
+        const int frame24Index = m_nextTelecine24Frame - 1;
+        try {
+            const auto& result = m_analyzerOutputResults[clamp(frame24Index / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
+            const auto info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
+            const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
+            return std::max(0, firstField - KFM_VFR_DEINT60_TRIM_LOOKBEHIND);
+        } catch (...) {
+            return 0;
+        }
     }
     if (prm->kfm.mode == VppKfmMode::P60) {
         // P60 emits one output per n60, so m_timecodeFrameIndex is the deint60
@@ -3830,9 +3859,8 @@ RGY_ERR NVEncFilterKfm::renderTelecine24(RGYFrameInfo *pOutputFrame, int frame24
     copyFramePropWithoutRes(pOutputFrame, &src[0]->frame->frame);
     pOutputFrame->picstruct = RGY_PICSTRUCT_FRAME;
     pOutputFrame->flags = RGY_FRAME_FLAG_NONE;
-    if (pOutputFrame->duration > 0) {
-        pOutputFrame->duration = std::max<int64_t>(1, (pOutputFrame->duration * 5 + 2) / 4);
-    }
+    const auto sourceDuration = sourceFrameDuration(src[0]);
+    pOutputFrame->duration = std::max<int64_t>(1, (sourceDuration * 5 + 2) / 4);
     if (m_nextTelecine24Frame == frame24Index) {
         pOutputFrame->timestamp = m_nextTelecine24Pts;
     }
