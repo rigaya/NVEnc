@@ -52,6 +52,7 @@
 
 #if AVIUTL_TARGET_VER == 2
 #include "logger2.h"
+#include "project2.h"
 #endif
 
 //---------------------------------------------------------------------
@@ -88,6 +89,10 @@ static std::basic_string<aviutlchar> wstring_to_aviutlchar(const std::wstring &s
 bool func_output2( OUTPUT_INFO *oip );
 bool func_config2(HWND hwnd, HINSTANCE dll_hinst);
 BOOL run_benchmark(OUTPUT_INFO *oip);
+#if AVIUTL_TARGET_VER == 2
+bool func_load_project_config(PROJECT_FILE* project);
+bool func_save_project_config(PROJECT_FILE* project);
+#endif
 
 static const aviutlchar *func_get_config_text() {
     return g_auo_version_info;
@@ -97,8 +102,8 @@ static const aviutlchar *func_get_config_text() {
 //        出力プラグイン構造体定義
 //---------------------------------------------------------------------
 OUTPUT_PLUGIN_TABLE output_plugin_table = {
-    NULL,                         // フラグ
 #if AVIUTL_TARGET_VER == 1
+    NULL,                         // フラグ
     AUO_FULL_NAME,                // プラグインの名前
     AUO_EXT_FILTER,               // 出力ファイルのフィルタ
     AUO_VERSION_INFO,             // プラグインの情報
@@ -109,12 +114,15 @@ OUTPUT_PLUGIN_TABLE output_plugin_table = {
     func_config_get,              // 出力設定データを取得する時に呼ばれる関数へのポインタ (NULLなら呼ばれません)
     func_config_set,              // 出力設定データを設定する時に呼ばれる関数へのポインタ (NULLなら呼ばれません)
 #else
+    OUTPUT_PLUGIN_TABLE::FLAG_PROJECT_CONFIG, // フラグ
     AUO_FULL_NAME_W,              // プラグインの名前
     AUO_EXT_FILTER_W,             // 出力ファイルのフィルタ
     AUO_VERSION_INFO_W,           // プラグインの情報
-    func_output2,                  // 出力時に呼ばれる関数へのポインタ
-    func_config2,                  // 出力設定のダイアログを要求された時に呼ばれる関数へのポインタ (NULLなら呼ばれません)
-    func_get_config_text
+    func_output2,                 // 出力時に呼ばれる関数へのポインタ
+    func_config2,                 // 出力設定のダイアログを要求された時に呼ばれる関数へのポインタ (NULLなら呼ばれません)
+    func_get_config_text,         // 出力設定のテキスト情報を取得する時に呼ばれる関数へのポインタ
+    func_load_project_config,     // プロジェクトファイル側から出力設定の読み込み
+    func_save_project_config,     // プロジェクトファイル側への出力設定の書き込み
 #endif
 };
 
@@ -133,6 +141,39 @@ EXTERN_C OUTPUT_PLUGIN_TABLE __declspec(dllexport) * __stdcall GetOutputPluginTa
 #if AVIUTL_TARGET_VER == 2
 EXTERN_C void __declspec(dllexport) InitializeLogger(LOG_HANDLE *logger) {
     set_aviutl2_logger(logger);
+}
+
+static const char* const PROJECT_CONFIG_KEY = "config";
+
+bool func_load_project_config(PROJECT_FILE* project) {
+    if (project == nullptr || project->get_param_string == nullptr) {
+        return false;
+    }
+    init_SYSTEM_DATA(&g_sys_dat);
+    if (!g_sys_dat.exstg->get_init_success(TRUE)) {
+        return false;
+    }
+    const char* value = project->get_param_string(PROJECT_CONFIG_KEY);
+    if (value == nullptr || value[0] == '\0') {
+        return true;
+    }
+    init_CONF_GUIEX(&g_conf, FALSE);
+    if (!guiEx_config::json_to_conf(&g_conf, value)) {
+        return false;
+    }
+    g_conf.header.size_all = CONF_INITIALIZED;
+    return true;
+}
+
+bool func_save_project_config(PROJECT_FILE* project) {
+    if (project == nullptr || project->set_param_string == nullptr) {
+        return false;
+    }
+    init_SYSTEM_DATA(&g_sys_dat);
+    // .aup2 は ini 形式のため、改行を含まない1行JSONで保存する
+    const std::string json_str = guiEx_config::conf_to_json(&g_conf, -1);
+    project->set_param_string(PROJECT_CONFIG_KEY, json_str.c_str());
+    return true;
 }
 #endif
 

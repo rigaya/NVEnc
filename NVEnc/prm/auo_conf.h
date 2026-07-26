@@ -179,6 +179,14 @@ enum {
     AUDIO_DELAY_CUT_EDTS         = 3, //音声エンコード遅延の削除をedtsを用いて行う
 };
 
+static const ENC_OPTION_STR AUDIO_DELAY_CUT_MODE[] = {
+    { NULL, AUO_CONF_AUDIO_DELAY_NONE,      L"補正なし"   },
+    { NULL, AUO_CONF_AUDIO_DELAY_CUT_AUDIO, L"音声カット" },
+    { NULL, AUO_CONF_AUDIO_DELAY_ADD_VIDEO, L"映像追加"   },
+    { NULL, AUO_CONF_AUDIO_DELAY_EDTS,      L"edts"       },
+    { NULL, AUO_MES_UNKNOWN,                NULL          },
+};
+
 #if ENCODER_SVTAV1 || ENCODER_VVENC
 typedef struct CONF_ENC_PRM {
     TCHAR cmd[MAX_CMD_LEN];
@@ -362,7 +370,7 @@ static_assert(sizeof(CONF_GUIEX_OLD)==(8296-(ENCODER_QSV?0:1032)));
 
 typedef struct CONF_GUIEX {
     CONF_GUIEX_HEADER header;
-#if ENCODER_SVTAV1
+#if ENCODER_SVTAV1 || ENCODER_VVENC
     CONF_ENC_PRM enc;                             //エンコーダについての設定
 #else
     CONF_ENC    enc;                             //エンコーダについての設定
@@ -377,6 +385,15 @@ class guiEx_config {
 private:
     static const uint32_t conf_block_pointer[CONF_BLOCK_COUNT];
     static const int conf_block_data[CONF_BLOCK_COUNT];
+#if ENCODER_X264 || ENCODER_X265
+    static CONF_VIDEO conf_video_conv(const CONF_VIDEO_OLD &old_vid);
+#endif
+#if ENCODER_X264
+    static void convert_x264stg_to_x264stgv2(CONF_GUIEX_OLD *conf);            //旧形式からJSON文字列に変換
+#elif ENCODER_X265
+    static void convert_x265stgv2_to_x265stgv4(CONF_GUIEX_OLD *conf);
+    static void convert_x265stgv3_to_x265stgv4(CONF_GUIEX_OLD *conf);
+#endif
 #if ENCODER_QSV
     static void *convert_qsvstgv1_to_stgv3(void *_conf, int size);
     static void *convert_qsvstgv2_to_stgv3(void *_conf);
@@ -404,11 +421,15 @@ public:
     guiEx_config();
     static void write_conf_header(CONF_GUIEX_HEADER *conf_header);
     static std::string old_conf_to_json(const CONF_GUIEX_OLD *old_conf);
+    static int  adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int old_size);
     static int  load_guiEx_conf(CONF_GUIEX *conf, const TCHAR *stg_file);       //設定をstgファイルから読み込み (バイナリ & JSON対応)
     static int  save_guiEx_conf(const CONF_GUIEX *conf, const TCHAR *stg_file); //設定をJSONファイルとして保存
     static int  load_guiEx_conf_legacy(CONF_GUIEX *conf, const TCHAR *stg_file); //旧形式のstgファイルから読み込み
 
-    static std::string conf_to_json(const CONF_GUIEX *conf, int indent);                 //設定をJSON文字列に変換
+    // 設定をJSON文字列に変換
+    // indent >= 0: 整形出力 (字下げ幅)
+    // indent <  0: 改行なし・空白最小 (1行、.aup2 等の ini 埋め込み向け)
+    static std::string conf_to_json(const CONF_GUIEX *conf, int indent);
     static bool json_to_conf(CONF_GUIEX *conf, const std::string &json_str);             //JSON文字列から設定を復元
 };
 

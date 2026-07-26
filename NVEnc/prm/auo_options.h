@@ -30,12 +30,4 @@
 
 #include "auo_settings.h"
 
-static const ENC_OPTION_STR AUDIO_DELAY_CUT_MODE[] = {
-    { NULL, AUO_CONF_AUDIO_DELAY_NONE,      L"補正なし"   },
-    { NULL, AUO_CONF_AUDIO_DELAY_CUT_AUDIO, L"音声カット" },
-    { NULL, AUO_CONF_AUDIO_DELAY_ADD_VIDEO, L"映像追加"   },
-    { NULL, AUO_CONF_AUDIO_DELAY_EDTS,      L"edts"       },
-    { NULL, AUO_MES_UNKNOWN,                NULL          },
-};
-
 #endif //_AUO_OPTIONS_H_
