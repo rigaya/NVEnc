@@ -2456,6 +2456,7 @@ VppDegrain::VppDegrain() :
     subpelInterp(FILTER_DEFAULT_DEGRAIN_SUBPEL_INTERP),
     searchParam(FILTER_DEFAULT_DEGRAIN_SEARCHPARAM),
     pelSearch(FILTER_DEFAULT_DEGRAIN_PELSEARCH),
+    searchEarlySad(FILTER_DEFAULT_DEGRAIN_SEARCH_EARLY_SAD),
     trueMotion(FILTER_DEFAULT_DEGRAIN_TRUEMOTION),
     lambda(FILTER_DEFAULT_DEGRAIN_LAMBDA),
     lsad(FILTER_DEFAULT_DEGRAIN_LSAD),
@@ -2491,6 +2492,7 @@ bool VppDegrain::operator==(const VppDegrain &x) const {
         && subpelInterp == x.subpelInterp
         && searchParam == x.searchParam
         && pelSearch == x.pelSearch
+        && searchEarlySad == x.searchEarlySad
         && trueMotion == x.trueMotion
         && lambda == x.lambda
         && lsad == x.lsad
@@ -2510,9 +2512,9 @@ bool VppDegrain::operator!=(const VppDegrain &x) const {
 }
 
 tstring VppDegrain::print() const {
-    return strsprintf(_T("degrain: preset %s, mode %s, stage %s, blksize %d, search %d, thsad %d, thsadc %d, thscd1 %d, thscd2 %d, pel %d, levels %d, overlap %d, delta %d, tr0 %d, rep0 %d, search_refine %d, subpelinterp %d, searchparam %d, pelsearch %d, truemotion %s, lambda %d, lsad %d, pnew %d, plevel %d, globalmotion %s, dct %d, useflag %d, chroma %s, binomial %s, tv_range %s, mv_spatial_refine %d"),
+    return strsprintf(_T("degrain: preset %s, mode %s, stage %s, blksize %d, search %d, thsad %d, thsadc %d, thscd1 %d, thscd2 %d, pel %d, levels %d, overlap %d, delta %d, tr0 %d, rep0 %d, search_refine %d, subpelinterp %d, searchparam %d, pelsearch %d, search_early_sad %d, truemotion %s, lambda %d, lsad %d, pnew %d, plevel %d, globalmotion %s, dct %d, useflag %d, chroma %s, binomial %s, tv_range %s, mv_spatial_refine %d"),
         get_cx_desc(list_vpp_degrain_preset, (int)preset), get_cx_desc(list_vpp_degrain_mode, (int)mode), get_cx_desc(list_vpp_degrain_stage, (int)stage), blksize, search, thsad, thsadc, thscd1, thscd2, pel, levels, overlap, delta, tr0, rep0, searchRefine,
-        subpelInterp, searchParam, pelSearch, trueMotion ? _T("true") : _T("false"), lambda, lsad, pnew, plevel, globalMotion ? _T("true") : _T("false"), dct, useFlag,
+        subpelInterp, searchParam, pelSearch, searchEarlySad, trueMotion ? _T("true") : _T("false"), lambda, lsad, pnew, plevel, globalMotion ? _T("true") : _T("false"), dct, useFlag,
         chroma ? _T("true") : _T("false"), binomial < 0 ? _T("auto") : (binomial ? _T("true") : _T("false")), tvRange ? _T("true") : _T("false"),
         mvSpatialRefine);
 }
@@ -2609,6 +2611,12 @@ VppRtgmc::VppRtgmc() :
     apply_vpp_rtgmc_preset(*this, preset, tuning);
 }
 
+int get_vpp_rtgmc_search_early_sad(VppRtgmcPreset preset) {
+    static const int searchEarlySad[] = { 0, 0, 0, 0, 8, 8, 16, 16, 16, 16, 16 };
+    const int p = clamp((int)preset, (int)VppRtgmcPreset::Placebo, (int)VppRtgmcPreset::Draft);
+    return searchEarlySad[p];
+}
+
 void apply_vpp_rtgmc_preset(VppRtgmc& rtgmc, VppRtgmcPreset preset, VppRtgmcTuning tuning) {
     const int p = clamp((int)preset, (int)VppRtgmcPreset::Placebo, (int)VppRtgmcPreset::Draft);
 
@@ -2700,6 +2708,7 @@ void apply_vpp_rtgmc_preset(VppRtgmc& rtgmc, VppRtgmcPreset preset, VppRtgmcTuni
         stagePrm->pel = subpel;
         stagePrm->searchParam = searchparam;
         stagePrm->pelSearch = pelsearch;
+        stagePrm->searchEarlySad = get_vpp_rtgmc_search_early_sad((VppRtgmcPreset)p);
         stagePrm->lambda = defaultLambda(*stagePrm);
     }
     rtgmc.noise.denoiser = VppRtgmcNoiseDenoiser::FFT3D;
@@ -2774,7 +2783,8 @@ VppKfm::VppKfm() :
     is120(true),
     debug(false),
     debugStage(VppKfmDebugStage::None),
-    timecode() {
+    timecode(),
+    searchEarlySadOverride(FILTER_DEFAULT_KFM_SEARCH_EARLY_SAD_OVERRIDE) {
 }
 
 bool VppKfm::operator==(const VppKfm& x) const {
@@ -2789,14 +2799,15 @@ bool VppKfm::operator==(const VppKfm& x) const {
         && is120 == x.is120
         && debug == x.debug
         && debugStage == x.debugStage
-        && timecode == x.timecode;
+        && timecode == x.timecode
+        && searchEarlySadOverride == x.searchEarlySadOverride;
 }
 bool VppKfm::operator!=(const VppKfm& x) const {
     return !(*this == x);
 }
 
 tstring VppKfm::print() const {
-    auto str = strsprintf(_T("kfm: mode %s, preset %s, timing %s, past_cycles %d, thswitch %.3f, ucf %s, nr %s, is120 %s"),
+    auto str = strsprintf(_T("kfm: mode %s, preset %s, timing %s, past_cycles %d, thswitch %.3f, ucf %s, nr %s, is120 %s, search_early_sad %d"),
         get_cx_desc(list_vpp_kfm_mode, (int)mode),
         get_cx_desc(list_vpp_rtgmc_preset, (int)preset),
         get_cx_desc(list_vpp_kfm_timing, (int)timing),
@@ -2804,7 +2815,8 @@ tstring VppKfm::print() const {
         thswitch,
         ucf ? _T("true") : _T("false"),
         nr ? _T("true") : _T("false"),
-        is120 ? _T("true") : _T("false"));
+        is120 ? _T("true") : _T("false"),
+        searchEarlySadOverride);
     if (debugStage != VppKfmDebugStage::None) {
         str += strsprintf(_T(", debug_stage %s"),
             get_cx_desc(list_vpp_kfm_debug_stage, (int)debugStage));

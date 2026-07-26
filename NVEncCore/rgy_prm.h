@@ -543,6 +543,10 @@ static const int   FILTER_DEFAULT_DEGRAIN_SEARCH_REFINE = 0;
 static const int   FILTER_DEFAULT_DEGRAIN_SUBPEL_INTERP = 0;
 static const int   FILTER_DEFAULT_DEGRAIN_SEARCHPARAM = 2;
 static const int   FILTER_DEFAULT_DEGRAIN_PELSEARCH = 2;
+static const int   FILTER_DEFAULT_DEGRAIN_SEARCH_EARLY_SAD = -1;
+static const int   FILTER_MIN_DEGRAIN_SEARCH_EARLY_SAD = -1;
+static const int   FILTER_MAX_DEGRAIN_SEARCH_EARLY_SAD = 65535;
+static const int   FILTER_DEFAULT_KFM_SEARCH_EARLY_SAD_OVERRIDE = -2;
 static const bool  FILTER_DEFAULT_DEGRAIN_TRUEMOTION = false;
 static const int   FILTER_DEFAULT_DEGRAIN_LAMBDA = 400;
 static const int   FILTER_DEFAULT_DEGRAIN_LSAD = 400;
@@ -2903,6 +2907,7 @@ struct VppDegrain {
     int subpelInterp;
     int searchParam;
     int pelSearch;
+    int searchEarlySad;
     bool trueMotion;
     int lambda;
     int lsad;
@@ -2956,6 +2961,7 @@ struct VppRtgmc {
 };
 
 void apply_vpp_rtgmc_preset(VppRtgmc& rtgmc, VppRtgmcPreset preset, VppRtgmcTuning tuning);
+int get_vpp_rtgmc_search_early_sad(VppRtgmcPreset preset);
 
 enum class VppKfmMode {
     VFR,
@@ -3010,6 +3016,7 @@ struct VppKfm {
     bool debug;
     VppKfmDebugStage debugStage;
     tstring timecode;
+    int searchEarlySadOverride;
 
     VppKfm();
     bool operator==(const VppKfm& x) const;
