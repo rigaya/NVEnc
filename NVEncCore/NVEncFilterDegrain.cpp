@@ -71,6 +71,12 @@ RGY_ERR launchNVEncDegrainMotionSearchExportSad(
     CUMemBuf &vectorsFinal, CUMemBuf &sadsInternal, CUMemBuf *outputMotion, CUMemBuf *outputSad,
     int finalBase, int sadBase, int blockCount, int outOffset,
     int referenceDirection, int refs, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainAddChromaSad(
+    const RGYFrameInfo &curU, const RGYFrameInfo &curV,
+    const RGYFrameInfo &refU, const RGYFrameInfo &refV,
+    CUMemBuf &mv, CUMemBuf &sad, const RGYDegrainBlockLayout &layout,
+    int planeScaleX, int planeScaleY, int referenceDirection,
+    int refs, int pel, int subpelInterp, cudaStream_t stream);
 RGY_ERR launchNVEncDegrainMotionSearchSearchParallel(
     const uint8_t *sourcePlane, const uint8_t *referencePlane,
     const uint8_t *subpelPlanes, int subpelPlaneStride, CUMemBuf &vectors,
@@ -2096,7 +2102,8 @@ RGY_ERR NVEncFilterDegrain::emitCompensateFrame(const RGYFilterDegrainFrameSet &
             analysisLayout().temporalDirections, prm->degrain.pel, prm->degrain.subpelInterp, stream);
     };
 
-    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
+    // 輝度のみのSAD/MV解析結果を色差の時間補償へ適用しない。
+    const bool processChroma = prm->degrain.chroma && analysisSADIncludesChroma(prm) && degrainCanProcessChroma(frames.cur);
     const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };
     for (int iplane = 0; iplane < (processChroma ? (int)planes.size() : 1); iplane++) {
         const auto plane = planes[iplane];
@@ -2589,6 +2596,27 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisState(const RGYFilterDegrainFrameSet 
     if (motionSearchErr != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("degrain motion search analysis failed: %s.\n"), get_err_mes(motionSearchErr));
         return motionSearchErr;
+    }
+    if (chromaPlanes.enable) {
+        const int planeScaleX = degrainChromaScaleX(analysisFrames.cur->csp);
+        const int planeScaleY = degrainChromaScaleY(analysisFrames.cur->csp);
+        for (int dir = 0; dir < m_analysis.layout.temporalDirections; dir++) {
+            const auto chromaSadErr = launchNVEncDegrainAddChromaSad(
+                chromaPlanes.curU, chromaPlanes.curV,
+                chromaPlanes.refU[dir], chromaPlanes.refV[dir],
+                *m_analysis.mv, *m_analysis.sad, m_analysis.layout,
+                planeScaleX, planeScaleY, dir,
+                m_analysis.layout.temporalDirections, prm->degrain.pel, prm->degrain.subpelInterp, stream);
+            if (chromaSadErr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("degrain analysis chroma SAD calculation failed: %s.\n"), get_err_mes(chromaSadErr));
+                return chromaSadErr;
+            }
+        }
+        const auto chromaEventErr = degrainRecordEvent(stream, &m_analysis.event);
+        if (chromaEventErr != RGY_ERR_NONE) {
+            return chromaEventErr;
+        }
+        m_lastAnalysisIncludedChroma = true;
     }
     logAnalysisSamples(_T("local"), frames.cur, stream);
     return RGY_ERR_NONE;

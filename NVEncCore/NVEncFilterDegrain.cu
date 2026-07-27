@@ -108,6 +108,18 @@ RGY_ERR launchNVEncDegrainMotionSearchExportSad(
         finalBase, sadBase, blockCount, outOffset, referenceDirection, refs, stream);
 }
 
+RGY_ERR launchNVEncDegrainAddChromaSad(
+    const RGYFrameInfo &curU, const RGYFrameInfo &curV,
+    const RGYFrameInfo &refU, const RGYFrameInfo &refV,
+    CUMemBuf &mv, CUMemBuf &sad, const RGYDegrainBlockLayout &layout,
+    const int planeScaleX, const int planeScaleY, const int referenceDirection,
+    const int refs, const int pel, const int subpelInterp, cudaStream_t stream) {
+    return launchNVEncDegrainAddChromaSadImpl(
+        curU, curV, refU, refV, mv, sad, layout,
+        planeScaleX, planeScaleY, referenceDirection,
+        refs, pel, subpelInterp, stream);
+}
+
 RGY_ERR launchNVEncDegrainMotionSearchSearchParallel(
     const uint8_t *sourcePlane, const uint8_t *referencePlane,
     const uint8_t *subpelPlanes, const int subpelPlaneStride, CUMemBuf &vectors,
