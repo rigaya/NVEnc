@@ -2542,6 +2542,8 @@ nnediによるインタレ解除を行う。
     最終出力に `vpp-degrain` を適用。デフォルト: off。
   - is120=&lt;bool&gt;  
     120fps duration補正用の予約フラグ。デフォルト: on。
+  - rff=&lt;bool&gt;  
+    プログレッシブRFF入力フレームをインタレ解除せず、そのまま出力する。タイミングの基準には入力timestampを使用する。デフォルト: on。
   - debug=&lt;bool&gt;  
     `timecode` 指定時に `.result.dat` / `.frameinfo.tsv` dumpを出力する。デフォルト: off。
 

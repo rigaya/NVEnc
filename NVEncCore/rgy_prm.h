@@ -3013,6 +3013,7 @@ struct VppKfm {
     bool ucf;
     bool nr;
     bool is120;
+    bool rff;
     bool debug;
     VppKfmDebugStage debugStage;
     tstring timecode;

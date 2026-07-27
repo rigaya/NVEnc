@@ -387,6 +387,13 @@ NVEncFilterKfm::NVEncFilterKfm() :
     m_cachedSourceFrames(0),
     m_nextSwitchN60(0),
     m_nextSwitchPts(0),
+    m_switchPtsOffset(0),
+    m_rffPrevSourceIndex(-1),
+    m_rffPrevInputPts(-1),
+    m_rffPrevFlags(RGY_FRAME_FLAG_NONE),
+    m_rffAnchorOutputPts(0),
+    m_rffRunIndex(0),
+    m_rffLastOutputPts(-1),
     m_hasLastSwitchTiming(false),
     m_lastSwitchStart60(0),
     m_lastSwitchDuration60(0),
@@ -1149,6 +1156,8 @@ RGY_ERR NVEncFilterKfm::initAnalyzer(const NVEncFilterParamKfm& prm) {
     m_stageDumpFrameIndices.clear();
     m_nextSwitchN60 = 0;
     m_nextSwitchPts = 0;
+    m_switchPtsOffset = 0;
+    resetRffTiming();
     m_hasLastSwitchTiming = false;
     m_lastSwitchStart60 = 0;
     m_lastSwitchDuration60 = 0;
@@ -2740,6 +2749,70 @@ const NVEncFilterKfm::KfmCachedSource *NVEncFilterKfm::findSourceByIndexExact(in
         }
     }
     return nullptr;
+}
+
+bool NVEncFilterKfm::isRffProgressiveCandidate(const KfmCachedSource *source) const {
+    if (!source || !source->frame || source->frame->frame.picstruct != RGY_PICSTRUCT_FRAME) {
+        return false;
+    }
+    const auto flags = source->frame->frame.flags;
+    const auto fieldOrder = flags & (RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
+    return fieldOrder == RGY_FRAME_FLAG_RFF_TFF || fieldOrder == RGY_FRAME_FLAG_RFF_BFF;
+}
+
+bool NVEncFilterKfm::isRffProgressiveSource(int sourceIndex, bool drain) const {
+    const auto *current = findSourceByIndexExact(sourceIndex);
+    if (!isRffProgressiveCandidate(current)) {
+        return false;
+    }
+    const auto hasRffPair = [&](const KfmCachedSource *first, const KfmCachedSource *second) {
+        return isRffProgressiveCandidate(first) && isRffProgressiveCandidate(second)
+            && ((first->frame->frame.flags | second->frame->frame.flags) & RGY_FRAME_FLAG_RFF) != 0;
+    };
+    const auto *prev = findSourceByIndexExact(sourceIndex - 1);
+    if (hasRffPair(prev, current)) {
+        return true;
+    }
+    const auto *next = findSourceByIndexExact(sourceIndex + 1);
+    if (hasRffPair(current, next)) {
+        return true;
+    }
+    return drain && !next && prev && isRffProgressiveCandidate(prev);
+}
+
+bool NVEncFilterKfm::isRffTimestampContinuous(const KfmCachedSource *prev, const KfmCachedSource *current) const {
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamKfm>(m_param);
+    if (!prm || !prev || !current || prev->timestamp < 0 || current->timestamp < 0 || current->timestamp <= prev->timestamp) {
+        return false;
+    }
+    const int fields = (prev->frame->frame.flags & RGY_FRAME_FLAG_RFF) ? 3 : 2;
+    const int64_t numerator = static_cast<int64_t>(prm->timebase.d()) * 1001 * fields;
+    const int64_t denominator = static_cast<int64_t>(prm->timebase.n()) * 60000;
+    if (denominator <= 0) {
+        return false;
+    }
+    const int64_t expected = (numerator + denominator / 2) / denominator;
+    const int64_t tolerance = std::max<int64_t>(1, expected / 200);
+    return std::llabs((current->timestamp - prev->timestamp) - expected) <= tolerance;
+}
+
+int64_t NVEncFilterKfm::rffFilmOffset(int64_t frameIndex) const {
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamKfm>(m_param);
+    if (!prm || frameIndex <= 0) {
+        return 0;
+    }
+    const int64_t numerator = static_cast<int64_t>(prm->timebase.d()) * 1001;
+    const int64_t denominator = static_cast<int64_t>(prm->timebase.n()) * 24000;
+    return denominator > 0 ? (frameIndex * numerator + denominator / 2) / denominator : frameIndex;
+}
+
+void NVEncFilterKfm::resetRffTiming() {
+    m_rffPrevSourceIndex = -1;
+    m_rffPrevInputPts = -1;
+    m_rffPrevFlags = RGY_FRAME_FLAG_NONE;
+    m_rffAnchorOutputPts = 0;
+    m_rffRunIndex = 0;
+    m_rffLastOutputPts = -1;
 }
 
 RGY_ERR NVEncFilterKfm::dumpStageFrame(const char *stage, const RGYFrameInfo *frame, int frame24Index,
@@ -6523,6 +6596,96 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             return sts;
         }
         while (*pOutputFrameNum < maxOutputFrames) {
+            if (prm->kfm.rff && (m_nextSwitchN60 & 1) == 0) {
+                const int rffSourceIndex = m_nextSwitchN60 >> 1;
+                const auto *rffSource = findSourceByIndexExact(rffSourceIndex);
+                if (isRffProgressiveSource(rffSourceIndex, drain)) {
+                    if (!drain && m_nextSwitchN60 + 2 >= availableN60) {
+                        break;
+                    }
+                    if (!rffSource || !rffSource->frame || !rffSource->frame->frame.ptr[0]) {
+                        break;
+                    }
+                    auto out = nextWorkFrame();
+                    if (!out) {
+                        return RGY_ERR_INVALID_CALL;
+                    }
+                    std::vector<RGYCudaEvent> copyWaitEvents;
+                    if (rffSource->event() != nullptr) {
+                        copyWaitEvents.push_back(rffSource->event);
+                    }
+                    RGYCudaEvent outputEvent;
+                    sts = copyFrameWithEvent(out, &rffSource->frame->frame, copyWaitEvents, &outputEvent, _T("RFF output"));
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    copyFramePropWithoutRes(out, &rffSource->frame->frame);
+
+                    const auto *prevSource = findSourceByIndexExact(rffSourceIndex - 1);
+                    const bool adjacentRff = m_rffPrevSourceIndex + 1 == rffSourceIndex;
+                    if (adjacentRff && isRffTimestampContinuous(prevSource, rffSource)) {
+                        m_rffRunIndex++;
+                    } else if (adjacentRff && m_rffLastOutputPts >= 0 && m_rffPrevInputPts >= 0 && rffSource->timestamp >= 0) {
+                        const int64_t inputOffset = m_rffLastOutputPts - m_rffPrevInputPts;
+                        m_rffAnchorOutputPts = rffSource->timestamp + inputOffset;
+                        m_rffRunIndex = 0;
+                    } else {
+                        m_rffAnchorOutputPts = rffSource->timestamp >= 0
+                            ? std::max(rffSource->timestamp, m_nextSwitchPts)
+                            : m_nextSwitchPts;
+                        m_rffRunIndex = 0;
+                    }
+                    int64_t outputPts = m_rffAnchorOutputPts + rffFilmOffset(m_rffRunIndex);
+                    if (outputPts < m_nextSwitchPts) {
+                        outputPts = m_nextSwitchPts;
+                        m_rffAnchorOutputPts = outputPts;
+                        m_rffRunIndex = 0;
+                    }
+                    out->timestamp = outputPts;
+                    out->duration = std::max<int64_t>(1, rffFilmOffset(m_rffRunIndex + 1) - rffFilmOffset(m_rffRunIndex));
+                    out->picstruct = RGY_PICSTRUCT_FRAME;
+                    out->flags = (RGY_FRAME_FLAGS)(out->flags & ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
+
+                    KfmSwitchTiming rffTiming;
+                    rffTiming.start60 = m_nextSwitchN60;
+                    rffTiming.start120 = m_nextSwitchN60 * 2;
+                    rffTiming.sourceIndex = rffSourceIndex;
+                    rffTiming.baseType = KFM_FRAME_RFF_24;
+                    rffTiming.sourceStart = rffSourceIndex;
+                    rffTiming.numSourceFrames = 1;
+                    rffTiming.duration60 = 2;
+                    rffTiming.duration120 = 5;
+                    rffTiming.isFrame24 = true;
+                    attachSwitchFrameData(out, rffTiming, nullptr);
+                    writeFrameInfoDump("rff-direct", out, nullptr);
+                    sts = queueVfrOutputFrame(out, stream, outputEvent);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+
+                    m_nextSwitchPts = out->timestamp + out->duration;
+                    if (rffSource->timestamp >= 0) {
+                        const int inputFields = (rffSource->frame->frame.flags & RGY_FRAME_FLAG_RFF) ? 3 : 2;
+                        const int64_t inputDurationNumerator = static_cast<int64_t>(prm->timebase.d()) * 1001 * inputFields;
+                        const int64_t inputDurationDenominator = static_cast<int64_t>(prm->timebase.n()) * 60000;
+                        const int64_t inputDuration = inputDurationDenominator > 0
+                            ? (inputDurationNumerator + inputDurationDenominator / 2) / inputDurationDenominator
+                            : out->duration;
+                        m_switchPtsOffset = m_nextSwitchPts - (rffSource->timestamp + inputDuration);
+                    }
+                    m_rffPrevSourceIndex = rffSourceIndex;
+                    m_rffPrevInputPts = rffSource->timestamp;
+                    m_rffPrevFlags = rffSource->frame->frame.flags;
+                    m_rffLastOutputPts = out->timestamp;
+                    m_hasLastSwitchTiming = false;
+                    m_nextSwitchN60 += 2;
+                    sts = emitReadyPending(drain ? 0 : vfrOutputDelay);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    continue;
+                }
+            }
             KfmSwitchTiming outputTiming;
             {
                 KfmProfileScope profile(m_kfmProfile, m_kfmProfile.deriveTimings, m_nextSwitchN60);
@@ -7169,10 +7332,27 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 outputTiming.duration120 = 2;
             }
             const auto outputEnd120 = static_cast<int64_t>(outputTiming.start120) + outputTiming.duration120;
-            const auto outputStartPts = sourcePtsFrom120(outputTiming.start120);
-            const auto outputEndPts = sourcePtsFrom120(outputEnd120);
+            bool settlePtsOffset = m_switchPtsOffset != 0 && outputTiming.duration60 >= 2;
+            const auto baseStartPts = sourcePtsFrom120(outputTiming.start120);
+            const auto baseEndPts = sourcePtsFrom120(outputEnd120);
+            const auto outputStartPts = baseStartPts + m_switchPtsOffset;
+            auto outputEndPts = baseEndPts + (settlePtsOffset ? 0 : m_switchPtsOffset);
+            const int64_t frameDurationNumerator = static_cast<int64_t>(prm->timebase.d()) * 1001;
+            const int64_t frameDurationDenominator = static_cast<int64_t>(prm->timebase.n()) * 60000;
+            const int64_t minOutputDuration = prm->kfm.rff && frameDurationDenominator > 0
+                ? std::max<int64_t>(1, (frameDurationNumerator + frameDurationDenominator / 2) / frameDurationDenominator)
+                : 1;
             out->timestamp = std::max(outputStartPts, m_nextSwitchPts);
-            out->duration = std::max<int64_t>(1, outputEndPts - out->timestamp);
+            if (settlePtsOffset && outputEndPts - out->timestamp < minOutputDuration) {
+                settlePtsOffset = false;
+                outputEndPts = baseEndPts + m_switchPtsOffset;
+            }
+            if (outputEndPts - out->timestamp < minOutputDuration && out->timestamp > outputStartPts) {
+                const auto clampedOffset = out->timestamp - outputStartPts;
+                m_switchPtsOffset += clampedOffset;
+                outputEndPts += clampedOffset;
+            }
+            out->duration = std::max<int64_t>(minOutputDuration, outputEndPts - out->timestamp);
             out->picstruct = RGY_PICSTRUCT_FRAME;
             out->flags = RGY_FRAME_FLAG_NONE;
             attachSwitchFrameData(out, outputTiming, switchResult);
@@ -7181,6 +7361,9 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 return sts;
             }
             m_nextSwitchPts = out->timestamp + out->duration;
+            if (settlePtsOffset) {
+                m_switchPtsOffset = 0;
+            }
             m_hasLastSwitchTiming = true;
             m_lastSwitchStart60 = outputTiming.start60;
             m_lastSwitchDuration60 = outputTiming.duration60;

@@ -3859,7 +3859,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 
         const auto paramList = std::vector<std::string>{
             "enable", "mode", "preset", "timing", "past_cycles",
-            "thswitch", "ucf", "nr", "is120", "debug", "debug_stage", "timecode", "search_early_sad"
+            "thswitch", "ucf", "nr", "is120", "rff", "debug", "debug_stage", "timecode", "search_early_sad"
         };
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -3958,6 +3958,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         vpp->kfm.is120 = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("rff")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->kfm.rff = b;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -13485,6 +13495,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_BOOL(_T("ucf"), kfm.ucf);
             ADD_BOOL(_T("nr"), kfm.nr);
             ADD_BOOL(_T("is120"), kfm.is120);
+            ADD_BOOL(_T("rff"), kfm.rff);
             ADD_BOOL(_T("debug"), kfm.debug);
             ADD_LST(_T("debug_stage"), kfm.debugStage, list_vpp_kfm_debug_stage);
             ADD_PATH(_T("timecode"), kfm.timecode.c_str());
@@ -16129,6 +16140,7 @@ tstring gen_cmd_help_vpp() {
         _T("      ucf=<bool>             use placeholder UCF copy stage (default=false)\n")
         _T("      nr=<bool>              reserve NR path parameter (default=false)\n")
         _T("      is120=<bool>           reserve 120fps duration correction flag (default=true)\n")
+        _T("      rff=<bool>             preserve progressive RFF frames (default=true)\n")
         _T("      debug=<bool>           reserve stage dump flag (default=false)\n")
         _T("      debug_stage=<string>   none(default), switch-flag(-min), contains-combe, combe-mask(-min) for 24p debug output\n")
         _T("      timecode=<path>        reserve timecode v2 dump path\n"));

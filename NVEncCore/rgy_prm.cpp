@@ -2781,6 +2781,7 @@ VppKfm::VppKfm() :
     ucf(false),
     nr(false),
     is120(true),
+    rff(true),
     debug(false),
     debugStage(VppKfmDebugStage::None),
     timecode(),
@@ -2797,6 +2798,7 @@ bool VppKfm::operator==(const VppKfm& x) const {
         && ucf == x.ucf
         && nr == x.nr
         && is120 == x.is120
+        && rff == x.rff
         && debug == x.debug
         && debugStage == x.debugStage
         && timecode == x.timecode
@@ -2807,7 +2809,7 @@ bool VppKfm::operator!=(const VppKfm& x) const {
 }
 
 tstring VppKfm::print() const {
-    auto str = strsprintf(_T("kfm: mode %s, preset %s, timing %s, past_cycles %d, thswitch %.3f, ucf %s, nr %s, is120 %s, search_early_sad %d"),
+    auto str = strsprintf(_T("kfm: mode %s, preset %s, timing %s, past_cycles %d, thswitch %.3f, ucf %s, nr %s, is120 %s, rff %s, search_early_sad %d"),
         get_cx_desc(list_vpp_kfm_mode, (int)mode),
         get_cx_desc(list_vpp_rtgmc_preset, (int)preset),
         get_cx_desc(list_vpp_kfm_timing, (int)timing),
@@ -2816,6 +2818,7 @@ tstring VppKfm::print() const {
         ucf ? _T("true") : _T("false"),
         nr ? _T("true") : _T("false"),
         is120 ? _T("true") : _T("false"),
+        rff ? _T("true") : _T("false"),
         searchEarlySadOverride);
     if (debugStage != VppKfmDebugStage::None) {
         str += strsprintf(_T(", debug_stage %s"),
