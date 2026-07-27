@@ -294,11 +294,11 @@ __global__ void kernel_nnedi_predictor_network_cuda(
     __shared__ unsigned short candidateQueue[NNEDI_TILE_MAX_CANDIDATES];
     __shared__ int candidatePrefix[NNEDI_TILE_MASK_COUNT];
     __shared__ int sumPart[LOCAL_Y * LOCAL_X];
-#if BIT_DEPTH <= 8
-    __shared__ int sumsqPart[LOCAL_Y * LOCAL_X];
-#else
-    __shared__ float varPart[LOCAL_Y * LOCAL_X];
-#endif
+    union NnediVariancePart {
+        int sumsq[LOCAL_Y * LOCAL_X];
+        float var[LOCAL_Y * LOCAL_X];
+    };
+    __shared__ NnediVariancePart variancePart;
     __shared__ float avg[LOCAL_Y];
     __shared__ float stddev[LOCAL_Y];
     __shared__ float invvar[LOCAL_Y];
@@ -331,54 +331,54 @@ __global__ void kernel_nnedi_predictor_network_cuda(
         float avgValue = 0.0f;
         float stddevValue = 0.0f;
         float invvarValue = 0.0f;
-#if BIT_DEPTH <= 8
-        int sum = 0;
-        int sumsq = 0;
-        for (int k = tx; k < PRED_K; k += LOCAL_X) {
-            const int v = (int)patch[k];
-            sum += v;
-            sumsq += v * v;
-        }
-        sumPart[ty * LOCAL_X + tx] = sum;
-        sumsqPart[ty * LOCAL_X + tx] = sumsq;
-        __syncthreads();
+        if constexpr (BIT_DEPTH <= 8) {
+            int sum = 0;
+            int sumsq = 0;
+            for (int k = tx; k < PRED_K; k += LOCAL_X) {
+                const int v = (int)patch[k];
+                sum += v;
+                sumsq += v * v;
+            }
+            sumPart[ty * LOCAL_X + tx] = sum;
+            variancePart.sumsq[ty * LOCAL_X + tx] = sumsq;
+            __syncthreads();
 
-        if (tx == 0) {
-            nnedi_predictor_finalize_patch_stats_u8_device<PRED_K, LOCAL_X>(sumPart, sumsqPart, avg, stddev, invvar, ty);
-        }
-        __syncthreads();
-        avgValue = avg[ty];
-        stddevValue = stddev[ty];
-        invvarValue = invvar[ty];
-#else
-        int sum = 0;
-        for (int k = tx; k < PRED_K; k += LOCAL_X) {
-            sum += (int)patch[k];
-        }
-        sumPart[ty * LOCAL_X + tx] = sum;
-        __syncthreads();
+            if (tx == 0) {
+                nnedi_predictor_finalize_patch_stats_u8_device<PRED_K, LOCAL_X>(sumPart, variancePart.sumsq, avg, stddev, invvar, ty);
+            }
+            __syncthreads();
+            avgValue = avg[ty];
+            stddevValue = stddev[ty];
+            invvarValue = invvar[ty];
+        } else {
+            int sum = 0;
+            for (int k = tx; k < PRED_K; k += LOCAL_X) {
+                sum += (int)patch[k];
+            }
+            sumPart[ty * LOCAL_X + tx] = sum;
+            __syncthreads();
 
-        if (tx == 0) {
-            nnedi_predictor_finalize_patch_avg_device<PRED_K, LOCAL_X>(sumPart, avg, ty);
-        }
-        __syncthreads();
+            if (tx == 0) {
+                nnedi_predictor_finalize_patch_avg_device<PRED_K, LOCAL_X>(sumPart, avg, ty);
+            }
+            __syncthreads();
 
-        float sumsq = 0.0f;
-        for (int k = tx; k < PRED_K; k += LOCAL_X) {
-            const float diff = (float)patch[k] - avg[ty];
-            sumsq = fmaf(diff, diff, sumsq);
-        }
-        varPart[ty * LOCAL_X + tx] = sumsq;
-        __syncthreads();
+            float sumsq = 0.0f;
+            for (int k = tx; k < PRED_K; k += LOCAL_X) {
+                const float diff = (float)patch[k] - avg[ty];
+                sumsq = fmaf(diff, diff, sumsq);
+            }
+            variancePart.var[ty * LOCAL_X + tx] = sumsq;
+            __syncthreads();
 
-        if (tx == 0) {
-            nnedi_predictor_finalize_patch_stddev_device<PRED_K, LOCAL_X>(varPart, stddev, invvar, ty);
+            if (tx == 0) {
+                nnedi_predictor_finalize_patch_stddev_device<PRED_K, LOCAL_X>(variancePart.var, stddev, invvar, ty);
+            }
+            __syncthreads();
+            avgValue = avg[ty];
+            stddevValue = stddev[ty];
+            invvarValue = invvar[ty];
         }
-        __syncthreads();
-        avgValue = avg[ty];
-        stddevValue = stddev[ty];
-        invvarValue = invvar[ty];
-#endif
 
         float result = 0.0f;
         const int partBase = ty * LOCAL_X;
