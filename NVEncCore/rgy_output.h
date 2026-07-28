@@ -121,7 +121,8 @@ public:
         std::lock_guard<std::mutex> lock(mtx);
         pts += offset;
         auto pos = m_frame.find(pts);
-        if (pos == m_frame.end()) {
+        // bobの追加出力が直前と同じtimestampを持つ場合も、未設定timestampと同様にフレーム間へ補間する。
+        if (pos == m_frame.end() || (has_last_check_pts && pos->second.timestamp == last_check_pts)) {
             if (!has_last_check_pts) {
                 return RGYTimestampMapVal();
             }

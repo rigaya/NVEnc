@@ -3438,7 +3438,8 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         RGYTimestampMapVal bs_framedata = m_Mux.video.timestamp->getByEncodeFrameID(m_Mux.video.prevEncodeFrameId + 1);
         if (bs_framedata.inputFrameId < 0) {
             bs_framedata.inputFrameId = m_Mux.video.prevInputFrameId;
-            AddMessage(RGY_LOG_WARN, _T("Failed to get timestamp for id %lld, using %lld.\n"), bitstream->pts(), bs_framedata.inputFrameId);
+            AddMessage(RGY_LOG_WARN, _T("Failed to get timestamp for encode frame id %lld, using input frame id %lld.\n"),
+                m_Mux.video.prevEncodeFrameId + 1, bs_framedata.inputFrameId);
         } else {
             m_Mux.video.prevInputFrameId = bs_framedata.inputFrameId;
             m_Mux.video.prevEncodeFrameId++;
