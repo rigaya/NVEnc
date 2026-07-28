@@ -15,10 +15,9 @@ ARG DEBIAN_FRONTEND=noninteractive \
     FFMPEG_PREFIX=/opt/build_scripts/ffmpeg_dll/build_dll/x64/build \
     VMAF_PREFIX=/opt/build_scripts/ffmpeg_dll/x64/build \
     CUDA_VER_MAJOR=11 \
-    CUDA_VER_MINOR=2 \
-    CUDA_DEB_URL=https://developer.download.nvidia.com/compute/cuda/11.2.1/local_installers/cuda-repo-ubuntu2004-11-2-local_11.2.1-460.32.03-1_amd64.deb \
-    CUDA_DEB_NAME=cuda-repo-ubuntu2004-11-2-local_11.2.1-460.32.03-1_amd64.deb \
-    CUDA_PUB_PATH=/var/cuda-repo-ubuntu2004-11-2-local/7fa2af80.pub
+    CUDA_VER_MINOR=8 \
+    CUDA_KEYRING_URL=https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb \
+    CUDA_KEYRING_NAME=cuda-keyring_1.1-1_all.deb
 
 RUN apt update \
     && apt-get install -y \
@@ -60,9 +59,8 @@ RUN apt update \
     && apt-get install -y --no-install-recommends cmake \
     && wget -q https://developer.download.nvidia.com/compute/cuda/repos/${OSVER}/x86_64/cuda-${OSVER}.pin \
     && mv cuda-${OSVER}.pin /etc/apt/preferences.d/cuda-repository-pin-600 \
-    && wget -q ${CUDA_DEB_URL} \
-    && dpkg -i ${CUDA_DEB_NAME} \
-    && apt-key add ${CUDA_PUB_PATH} \
+    && wget -q ${CUDA_KEYRING_URL} -O ${CUDA_KEYRING_NAME} \
+    && dpkg -i ${CUDA_KEYRING_NAME} \
     && apt-get update \
     && apt-get -y install cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-cudart-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-driver-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvrtc-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libcurand-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libnpp-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvml-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
     && (test -e /usr/local/cuda || ln -s /usr/local/cuda-${CUDA_VER_MAJOR}.${CUDA_VER_MINOR} /usr/local/cuda) \
@@ -71,7 +69,7 @@ RUN apt update \
     && cmake --version \
     && meson --version \
     && which meson \
-    && rm -f ${CUDA_DEB_NAME} \
+    && rm -f ${CUDA_KEYRING_NAME} \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 ENV CUDA_PATH=/usr/local/cuda
