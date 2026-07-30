@@ -330,6 +330,9 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         if (prm->onnx.noise == 15) {
             prm->onnx.noise = entry->noise;
         }
+        if (prm->onnx.frames == 1 && entry->frames > 1) {
+            prm->onnx.frames = entry->frames;
+        }
         if (prm->onnx.colormatrixOut == RGY_MATRIX_AUTO && entry->colormatrixOut != RGY_MATRIX_UNSPECIFIED) {
             prm->onnx.colormatrixOut = entry->colormatrixOut;
         }

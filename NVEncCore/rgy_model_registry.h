@@ -42,6 +42,7 @@ struct OnnxModelEntry {
     tstring path;
     tstring colorspace;  // "rgb" or "ycbcr", default "rgb"
     int noise;           // default 15
+    int frames;          // 時間窓のフレーム数。デフォルトは1。
     bool fp32;           // fp32推論を強制する。デフォルトはfalse。
     CspMatrix colormatrixOut; // 未指定時は RGY_MATRIX_UNSPECIFIED。colormatrix_out=auto の場合のみ適用。
 };

@@ -82,6 +82,10 @@ RGY_ERR RGYModelRegistry::load(const tstring& jsonPath, std::shared_ptr<RGYLog> 
         entry.noise      = val.contains("noise") && val["noise"].is_number_integer()
                             ? val["noise"].get<int>()
                             : 15;
+        entry.frames     = val.contains("frames") && val["frames"].is_number_integer()
+                            && val["frames"].get<int>() > 0 && (val["frames"].get<int>() & 1) != 0
+                            ? val["frames"].get<int>()
+                            : 1;
         entry.fp32       = val.contains("fp32") && val["fp32"].is_boolean()
                             ? val["fp32"].get<bool>()
                             : false;

@@ -518,8 +518,10 @@ int handle_vpp_onnx_list_models(const RGYParamVpp *vpp) {
     for (const auto& [name, entry] : reg.models()) {
         const auto fullPath = PathCombineS(reg.baseDir(), entry.path);
         const bool exists = rgy_file_exists(fullPath);
-        _ftprintf(stdout, _T("  %-24s  %s%s%s\n"), name.c_str(), entry.path.c_str(),
+        const auto frames = entry.frames > 1 ? strsprintf(_T(" [frames=%d]"), entry.frames) : tstring();
+        _ftprintf(stdout, _T("  %-24s  %s%s%s%s\n"), name.c_str(), entry.path.c_str(),
             entry.fp32 ? _T(" [fp32]") : _T(""),
+            frames.c_str(),
             exists ? _T("") : _T(" [not found]"));
     }
 #endif // ENABLE_VPP_FILTER_ONNX
