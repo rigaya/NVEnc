@@ -280,6 +280,9 @@ RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, co
 
         Ort::SessionOptions opts;
         opts.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+        // 推論時の実形状とメモリパターンの計画が食い違うモデルでは、CUDAの
+        // reduction処理が不正な一時バッファを参照するため、メモリパターンを無効化する。
+        opts.DisableMemPattern();
 
         // Bind inference to the CUDA device ordinal NVEnc selected. TensorRT, when
         // requested, layers on top of CUDA (ORT requires the CUDA EP as the fallback
