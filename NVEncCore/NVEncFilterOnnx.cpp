@@ -46,6 +46,9 @@ NVEncFilterOnnx::NVEncFilterOnnx() :
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
     m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444(),
+    m_inputDevice(), m_outputDevice(), m_cropToRgb(), m_cropFromRgb(),
+    m_modelPath(), m_provider(RGYOnnxRTProvider::Auto), m_precision(), m_cacheDir(), m_deviceID(-1),
+    m_cudaPathTried(false), m_cudaPath(false),
     m_temporalT(1), m_ring(), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
     m_maskModelW(0), m_maskModelH(0), m_imgPortIdx(0), m_mskPortIdx(1), m_maskOutScale(0.0f),
     m_maskFrame(), m_maskModel(), m_frameRGB(), m_modelIn(), m_modelOut(), m_maskMode(false) {
@@ -382,6 +385,11 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     if      (provStr == _T("tensorrt") || provStr == _T("trt")) provider = RGYOnnxRTProvider::TensorRT;
     else if (provStr == _T("cuda"))                              provider = RGYOnnxRTProvider::Cuda;
     else                                                         provider = RGYOnnxRTProvider::Auto;
+    m_modelPath = prm->onnx.modelFile;
+    m_provider = provider;
+    m_precision = prm->onnx.precision;
+    m_cacheDir = prm->onnx.cacheDir;
+    m_deviceID = deviceID;
 
     m_ov = std::make_unique<RGYOnnxRTCUDA>();
     tstring errMsg;
@@ -503,6 +511,50 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         return RGY_ERR_MEMORY_ALLOC;
     }
 
+    m_cudaPathTried = false;
+    m_cudaPath = false;
+    if (m_temporalT == 1 && m_io == OnnxIO::RGB && !m_ycbcr) {
+        m_inputDevice = std::make_unique<CUMemBuf>(m_inBuf.size() * sizeof(float));
+        m_outputDevice = std::make_unique<CUMemBuf>(m_outBuf.size() * sizeof(float));
+        if (m_inputDevice->alloc() != RGY_ERR_NONE || m_outputDevice->alloc() != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: CUDAテンソルバッファの確保に失敗しました。\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        const auto matrixIn = (matrixSel == 601) ? RGY_MATRIX_ST170_M
+            : (matrixSel == 2020) ? RGY_MATRIX_BT2020_NCL : RGY_MATRIX_BT709;
+        const auto matrixOut = (matrixSelOut == 601) ? RGY_MATRIX_ST170_M
+            : (matrixSelOut == 2020) ? RGY_MATRIX_BT2020_NCL : RGY_MATRIX_BT709;
+        const auto rgbIn = tensorFrame((float *)m_inputDevice->ptr, 3, inW, inH, RGY_CSP_RGB_F32);
+        const auto rgbOut = tensorFrame((float *)m_outputDevice->ptr, 3, outW, outH, RGY_CSP_RGB_F32);
+        auto toRgbParam = std::make_shared<NVEncFilterParamCrop>();
+        toRgbParam->frameIn = prm->frameIn;
+        toRgbParam->frameIn.picstruct = RGY_PICSTRUCT_FRAME;
+        toRgbParam->frameOut = rgbIn;
+        toRgbParam->baseFps = prm->baseFps;
+        toRgbParam->matrix = matrixIn;
+        toRgbParam->colorrange = rangeTV ? RGY_COLORRANGE_LIMITED : RGY_COLORRANGE_FULL;
+        toRgbParam->bOutOverwrite = false;
+        m_cropToRgb = std::make_unique<NVEncFilterCspCrop>();
+        err = m_cropToRgb->init(toRgbParam, m_pLog);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: YUVからRGBへの変換初期化に失敗しました: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        auto fromRgbParam = std::make_shared<NVEncFilterParamCrop>();
+        fromRgbParam->frameIn = rgbOut;
+        fromRgbParam->frameOut = frameOut;
+        fromRgbParam->baseFps = prm->baseFps;
+        fromRgbParam->matrix = matrixOut;
+        fromRgbParam->colorrange = toRgbParam->colorrange;
+        fromRgbParam->bOutOverwrite = false;
+        m_cropFromRgb = std::make_unique<NVEncFilterCspCrop>();
+        err = m_cropFromRgb->init(fromRgbParam, m_pLog);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: RGBからYUVへの変換初期化に失敗しました: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    }
+
     // Opt-in end-of-chain resize (out_res=): run an internal NVEncFilterResize AFTER
     // the core, landing an arbitrary final resolution in one pass (CNN THEN resize).
     m_postResize.reset();
@@ -568,6 +620,63 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     return RGY_ERR_NONE;
 }
 
+RGYFrameInfo NVEncFilterOnnx::tensorFrame(float *ptr, int channels, int width, int height, RGY_CSP csp) const {
+    RGYFrameInfo frame;
+    frame.width = width;
+    frame.height = height;
+    frame.csp = csp;
+    frame.bitdepth = 32;
+    frame.mem_type = RGY_MEM_TYPE_GPU;
+    frame.picstruct = RGY_PICSTRUCT_FRAME;
+    const size_t planeBytes = (size_t)width * height * sizeof(float);
+    const int planeCount = std::min(channels, 3);
+    for (int i = 0; i < planeCount; i++) {
+        frame.ptr[i] = (uint8_t *)ptr + planeBytes * i;
+        frame.pitch[i] = width * sizeof(float);
+    }
+    return frame;
+}
+
+RGY_ERR NVEncFilterOnnx::initCudaPath(cudaStream_t stream) {
+    if (m_cudaPathTried) return m_cudaPath ? RGY_ERR_NONE : RGY_ERR_UNSUPPORTED;
+    m_cudaPathTried = true;
+    if (stream == nullptr || !m_inputDevice || !m_outputDevice || !m_cropToRgb || !m_cropFromRgb) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    auto session = std::make_unique<RGYOnnxRTCUDA>();
+    tstring errorMessage;
+    auto err = session->init(m_modelPath, m_deviceID, m_provider,
+        m_param->frameIn.height, m_param->frameIn.width, errorMessage,
+        stream, m_precision, m_cacheDir);
+    if (err != RGY_ERR_NONE || !session->deviceIOAvailable()
+        || session->inChannels() != m_inC || session->outChannels() != m_outC
+        || session->outWidth() * session->outHeight() * session->outChannels() != (int)m_outBuf.size()) {
+        const auto reason = !errorMessage.empty() ? errorMessage : session->lastError();
+        AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー経路を初期化できないためホスト経路を使用します: %s\n"), reason.c_str());
+        return (err != RGY_ERR_NONE) ? err : RGY_ERR_UNSUPPORTED;
+    }
+    m_ov = std::move(session);
+    m_cudaPath = true;
+    AddMessage(RGY_LOG_INFO, _T("onnx: path cuda-zerocopy をフィルタストリーム上で初期化しました。\n"));
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterOnnx::runCudaRGB(const RGYFrameInfo *input, RGYFrameInfo *output, cudaStream_t stream) {
+    auto inputFrame = *input;
+    inputFrame.picstruct = RGY_PICSTRUCT_FRAME;
+    auto rgbInput = tensorFrame((float *)m_inputDevice->ptr, 3, input->width, input->height, RGY_CSP_RGB_F32);
+    RGYFrameInfo *rgbInputOut[1] = { &rgbInput };
+    int outputCount = 0;
+    auto err = m_cropToRgb->filter(&inputFrame, rgbInputOut, &outputCount, stream);
+    if (err != RGY_ERR_NONE) return err;
+    err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
+    if (err != RGY_ERR_NONE) return err;
+    auto rgbOutput = tensorFrame((float *)m_outputDevice->ptr, 3, output->width, output->height, RGY_CSP_RGB_F32);
+    RGYFrameInfo *yuvOutput[1] = { output };
+    outputCount = 0;
+    return m_cropFromRgb->filter(&rgbOutput, yuvOutput, &outputCount, stream);
+}
+
 RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     if (m_maskMode) {
         return runMask(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
@@ -584,7 +693,17 @@ RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     RGYFrameInfo *coreFrame = &pOutFrame->frame;
     copyFramePropWithoutRes(coreFrame, pInputFrame);
 
-    auto cerr = runHost(pInputFrame, coreFrame, stream);
+    RGY_ERR cerr = RGY_ERR_UNSUPPORTED;
+    if (m_io == OnnxIO::RGB && !m_ycbcr && initCudaPath(stream) == RGY_ERR_NONE) {
+        cerr = runCudaRGB(pInputFrame, coreFrame, stream);
+        if (cerr != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
+            m_cudaPath = false;
+        }
+    }
+    if (!m_cudaPath) {
+        cerr = runHost(pInputFrame, coreFrame, stream);
+    }
     if (cerr != RGY_ERR_NONE) {
         return cerr;
     }
@@ -1035,6 +1154,10 @@ RGY_ERR NVEncFilterOnnx::runHost(const RGYFrameInfo *in, RGYFrameInfo *out, cuda
 
 void NVEncFilterOnnx::close() {
     m_postResize.reset();
+    m_cropToRgb.reset();
+    m_cropFromRgb.reset();
+    m_inputDevice.reset();
+    m_outputDevice.reset();
     m_inStaging.reset();
     m_outStaging.reset();
     m_ov.reset();
@@ -1055,5 +1178,7 @@ void NVEncFilterOnnx::close() {
     m_modelIn.clear();
     m_modelOut.clear();
     m_maskMode = false;
+    m_cudaPathTried = false;
+    m_cudaPath = false;
     m_frameBuf.clear();
 }
