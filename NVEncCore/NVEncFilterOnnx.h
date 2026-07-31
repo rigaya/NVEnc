@@ -39,6 +39,9 @@
 
 class NVEncFilterResize; // opt-in end-of-chain resize sub-filter (out_res=/resize=)
 
+RGY_ERR run_onnx_pack_luma(float *dst, const RGYFrameInfo *src, cudaStream_t stream);
+RGY_ERR run_onnx_unpack_luma(RGYFrameInfo *dst, const float *src, cudaStream_t stream);
+
 class NVEncFilterParamOnnx : public NVEncFilterParam {
 public:
     VppOnnx onnx;
@@ -98,6 +101,7 @@ protected:
     RGY_ERR runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
     RGY_ERR initCudaPath(cudaStream_t stream);
     RGY_ERR runCudaRGB(const RGYFrameInfo *input, RGYFrameInfo *output, cudaStream_t stream);
+    RGY_ERR runCudaGrayNoise(const RGYFrameInfo *input, RGYFrameInfo *output, cudaStream_t stream);
     RGYFrameInfo tensorFrame(float *ptr, int channels, int width, int height, RGY_CSP csp) const;
 
     std::unique_ptr<RGYOnnxRTCUDA> m_ov;

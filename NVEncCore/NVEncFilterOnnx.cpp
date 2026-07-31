@@ -514,13 +514,15 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
 
     m_cudaPathTried = false;
     m_cudaPath = false;
-    if (m_temporalT == 1 && (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr) {
+    if (m_temporalT == 1 && (m_io == OnnxIO::GrayNoise || m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr) {
         m_inputDevice = std::make_unique<CUMemBuf>(m_inBuf.size() * sizeof(float));
         m_outputDevice = std::make_unique<CUMemBuf>(m_outBuf.size() * sizeof(float));
         if (m_inputDevice->alloc() != RGY_ERR_NONE || m_outputDevice->alloc() != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: CUDAテンソルバッファの確保に失敗しました。\n"));
             return RGY_ERR_MEMORY_ALLOC;
         }
+    }
+    if (m_temporalT == 1 && (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr) {
         const auto matrixIn = (matrixSel == 601) ? RGY_MATRIX_ST170_M
             : (matrixSel == 2020) ? RGY_MATRIX_BT2020_NCL : RGY_MATRIX_BT709;
         const auto matrixOut = (matrixSelOut == 601) ? RGY_MATRIX_ST170_M
@@ -641,7 +643,8 @@ RGYFrameInfo NVEncFilterOnnx::tensorFrame(float *ptr, int channels, int width, i
 RGY_ERR NVEncFilterOnnx::initCudaPath(cudaStream_t stream) {
     if (m_cudaPathTried) return m_cudaPath ? RGY_ERR_NONE : RGY_ERR_UNSUPPORTED;
     m_cudaPathTried = true;
-    if (stream == nullptr || !m_inputDevice || !m_outputDevice || !m_cropToRgb || !m_cropFromRgb) {
+    if (stream == nullptr || !m_inputDevice || !m_outputDevice
+        || ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && (!m_cropToRgb || !m_cropFromRgb))) {
         return RGY_ERR_UNSUPPORTED;
     }
     auto session = std::make_unique<RGYOnnxRTCUDA>();
@@ -686,6 +689,22 @@ RGY_ERR NVEncFilterOnnx::runCudaRGB(const RGYFrameInfo *input, RGYFrameInfo *out
     return m_cropFromRgb->filter(&rgbOutput, yuvOutput, &outputCount, stream);
 }
 
+RGY_ERR NVEncFilterOnnx::runCudaGrayNoise(const RGYFrameInfo *input, RGYFrameInfo *output, cudaStream_t stream) {
+    auto err = copyFrameAsync(output, input, stream);
+    if (err != RGY_ERR_NONE) return err;
+    err = run_onnx_pack_luma((float *)m_inputDevice->ptr, input, stream);
+    if (err != RGY_ERR_NONE) return err;
+    const size_t plane = (size_t)input->width * input->height;
+    uint32_t sigmaBits = 0;
+    std::memcpy(&sigmaBits, &m_sigmaNorm, sizeof(sigmaBits));
+    const auto cuerr = cuMemsetD32Async((CUdeviceptr)((float *)m_inputDevice->ptr + plane),
+        sigmaBits, plane, (CUstream)stream);
+    if (cuerr != CUDA_SUCCESS) return RGY_ERR_CUDA;
+    err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
+    if (err != RGY_ERR_NONE) return err;
+    return run_onnx_unpack_luma(output, (const float *)m_outputDevice->ptr, stream);
+}
+
 RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     if (m_maskMode) {
         return runMask(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
@@ -705,6 +724,12 @@ RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     RGY_ERR cerr = RGY_ERR_UNSUPPORTED;
     if ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr && initCudaPath(stream) == RGY_ERR_NONE) {
         cerr = runCudaRGB(pInputFrame, coreFrame, stream);
+        if (cerr != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
+            m_cudaPath = false;
+        }
+    } else if (m_io == OnnxIO::GrayNoise && initCudaPath(stream) == RGY_ERR_NONE) {
+        cerr = runCudaGrayNoise(pInputFrame, coreFrame, stream);
         if (cerr != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
             m_cudaPath = false;

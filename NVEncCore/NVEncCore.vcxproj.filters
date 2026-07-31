@@ -990,6 +990,9 @@
     <CudaCompile Include="NVEncFilterStDeint.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
+    <CudaCompile Include="NVEncFilterOnnx.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
     <CudaCompile Include="NVEncFilterIvtc.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
