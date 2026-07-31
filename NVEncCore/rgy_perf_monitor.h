@@ -33,7 +33,6 @@
 #include <cstdint>
 #include <climits>
 #include <memory>
-#include <map>
 #include "cpu_info.h"
 #include "rgy_def.h"
 #include "rgy_version.h"
@@ -47,14 +46,6 @@
 #include "rgy_perf_counter.h"
 #endif //#if ENABLE_PERF_COUNTER
 
-#if ENABLE_METRIC_FRAMEWORK
-#pragma warning(push)
-#pragma warning(disable: 4456)
-#pragma warning(disable: 4819)
-#include <observation/gmframework.h>
-#include <observation/building_blocks.h>
-#pragma warning(pop)
-#endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
 #include "nvml.h"
 #if defined(_WIN32) || defined(_WIN64)
@@ -96,7 +87,6 @@ enum : int {
     PERF_MONITOR_QUEUE_VID_OUT = 0x00200000,
     PERF_MONITOR_QUEUE_AUD_IN  = 0x00400000,
     PERF_MONITOR_QUEUE_AUD_OUT = 0x00800000,
-    PERF_MONITOR_MFX_LOAD      = 0x01000000,
     PERF_MONITOR_VE_CLOCK      = 0x02000000,
     PERF_MONITOR_VEE_LOAD      = 0x04000000,
     PERF_MONITOR_VED_LOAD      = 0x08000000,
@@ -130,9 +120,6 @@ static const CX_DESC list_pref_monitor[] = {
     { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_VEE_LOAD | PERF_MONITOR_VED_LOAD | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_VE_CLOCK | PERF_MONITOR_PCIE_LOAD },
     { _T("gpu_load"),    PERF_MONITOR_GPU_LOAD },
     { _T("gpu_clock"),   PERF_MONITOR_GPU_CLOCK },
-#if ENABLE_METRIC_FRAMEWORK
-    { _T("mfx"),         PERF_MONITOR_MFX_LOAD },
-#endif
     { _T("vee_load"),    PERF_MONITOR_VEE_LOAD },
     { _T("ved_load"),    PERF_MONITOR_VEE_LOAD },
     { _T("pcie_load"),   PERF_MONITOR_PCIE_LOAD },
@@ -186,8 +173,6 @@ struct PerfInfo {
     double  gpu_load_percent;
     double  gpu_clock;
 
-    double  mfx_load_percent;
-
     double  vee_load_percent;
     double  ved_load_percent;
     double  ve_clock;
@@ -212,43 +197,6 @@ struct PerfQueueInfo {
     size_t usage_aud_enc;
     size_t usage_aud_proc;
 };
-
-#if ENABLE_METRIC_FRAMEWORK
-
-struct QSVGPUInfo {
-    double dMFXLoad;
-    double dEULoad;
-    double dGPUFreq;
-};
-
-class CQSVConsumer : public IConsumer {
-public:
-    CQSVConsumer() : m_bInfoValid(false), m_QSVInfo(), m_MetricsUsed() {
-        m_QSVInfo.dMFXLoad = 0.0;
-        m_QSVInfo.dEULoad  = 0.0;
-        m_QSVInfo.dGPUFreq = 0.0;
-    };
-    virtual void OnMetricUpdated(uint32_t count, MetricHandle * metrics, const uint64_t * types, const void ** buffers, uint64_t * sizes) override;
-
-    void AddMetrics(const std::map<MetricHandle, std::string>& metrics);
-
-    bool getMFXLoad(QSVGPUInfo *info) {
-        if (!m_bInfoValid)
-            return false;
-        memcpy(info, &m_QSVInfo, sizeof(m_QSVInfo));
-        return true;
-    }
-    const std::map<MetricHandle, std::string>& getMetricUsed() {
-        return m_MetricsUsed;
-    }
-private:
-    void SetValue(const std::string& metricName, double value);
-
-    bool m_bInfoValid;
-    QSVGPUInfo m_QSVInfo;
-    std::map<MetricHandle, std::string> m_MetricsUsed;
-};
-#endif //#if ENABLE_METRIC_FRAMEWORK
 
 struct NVMLMonitorInfo {
     bool dataValid;
@@ -392,11 +340,6 @@ public:
     PerfQueueInfo *GetQueueInfoPtr() {
         return &m_QueueInfo;
     }
-#if ENABLE_METRIC_FRAMEWORK
-    bool GetQSVInfo(QSVGPUInfo *info) {
-        return m_Consumer.getMFXLoad(info);
-    }
-#endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_PERF_COUNTER
     void runCounterThread();
     void setCounter(std::shared_ptr<RGYGPUCounterWin>& perfCounter);
@@ -429,7 +372,7 @@ public:
         *info = m_nvmlInfo;
         return m_nvmlInfo.dataValid;
     }
-#endif //#if ENABLE_METRIC_FRAMEWORK
+#endif //#if ENABLE_NVML
 #if ENABLE_GPUZ_INFO
     bool GetGPUZInfo(GPUZ_SH_MEM *info) {
         memcpy(info, &m_GPUZInfo, sizeof(m_GPUZInfo));
@@ -508,11 +451,6 @@ protected:
     std::shared_ptr<RGYLog> m_pRGYLog;
     RGYParamThread m_threadParam;
 
-#if ENABLE_METRIC_FRAMEWORK
-    IExtensionLoader *m_pLoader;
-    std::unique_ptr<IClientManager> m_pManager;
-    CQSVConsumer m_Consumer;
-#endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
     std::unique_ptr<NVMLMonitor> m_nvmlMonitor;
     NVMLMonitorInfo m_nvmlInfo;

@@ -53,82 +53,6 @@
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-#if ENABLE_METRIC_FRAMEWORK
-#pragma comment(lib, "gmframework.lib")
-#pragma comment(lib, "building_blocks.lib")
-
-static const char *METRIC_NAMES[] = {
-    "com.intel.media.mfx_usage",
-    "com.intel.media.eu_usage",
-    //"com.intel.gpu.avg_gpu_core_frequency_mhz",
-};
-
-void CQSVConsumer::SetValue(const std::string& metricName, double value) {
-    if (metricName == METRIC_NAMES[0]) {
-        m_QSVInfo.dMFXLoad = value;
-    } else if (metricName == METRIC_NAMES[1]) {
-        m_QSVInfo.dEULoad = value;
-    } else if (metricName == METRIC_NAMES[2]) {
-        m_QSVInfo.dGPUFreq = value;
-    }
-}
-
-#pragma warning(push)
-#pragma warning(disable: 4100)
-void CQSVConsumer::OnMetricUpdated(uint32_t count, MetricHandle * metrics, const uint64_t * types, const void ** buffers, uint64_t * sizes) {
-    m_bInfoValid = true;
-    for (uint32_t i = 0; i < count; i++) {
-        const auto& metricName = m_MetricsUsed[metrics[i]];
-        switch (types[i]) {
-        case DM_OPCODE_TIME_STAMPED_DOUBLE:
-        {
-            DM_UINT64 tsc;
-            DM_DOUBLE value;
-            if (Decode_TIME_STAMPED_DOUBLE(&buffers[i], &tsc, &value)) {
-                SetValue(metricName, value);
-            }
-        }
-        break;
-        case DM_OPCODE_TIME_STAMPED_FLOAT:
-        {
-            DM_UINT64 tsc;
-            DM_FLOAT value;
-            if (Decode_TIME_STAMPED_FLOAT(&buffers[i], &tsc, &value)) {
-                SetValue(metricName, value);
-            }
-        }
-        break;
-        case DM_OPCODE_TIME_STAMPED_UINT64:
-        {
-            DM_UINT64 tsc;
-            DM_UINT64 value;
-            if (Decode_TIME_STAMPED_UINT64(&buffers[i], &tsc, &value)) {
-                SetValue(metricName, (double)value);
-            }
-        }
-        break;
-        case DM_OPCODE_TIME_STAMPED_UINT32:
-        {
-            DM_UINT64 tsc;
-            DM_UINT32 value;
-            if (Decode_TIME_STAMPED_UINT32(&buffers[i], &tsc, &value)) {
-                SetValue(metricName, value);
-            }
-        }
-        break;
-        default:
-            break;
-        }
-    }
-};
-#pragma warning(pop)
-
-void CQSVConsumer::AddMetrics(const std::map<MetricHandle, std::string>& metrics) {
-    m_MetricsUsed.insert(metrics.cbegin(), metrics.cend());
-}
-
-#endif //#if ENABLE_METRIC_FRAMEWORK
-
 #if ENCODER_NVENC
 #if ENABLE_NVML
 const TCHAR *nvmlErrStr(nvmlReturn_t ret) {
@@ -471,11 +395,6 @@ CPerfMonitor::CPerfMonitor() :
     m_nSelectOutputPlot(0),
     m_QueueInfo(),
     m_pRGYLog(),
-#if ENABLE_METRIC_FRAMEWORK
-    m_pLoader(nullptr),
-    m_pManager(),
-    m_Consumer(),
-#endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
     m_nvmlMonitor(),
     m_nvmlInfo(),
@@ -491,9 +410,6 @@ CPerfMonitor::CPerfMonitor() :
 {
     memset(m_info, 0, sizeof(m_info));
     memset(&m_QueueInfo, 0, sizeof(m_QueueInfo));
-#if ENABLE_METRIC_FRAMEWORK
-    m_pManager = nullptr;
-#endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_GPUZ_INFO
     memset(&m_GPUZInfo, 0, sizeof(m_GPUZInfo));
 #endif //#if ENABLE_GPUZ_INFO
@@ -518,15 +434,6 @@ void CPerfMonitor::clear() {
 #endif //#if ENABLE_PERF_COUNTER
     memset(m_info, 0, sizeof(m_info));
     memset(&m_QueueInfo, 0, sizeof(m_QueueInfo));
-#if ENABLE_METRIC_FRAMEWORK
-    if (m_pManager) {
-        const auto metricsUsed = m_Consumer.getMetricUsed();
-        for (auto metric = metricsUsed.cbegin(); metric != metricsUsed.cend(); metric++) {
-            m_pManager->UnsubscribeMetric(m_Consumer, metric->first);
-        }
-    }
-    m_pManager.reset();
-#endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
     m_nvmlMonitor.reset();
 #endif //#if ENABLE_NVML
@@ -614,9 +521,6 @@ std::string CPerfMonitor::write_header(int nSelect) {
     }
     if (nSelect & PERF_MONITOR_GPU_CLOCK) {
         str += ",gpu clock (MHz)";
-    }
-    if (nSelect & PERF_MONITOR_MFX_LOAD) {
-        str += ",mfx load (%)";
     }
     if (nSelect & PERF_MONITOR_VEE_LOAD) {
         str += ",video encoder load (%)";
@@ -720,68 +624,6 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
             return 1;
         }
     }
-#if ENABLE_METRIC_FRAMEWORK
-    //LoadAllを使用する場合、下記のように使わないモジュールを書くことで取得するモジュールを制限できる
-    //putenv("GM_EXTENSION_LIB_SKIP_LIST=SEPPublisher,PVRPublisher,CPUInfoPublisher,RenderPerfPublisher");
-    m_pLoader = ExtensionLoader::Create();
-    //m_pLoader->AddSearchPath(loadPath.c_str());
-    if (m_pLoader->Load("DefaultManager") == 0) {
-        AddMessage(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load DefaultManager\n"));
-    } else if (m_pLoader->CommitExtensions() == 0) {
-    //} else if (m_pLoader->Load("LogPublisher") == 0) {
-        //AddMessage(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load LogPublisher\n"));
-    //下記のようにLoadAllでもよいが非常に重い
-    //} else if (m_pLoader->LoadAll() == 0) {
-        //AddMessage(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load Metric dlls\n"));
-    //mfxの使用率をとるには下記の2つが必要
-    } else if (m_pLoader->Load("MediaPerfPublisher") == 0) {
-        AddMessage(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load MediaPerfPublisher\n"));
-    } else if (m_pLoader->Load("RenderPerfPublisher") == 0) {
-        AddMessage(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load RenderPerfPublisher\n"));
-    //以下でGPU平均使用率などがとれるはずだが・・・
-    //} else if (m_pLoader->Load("GfxDrvSampledPublisher") == 0) {
-        //AddMessage(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load GfxDrvSampledPublisher\n"));
-    } else if (m_pLoader->CommitExtensions() == 0) {
-        //AddMessage(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to CommitExtensions\n"));
-    } else {
-        //定義した情報の受け取り口を登録
-        m_pLoader->AddExtension("CQSVConsumer", &m_Consumer);
-        m_pManager.reset(GM_GET_DEFAULT_CLIENT_MANAGER(m_pLoader));
-        if (m_pManager == nullptr) {
-            AddMessage(RGY_LOG_WARN, _T("No default Client Manager available\n"));
-        } else {
-            RegistrySearcher regsearcher(m_pManager.get(), RESOURCE_TYPE_METRIC, PAYLOAD_TYPE_ANY, 0);
-            std::map<MetricHandle, std::string> validMetrics;
-            for (int i = 0; i < _countof(METRIC_NAMES); i++) {
-                PathHandle h = regsearcher[METRIC_NAMES[i]];
-                if (h != 0) {
-                    validMetrics[h] = METRIC_NAMES[i];
-                }
-            }
-            std::map<MetricHandle, std::string> subscribedMetrics;
-            for (auto metric = validMetrics.cbegin(); metric != validMetrics.cend(); metric++) {
-                GM_STATUS status = m_pManager->SubscribeMetric(m_Consumer.GetHandle(), metric->first);
-                if (GM_STATUS_SUCCESS != status) {
-                    AddMessage(RGY_LOG_WARN, _T("Failure to subscribe %s metric: %d.\n"), char_to_tstring(metric->second).c_str(), status);
-                } else {
-                    AddMessage(RGY_LOG_DEBUG, _T("subscribed %s metric\n"), char_to_tstring(metric->second).c_str());
-                    subscribedMetrics[metric->first] = metric->second;
-                }
-            }
-            m_Consumer.AddMetrics(subscribedMetrics);
-            if (subscribedMetrics.size() != _countof(METRIC_NAMES)) {
-                AddMessage(RGY_LOG_DEBUG, _T("metrics was not fully load, disable metric framework features.\n"));
-                if (m_pManager) {
-                    const auto metricsUsed = m_Consumer.getMetricUsed();
-                    for (auto metric = metricsUsed.cbegin(); metric != metricsUsed.cend(); metric++) {
-                        m_pManager->UnsubscribeMetric(m_Consumer, metric->first);
-                    }
-                }
-                m_pManager.reset();
-            }
-        }
-    }
-#endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
     if (prm->pciBusId.length() > 0) {
         m_nvmlMonitor = std::make_unique<NVMLMonitor>();
@@ -863,16 +705,12 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_IN);
     m_nSelectCheck &= (~PERF_MONITOR_GPU_CLOCK);
     m_nSelectCheck &= (~PERF_MONITOR_GPU_LOAD);
-    m_nSelectCheck &= (~PERF_MONITOR_MFX_LOAD);
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 #if ENCODER_QSV
     m_nSelectCheck &= (~PERF_MONITOR_VED_LOAD);
     m_nSelectCheck &= (~PERF_MONITOR_VEE_LOAD);
     m_nSelectCheck &= (~PERF_MONITOR_VE_CLOCK);
-#endif
-#if ENCODER_NVENC
-    m_nSelectCheck &= (~PERF_MONITOR_MFX_LOAD);
 #endif
 
     m_nSelectOutputLog &= m_nSelectCheck;
@@ -944,20 +782,8 @@ void CPerfMonitor::check() {
     const double time_diff_inv = 1.0 / (pInfoNew->time_us - pInfoOld->time_us);
 #endif //#if defined(_WIN32) || defined(_WIN64)
     //GPU情報
-    bool qsv_metric = false;
     m_bGPUZInfoValid = false;
     pInfoNew->gpu_info_valid = FALSE;
-#if ENABLE_METRIC_FRAMEWORK
-    QSVGPUInfo qsvinfo = { 0 };
-    if (m_Consumer.getMFXLoad(&qsvinfo)) {
-        qsv_metric = true;
-        pInfoNew->gpu_info_valid = TRUE;
-        pInfoNew->mfx_load_percent = qsvinfo.dMFXLoad;
-        pInfoNew->gpu_load_percent = qsvinfo.dEULoad;
-        pInfoNew->gpu_clock = qsvinfo.dGPUFreq;
-    } else {
-#endif //#if ENABLE_METRIC_FRAMEWORK
-    pInfoNew->gpu_info_valid   = FALSE;
     pInfoNew->gpu_clock = 0.0;
     pInfoNew->gpu_load_percent = 0.0;
     pInfoNew->ve_clock = 0.0;
@@ -1002,14 +828,12 @@ void CPerfMonitor::check() {
             pInfoNew->gpu_clock = gpu_core_clock(&m_GPUZInfo);
         }
 #endif //#if ENABLE_GPUZ_INFO
-#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
+#if ENABLE_NVML
     }
-#endif //#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
+#endif //#if ENABLE_NVML
 #if ENABLE_PERF_COUNTER
     if (m_perfCounter) {
-        if (!qsv_metric) { //QSVではMETRIC_FRAMEWORKの値を優先する
-            pInfoNew->vee_load_percent = 0.0;
-        }
+        pInfoNew->vee_load_percent = 0.0;
         pInfoNew->gpu_load_percent = 0.0;
         pInfoNew->ved_load_percent = 0.0;
         std::vector<CounterEntry> counters;
@@ -1019,11 +843,9 @@ void CPerfMonitor::check() {
         }
         if (counters.size() > 0) {
             pInfoNew->gpu_info_valid = TRUE;
-            if (!qsv_metric) { //QSVではMETRIC_FRAMEWORKの値を優先する
-                pInfoNew->vee_load_percent = std::max(
-                    RGYGPUCounterWinEntries(counters).filter_type(L"encode").max(),
-                    RGYGPUCounterWinEntries(counters).filter_type(L"codec").max()); //vce rx5xxx
-            }
+            pInfoNew->vee_load_percent = std::max(
+                RGYGPUCounterWinEntries(counters).filter_type(L"encode").max(),
+                RGYGPUCounterWinEntries(counters).filter_type(L"codec").max()); //vce rx5xxx
             pInfoNew->gpu_load_percent = std::max(std::max(std::max(
                 RGYGPUCounterWinEntries(counters).filter_type(L"cuda").max(), //nvenc
                 RGYGPUCounterWinEntries(counters).filter_type(L"compute").max()), //vce-opencl
@@ -1239,9 +1061,6 @@ std::string CPerfMonitor::write(int nSelect) {
     }
     if (nSelect & PERF_MONITOR_GPU_CLOCK) {
         str += strsprintf(",%lf", pInfo->gpu_clock);
-    }
-    if (nSelect & PERF_MONITOR_MFX_LOAD) {
-        str += strsprintf(",%lf", pInfo->mfx_load_percent);
     }
     if (nSelect & PERF_MONITOR_VEE_LOAD) {
         str += strsprintf(",%lf", pInfo->vee_load_percent);

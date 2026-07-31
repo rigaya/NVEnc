@@ -840,7 +840,6 @@ endif
 
 rev_data = configuration_data()
 rev_data.set_quoted('ENCODER_REV', rev_count)
-rev_data.set('ENABLE_METRIC_FRAMEWORK', 0)
 configure_file(
   output: 'rgy_rev.h',
   configuration: rev_data,
