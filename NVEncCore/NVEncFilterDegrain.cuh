@@ -1954,6 +1954,7 @@ static __global__ void kernel_degrain_mv_spatial_refine_cuda(
     __shared__ RGYDegrainMotionSearchCandidate candidate[5];
     __shared__ RGYDegrainMotionSearchCandidateCost candidateCosts[DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS];
     __shared__ RGYDegrainMotionSearchCandidateCost bestCandidateCost;
+    __shared__ RGYDegrainMotionSearchVector baseVector;
     __shared__ int reusePreviousSad;
     __shared__ uint32_t candidateLaneSums[DEGRAIN_MOTION_SEARCH_SEARCH_LOCAL_SIZE_MAX];
 
@@ -1965,6 +1966,18 @@ static __global__ void kernel_degrain_mv_spatial_refine_cuda(
         sourceBlockPixels[i] = (TypePixel)degrainPixelLoad<TypePixel>(sourcePlane, pitch, width, height, sourceBaseX + x, sourceBaseY + y);
     }
 
+    if (localThreadId == 0) {
+        baseVector = vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)];
+    }
+    __syncthreads();
+    // 平坦ブロックは検索段階で zero MV と正しい SAD に確定済みなので、近傍 MV を使う再探索を省略する。
+    if (degrainMotionSearchSourceBlockVarianceParallel<TypePixel, blockSize>(sourceBlockPixels, candidateLaneSums, localThreadId) == 0u) {
+        if (localThreadId == 0) {
+            vectorsFinal[degrainMotionSearchVecFinalIndex(finalBase, blockCount, block)] = baseVector;
+        }
+        return;
+    }
+
     const RGYDegrainMotionSearchVector initialSeed = vectorsPrev[degrainMotionSearchVecPrevIndex(planeBase, blockCount, block)];
     if (localThreadId == 0) {
         context = degrainMotionSearchMakeSearchContext(initialSeed, width, height, blockGridX, blockGridY, step,
@@ -1973,7 +1986,7 @@ static __global__ void kernel_degrain_mv_spatial_refine_cuda(
     __syncthreads();
 
     if (localThreadId == 0) {
-        const RGYDegrainMotionSearchVector base = vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)];
+        const RGYDegrainMotionSearchVector base = baseVector;
         const RGYDegrainMotionSearchCandidate baseCandidate = degrainMotionSearchSavedVectorToCandidate(base);
         bestCandidateCost.pos_x = base.pos_x;
         bestCandidateCost.pos_y = base.pos_y;
