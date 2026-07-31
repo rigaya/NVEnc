@@ -1326,6 +1326,14 @@ RGY_ERR NVEncFilterKfm::initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& pr
     rtgmcParam->rtgmc.enable = true;
     rtgmcParam->rtgmc.preset = prm->kfm.preset;
     apply_vpp_rtgmc_preset(rtgmcParam->rtgmc, prm->kfm.preset, rtgmcParam->rtgmc.tuning);
+    static const int searchEarlySadByPreset[] = { 0, 0, 0, 0, 16, 32, 64, 64, 64, 64, 64 };
+    const int preset = clamp((int)prm->kfm.preset, (int)VppRtgmcPreset::Placebo, (int)VppRtgmcPreset::Draft);
+    const int searchEarlySad = (prm->kfm.searchEarlySadOverride == FILTER_DEFAULT_KFM_SEARCH_EARLY_SAD_OVERRIDE)
+        ? searchEarlySadByPreset[preset]
+        : prm->kfm.searchEarlySadOverride;
+    for (auto *stagePrm : { &rtgmcParam->rtgmc.analyze, &rtgmcParam->rtgmc.tr1, &rtgmcParam->rtgmc.tr2 }) {
+        stagePrm->searchEarlySad = searchEarlySad;
+    }
     if (useFlag > 0) {
         rtgmcParam->rtgmc.tr1.useFlag = useFlag;
         rtgmcParam->rtgmc.tr2.useFlag = useFlag;
