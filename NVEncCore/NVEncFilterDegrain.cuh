@@ -1937,7 +1937,8 @@ static __global__ void kernel_degrain_mv_spatial_refine_cuda(
     const int pad,
     const int motionCostScale,
     const int lowSadWeightScale,
-    const int newCandidateCostScale) {
+    const int newCandidateCostScale,
+    const int spatialEarlySadThreshold) {
     const int localThreadId = (int)threadIdx.x;
     const int sadLane = localThreadId % blockSize;
     const int candidateGroupIndex = localThreadId / blockSize;
@@ -1970,6 +1971,14 @@ static __global__ void kernel_degrain_mv_spatial_refine_cuda(
         baseVector = vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)];
     }
     __syncthreads();
+    if (spatialEarlySadThreshold >= 0
+        && ((spatialEarlySadThreshold == 0 && baseVector.sad_metric == 0u)
+            || (spatialEarlySadThreshold > 0 && baseVector.sad_metric < (uint32_t)spatialEarlySadThreshold))) {
+        if (localThreadId == 0) {
+            vectorsFinal[degrainMotionSearchVecFinalIndex(finalBase, blockCount, block)] = baseVector;
+        }
+        return;
+    }
     // 平坦ブロックは検索段階で zero MV と正しい SAD に確定済みなので、近傍 MV を使う再探索を省略する。
     if (degrainMotionSearchSourceBlockVarianceParallel<TypePixel, blockSize>(sourceBlockPixels, candidateLaneSums, localThreadId) == 0u) {
         if (localThreadId == 0) {
@@ -4398,7 +4407,7 @@ static RGY_ERR launchNVEncDegrainMotionSearchSpatialRefineFixed(
     const int pitch, const int width, const int height, const int planeBase, const int finalBase,
     const int blockCount, const RGYDegrainBlockLayout &layout,
     const int pad, const int motionCostScale,
-    const int lowSadWeightScale, const int newCandidateCostScale, cudaStream_t stream) {
+    const int lowSadWeightScale, const int newCandidateCostScale, const int spatialEarlySadThreshold, cudaStream_t stream) {
     const int block = blockSize * DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS;
     const int grid = blockCount;
     kernel_degrain_mv_spatial_refine_cuda<TypePixel, blockSize, pel, subpelInterp><<<grid, block, 0, stream>>>(
@@ -4407,7 +4416,7 @@ static RGY_ERR launchNVEncDegrainMotionSearchSpatialRefineFixed(
         reinterpret_cast<const RGYDegrainMotionSearchVector *>(vectorsPrev.ptr),
         reinterpret_cast<RGYDegrainMotionSearchVector *>(vectorsFinal.ptr),
         pitch, width, height, planeBase, finalBase, blockCount, layout.blocksX, layout.blocksY, layout.step,
-        pad, motionCostScale, lowSadWeightScale, newCandidateCostScale);
+        pad, motionCostScale, lowSadWeightScale, newCandidateCostScale, spatialEarlySadThreshold);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -4464,14 +4473,14 @@ static RGY_ERR launchNVEncDegrainMotionSearchSpatialRefineBlock(
     const int pitch, const int width, const int height, const int planeBase, const int finalBase,
     const int blockCount, const RGYDegrainBlockLayout &layout,
     const int pel, const int subpelInterp, const int pad, const int motionCostScale,
-    const int lowSadWeightScale, const int newCandidateCostScale, cudaStream_t stream) {
+    const int lowSadWeightScale, const int newCandidateCostScale, const int spatialEarlySadThreshold, cudaStream_t stream) {
     if (layout.blockSize != blockSize) {
         return RGY_ERR_INVALID_PARAM;
     }
 #define NVENC_DEGRAIN_LAUNCH_REFINE(PEL, SUBPEL) \
     return launchNVEncDegrainMotionSearchSpatialRefineFixed<TypePixel, blockSize, PEL, SUBPEL>( \
         sourcePlane, referencePlane, subpelPlanes, subpelPlaneStride, vectors, vectorsPrev, vectorsFinal, pitch, width, height, planeBase, finalBase, \
-        blockCount, layout, pad, motionCostScale, lowSadWeightScale, newCandidateCostScale, stream)
+        blockCount, layout, pad, motionCostScale, lowSadWeightScale, newCandidateCostScale, spatialEarlySadThreshold, stream)
     switch (pel) {
     case 1:
         NVENC_DEGRAIN_LAUNCH_REFINE(1, 0);

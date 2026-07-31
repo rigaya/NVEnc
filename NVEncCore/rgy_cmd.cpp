@@ -2802,7 +2802,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             "rep1-thin", "rep1-pad",
             "rep2-thin", "rep2-pad", "rep_chroma",
             "blksize", "search", "thsad", "thsad1", "thsad2", "thscd1", "thscd2", "pel", "levels", "overlap", "delta",
-            "subpelinterp", "searchparam", "pelsearch", "search_early_sad",
+            "subpelinterp", "searchparam", "pelsearch", "search_early_sad", "spatial_early_sad",
             "truemotion", "lambda", "lsad", "pnew", "plevel", "globalmotion", "dct", "useflag",
             "delta_analyze", "delta_tr1", "delta_tr2"
         };
@@ -3690,6 +3690,18 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.searchEarlySad = true;
                     continue;
                 }
+                if (param_arg == _T("spatial_early_sad")) {
+                    int value = 0;
+                    if (parse_degrain_search_early_sad(&value, param_val, false)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val,
+                            _T("spatial_early_sad should be off or -1 - 65535."));
+                        return 1;
+                    }
+                    parsedRtgmc.analyze.spatialEarlySad = value;
+                    parsedRtgmc.tr1.spatialEarlySad = value;
+                    parsedRtgmc.tr2.spatialEarlySad = value;
+                    continue;
+                }
                 if (param_arg == _T("subpelinterp")) {
                     if (check_fixed_int(param_arg, param_val, 2)) return 1;
                     continue;
@@ -3861,7 +3873,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 
         const auto paramList = std::vector<std::string>{
             "enable", "mode", "preset", "timing", "past_cycles",
-            "thswitch", "ucf", "nr", "is120", "rff", "debug", "debug_stage", "timecode", "search_early_sad"
+            "thswitch", "ucf", "nr", "is120", "rff", "debug", "debug_stage", "timecode", "search_early_sad", "spatial_early_sad"
         };
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -3901,6 +3913,14 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (parse_degrain_search_early_sad(&vpp->kfm.searchEarlySadOverride, param_val, true)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val,
                             _T("search_early_sad should be auto, off, or -1 - 65535."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("spatial_early_sad")) {
+                    if (parse_degrain_search_early_sad(&vpp->kfm.spatialEarlySadOverride, param_val, true)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val,
+                            _T("spatial_early_sad should be auto, off, or -1 - 65535."));
                         return 1;
                     }
                     continue;
@@ -6662,7 +6682,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
         const auto paramList = std::vector<std::string>{
             "enable", "preset", "mode", "stage", "tr", "blksize", "search", "thsad", "thsadc", "thscd1", "thscd2", "pel", "levels", "overlap", "delta", "tr0", "rep0", "search_refine",
-            "subpelinterp", "searchparam", "pelsearch", "search_early_sad",
+            "subpelinterp", "searchparam", "pelsearch", "search_early_sad", "spatial_early_sad",
             "truemotion", "lambda", "lsad", "pnew", "plevel", "globalmotion", "dct", "useflag",
             "mv_spatial_refine", "chroma", "binomial", "tv_range"
         };
@@ -6856,6 +6876,14 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (parse_degrain_search_early_sad(&parsedDegrain.searchEarlySad, param_val, false)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val,
                             _T("search_early_sad should be off or -1 - 65535."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("spatial_early_sad")) {
+                    if (parse_degrain_search_early_sad(&parsedDegrain.spatialEarlySad, param_val, false)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val,
+                            _T("spatial_early_sad should be off or -1 - 65535."));
                         return 1;
                     }
                     continue;
@@ -13458,6 +13486,14 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                     tmp << param->rtgmc.analyze.searchEarlySad;
                 }
             }
+            if (param->rtgmc.analyze.spatialEarlySad != defaultPrm->rtgmc.analyze.spatialEarlySad) {
+                tmp << _T(",spatial_early_sad=");
+                if (param->rtgmc.analyze.spatialEarlySad < 0) {
+                    tmp << _T("off");
+                } else {
+                    tmp << param->rtgmc.analyze.spatialEarlySad;
+                }
+            }
             ADD_NUM(_T("delta_analyze"), rtgmc.analyze.delta);
             ADD_NUM(_T("delta_tr1"), rtgmc.tr1.delta);
             ADD_NUM(_T("delta_tr2"), rtgmc.tr2.delta);
@@ -13509,6 +13545,16 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                     tmp << _T("off");
                 } else {
                     tmp << param->kfm.searchEarlySadOverride;
+                }
+            }
+            if (param->kfm.spatialEarlySadOverride != defaultPrm->kfm.spatialEarlySadOverride) {
+                tmp << _T(",spatial_early_sad=");
+                if (param->kfm.spatialEarlySadOverride == FILTER_DEFAULT_KFM_SPATIAL_EARLY_SAD_OVERRIDE) {
+                    tmp << _T("auto");
+                } else if (param->kfm.spatialEarlySadOverride < 0) {
+                    tmp << _T("off");
+                } else {
+                    tmp << param->kfm.spatialEarlySadOverride;
                 }
             }
         }
@@ -14072,6 +14118,14 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                     tmp << _T("off");
                 } else {
                     tmp << degrain.searchEarlySad;
+                }
+            }
+            if (degrain.spatialEarlySad != defaultDegrain.spatialEarlySad) {
+                tmp << _T(",spatial_early_sad=");
+                if (degrain.spatialEarlySad < 0) {
+                    tmp << _T("off");
+                } else {
+                    tmp << degrain.spatialEarlySad;
                 }
             }
             if (degrain.trueMotion != defaultDegrain.trueMotion) tmp << _T(",truemotion=") << (degrain.trueMotion ? _T("true") : _T("false"));
@@ -16112,6 +16166,7 @@ tstring gen_cmd_help_vpp() {
         _T("      globalmotion=<bool>    enable global motion tuning (default=true)\n")
         _T("      searchparam/pelsearch=<int> preset-expanded motion search params (1 - 2)\n")
         _T("      search_early_sad=<int|off> level0 early SAD threshold in 8x8 block / 8-bit units (preset default)\n")
+        _T("      spatial_early_sad=<int|off> level1 spatial refine skip threshold in 8x8 block / 8-bit units (default=off)\n")
         _T("      sharpness=<float>      retouch sharpness (default=%.2f, 0.0 - 1.0)\n")
         _T("      limit=<float>          legacy retouch limit (default=%.2f, 0.0 - 1.0)\n")
         _T("      smode=<int>            resharpen mode (default=%d, 0 - 2)\n")
@@ -16136,6 +16191,7 @@ tstring gen_cmd_help_vpp() {
         _T("      mode=<string>          vfr(default), 60, 24\n")
         _T("      preset=<string>        speed preset (default=faster)\n")
         _T("      search_early_sad=<int|auto|off> level0 early SAD threshold in 8x8 block / 8-bit units (default=auto)\n")
+        _T("      spatial_early_sad=<int|auto|off> level1 spatial refine skip threshold in 8x8 block / 8-bit units (default=auto)\n")
         _T("      timing=<string>        realtime, realtime+(default), strict\n")
         _T("      past_cycles=<int>      commit delay cycles for realtime+ (default=30)\n")
         _T("      thswitch=<float>       60p switch threshold (default=0.5)\n")
@@ -16755,6 +16811,7 @@ tstring gen_cmd_help_vpp() {
         _T("      searchparam=<int>      motion search parameter (default=%d)\n")
         _T("      pelsearch=<int>        subpixel search parameter (default=%d)\n")
         _T("      search_early_sad=<int|off> level0 early SAD threshold in 8x8 block / 8-bit units (default=off)\n")
+        _T("      spatial_early_sad=<int|off> level1 spatial refine skip threshold in 8x8 block / 8-bit units (default=off)\n")
         _T("      truemotion=<bool>      use true-motion tuning (default=%s)\n")
         _T("      lambda=<int>           motion penalty strength (default=%d)\n")
         _T("      lsad=<int>             large SAD threshold (default=%d)\n")

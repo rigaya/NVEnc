@@ -2399,6 +2399,8 @@ High quality QTGMC deinterlacer with relaxed implementation for GPU.
 
   - search_early_sad=&lt;int|off&gt;  
     Skip the level0 full search when the predictor SAD is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth; `off` (`-1`) disables it. Preset defaults are listed above.
+  - spatial_early_sad=&lt;int|off&gt;  
+    Skip spatial refinement for a block when the SAD selected by the level1 search is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. Default: `off` (`-1`).
   - rep1-thin/rep1-pad/rep2-thin/rep2-pad
     `repN-thin=0-7`, `repN-pad=0-3`.
 
@@ -2490,6 +2492,8 @@ Please note that this filter is slow, recommended to be used on dGPUs.
     Reserved nested preset. `slower`, `slow`, `medium`, `fast`, `faster` (default), `veryfast`, `superfast`, `ultrafast`, `draft`.
   - search_early_sad=&lt;int|auto|off&gt;  
     SAD threshold for skipping the level0 full search, in 8x8-block, 8-bit SAD units (`0-65535`), scaled automatically for blksize and bit depth. `auto` (default) uses the preset value; `off` (`-1`) disables it.
+  - spatial_early_sad=&lt;int|auto|off&gt;  
+    Skip spatial refinement for a block when the SAD selected by the level1 search is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. `auto` (default) uses the preset value (`slower`/`slow`: 0, `medium`: 16, `fast`: 32, `faster` through `draft`: 64); `off` (`-1`) disables it.
   - timing=&lt;string&gt;  
     Timing analysis mode. `realtime`, `realtime+` (default), `strict`.
   - past_cycles=&lt;int&gt;  
@@ -2935,6 +2939,8 @@ Motion compensated degrain debug filter.
     Motion-vector spatial refinement count. Default is `auto` (`-1`): run spatial refinement only at the coarsest analysis level, and skip it at all finer levels.
   - search_early_sad=&lt;int|off&gt;  
     Skip the level0 full search when the predictor SAD is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. Default: `off` (`-1`).
+  - spatial_early_sad=&lt;int|off&gt;  
+    Skip spatial refinement for a block when the SAD selected by the level1 search is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. Default: `off` (`-1`).
   - chroma/binomial/tv_range  
     Chroma analysis and prefilter/range controls.
 

@@ -93,7 +93,7 @@ RGY_ERR launchNVEncDegrainMotionSearchSpatialRefine(
     int pitch, int width, int height, int planeBase, int finalBase,
     int blockCount, const RGYDegrainBlockLayout &layout, int pixelBytes,
     int pel, int subpelInterp, int pad, int motionCostScale,
-    int lowSadWeightScale, int newCandidateCostScale, cudaStream_t stream);
+    int lowSadWeightScale, int newCandidateCostScale, int spatialEarlySadThreshold, cudaStream_t stream);
 RGY_ERR launchNVEncDegrainBuildTemporalMixPlan(
     CUMemBuf &temporalMixPlan, const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
     int blockCount, uint32_t thsad, uint32_t disableMask, int refs, cudaStream_t stream);
@@ -754,6 +754,13 @@ RGY_ERR NVEncFilterDegrain::checkParam(const std::shared_ptr<NVEncFilterParamDeg
     }
     if (prm->degrain.mvSpatialRefine < -1) {
         AddMessage(RGY_LOG_ERROR, _T("degrain mv_spatial_refine must be -1 or greater.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->degrain.searchEarlySad < FILTER_MIN_DEGRAIN_SEARCH_EARLY_SAD
+        || prm->degrain.searchEarlySad > FILTER_MAX_DEGRAIN_SEARCH_EARLY_SAD
+        || prm->degrain.spatialEarlySad < FILTER_MIN_DEGRAIN_SEARCH_EARLY_SAD
+        || prm->degrain.spatialEarlySad > FILTER_MAX_DEGRAIN_SEARCH_EARLY_SAD) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain early SAD threshold must be off or -1 - 65535.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->degrain.subpelInterp < 0 || prm->degrain.subpelInterp > 2) {
@@ -3007,6 +3014,7 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo 
                     motionSearchConfigLevel1.motionCostScale,
                     motionSearchConfigLevel1.lowSadWeightScale,
                     motionSearchConfigLevel1.newCandidateCostScale,
+                    motionSearchConfigLevel1.spatialEarlySadThreshold,
                     stream);
             }
             if (err != RGY_ERR_NONE) {
@@ -3187,6 +3195,7 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo 
                     motionSearchConfig.motionCostScale,
                     motionSearchConfig.lowSadWeightScale,
                     motionSearchConfig.newCandidateCostScale,
+                    motionSearchConfig.spatialEarlySadThreshold,
                     stream);
             }
             if (err != RGY_ERR_NONE) {

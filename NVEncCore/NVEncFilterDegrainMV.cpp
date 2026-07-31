@@ -459,6 +459,9 @@ RGYDegrainMotionSearchConfig rgy_degrain_make_motion_search_config(
     scaledDegrain.blksize = layout.blockSize;
     scaledDegrain.overlap = layout.overlap;
     cfg.lowSadWeightScale = (int)rgy_degrain_scale_sad_threshold(scaledDegrain, frameInfo, degrain.lsad);
+    cfg.spatialEarlySadThreshold = (level != 1 || degrain.spatialEarlySad < 0)
+        ? -1
+        : (int)rgy_degrain_scale_sad_threshold(scaledDegrain, frameInfo, degrain.spatialEarlySad);
     cfg.zeroCandidateCostScale = degrain.pnew;
     cfg.frameAverageCandidateCostScale = 0;
     cfg.predictorCandidateCostScale = degrain.plevel;

@@ -372,6 +372,7 @@ struct RGYDegrainMotionSearchConfig {
     int pad;
     int motionCostScale;
     int lowSadWeightScale;
+    int spatialEarlySadThreshold;
     int zeroCandidateCostScale;
     int frameAverageCandidateCostScale;
     int predictorCandidateCostScale;
@@ -401,6 +402,7 @@ struct RGYDegrainMotionSearchConfig {
         pad(0),
         motionCostScale(0),
         lowSadWeightScale(0),
+        spatialEarlySadThreshold(-1),
         zeroCandidateCostScale(0),
         frameAverageCandidateCostScale(0),
         predictorCandidateCostScale(0),

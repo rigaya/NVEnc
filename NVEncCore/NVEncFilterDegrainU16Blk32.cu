@@ -22,9 +22,9 @@ RGY_ERR launchNVEncDegrainMotionSearchSpatialRefineU16Blk32(
     const int pitch, const int width, const int height, const int planeBase, const int finalBase,
     const int blockCount, const RGYDegrainBlockLayout &layout,
     const int pel, const int subpelInterp, const int pad, const int motionCostScale,
-    const int lowSadWeightScale, const int newCandidateCostScale, cudaStream_t stream) {
+    const int lowSadWeightScale, const int newCandidateCostScale, const int spatialEarlySadThreshold, cudaStream_t stream) {
     return launchNVEncDegrainMotionSearchSpatialRefineBlock<uint16_t, 32>(
         sourcePlane, referencePlane, subpelPlanes, subpelPlaneStride, vectors, vectorsPrev, vectorsFinal, pitch, width, height,
         planeBase, finalBase, blockCount, layout, pel, subpelInterp, pad, motionCostScale,
-        lowSadWeightScale, newCandidateCostScale, stream);
+        lowSadWeightScale, newCandidateCostScale, spatialEarlySadThreshold, stream);
 }
