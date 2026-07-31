@@ -33,6 +33,7 @@
 #include <cmath>
 #include <cstring>
 #include <algorithm>
+#include <cuda.h>
 #include <cuda_runtime.h>
 
 tstring NVEncFilterParamOnnx::print() const {
@@ -513,7 +514,7 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
 
     m_cudaPathTried = false;
     m_cudaPath = false;
-    if (m_temporalT == 1 && m_io == OnnxIO::RGB && !m_ycbcr) {
+    if (m_temporalT == 1 && (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr) {
         m_inputDevice = std::make_unique<CUMemBuf>(m_inBuf.size() * sizeof(float));
         m_outputDevice = std::make_unique<CUMemBuf>(m_outBuf.size() * sizeof(float));
         if (m_inputDevice->alloc() != RGY_ERR_NONE || m_outputDevice->alloc() != RGY_ERR_NONE) {
@@ -669,6 +670,14 @@ RGY_ERR NVEncFilterOnnx::runCudaRGB(const RGYFrameInfo *input, RGYFrameInfo *out
     int outputCount = 0;
     auto err = m_cropToRgb->filter(&inputFrame, rgbInputOut, &outputCount, stream);
     if (err != RGY_ERR_NONE) return err;
+    if (m_io == OnnxIO::RGBNoise) {
+        const size_t plane = (size_t)input->width * input->height;
+        uint32_t sigmaBits = 0;
+        std::memcpy(&sigmaBits, &m_sigmaNorm, sizeof(sigmaBits));
+        const auto cuerr = cuMemsetD32Async((CUdeviceptr)((float *)m_inputDevice->ptr + 3 * plane),
+            sigmaBits, plane, (CUstream)stream);
+        if (cuerr != CUDA_SUCCESS) return RGY_ERR_CUDA;
+    }
     err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
     if (err != RGY_ERR_NONE) return err;
     auto rgbOutput = tensorFrame((float *)m_outputDevice->ptr, 3, output->width, output->height, RGY_CSP_RGB_F32);
@@ -694,7 +703,7 @@ RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     copyFramePropWithoutRes(coreFrame, pInputFrame);
 
     RGY_ERR cerr = RGY_ERR_UNSUPPORTED;
-    if (m_io == OnnxIO::RGB && !m_ycbcr && initCudaPath(stream) == RGY_ERR_NONE) {
+    if ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr && initCudaPath(stream) == RGY_ERR_NONE) {
         cerr = runCudaRGB(pInputFrame, coreFrame, stream);
         if (cerr != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
