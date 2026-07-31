@@ -557,7 +557,7 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
             return err;
         }
     }
-    if (m_temporalT == 1 && m_io == OnnxIO::Chroma) {
+    if (m_temporalT == 1 && (m_io == OnnxIO::Chroma || (m_io == OnnxIO::RGB && m_ycbcr))) {
         const auto yuvIn = tensorFrame((float *)m_inputDevice->ptr, 3, inW, inH, RGY_CSP_YUV444_F32);
         auto yuvOut = tensorFrame((float *)m_outputDevice->ptr, 3, outW, outH, RGY_CSP_YUV444_F32);
         if (m_io == OnnxIO::Chroma) {
@@ -682,7 +682,7 @@ RGY_ERR NVEncFilterOnnx::initCudaPath(cudaStream_t stream) {
     m_cudaPathTried = true;
     if (stream == nullptr || !m_inputDevice || !m_outputDevice
         || ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr && (!m_cropToRgb || !m_cropFromRgb))
-        || (m_io == OnnxIO::Chroma && (!m_cropToYuv444 || !m_cropFromYuv444))) {
+        || ((m_io == OnnxIO::Chroma || (m_io == OnnxIO::RGB && m_ycbcr)) && (!m_cropToYuv444 || !m_cropFromYuv444))) {
         return RGY_ERR_UNSUPPORTED;
     }
     auto session = std::make_unique<RGYOnnxRTCUDA>();
@@ -794,7 +794,7 @@ RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
             AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
             m_cudaPath = false;
         }
-    } else if (m_io == OnnxIO::Chroma && initCudaPath(stream) == RGY_ERR_NONE) {
+    } else if ((m_io == OnnxIO::Chroma || (m_io == OnnxIO::RGB && m_ycbcr)) && initCudaPath(stream) == RGY_ERR_NONE) {
         cerr = runCudaYuv444(pInputFrame, coreFrame, stream);
         if (cerr != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
