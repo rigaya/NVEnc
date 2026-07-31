@@ -47,7 +47,7 @@ NVEncFilterOnnx::NVEncFilterOnnx() :
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
     m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444(),
-    m_inputDevice(), m_outputDevice(), m_cropToRgb(), m_cropFromRgb(),
+    m_inputDevice(), m_outputDevice(), m_cropToRgb(), m_cropFromRgb(), m_cropToYuv444(), m_cropFromYuv444(),
     m_modelPath(), m_provider(RGYOnnxRTProvider::Auto), m_precision(), m_cacheDir(), m_deviceID(-1),
     m_cudaPathTried(false), m_cudaPath(false),
     m_temporalT(1), m_ring(), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
@@ -514,7 +514,7 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
 
     m_cudaPathTried = false;
     m_cudaPath = false;
-    if (m_temporalT == 1 && (m_io == OnnxIO::GrayNoise || m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr) {
+    if (m_temporalT == 1 && (m_io == OnnxIO::GrayNoise || m_io == OnnxIO::Chroma || m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise)) {
         m_inputDevice = std::make_unique<CUMemBuf>(m_inBuf.size() * sizeof(float));
         m_outputDevice = std::make_unique<CUMemBuf>(m_outBuf.size() * sizeof(float));
         if (m_inputDevice->alloc() != RGY_ERR_NONE || m_outputDevice->alloc() != RGY_ERR_NONE) {
@@ -554,6 +554,43 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         err = m_cropFromRgb->init(fromRgbParam, m_pLog);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: RGBからYUVへの変換初期化に失敗しました: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    }
+    if (m_temporalT == 1 && m_io == OnnxIO::Chroma) {
+        const auto yuvIn = tensorFrame((float *)m_inputDevice->ptr, 3, inW, inH, RGY_CSP_YUV444_F32);
+        auto yuvOut = tensorFrame((float *)m_outputDevice->ptr, 3, outW, outH, RGY_CSP_YUV444_F32);
+        if (m_io == OnnxIO::Chroma) {
+            const size_t planeBytes = (size_t)inW * inH * sizeof(float);
+            yuvOut.ptr[0] = (uint8_t *)m_inputDevice->ptr;
+            yuvOut.ptr[1] = (uint8_t *)m_outputDevice->ptr;
+            yuvOut.ptr[2] = (uint8_t *)m_outputDevice->ptr + planeBytes;
+        }
+        auto toYuvParam = std::make_shared<NVEncFilterParamCrop>();
+        toYuvParam->frameIn = prm->frameIn;
+        toYuvParam->frameIn.picstruct = RGY_PICSTRUCT_FRAME;
+        toYuvParam->frameOut = yuvIn;
+        toYuvParam->baseFps = prm->baseFps;
+        toYuvParam->matrix = RGY_MATRIX_BT709;
+        toYuvParam->colorrange = RGY_COLORRANGE_FULL;
+        toYuvParam->bOutOverwrite = false;
+        m_cropToYuv444 = std::make_unique<NVEncFilterCspCrop>();
+        err = m_cropToYuv444->init(toYuvParam, m_pLog);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: YUV444 FP32への変換初期化に失敗しました: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        auto fromYuvParam = std::make_shared<NVEncFilterParamCrop>();
+        fromYuvParam->frameIn = yuvOut;
+        fromYuvParam->frameOut = frameOut;
+        fromYuvParam->baseFps = prm->baseFps;
+        fromYuvParam->matrix = RGY_MATRIX_BT709;
+        fromYuvParam->colorrange = RGY_COLORRANGE_FULL;
+        fromYuvParam->bOutOverwrite = false;
+        m_cropFromYuv444 = std::make_unique<NVEncFilterCspCrop>();
+        err = m_cropFromYuv444->init(fromYuvParam, m_pLog);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: YUV444 FP32からの変換初期化に失敗しました: %s.\n"), get_err_mes(err));
             return err;
         }
     }
@@ -644,7 +681,8 @@ RGY_ERR NVEncFilterOnnx::initCudaPath(cudaStream_t stream) {
     if (m_cudaPathTried) return m_cudaPath ? RGY_ERR_NONE : RGY_ERR_UNSUPPORTED;
     m_cudaPathTried = true;
     if (stream == nullptr || !m_inputDevice || !m_outputDevice
-        || ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && (!m_cropToRgb || !m_cropFromRgb))) {
+        || ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr && (!m_cropToRgb || !m_cropFromRgb))
+        || (m_io == OnnxIO::Chroma && (!m_cropToYuv444 || !m_cropFromYuv444))) {
         return RGY_ERR_UNSUPPORTED;
     }
     auto session = std::make_unique<RGYOnnxRTCUDA>();
@@ -705,6 +743,28 @@ RGY_ERR NVEncFilterOnnx::runCudaGrayNoise(const RGYFrameInfo *input, RGYFrameInf
     return run_onnx_unpack_luma(output, (const float *)m_outputDevice->ptr, stream);
 }
 
+RGY_ERR NVEncFilterOnnx::runCudaYuv444(const RGYFrameInfo *input, RGYFrameInfo *output, cudaStream_t stream) {
+    auto inputFrame = *input;
+    inputFrame.picstruct = RGY_PICSTRUCT_FRAME;
+    auto yuvInput = tensorFrame((float *)m_inputDevice->ptr, 3, input->width, input->height, RGY_CSP_YUV444_F32);
+    RGYFrameInfo *yuvInputOut[1] = { &yuvInput };
+    int outputCount = 0;
+    auto err = m_cropToYuv444->filter(&inputFrame, yuvInputOut, &outputCount, stream);
+    if (err != RGY_ERR_NONE) return err;
+    err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
+    if (err != RGY_ERR_NONE) return err;
+    auto yuvOutput = tensorFrame((float *)m_outputDevice->ptr, 3, output->width, output->height, RGY_CSP_YUV444_F32);
+    if (m_io == OnnxIO::Chroma) {
+        const size_t planeBytes = (size_t)input->width * input->height * sizeof(float);
+        yuvOutput.ptr[0] = (uint8_t *)m_inputDevice->ptr;
+        yuvOutput.ptr[1] = (uint8_t *)m_outputDevice->ptr;
+        yuvOutput.ptr[2] = (uint8_t *)m_outputDevice->ptr + planeBytes;
+    }
+    RGYFrameInfo *outputFrames[1] = { output };
+    outputCount = 0;
+    return m_cropFromYuv444->filter(&yuvOutput, outputFrames, &outputCount, stream);
+}
+
 RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     if (m_maskMode) {
         return runMask(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
@@ -730,6 +790,12 @@ RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
         }
     } else if (m_io == OnnxIO::GrayNoise && initCudaPath(stream) == RGY_ERR_NONE) {
         cerr = runCudaGrayNoise(pInputFrame, coreFrame, stream);
+        if (cerr != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
+            m_cudaPath = false;
+        }
+    } else if (m_io == OnnxIO::Chroma && initCudaPath(stream) == RGY_ERR_NONE) {
+        cerr = runCudaYuv444(pInputFrame, coreFrame, stream);
         if (cerr != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
             m_cudaPath = false;
@@ -1190,6 +1256,8 @@ void NVEncFilterOnnx::close() {
     m_postResize.reset();
     m_cropToRgb.reset();
     m_cropFromRgb.reset();
+    m_cropToYuv444.reset();
+    m_cropFromYuv444.reset();
     m_inputDevice.reset();
     m_outputDevice.reset();
     m_inStaging.reset();
