@@ -35,6 +35,9 @@ protected:
     void rgbToYUV(const RGYFrameInfo &hout, const float *src);
     void setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax);
     RGY_ERR interpolate(float t);
+    RGY_ERR initCudaPath(cudaStream_t stream);
+    RGY_ERR runCuda(const RGYFrameInfo *input, RGYFrameInfo **outputs, int *outputCount, cudaStream_t stream);
+    RGYFrameInfo rgbFrame(float *ptr) const;
 
     std::unique_ptr<RGYOnnxRTCUDA> m_ov;
     int m_W, m_H, m_multi;
@@ -46,6 +49,11 @@ protected:
     int64_t m_prevTimestamp, m_prevDuration;
     std::vector<float> m_prevRGB, m_currRGB, m_inBuf, m_outBuf, m_baseGrid, m_multiplier;
     std::unique_ptr<CUFrameBuf> m_inStaging, m_outStaging;
+    std::unique_ptr<CUMemBuf> m_inputDevice, m_outputDevice;
+    std::unique_ptr<NVEncFilterCspCrop> m_cropToRgb, m_cropFromRgb;
+    tstring m_modelPath;
+    int m_deviceID;
+    bool m_cudaPathTried, m_cudaPath;
 };
 
 #endif

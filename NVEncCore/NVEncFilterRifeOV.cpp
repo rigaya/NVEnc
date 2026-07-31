@@ -26,11 +26,13 @@
 // ------------------------------------------------------------------------------------------
 
 #include "NVEncFilterRifeOV.h"
+#include <cuda.h>
 #include <cuda_runtime.h>
 #include "rgy_filesystem.h"
 #include "rgy_model_registry.h"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 static inline uint8_t clamp_u8(int v) { return (uint8_t)(v < 0 ? 0 : (v > 255 ? 255 : v)); }
 static inline float   clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -42,7 +44,8 @@ NVEncFilterRifeOV::NVEncFilterRifeOV() :
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
     m_havePrev(false), m_prevTimestamp(0), m_prevDuration(0),
     m_prevRGB(), m_currRGB(), m_inBuf(), m_outBuf(), m_baseGrid(), m_multiplier(),
-    m_inStaging(), m_outStaging() {
+    m_inStaging(), m_outStaging(), m_inputDevice(), m_outputDevice(), m_cropToRgb(), m_cropFromRgb(),
+    m_modelPath(), m_deviceID(-1), m_cudaPathTried(false), m_cudaPath(false) {
     m_name = _T("rife-ov");
 }
 
@@ -52,6 +55,12 @@ void NVEncFilterRifeOV::close() {
     m_ov.reset();
     m_inStaging.reset();
     m_outStaging.reset();
+    m_inputDevice.reset();
+    m_outputDevice.reset();
+    m_cropToRgb.reset();
+    m_cropFromRgb.reset();
+    m_cudaPathTried = false;
+    m_cudaPath = false;
     m_frameBuf.clear();
 }
 
@@ -129,6 +138,8 @@ RGY_ERR NVEncFilterRifeOV::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     m_ov = std::make_unique<RGYOnnxRTCUDA>();
     int deviceID = prm->deviceID;
     if (deviceID < 0) cudaGetDevice(&deviceID);
+    m_modelPath = prm->modelFile;
+    m_deviceID = deviceID;
     tstring errMsg;
     RGY_ERR err = m_ov->init(prm->modelFile, deviceID, RGYOnnxRTProvider::Auto, m_H, m_W, errMsg);
     if (err != RGY_ERR_NONE) {
@@ -206,6 +217,50 @@ RGY_ERR NVEncFilterRifeOV::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("rife-ov: failed to allocate host staging frame buffers.\n"));
         return RGY_ERR_MEMORY_ALLOC;
     }
+
+    m_inputDevice = std::make_unique<CUMemBuf>(m_inBuf.size() * sizeof(float));
+    m_outputDevice = std::make_unique<CUMemBuf>(m_outBuf.size() * sizeof(float));
+    if (m_inputDevice->alloc() != RGY_ERR_NONE || m_outputDevice->alloc() != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: CUDAテンソルバッファの確保に失敗しました。\n"));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    const size_t planeBytes = (size_t)m_W * m_H * sizeof(float);
+    auto cudaerr = cudaMemcpy((uint8_t *)m_inputDevice->ptr + 7 * planeBytes,
+        m_baseGrid.data(), m_baseGrid.size() * sizeof(float), cudaMemcpyHostToDevice);
+    if (cudaerr == cudaSuccess) {
+        cudaerr = cudaMemcpy((uint8_t *)m_inputDevice->ptr + 9 * planeBytes,
+            m_multiplier.data(), m_multiplier.size() * sizeof(float), cudaMemcpyHostToDevice);
+    }
+    if (cudaerr != cudaSuccess) {
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: 固定テンソルの転送に失敗しました: %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        return err_to_rgy(cudaerr);
+    }
+    auto rgbCurrent = rgbFrame((float *)m_inputDevice->ptr + 3 * (size_t)m_W * m_H);
+    auto toRgbParam = std::make_shared<NVEncFilterParamCrop>();
+    toRgbParam->frameIn = prm->frameIn;
+    toRgbParam->frameIn.picstruct = RGY_PICSTRUCT_FRAME;
+    toRgbParam->frameOut = rgbCurrent;
+    toRgbParam->baseFps = prm->baseFps;
+    toRgbParam->matrix = (matrixSel == 601) ? RGY_MATRIX_ST170_M
+        : (matrixSel == 2020) ? RGY_MATRIX_BT2020_NCL : RGY_MATRIX_BT709;
+    toRgbParam->colorrange = rangeTV ? RGY_COLORRANGE_LIMITED : RGY_COLORRANGE_FULL;
+    toRgbParam->bOutOverwrite = false;
+    m_cropToRgb = std::make_unique<NVEncFilterCspCrop>();
+    err = m_cropToRgb->init(toRgbParam, m_pLog);
+    if (err != RGY_ERR_NONE) return err;
+    auto rgbOutput = rgbFrame((float *)m_outputDevice->ptr);
+    auto fromRgbParam = std::make_shared<NVEncFilterParamCrop>();
+    fromRgbParam->frameIn = rgbOutput;
+    fromRgbParam->frameOut = prm->frameOut;
+    fromRgbParam->baseFps = prm->baseFps;
+    fromRgbParam->matrix = toRgbParam->matrix;
+    fromRgbParam->colorrange = toRgbParam->colorrange;
+    fromRgbParam->bOutOverwrite = false;
+    m_cropFromRgb = std::make_unique<NVEncFilterCspCrop>();
+    err = m_cropFromRgb->init(fromRgbParam, m_pLog);
+    if (err != RGY_ERR_NONE) return err;
+    m_cudaPathTried = false;
+    m_cudaPath = false;
 
     m_havePrev = false;
     m_param = prm;
@@ -294,9 +349,125 @@ RGY_ERR NVEncFilterRifeOV::interpolate(float t) {
     return m_ov->infer(m_inBuf.data(), m_outBuf.data());
 }
 
+RGYFrameInfo NVEncFilterRifeOV::rgbFrame(float *ptr) const {
+    RGYFrameInfo frame;
+    frame.width = m_W;
+    frame.height = m_H;
+    frame.csp = RGY_CSP_RGB_F32;
+    frame.bitdepth = 32;
+    frame.mem_type = RGY_MEM_TYPE_GPU;
+    frame.picstruct = RGY_PICSTRUCT_FRAME;
+    const size_t planeBytes = (size_t)m_W * m_H * sizeof(float);
+    for (int i = 0; i < 3; i++) {
+        frame.ptr[i] = (uint8_t *)ptr + planeBytes * i;
+        frame.pitch[i] = m_W * sizeof(float);
+    }
+    return frame;
+}
+
+RGY_ERR NVEncFilterRifeOV::initCudaPath(cudaStream_t stream) {
+    if (m_cudaPathTried) return m_cudaPath ? RGY_ERR_NONE : RGY_ERR_UNSUPPORTED;
+    m_cudaPathTried = true;
+    if (stream == nullptr || !m_inputDevice || !m_outputDevice || !m_cropToRgb || !m_cropFromRgb) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    auto session = std::make_unique<RGYOnnxRTCUDA>();
+    tstring errorMessage;
+    auto err = session->init(m_modelPath, m_deviceID, RGYOnnxRTProvider::Auto,
+        m_H, m_W, errorMessage, stream);
+    if (err != RGY_ERR_NONE || !session->deviceIOAvailable()
+        || session->inChannels() != 11 || session->outChannels() != 3
+        || session->outWidth() != m_W || session->outHeight() != m_H) {
+        const auto reason = !errorMessage.empty() ? errorMessage : session->lastError();
+        AddMessage(RGY_LOG_WARN, _T("rife-ov: CUDAゼロコピー経路を初期化できないためホスト経路を使用します: %s\n"), reason.c_str());
+        return (err != RGY_ERR_NONE) ? err : RGY_ERR_UNSUPPORTED;
+    }
+    m_ov = std::move(session);
+    m_cudaPath = true;
+    AddMessage(RGY_LOG_INFO, _T("rife-ov: path cuda-zerocopy をフィルタストリーム上で初期化しました。\n"));
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterRifeOV::runCuda(const RGYFrameInfo *input, RGYFrameInfo **outputs,
+    int *outputCount, cudaStream_t stream) {
+    const size_t plane = (size_t)m_W * m_H;
+    const size_t planeBytes = plane * sizeof(float);
+    auto inputFrame = *input;
+    inputFrame.picstruct = RGY_PICSTRUCT_FRAME;
+    auto currentRgb = rgbFrame((float *)m_inputDevice->ptr + 3 * plane);
+    RGYFrameInfo *rgbOut[1] = { &currentRgb };
+    int rgbOutCount = 0;
+    auto err = m_cropToRgb->filter(&inputFrame, rgbOut, &rgbOutCount, stream);
+    if (err != RGY_ERR_NONE) return err;
+    if (!m_havePrev) {
+        outputs[0] = &m_frameBuf[0]->frame;
+        err = copyFrameAsync(outputs[0], input, stream);
+        if (err != RGY_ERR_NONE) return err;
+        auto cudaerr = cudaMemcpyAsync(m_inputDevice->ptr,
+            (uint8_t *)m_inputDevice->ptr + 3 * planeBytes, 3 * planeBytes,
+            cudaMemcpyDeviceToDevice, stream);
+        if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
+        outputs[0]->timestamp = input->timestamp;
+        outputs[0]->duration = input->duration;
+        outputs[0]->picstruct = input->picstruct;
+        outputs[0]->inputFrameId = input->inputFrameId;
+        *outputCount = 1;
+        m_prevTimestamp = input->timestamp;
+        m_prevDuration = input->duration;
+        m_havePrev = true;
+        return RGY_ERR_NONE;
+    }
+    const int64_t spanDuration = input->timestamp - m_prevTimestamp;
+    for (int k = 1; k < m_multi; k++) {
+        const float t = (float)k / (float)m_multi;
+        uint32_t tBits = 0;
+        std::memcpy(&tBits, &t, sizeof(tBits));
+        const auto cuerr = cuMemsetD32Async((CUdeviceptr)((uint8_t *)m_inputDevice->ptr + 6 * planeBytes),
+            tBits, plane, (CUstream)stream);
+        if (cuerr != CUDA_SUCCESS) return RGY_ERR_CUDA;
+        err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
+        if (err != RGY_ERR_NONE) return err;
+        auto rgbOutput = rgbFrame((float *)m_outputDevice->ptr);
+        auto output = &m_frameBuf[k - 1]->frame;
+        RGYFrameInfo *yuvOut[1] = { output };
+        int yuvOutCount = 0;
+        err = m_cropFromRgb->filter(&rgbOutput, yuvOut, &yuvOutCount, stream);
+        if (err != RGY_ERR_NONE) return err;
+        output->timestamp = m_prevTimestamp + (spanDuration > 0 ? spanDuration * (int64_t)k / (int64_t)m_multi : 0);
+        output->duration = (spanDuration > 0) ? (spanDuration / m_multi) : input->duration;
+        output->picstruct = input->picstruct;
+        output->inputFrameId = input->inputFrameId;
+        outputs[k - 1] = output;
+    }
+    auto passthrough = &m_frameBuf[m_multi - 1]->frame;
+    err = copyFrameAsync(passthrough, input, stream);
+    if (err != RGY_ERR_NONE) return err;
+    passthrough->timestamp = input->timestamp;
+    passthrough->duration = (spanDuration > 0) ? (spanDuration / m_multi) : input->duration;
+    passthrough->picstruct = input->picstruct;
+    passthrough->inputFrameId = input->inputFrameId;
+    outputs[m_multi - 1] = passthrough;
+    const auto cudaerr = cudaMemcpyAsync(m_inputDevice->ptr,
+        (uint8_t *)m_inputDevice->ptr + 3 * planeBytes, 3 * planeBytes,
+        cudaMemcpyDeviceToDevice, stream);
+    if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
+    *outputCount = m_multi;
+    m_prevTimestamp = input->timestamp;
+    m_prevDuration = input->duration;
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR NVEncFilterRifeOV::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     cudaStream_t stream) {
     if (pInputFrame->ptr[0] == nullptr) { *pOutputFrameNum = 0; return RGY_ERR_NONE; } // flush: drop trailing single frame
+
+    if (initCudaPath(stream) == RGY_ERR_NONE) {
+        const auto err = runCuda(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
+        if (err == RGY_ERR_NONE) return err;
+        AddMessage(RGY_LOG_WARN, _T("rife-ov: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(err));
+        m_cudaPath = false;
+        m_havePrev = false;
+    }
 
     // デバイス入力をホストステージングへコピーしてから、CPUでRGBへ変換する。
     auto err = copyFrameAsync(&m_inStaging->frame, pInputFrame, stream);
