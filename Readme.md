@@ -48,7 +48,7 @@ Result of --check-features, a feature list returned from the driver. May depend 
 | Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  | [Tesla T4](./GPUFeatures/teslaT4_linux.txt), [Tesla T4G @ aarch64](./GPUFeatures/teslaT4G_linux_arm.txt)  |
 | Ampere | [RTX3090](./GPUFeatures/rtx3090.txt), [RTX3080](./GPUFeatures/rtx3080.txt), [RTX3050Ti](./GPUFeatures/rtx3050ti.txt)  | |
 | Ada Lovelace | [RTX4090](./GPUFeatures/rtx4090.txt), [RTX4080](./GPUFeatures/rtx4080.txt) | |
-| Blackwell | [RTX5090](./GPUFeatures/rtx5090.txt) | |
+| Blackwell | [RTX5090](./GPUFeatures/rtx5090.txt), [RTX5070 Ti](./GPUFeatures/rtx5070ti.txt) | |
 
 ## Precautions for using NVEnc
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
