@@ -1,5 +1,14 @@
 # NVEnc Release Notes
 
+## 9.28
+
+- Speed up [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) / [--vpp-degrain](./NVEncC_Options.en.md#--vpp-degrain-param1value1).
+- Support frames setting from registered models in [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
+- Speed up [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) with zero-copy conversion paths.
+- Speed up [--vpp-rife-ov](./NVEncC_Options.en.md#--vpp-rife-ov-param1value1param2value2) CUDA path with zero-copy.
+- Fix libvmaf CUDA implementation and access violation.　( #788 )
+- Update Linux package CUDA to 11.8.
+
 ## 9.27
 
 - Support saving/restoring per-project output settings in AviUtl2.
