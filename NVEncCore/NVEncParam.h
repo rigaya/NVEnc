@@ -171,6 +171,7 @@ const guid_desc h265_profile_names[] = {
 const CX_DESC h265_tier_names[] = {
     { _T("main"),  NV_ENC_TIER_HEVC_MAIN },
     { _T("high"),  NV_ENC_TIER_HEVC_HIGH },
+    { NULL, 0 }
 };
 
 enum {
@@ -197,6 +198,7 @@ static const std::vector<guid_desc> get_codec_profile_list(const RGY_CODEC codec
 const CX_DESC av1_tier_names[] = {
     { _T("0"),  NV_ENC_TIER_AV1_0 },
     { _T("1"),  NV_ENC_TIER_AV1_1 },
+    { NULL, 0 }
 };
 
 enum {

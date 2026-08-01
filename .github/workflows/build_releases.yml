@@ -143,8 +143,15 @@ jobs:
 
       - name: Check dll
         run: |
-          if ("${{ matrix.platform }}" == "x64")   "NVEncC_Release\NVEncC64.exe" --check-avcodec-dll
-          if ("${{ matrix.platform }}" == "Win32") "NVEncC_Release\NVEncC.exe" --check-avcodec-dll
+          set NVENCC_EXE=NVEncC_Release\NVEncC64.exe
+          if "${{ matrix.platform }}" == "Win32" set NVENCC_EXE=NVEncC_Release\NVEncC.exe
+          "%NVENCC_EXE%" --check-avcodec-dll
+
+      - name: Check cmd parse
+        run: |
+          set NVENCC_EXE=NVEncC_Release\NVEncC64.exe
+          if "${{ matrix.platform }}" == "Win32" set NVENCC_EXE=NVEncC_Release\NVEncC.exe
+          "%NVENCC_EXE%" --check-cmd-parse
 
       - name: Check Version
         if: startsWith(github.ref, 'refs/tags/')

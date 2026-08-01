@@ -84,11 +84,27 @@ int parse_qp(int a[3], const TCHAR *str);
 std::vector<tstring> cmd_from_config_file(const tstring& filename);
 std::vector<std::pair<std::string, std::string>> createOptionList();
 
+// コマンドライン自己診断(--check-cmd-parse)用のパーサ情報取り出し口
+// パーサがエラー時にユーザーに提示する候補リストを横取りすることで、
+// テストケース生成に必要な「そのオプションが受け付ける値」「サブパラメータ名」を
+// パーサ自身から取得する。テスト側に候補値テーブルを二重持ちしないための仕組み。
+struct RGYCmdErrorInfo {
+    bool quiet = false;                  // trueならエラーメッセージを出力しない(自己診断中の抑止用)
+    bool errorOccurred = false;          // reset()以降にパースエラーが発生したか
+    bool unknownParam = false;           // サブパラメータ名自体が受理されなかったか
+    std::vector<std::string> valueList;  // 直近のエラーで提示された値の候補
+    std::vector<std::string> paramList;  // 直近のエラーで提示されたサブパラメータ名の候補
+    void reset() { errorOccurred = false; unknownParam = false; valueList.clear(); paramList.clear(); }
+};
+RGYCmdErrorInfo& rgy_cmd_error_info();
+
+void print_cmd_error_msg(const TCHAR *msg);
 void print_cmd_error_unknown_opt(tstring strErrorValue);
 void print_cmd_error_unknown_opt_param(tstring option, tstring strErrorValue, const std::vector<std::string> &optionParamsList);
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue);
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, tstring strErrorMessage);
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const std::vector<std::pair<RGY_CODEC, const CX_DESC *>>& codec_list);
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const std::vector<tstring>& valueList);
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const CX_DESC *list);
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const FEATURE_DESC *list);
 

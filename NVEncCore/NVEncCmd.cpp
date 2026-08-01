@@ -274,8 +274,8 @@ tstring encoder_help() {
         _T("   --direct <string>            [H264] set B Direct mode\n")
         _T("                                  auto(default), none, spatial, temporal\n")
         _T("   --(no-)adapt-transform       [H264] set adaptive transform mode (default=auto)\n")
-        _T("   --hierarchial-p              [H264] enable hierarchial P frames\n")
-        _T("   --hierarchial-b              [H264] enable hierarchial B frames\n"),
+        _T("   --hierarchical-p             [H264] enable hierarchical P frames\n")
+        _T("   --hierarchical-b             [H264] enable hierarchical B frames\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
         DEFAULT_AVG_BITRATE / 1000,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
@@ -735,7 +735,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     if (get_list_value(list_nvenc_multipass_mode, param_val.c_str(), &value)) {
                         pParams->multipass = (NV_ENC_MULTI_PASS)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_nvenc_multipass_mode);
                         return 1;
                     }
                     continue;
@@ -955,10 +955,21 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-    if (IS_OPTION("adapt-transform")) { pParams->h264.adaptTrans = NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE; return 0; }
+    if (IS_OPTION("adapt-transform")) {
+        // gen_cmd は値付きで出力するため、値の指定があればそちらを優先する
+        int value = 0;
+        if (i + 1 < nArgNum && strInput[i + 1][0] != _T('-') && get_list_value(list_adapt_transform, strInput[i + 1], &value)) {
+            i++;
+            pParams->h264.adaptTrans = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)value;
+        } else {
+            pParams->h264.adaptTrans = NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE;
+        }
+        return 0;
+    }
     if (IS_OPTION("no-adapt-transform")) { pParams->h264.adaptTrans = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE; return 0; }
-    if (IS_OPTION("hierarchial-p")) { pParams->h264.hierarchicalPFrames = 1; return 0; }
-    if (IS_OPTION("hierarchial-b")) { pParams->h264.hierarchicalBFrames = 1; return 0; }
+    // hierarchial は綴り誤りだが、従来のコマンドラインが動かなくなるのを避けるため受理を続ける
+    if (IS_OPTION("hierarchical-p") || IS_OPTION("hierarchial-p")) { pParams->h264.hierarchicalPFrames = 1; return 0; }
+    if (IS_OPTION("hierarchical-b") || IS_OPTION("hierarchial-b")) { pParams->h264.hierarchicalBFrames = 1; return 0; }
     if (IS_OPTION("tf-level")) {
         i++;
         int value = 0;
@@ -1336,14 +1347,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (IS_OPTION("alpha-channel-mode")) {
         i++;
         int value = 0;
-        if (get_list_value(list_hevc_alpha_channel_mode, strInput[i], &value)) {
-            pParams->alphaChannelMode = value;
-        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->alphaChannelMode = value;
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
+        // 数値を直接受理するとリスト外の値でgen_cmdが復元できなくなるため、リストの値のみ受理する
+        if (!get_list_value(list_hevc_alpha_channel_mode, strInput[i], &value)) {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_hevc_alpha_channel_mode);
             return 1;
         }
+        pParams->alphaChannelMode = value;
         return 0;
     }
     if (IS_OPTION("split-enc")) {
@@ -1657,6 +1666,25 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm, RGYDi
     #pragma warning(pop)
 
     OPT_LST(_T("--multipass"), multipass, list_nvenc_multipass_mode);
+
+    // 動的レート制御は要素ごとに1つの --dynamic-rc として出力する
+    for (const auto& rc : pParams->dynamicRC) {
+        cmd << _T(" --dynamic-rc start=") << rc.start;
+        if (rc.end > 0) {
+            cmd << _T(",end=") << rc.end;
+        }
+        if (rc.rc_mode == NV_ENC_PARAMS_RC_CONSTQP) {
+            cmd << _T(",cqp=") << rc.qp.qpI << _T(":") << rc.qp.qpP << _T(":") << rc.qp.qpB;
+        } else {
+            cmd << _T(",") << tolowercase(tstring(get_chr_from_value(list_nvenc_rc_method_en, rc.rc_mode))) << _T("=") << rc.avg_bitrate / 1000;
+        }
+        if (rc.max_bitrate > 0) {
+            cmd << _T(",max-bitrate=") << rc.max_bitrate / 1000;
+        }
+        if (rc.targetQuality > 0 || rc.targetQualityLSB > 0) {
+            cmd << _T(",vbr-quality=") << std::fixed << std::setprecision(2) << (rc.targetQuality + rc.targetQualityLSB / 256.0f);
+        }
+    }
     if (pParams->rcParam.rc_mode != NV_ENC_PARAMS_RC_CONSTQP || save_disabled_prm) {
         OPT_NUM(_T("--vbv-bufsize"), vbvBufferSize / 1000);
         OPT_NUM(_T("--max-bitrate"), rcParam.max_bitrate / 1000);

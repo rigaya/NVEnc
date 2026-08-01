@@ -124,6 +124,7 @@ jobs:
             fi
             ./build/nvencc --version
             ./check_options.py -exe ./build/nvencc
+            ./build/nvencc --check-cmd-parse
           '
           docker exec build_pkg cp ./build/nvencc ./nvencc
           docker exec build_pkg ./build_${{ env.PKG_TYPE }}.sh

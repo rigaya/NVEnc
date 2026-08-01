@@ -38,6 +38,11 @@
 #include <array>
 #include <optional>
 
+// ENABLE_NVVFXはNVEncでのみ定義されるため、他エンコーダでも条件式として使えるようにしておく
+#ifndef ENABLE_NVVFX
+#define ENABLE_NVVFX 0
+#endif
+
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
 
