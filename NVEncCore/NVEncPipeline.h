@@ -1569,6 +1569,11 @@ protected:
                     m_frameReleaseData->waitFrameSingleThread(0);
                     m_workSurfs.deleteFreedSurface(); // これを呼ばないとフレームが解放されず、デコードが止まってしまうことがある
                 }
+                if (m_dec->formatChangeReq()
+                    && m_dec->frameQueue()->isEmpty()
+                    && m_workSurfs.isAllFree()) {
+                    m_dec->allowFormatChange();
+                }
                 m_dec->frameQueue()->waitForQueueUpdate();
 #if THREAD_DEC_USE_FUTURE
                 if (m_thDecoder.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {

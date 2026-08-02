@@ -35,6 +35,9 @@
 #pragma warning(disable: 4201)
 #include "dynlink_nvcuvid.h"
 #pragma warning(pop)
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
 #include "FrameQueue.h"
 #include "NVEncParam.h"
 #include "rgy_log.h"
@@ -82,6 +85,10 @@ public:
     FrameQueue *frameQueue() {
         return m_pFrameQueue;
     }
+    bool formatChangeReq() const {
+        return m_formatChangeReq.load();
+    }
+    void allowFormatChange();
 protected:
     void AddMessage(RGYLogLevel log_level, const tstring& str) {
         if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel(RGY_LOGT_DEC)) {
@@ -119,12 +126,17 @@ protected:
     CUvideodecoder               m_videoDecoder;
     CUvideoctxlock               m_ctxLock;
     CUVIDDECODECREATEINFO        m_videoDecodeCreateInfo;
+    CUVIDDECODECAPS              m_videoDecodeCaps;
     CUVIDEOFORMATEX              m_videoFormatEx;
     shared_ptr<RGYLog>           m_pPrintMes;  //ログ出力
     bool                         m_bError;
     cudaVideoDeinterlaceMode     m_deinterlaceMode;
     VideoInfo                    m_videoInfo;
     int                          m_nDecType;
+    std::atomic<bool>            m_formatChangeReq;
+    std::mutex                   m_formatChangeMtx;
+    std::condition_variable      m_formatChangeCv;
+    bool                         m_formatChangeAllowed;
 };
 
 #endif //#if ENABLE_AVSW_READER
