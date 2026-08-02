@@ -260,11 +260,43 @@ int CuvidDecode::DecVideoSequence(CUVIDEOFORMAT *pFormat) {
                 return 0;
             }
         }
+        const auto decoderResetStart = std::chrono::steady_clock::now();
         if (m_videoInfo.dstWidth <= 0 || m_videoInfo.dstHeight <= 0) {
             m_videoInfo.srcWidth = pFormat->display_area.right - pFormat->display_area.left;
             m_videoInfo.srcHeight = pFormat->display_area.bottom - pFormat->display_area.top;
         }
-        if (CreateDecoder(pFormat) != CUDA_SUCCESS) {
+        const bool reconfigureFunctionAvailable = cuvidReconfigureDecoder != nullptr;
+        const bool decoderAvailable = m_videoDecoder != nullptr;
+        const bool bitDepthUnchanged = pFormat->bit_depth_luma_minus8 == m_videoDecodeCreateInfo.bitDepthMinus8;
+        const bool resolutionWithinLimit = pFormat->coded_width <= m_videoDecodeCreateInfo.ulMaxWidth
+            && pFormat->coded_height <= m_videoDecodeCreateInfo.ulMaxHeight;
+        CUresult decoderResetResult = CUDA_SUCCESS;
+        const TCHAR *decoderResetMethod = _T("reconfigure");
+        if (reconfigureFunctionAvailable && decoderAvailable && bitDepthUnchanged && resolutionWithinLimit) {
+            decoderResetResult = ReconfigureDecoder(pFormat);
+            if (decoderResetResult != CUDA_SUCCESS) {
+                AddMessage(RGY_LOG_WARN, _T("cuvidReconfigureDecoder failed %d (%s); falling back to decoder recreation.\n"),
+                    decoderResetResult, char_to_tstring(_cudaGetErrorEnum(decoderResetResult)).c_str());
+                decoderResetMethod = _T("recreate (fallback)");
+                decoderResetResult = CreateDecoder(pFormat);
+            }
+        } else {
+            decoderResetMethod = _T("recreate");
+            if (!reconfigureFunctionAvailable) {
+                AddMessage(RGY_LOG_DEBUG, _T("cuvidReconfigureDecoder is unavailable; recreating decoder.\n"));
+            } else if (!decoderAvailable) {
+                AddMessage(RGY_LOG_DEBUG, _T("decoder is not initialized; recreating decoder.\n"));
+            } else if (!bitDepthUnchanged) {
+                AddMessage(RGY_LOG_DEBUG, _T("bit depth changed from %d to %d; recreating decoder.\n"),
+                    (int)m_videoDecodeCreateInfo.bitDepthMinus8 + 8, (int)pFormat->bit_depth_luma_minus8 + 8);
+            } else {
+                AddMessage(RGY_LOG_DEBUG, _T("resolution %dx%d exceeds the reconfiguration limit %dx%d; recreating decoder.\n"),
+                    (int)pFormat->coded_width, (int)pFormat->coded_height,
+                    (int)m_videoDecodeCreateInfo.ulMaxWidth, (int)m_videoDecodeCreateInfo.ulMaxHeight);
+            }
+            decoderResetResult = CreateDecoder(pFormat);
+        }
+        if (decoderResetResult != CUDA_SUCCESS) {
             m_formatChangeReq.store(false);
             {
                 std::lock_guard<std::mutex> lock(m_formatChangeMtx);
@@ -273,6 +305,8 @@ int CuvidDecode::DecVideoSequence(CUVIDEOFORMAT *pFormat) {
             m_bError = true;
             return 0;
         }
+        const auto decoderResetMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - decoderResetStart).count();
+        AddMessage(RGY_LOG_DEBUG, _T("decoder reset operation completed in %.3f ms (method: %s).\n"), decoderResetMs, decoderResetMethod);
         m_formatChangeReq.store(false);
         {
             std::lock_guard<std::mutex> lock(m_formatChangeMtx);
@@ -357,13 +391,7 @@ CUresult CuvidDecode::CreateDecoder() {
 }
 
 
-CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
-    //解像度変更時はデコーダの破棄→再作成をここで行うため、破棄も含めてctxLockの内側で行う
-    NVEncCtxAutoLock(ctxlock(m_ctxLock));
-    if (m_videoDecoder) {
-        cuvidDestroyDecoder(m_videoDecoder);
-        m_videoDecoder = nullptr;
-    }
+void CuvidDecode::SetDecodeCreateInfo(CUVIDEOFORMAT *pFormat) {
     m_videoDecodeCreateInfo.CodecType = pFormat->codec;
     m_videoDecodeCreateInfo.ChromaFormat = pFormat->chroma_format;
     m_videoDecodeCreateInfo.ulWidth   = pFormat->coded_width;
@@ -410,8 +438,16 @@ CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
     m_videoDecodeCreateInfo.display_area.right  = (short)(pFormat->display_area.right - m_videoInfo.crop.e.right);
     m_videoDecodeCreateInfo.display_area.bottom = (short)(pFormat->display_area.bottom - m_videoInfo.crop.e.bottom);
 #endif
+}
 
-    m_videoDecodeCreateInfo.CodecType = pFormat->codec;
+CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
+    //解像度変更時はデコーダの破棄→再作成をここで行うため、破棄も含めてctxLockの内側で行う
+    NVEncCtxAutoLock(ctxlock(m_ctxLock));
+    if (m_videoDecoder) {
+        cuvidDestroyDecoder(m_videoDecoder);
+        m_videoDecoder = nullptr;
+    }
+    SetDecodeCreateInfo(pFormat);
     CUresult curesult = CreateDecoder();
     if (CUDA_SUCCESS != curesult) {
         AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCreateDecoder %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
@@ -423,6 +459,36 @@ CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
         (int)m_videoDecodeCreateInfo.ulWidth, (int)m_videoDecodeCreateInfo.ulHeight,
         (int)m_videoDecodeCreateInfo.ulTargetWidth, (int)m_videoDecodeCreateInfo.ulTargetHeight,
         (int)m_videoDecodeCreateInfo.ulMaxWidth, (int)m_videoDecodeCreateInfo.ulMaxHeight);
+    return curesult;
+}
+
+CUresult CuvidDecode::ReconfigureDecoder(CUVIDEOFORMAT *pFormat) {
+    NVEncCtxAutoLock(ctxlock(m_ctxLock));
+    SetDecodeCreateInfo(pFormat);
+
+    CUVIDRECONFIGUREDECODERINFO reconfigureInfo = { 0 };
+    reconfigureInfo.ulWidth = (unsigned int)m_videoDecodeCreateInfo.ulWidth;
+    reconfigureInfo.ulHeight = (unsigned int)m_videoDecodeCreateInfo.ulHeight;
+    reconfigureInfo.ulTargetWidth = (unsigned int)m_videoDecodeCreateInfo.ulTargetWidth;
+    reconfigureInfo.ulTargetHeight = (unsigned int)m_videoDecodeCreateInfo.ulTargetHeight;
+    reconfigureInfo.ulNumDecodeSurfaces = (unsigned int)m_videoDecodeCreateInfo.ulNumDecodeSurfaces;
+    reconfigureInfo.display_area.left = m_videoDecodeCreateInfo.display_area.left;
+    reconfigureInfo.display_area.top = m_videoDecodeCreateInfo.display_area.top;
+    reconfigureInfo.display_area.right = m_videoDecodeCreateInfo.display_area.right;
+    reconfigureInfo.display_area.bottom = m_videoDecodeCreateInfo.display_area.bottom;
+    reconfigureInfo.target_rect.left = m_videoDecodeCreateInfo.target_rect.left;
+    reconfigureInfo.target_rect.top = m_videoDecodeCreateInfo.target_rect.top;
+    reconfigureInfo.target_rect.right = m_videoDecodeCreateInfo.target_rect.right;
+    reconfigureInfo.target_rect.bottom = m_videoDecodeCreateInfo.target_rect.bottom;
+
+    const auto curesult = cuvidReconfigureDecoder(m_videoDecoder, &reconfigureInfo);
+    if (curesult == CUDA_SUCCESS) {
+        AddMessage(RGY_LOG_DEBUG, _T("reconfigured decoder (mode: %s, coded: %dx%d, target: %dx%d, max: %dx%d)\n"),
+            get_chr_from_value(list_cuvid_mode, m_nDecType),
+            (int)m_videoDecodeCreateInfo.ulWidth, (int)m_videoDecodeCreateInfo.ulHeight,
+            (int)m_videoDecodeCreateInfo.ulTargetWidth, (int)m_videoDecodeCreateInfo.ulTargetHeight,
+            (int)m_videoDecodeCreateInfo.ulMaxWidth, (int)m_videoDecodeCreateInfo.ulMaxHeight);
+    }
     return curesult;
 }
 

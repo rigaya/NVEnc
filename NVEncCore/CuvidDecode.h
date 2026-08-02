@@ -117,7 +117,9 @@ protected:
     }
 
     CUresult CreateDecoder();
+    void SetDecodeCreateInfo(CUVIDEOFORMAT *pFormat);
     CUresult CreateDecoder(CUVIDEOFORMAT *pFormat);
+    CUresult ReconfigureDecoder(CUVIDEOFORMAT *pFormat);
 
     FrameQueue                  *m_pFrameQueue;
     int64_t                      m_decodedFrames;
