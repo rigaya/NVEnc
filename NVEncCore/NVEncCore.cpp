@@ -385,6 +385,7 @@ NVEncCore::NVEncCore() :
     m_videoIgnoreTimestampError(DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR),
     m_vpFilters(),
     m_pLastFilterParam(),
+    m_normalizeResizeParam(),
 #if ENABLE_SSIM
     m_videoQualityMetric(),
 #endif //#if ENABLE_SSIM
@@ -3346,6 +3347,24 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
     m_uEncWidth = inputFrame.width;
     m_uEncHeight = inputFrame.height;
+    m_normalizeResizeParam = std::make_shared<NVEncFilterParamResize>();
+    if (inputParam->vpp.resize_algo == RGY_VPP_RESIZE_AUTO) {
+        m_normalizeResizeParam->interp = RGY_VPP_RESIZE_BICUBIC;
+        PrintMes(RGY_LOG_DEBUG, _T("resolution change: normalization resize uses bicubic for auto resize mode.\n"));
+    } else if (isNvvfxResizeFiter(inputParam->vpp.resize_algo)
+        || isNgxResizeFiter(inputParam->vpp.resize_algo)
+        || isLibplaceboResizeFiter(inputParam->vpp.resize_algo)) {
+        m_normalizeResizeParam->interp = RGY_VPP_RESIZE_BICUBIC;
+        PrintMes(RGY_LOG_WARN, _T("resolution change: normalization resize falls back from %s to bicubic.\n"),
+            get_chr_from_value(list_vpp_resize, inputParam->vpp.resize_algo));
+    } else {
+        m_normalizeResizeParam->interp = inputParam->vpp.resize_algo;
+    }
+    m_normalizeResizeParam->fsr1 = inputParam->vpp.resize_fsr1;
+    m_normalizeResizeParam->nis = inputParam->vpp.resize_nis;
+    m_normalizeResizeParam->bicubic = inputParam->vpp.resize_bicubic;
+    m_normalizeResizeParam->baseFps = m_encFps;
+    m_normalizeResizeParam->bOutOverwrite = false;
     m_stPicStruct = picstruct_rgy_to_enc(inputFrame.picstruct);
     m_encVUI = inputParam->common.out_vui;
     if (m_rgbAsYUV444) {
@@ -5854,6 +5873,8 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskCUDAVpp>(m_dev.get(), vppblock.vppnv, m_videoQualityMetric.get(),
             m_encRunCtx->qEncodeBufferFree(), m_rgbAsYUV444, prm->cudaStreamOpt, prm->cudaMT, 1, prm->ctrl.threadParams.get(RGYThreadType::FILTER), m_pLog));
         auto taskCudaVpp = dynamic_cast<PipelineTaskCUDAVpp *>(m_pipelineTasks.back().get());
+        taskCudaVpp->setNormalizeTargetFrame(vppblock.vppnv.front()->GetFilterParam()->frameOut);
+        taskCudaVpp->setNormalizeResizeParam(m_normalizeResizeParam);
         taskLastCudaVpp = taskCudaVpp;
         if (taskFirstCudaVpp == nullptr) {
             taskFirstCudaVpp = taskCudaVpp;

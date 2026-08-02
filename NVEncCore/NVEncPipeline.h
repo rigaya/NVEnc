@@ -3394,12 +3394,118 @@ protected:
     cudaStream_t m_streamDownload;
     std::unique_ptr<PipelineTaskOutput> m_cuvidPrev;
     PipelineTaskNVEncode *m_encode;
+    RGYFrameInfo m_normalizeTargetFrame;
+    std::shared_ptr<NVEncFilterParamResize> m_normalizeResizeParam;
+    int m_normalizeResizeIdx;
+
+    RGY_ERR reconstructFilterChain(const RGYFrameInfo& newInputFrame) {
+        if (m_vpFilters.empty()) {
+            PrintMes(RGY_LOG_ERROR, _T("resolution change is not supported for an empty filter configuration.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const auto *firstFilterParam = m_vpFilters.front()->GetFilterParam();
+        if (firstFilterParam == nullptr) {
+            PrintMes(RGY_LOG_ERROR, _T("resolution change is not supported because the first filter has no parameters.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (newInputFrame.csp != firstFilterParam->frameIn.csp) {
+            PrintMes(RGY_LOG_ERROR, _T("resolution change with colorspace change is not supported: %s -> %s.\n"),
+                RGY_CSP_NAMES[firstFilterParam->frameIn.csp], RGY_CSP_NAMES[newInputFrame.csp]);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_vpFilters.size() < 2 || RGY_CSP_PLANES[firstFilterParam->frameOut.csp] < 3) {
+            PrintMes(RGY_LOG_ERROR, _T("resolution change is not supported for this filter configuration yet (filters: %d, first frameOut csp: %s).\n"),
+                (int)m_vpFilters.size(), RGY_CSP_NAMES[firstFilterParam->frameOut.csp]);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const auto *oldCropParam = dynamic_cast<const NVEncFilterParamCrop *>(firstFilterParam);
+        if (oldCropParam == nullptr) {
+            PrintMes(RGY_LOG_ERROR, _T("resolution change is not supported because the first filter is not CspCrop.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_normalizeResizeParam == nullptr || m_normalizeTargetFrame.width <= 0 || m_normalizeTargetFrame.height <= 0) {
+            PrintMes(RGY_LOG_ERROR, _T("resolution change is not supported because the normalization resize parameters are not initialized.\n"));
+            return RGY_ERR_INVALID_OPERATION;
+        }
+
+        auto newCropParam = std::make_shared<NVEncFilterParamCrop>(*oldCropParam);
+        newCropParam->frameIn.width = newInputFrame.width;
+        newCropParam->frameIn.height = newInputFrame.height;
+        newCropParam->frameIn.picstruct = newInputFrame.picstruct;
+        for (int i = 0; i < (int)_countof(newCropParam->frameIn.pitch); i++) {
+            newCropParam->frameIn.pitch[i] = newInputFrame.pitch[i];
+        }
+        {
+            NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+            const auto sts = m_vpFilters.front()->init(newCropParam, m_log);
+            if (sts != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to reinitialize the first CspCrop on resolution change (%dx%d): %s.\n"),
+                    newInputFrame.width, newInputFrame.height, get_err_mes(sts));
+                return sts;
+            }
+        }
+        const auto& cropParam = *m_vpFilters.front()->GetFilterParam();
+        PrintMes(RGY_LOG_DEBUG, _T("resolution change: first CspCrop reinitialized (frameIn: %dx%d %s, frameOut: %dx%d %s).\n"),
+            cropParam.frameIn.width, cropParam.frameIn.height, RGY_CSP_NAMES[cropParam.frameIn.csp],
+            cropParam.frameOut.width, cropParam.frameOut.height, RGY_CSP_NAMES[cropParam.frameOut.csp]);
+
+        auto resizeParam = std::make_shared<NVEncFilterParamResize>(*m_normalizeResizeParam);
+        resizeParam->frameIn = cropParam.frameOut;
+        resizeParam->frameOut = m_normalizeTargetFrame;
+        resizeParam->frameOut.csp = resizeParam->frameIn.csp;
+        resizeParam->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[resizeParam->frameOut.csp];
+        //m_normalizeTargetFrameは解像度変更前のpicstructを保持しているため、変更後のものに合わせる
+        //(実際のpicstructはrun_filter内で入力フレームのものに上書きされるが、パラメータ間で不整合を残さないようにする)
+        resizeParam->frameOut.picstruct = resizeParam->frameIn.picstruct;
+        resizeParam->baseFps = m_normalizeResizeParam->baseFps;
+        const bool insertResize = m_normalizeResizeIdx < 0;
+        if (insertResize) {
+            auto resizeFilter = std::make_unique<NVEncFilterResize>();
+            {
+                NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                const auto sts = resizeFilter->init(resizeParam, m_log);
+                if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to initialize the normalization resize on resolution change: %s.\n"), get_err_mes(sts));
+                    return sts;
+                }
+            }
+            m_vpFilters.insert(m_vpFilters.begin() + 1, std::move(resizeFilter));
+            m_normalizeResizeIdx = 1;
+        } else {
+            if (m_normalizeResizeIdx >= (int)m_vpFilters.size()) {
+                PrintMes(RGY_LOG_ERROR, _T("Invalid normalization resize filter index: %d.\n"), m_normalizeResizeIdx);
+                return RGY_ERR_INVALID_OPERATION;
+            }
+            NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+            const auto sts = m_vpFilters[m_normalizeResizeIdx]->init(resizeParam, m_log);
+            if (sts != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to reinitialize the normalization resize on resolution change: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
+        }
+        PrintMes(RGY_LOG_DEBUG, _T("resolution change: normalization resize %s (frameIn: %dx%d %s, frameOut: %dx%d %s).\n"),
+            insertResize ? _T("inserted") : _T("updated"),
+            resizeParam->frameIn.width, resizeParam->frameIn.height, RGY_CSP_NAMES[resizeParam->frameIn.csp],
+            resizeParam->frameOut.width, resizeParam->frameOut.height, RGY_CSP_NAMES[resizeParam->frameOut.csp]);
+
+        int temporalStateResetCount = 0;
+        for (int i = 0; i < (int)m_vpFilters.size(); i++) {
+            if (i != 0 && i != m_normalizeResizeIdx) {
+                m_vpFilters[i]->resetTemporalState();
+                temporalStateResetCount++;
+            }
+        }
+        PrintMes(RGY_LOG_DEBUG, _T("resolution change: reset temporal state for %d filters.\n"), temporalStateResetCount);
+        PrintMes(RGY_LOG_DEBUG, _T("resolution change: filter chain reconstruction completed.\n"));
+        return RGY_ERR_NONE;
+    }
 public:
     PipelineTaskCUDAVpp(NVGPUInfo *dev, std::vector<std::unique_ptr<NVEncFilter>>& vppfilters, NVEncFilterSsim *videoMetric,
     RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, bool rgbAsYUV444, int cudaStreamOpt, int cudaMT, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CUDA, dev, outMaxQueueSize, false, threadParam, log), m_vpFilters(vppfilters), m_videoMetric(videoMetric),
         m_frameReleaseData(dev->vidCtxLock(), 4, threadParam), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444),
-        m_cudaStreamOpt(cudaStreamOpt), m_cudaMT(cudaMT), m_eventDefaultToFilter(nullptr),m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev(), m_encode(nullptr) {
+        m_cudaStreamOpt(cudaStreamOpt), m_cudaMT(cudaMT), m_eventDefaultToFilter(nullptr),m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev(), m_encode(nullptr),
+        m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1) {
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         if (cudaStreamOpt > 1) {
@@ -3460,6 +3566,14 @@ public:
         m_videoMetric = videoMetric;
     }
 
+    void setNormalizeTargetFrame(const RGYFrameInfo& targetFrame) {
+        m_normalizeTargetFrame = targetFrame;
+    }
+
+    void setNormalizeResizeParam(const std::shared_ptr<NVEncFilterParamResize>& resizeParam) {
+        m_normalizeResizeParam = resizeParam;
+    }
+
     FrameReleaseData<cudaEvent_t> *cuvidFrameReleaseData() {
         return &m_frameReleaseData;
     }
@@ -3496,9 +3610,11 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
                 return RGY_ERR_NULL_PTR;
             }
+            auto surfVppInCuvid = taskSurf->surf().cuvid();
+            const bool isCuvidInput = (surfVppInCuvid != nullptr);
             // cudaをマルチスレッドで使用しない場合(cudaMT=0)は、ここで待機する (cudaMTが1のときはこれはなにもしない)
             m_frameReleaseData.waitFrameSingleThread(0);
-            if (auto surfVppInCuvid = taskSurf->surf().cuvid(); surfVppInCuvid != nullptr) {
+            if (surfVppInCuvid != nullptr) {
                 // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、まず前のフレームを解放を待つ (cudaMTがtrueのとき)
                 m_frameReleaseData.waitUntilEmptyMultiThread();
                 PrintMes(RGY_LOG_TRACE, _T("filter_frame: map video frame: %d, %lld.\n"), surfVppInCuvid->dispInfo()->picture_index, surfVppInCuvid->dispInfo()->timestamp);
@@ -3521,6 +3637,39 @@ public:
             } else {
                 PrintMes(RGY_LOG_ERROR, _T("Invalid task surface (not opencl or amf).\n"));
                 return RGY_ERR_NULL_PTR;
+            }
+            if (isCuvidInput && frame && !filterframes.empty() && filterframes.front().first.ptr[0] != nullptr) {
+                const auto& inputFrame = filterframes.front().first;
+                const auto& expectedFrame = m_vpFilters.front()->GetFilterParam()->frameIn;
+                if (inputFrame.width != expectedFrame.width || inputFrame.height != expectedFrame.height) {
+                    PrintMes(RGY_LOG_DEBUG, _T("resolution change detected in CUDA filter input: %dx%d -> %dx%d.\n"),
+                        expectedFrame.width, expectedFrame.height, inputFrame.width, inputFrame.height);
+                    const size_t queueSizeBefore = m_outQeueue.size();
+                    int drainLoops = 0;
+                    for (;;) {
+                        if (drainLoops >= 1024) {
+                            PrintMes(RGY_LOG_ERROR, _T("Failed to drain filter chain on resolution change: too many iterations.\n"));
+                            return RGY_ERR_UNKNOWN;
+                        }
+                        drainLoops++;
+                        std::unique_ptr<PipelineTaskOutput> nullFrame;
+                        const auto sts = sendFrame(nullFrame);
+                        if (sts == RGY_ERR_MORE_DATA) {
+                            break;
+                        }
+                        if (sts != RGY_ERR_NONE) {
+                            PrintMes(RGY_LOG_ERROR, _T("Failed to drain filter chain on resolution change: %s.\n"), get_err_mes(sts));
+                            return sts;
+                        }
+                    }
+                    PrintMes(RGY_LOG_DEBUG, _T("resolution change: filter chain drained (loops: %d, frames queued: %d).\n"),
+                        drainLoops, (int)(m_outQeueue.size() - queueSizeBefore));
+                    const auto sts = reconstructFilterChain(inputFrame);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    PrintMes(RGY_LOG_DEBUG, _T("resolution change: resuming filter processing.\n"));
+                }
             }
         }
         if (m_stopwatch) m_stopwatch->add(0, 0);
