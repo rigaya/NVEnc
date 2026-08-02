@@ -5920,6 +5920,27 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         return RGY_ERR_INVALID_OPERATION;
     }
 
+    PipelineTask *t0 = m_pipelineTasks[0].get();
+    for (size_t ip = 1; ip < m_pipelineTasks.size(); ip++) {
+        if (t0->isPassThrough()) {
+            PrintMes(RGY_LOG_ERROR, _T("setNextTask: t0 cannot be path through task!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        PipelineTask *t1 = nullptr;
+        for (; ip < m_pipelineTasks.size(); ip++) {
+            if (!m_pipelineTasks[ip]->isPassThrough()) {
+                t1 = m_pipelineTasks[ip].get();
+                break;
+            }
+        }
+        if (t1 == nullptr) {
+            PrintMes(RGY_LOG_ERROR, _T("setNextTask: invalid pipeline, t1 not found!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        t0->setNextTask(t1);
+        t0 = t1;
+    }
+
     PrintMes(RGY_LOG_DEBUG, _T("Created pipeline.\n"));
     for (auto& p : m_pipelineTasks) {
         PrintMes(RGY_LOG_DEBUG, _T("  %s\n"), p->print().c_str());
@@ -5941,48 +5962,28 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
     const int asyncdepth = 3;
     PrintMes(RGY_LOG_DEBUG, _T("allocFrames: m_nAsyncDepth - %d frames\n"), asyncdepth);
 
-    PipelineTask *t0 = m_pipelineTasks[0].get();
-    for (size_t ip = 1; ip < m_pipelineTasks.size(); ip++) {
-        if (t0->isPassThrough()) {
-            PrintMes(RGY_LOG_ERROR, _T("allocFrames: t0 cannot be path through task!\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
-        // 次のtaskを見つける
-        PipelineTask *t1 = nullptr;
-        for (; ip < m_pipelineTasks.size(); ip++) {
-            if (!m_pipelineTasks[ip]->isPassThrough()) { // isPassThroughがtrueなtaskはスキップ
-                t1 = m_pipelineTasks[ip].get();
-                break;
-            }
-        }
-        if (t1 == nullptr) {
-            PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline, t1 not found!\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
+    // 隣接タスクの対はinitPipeline()で構築済みのm_nextTaskチェーンをたどる
+    // (isPassThroughなタスクのスキップはinitPipeline()側で処理済み)
+    for (PipelineTask *t0 = m_pipelineTasks[0].get(); t0->nextTask() != nullptr; t0 = t0->nextTask()) {
+        PipelineTask *t1 = t0->nextTask();
         PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s\n"), t0->print().c_str(), t1->print().c_str());
 
-        const auto t0Alloc = t0->requiredSurfOut();
-        const auto t1Alloc = t1->requiredSurfIn();
-        int t0RequestNumFrame = 0;
-        int t1RequestNumFrame = 0;
-        RGYFrameInfo allocateFrameInfo;
-        if (t0Alloc.has_value() && t1Alloc.has_value()) {
-            t0RequestNumFrame = t0Alloc.value().second;
-            t1RequestNumFrame = t1Alloc.value().second;
-            allocateFrameInfo = (t0->workSurfacesAllocPriority() >= t1->workSurfacesAllocPriority()) ? t0Alloc.value().first : t1Alloc.value().first;
-            allocateFrameInfo.width = std::max(t0Alloc.value().first.width, t1Alloc.value().first.width);
-            allocateFrameInfo.height = std::max(t0Alloc.value().first.height, t1Alloc.value().first.height);
-        } else if (t0Alloc.has_value()) {
-            allocateFrameInfo = t0Alloc.value().first;
-            t0RequestNumFrame = t0Alloc.value().second;
-        } else if (t1Alloc.has_value()) {
-            allocateFrameInfo = t1Alloc.value().first;
-            t1RequestNumFrame = t1Alloc.value().second;
-        } else {
-            PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
         if (t1->taskType() == PipelineTaskType::NVENC) {
+            const auto t0Alloc = t0->requiredSurfOut();
+            const auto t1Alloc = t1->requiredSurfIn();
+            int t0RequestNumFrame = 0;
+            int t1RequestNumFrame = 0;
+            if (t0Alloc.has_value() && t1Alloc.has_value()) {
+                t0RequestNumFrame = t0Alloc.value().second;
+                t1RequestNumFrame = t1Alloc.value().second;
+            } else if (t0Alloc.has_value()) {
+                t0RequestNumFrame = t0Alloc.value().second;
+            } else if (t1Alloc.has_value()) {
+                t1RequestNumFrame = t1Alloc.value().second;
+            } else {
+                PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
             const int requestNumFrames = m_encodeBufferCount + t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1;
             const auto allocStart = std::chrono::steady_clock::now();
             auto sts = m_encRunCtx->allocEncodeBuffer(m_uEncWidth, m_uEncHeight, GetEncBufferFormat(prm), m_stPicStruct, rgy_csp_has_alpha(prm->outputCsp), requestNumFrames);
@@ -5993,25 +5994,13 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
             PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: NVENC, %dx%d, request %d frames, %lld ms\n"),
                 t0->print().c_str(), t1->print().c_str(), m_uEncWidth, m_uEncHeight, requestNumFrames, (lls)elapsed_ms(allocStart));
             t0->setWorkSurfaces(m_encRunCtx->stEncodeBuffer(), m_encRunCtx->qEncodeBufferFree(), m_dev->encoder(), m_rgbAsYUV444);
-        } else if (t0->taskType() != PipelineTaskType::NVDEC) {
-            const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1);
-            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL, %s %dx%d, request %d frames\n"),
-                t0->print().c_str(), t1->print().c_str(), RGY_CSP_NAMES[allocateFrameInfo.csp],
-                allocateFrameInfo.width, allocateFrameInfo.height, requestNumFrames);
-            const auto allocStart = std::chrono::steady_clock::now();
-            auto sts = t0->workSurfacesAllocCUBuf(requestNumFrames, allocateFrameInfo);
+        } else {
+            auto sts = t0->allocWorkSurfaces(asyncdepth);
             if (sts != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
                 return sts;
             }
-            CUDA_DEBUG_SYNC_ERR;
-            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL, request %d frames, %lld ms\n"),
-                t0->print().c_str(), t1->print().c_str(), requestNumFrames, (lls)elapsed_ms(allocStart));
-        } else {
-            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, allocation skipped (decoder-managed surfaces)\n"),
-                t0->print().c_str(), t1->print().c_str());
         }
-        t0 = t1;
     }
     // 最後がエンコーダでない場合の特例
     if (   m_pipelineTasks.back()->taskType() != PipelineTaskType::NVENC

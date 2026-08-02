@@ -918,6 +918,7 @@ class PipelineTask {
 protected:
     PipelineTaskType m_type;
     NVGPUInfo *m_dev;
+    PipelineTask *m_nextTask = nullptr;
     std::deque<std::unique_ptr<PipelineTaskOutput>> m_outQeueue;
     PipelineTaskSurfaces m_workSurfs;
     int m_inFrames;
@@ -1040,6 +1041,12 @@ public:
     int workSurfacesAllocPriority() const {
         return getPipelineTaskAllocPriority(m_type);
     }
+    void setNextTask(PipelineTask *next) {
+        m_nextTask = next;
+    }
+    PipelineTask *nextTask() const {
+        return m_nextTask;
+    }
     size_t workSurfacesCount() const {
         return m_workSurfs.bufCount();
     }
@@ -1080,6 +1087,50 @@ protected:
         return RGY_ERR_NONE;
     }
 public:
+    virtual RGY_ERR allocWorkSurfaces(const int asyncDepth) {
+        if (m_nextTask == nullptr) {
+            PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline, next task not found!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+
+        const auto t0Alloc = requiredSurfOut();
+        const auto t1Alloc = m_nextTask->requiredSurfIn();
+        int t0RequestNumFrame = 0;
+        int t1RequestNumFrame = 0;
+        RGYFrameInfo allocateFrameInfo;
+        if (t0Alloc.has_value() && t1Alloc.has_value()) {
+            t0RequestNumFrame = t0Alloc.value().second;
+            t1RequestNumFrame = t1Alloc.value().second;
+            allocateFrameInfo = (workSurfacesAllocPriority() >= m_nextTask->workSurfacesAllocPriority()) ? t0Alloc.value().first : t1Alloc.value().first;
+            allocateFrameInfo.width = std::max(t0Alloc.value().first.width, t1Alloc.value().first.width);
+            allocateFrameInfo.height = std::max(t0Alloc.value().first.height, t1Alloc.value().first.height);
+        } else if (t0Alloc.has_value()) {
+            allocateFrameInfo = t0Alloc.value().first;
+            t0RequestNumFrame = t0Alloc.value().second;
+        } else if (t1Alloc.has_value()) {
+            allocateFrameInfo = t1Alloc.value().first;
+            t1RequestNumFrame = t1Alloc.value().second;
+        } else {
+            PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+
+        const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + asyncDepth + 1);
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL, %s %dx%d, request %d frames\n"),
+            print().c_str(), m_nextTask->print().c_str(), RGY_CSP_NAMES[allocateFrameInfo.csp],
+            allocateFrameInfo.width, allocateFrameInfo.height, requestNumFrames);
+        const auto allocStart = std::chrono::steady_clock::now();
+        auto sts = workSurfacesAllocCUBuf(requestNumFrames, allocateFrameInfo);
+        if (sts != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), print().c_str(), m_nextTask->print().c_str(), get_err_mes(sts));
+            return sts;
+        }
+        CUDA_DEBUG_SYNC_ERR;
+        const auto allocMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - allocStart).count();
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL, request %d frames, %lld ms\n"),
+            print().c_str(), m_nextTask->print().c_str(), requestNumFrames, (lls)allocMs);
+        return RGY_ERR_NONE;
+    }
     virtual RGY_ERR workSurfacesAllocCUBuf(const int numFrames, const RGYFrameInfo &frame) {
         auto sts = workSurfacesClear();
         if (sts != RGY_ERR_NONE) {
@@ -1351,6 +1402,16 @@ public:
         RGYFrameInfo info(inputFrameInfo.srcWidth, inputFrameInfo.srcHeight, inputFrameInfo.csp, inputFrameInfo.bitdepth, inputFrameInfo.picstruct, RGY_MEM_TYPE_GPU);
         return std::make_pair(info, 0);
     };
+    virtual RGY_ERR allocWorkSurfaces(const int asyncDepth) override {
+        UNREFERENCED_PARAMETER(asyncDepth);
+        if (m_nextTask == nullptr) {
+            PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline, next task not found!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, allocation skipped (decoder-managed surfaces)\n"),
+            print().c_str(), m_nextTask->print().c_str());
+        return RGY_ERR_NONE;
+    }
     virtual bool isDrainingAfterInputEOF() const override {
         return m_state == RGY_STATE_RUNNING && m_dec->frameQueue()->isEndOfDecode() && !m_dec->frameQueue()->isEmpty();
     }
