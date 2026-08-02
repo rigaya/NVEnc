@@ -1316,6 +1316,16 @@ public:
             return err;
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
+        const auto inputFrameInfo = m_input->GetInputFrameInfo();
+        if (   cuframe->frame.width != inputFrameInfo.srcWidth || cuframe->frame.height != inputFrameInfo.srcHeight
+            || cuframe->refFrameHost->frame.width != inputFrameInfo.srcWidth || cuframe->refFrameHost->frame.height != inputFrameInfo.srcHeight) {
+            PrintMes(RGY_LOG_DEBUG, _T("input frame surface resolution updated from %dx%d to %dx%d.\n"),
+                cuframe->frame.width, cuframe->frame.height, inputFrameInfo.srcWidth, inputFrameInfo.srcHeight);
+            cuframe->frame.width = inputFrameInfo.srcWidth;
+            cuframe->frame.height = inputFrameInfo.srcHeight;
+            cuframe->refFrameHost->frame.width = inputFrameInfo.srcWidth;
+            cuframe->refFrameHost->frame.height = inputFrameInfo.srcHeight;
+        }
         hostFrame->setInputFrameId(m_inFrames++);
         if (m_endPts >= 0
             && (int64_t)hostFrame->timestamp() != AV_NOPTS_VALUE // timestampが設定されていない場合は無視
@@ -3397,6 +3407,8 @@ protected:
     RGYFrameInfo m_normalizeTargetFrame;
     std::shared_ptr<NVEncFilterParamResize> m_normalizeResizeParam;
     RGY_CSP m_normalizeFilterCsp;
+    int m_inputCropOffsetW;
+    int m_inputCropOffsetH;
     int m_normalizeResizeIdx;
 
     RGY_ERR reconstructFilterChain(const RGYFrameInfo& newInputFrame) {
@@ -3590,7 +3602,8 @@ public:
         PipelineTask(PipelineTaskType::CUDA, dev, outMaxQueueSize, false, threadParam, log), m_vpFilters(vppfilters), m_videoMetric(videoMetric),
         m_frameReleaseData(dev->vidCtxLock(), 4, threadParam), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444),
         m_cudaStreamOpt(cudaStreamOpt), m_cudaMT(cudaMT), m_eventDefaultToFilter(nullptr),m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev(), m_encode(nullptr),
-        m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeFilterCsp(RGY_CSP_NA), m_normalizeResizeIdx(-1) {
+        m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeFilterCsp(RGY_CSP_NA),
+        m_inputCropOffsetW(0), m_inputCropOffsetH(0), m_normalizeResizeIdx(-1) {
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         if (cudaStreamOpt > 1) {
@@ -3663,6 +3676,11 @@ public:
         m_normalizeFilterCsp = filterCsp;
     }
 
+    void setInputCropOffset(const int cropOffsetW, const int cropOffsetH) {
+        m_inputCropOffsetW = cropOffsetW;
+        m_inputCropOffsetH = cropOffsetH;
+    }
+
     FrameReleaseData<cudaEvent_t> *cuvidFrameReleaseData() {
         return &m_frameReleaseData;
     }
@@ -3703,7 +3721,7 @@ public:
             const bool isCuvidInput = (surfVppInCuvid != nullptr);
             // cudaをマルチスレッドで使用しない場合(cudaMT=0)は、ここで待機する (cudaMTが1のときはこれはなにもしない)
             m_frameReleaseData.waitFrameSingleThread(0);
-            if (surfVppInCuvid != nullptr) {
+            if (isCuvidInput) {
                 // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、まず前のフレームを解放を待つ (cudaMTがtrueのとき)
                 m_frameReleaseData.waitUntilEmptyMultiThread();
                 PrintMes(RGY_LOG_TRACE, _T("filter_frame: map video frame: %d, %lld.\n"), surfVppInCuvid->dispInfo()->picture_index, surfVppInCuvid->dispInfo()->timestamp);
@@ -3727,8 +3745,10 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Invalid task surface (not opencl or amf).\n"));
                 return RGY_ERR_NULL_PTR;
             }
-            if (isCuvidInput && frame && !filterframes.empty() && filterframes.front().first.ptr[0] != nullptr) {
-                const auto& inputFrame = filterframes.front().first;
+            if (frame && !filterframes.empty() && !m_vpFilters.empty() && filterframes.front().first.ptr[0] != nullptr) {
+                auto inputFrame = filterframes.front().first;
+                inputFrame.width -= m_inputCropOffsetW;
+                inputFrame.height -= m_inputCropOffsetH;
                 const auto& expectedFrame = m_vpFilters.front()->GetFilterParam()->frameIn;
                 if (inputFrame.width != expectedFrame.width || inputFrame.height != expectedFrame.height) {
                     PrintMes(RGY_LOG_DEBUG, _T("resolution change detected in CUDA filter input: %dx%d -> %dx%d.\n"),

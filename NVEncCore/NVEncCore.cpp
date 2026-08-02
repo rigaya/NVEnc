@@ -387,6 +387,8 @@ NVEncCore::NVEncCore() :
     m_pLastFilterParam(),
     m_normalizeResizeParam(),
     m_normalizeFilterCsp(RGY_CSP_NA),
+    m_inputCropOffsetW(0),
+    m_inputCropOffsetH(0),
 #if ENABLE_SSIM
     m_videoQualityMetric(),
 #endif //#if ENABLE_SSIM
@@ -3104,6 +3106,8 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         inputFrame.width = croppedWidth;
         inputFrame.height = croppedHeight;
     }
+    m_inputCropOffsetW = inputParam->input.srcWidth - inputFrame.width;
+    m_inputCropOffsetH = inputParam->input.srcHeight - inputFrame.height;
     // 読み込み時に同時にGPUに転送されるので、スタートは常にGPU
     inputFrame.mem_type = RGY_MEM_TYPE_GPU;
     m_encFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
@@ -5881,6 +5885,8 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         taskLastCudaVpp = taskCudaVpp;
         if (taskFirstCudaVpp == nullptr) {
             taskFirstCudaVpp = taskCudaVpp;
+            //入力サーフェスとフィルタ入力の解像度差(crop分)が生じるのは先頭のフィルタブロックのみ
+            taskCudaVpp->setInputCropOffset(m_inputCropOffsetW, m_inputCropOffsetH);
         }
     }
     if (m_pipelineTasks.size() > 0 && taskNVDec) {

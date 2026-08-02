@@ -288,6 +288,8 @@ RGYInputAvcodec::RGYInputAvcodec() :
     m_logFramePosList(),
     m_fpPacketList(),
     m_hevcMp42AnnexbBuffer(),
+    m_initialSrcWidth(0),
+    m_initialSrcHeight(0),
     m_suppressPulldownDetect(false),
     m_pulldownDetected(false) {
     m_readerName = _T("av" DECODER_NAME "/avsw");
@@ -2290,6 +2292,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         //情報を格納
         m_inputVideoInfo.srcWidth    = m_Demux.video.stream->codecpar->width;
         m_inputVideoInfo.srcHeight   = m_Demux.video.stream->codecpar->height;
+        m_initialSrcWidth            = m_inputVideoInfo.srcWidth;
+        m_initialSrcHeight           = m_inputVideoInfo.srcHeight;
         m_inputVideoInfo.sar[0]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.num;
         m_inputVideoInfo.sar[1]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.den;
         m_inputVideoInfo.frames      = 0;
@@ -3557,8 +3561,8 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
             #pragma warning(pop)
             if (qp_table != nullptr) {
                 auto table = m_Demux.video.qpTableListRef->get();
-                const int qpw = (qp_stride) ? qp_stride : (pSurface->width() + 15) / 16;
-                const int qph = (qp_stride) ? (pSurface->height() + 15) / 16 : 1;
+                const int qpw = (qp_stride) ? qp_stride : (m_Demux.video.frame->width + 15) / 16;
+                const int qph = (qp_stride) ? (m_Demux.video.frame->height + 15) / 16 : 1;
                 table->setQPTable(qp_table, qpw, qph, qp_stride, qscale_type, m_Demux.video.frame->pict_type, m_Demux.video.frame->pts);
                 pSurface->dataList().push_back(table);
             }
@@ -3579,10 +3583,31 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
 
         if (   m_Demux.video.frame->width  != m_inputVideoInfo.srcWidth
             || m_Demux.video.frame->height != m_inputVideoInfo.srcHeight) {
+#if ENABLE_INPUT_RESOLUTION_CHANGE
+            const int newWidth = m_Demux.video.frame->width;
+            const int newHeight = m_Demux.video.frame->height;
+            if (newWidth > m_initialSrcWidth || newHeight > m_initialSrcHeight) {
+                AddMessage(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, exceeding the initial resolution %dx%d, which is not supported.\n"),
+                    m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, newWidth, newHeight,
+                    m_initialSrcWidth, m_initialSrcHeight);
+                AddMessage(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
+            if (m_inputVideoInfo.crop.e.left + m_inputVideoInfo.crop.e.right >= newWidth
+                || m_inputVideoInfo.crop.e.up + m_inputVideoInfo.crop.e.bottom >= newHeight) {
+                AddMessage(RGY_LOG_ERROR, _T("input crop is too large for the changed resolution %dx%d.\n"), newWidth, newHeight);
+                return RGY_ERR_INVALID_PARAM;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("input resolution changed from %dx%d to %dx%d; updating software decoder output.\n"),
+                m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, newWidth, newHeight);
+            m_inputVideoInfo.srcWidth = newWidth;
+            m_inputVideoInfo.srcHeight = newHeight;
+#else
             AddMessage(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, which is not supported yet.\n"),
                 m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_Demux.video.frame->width, m_Demux.video.frame->height);
             AddMessage(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
             return RGY_ERR_UNSUPPORTED;
+#endif
         }
 
         //実際には初期化時と異なるcspの場合があるので、ここで再度チェック
@@ -3595,11 +3620,18 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
 
         //フレームデータをコピー
         void *dst_array[RGY_MAX_PLANES];
-        pSurface->ptrArray(dst_array);
+        auto dstFrameInfo = pSurface->frameInfo();
+        dstFrameInfo.width = m_inputVideoInfo.srcWidth;
+        dstFrameInfo.height = m_inputVideoInfo.srcHeight;
+        for (int i = 0; i < RGY_MAX_PLANES; i++) {
+            dst_array[i] = (void *)getPlane(&dstFrameInfo, (RGY_PLANE)i).ptr[0];
+        }
+        const auto dstPlaneY = getPlane(&dstFrameInfo, RGY_PLANE_Y);
+        const auto dstPlaneC = getPlane(&dstFrameInfo, RGY_PLANE_C);
         m_convert->run(rgy_avframe_interlaced(m_Demux.video.frame),
             dst_array, (const void **)m_Demux.video.frame->data,
-            m_inputVideoInfo.srcWidth, m_Demux.video.frame->linesize[0], m_Demux.video.frame->linesize[1], pSurface->pitch(), pSurface->pitch(RGY_PLANE_C),
-            m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+            m_Demux.video.frame->width, m_Demux.video.frame->linesize[0], m_Demux.video.frame->linesize[1], dstPlaneY.pitch[0], dstPlaneC.pitch[0],
+            m_Demux.video.frame->height, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
         if (got_frame) {
             av_frame_unref(m_Demux.video.frame);
         }

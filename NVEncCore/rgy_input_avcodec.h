@@ -32,6 +32,10 @@
 #include "rgy_input.h"
 #include "rgy_version.h"
 
+#ifndef ENABLE_INPUT_RESOLUTION_CHANGE
+#define ENABLE_INPUT_RESOLUTION_CHANGE 0
+#endif
+
 #if ENABLE_AVSW_READER
 #include "rgy_avutil.h"
 #include "rgy_queue.h"
@@ -1065,6 +1069,8 @@ protected:
     tstring          m_logFramePosList;           //FramePosListの内容を入力終了時に出力する (デバッグ用)
     std::unique_ptr<FILE, fp_deleter> m_fpPacketList; // 読み取ったパケット情報を出力するファイル
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
+    int              m_initialSrcWidth;             //入力初期解像度（途中の拡大可否判定用）
+    int              m_initialSrcHeight;
     bool             m_suppressPulldownDetect;     // true: skip avgDuration *= 1.25 after bPulldown is detected. bPulldown itself is still set so log/diagnostic paths see it. Mirrors RGYInputAvcodecPrm::suppressPulldownMutation.
     bool             m_pulldownDetected;           // true when getFirstFramePosAndFrameRate detected soft pulldown.
 

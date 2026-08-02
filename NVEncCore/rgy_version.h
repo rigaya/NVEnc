@@ -54,6 +54,7 @@ const char *get_encoder_version();
 #define CLFILTERS_AUF  0
 
 #define CUVID_DISABLE_CROP 1
+#define ENABLE_INPUT_RESOLUTION_CHANGE 1
 
 #define AV1_TIMESTAMP_OVERRIDE 1
 
