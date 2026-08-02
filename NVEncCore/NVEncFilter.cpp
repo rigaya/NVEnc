@@ -181,31 +181,37 @@ void NVEncFilter::setCheckPerformance(const bool check) {
 }
 
 RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, cudaStream_t stream) {
-    if (!m_pFieldPairIn) {
-        auto uptr = std::make_unique<CUFrameBuf>(*pInputFrame);
+    //フィールドペア用のバッファは未確保のときだけでなく、解像度・色空間が変化したときにも確保しなおす必要がある
+    //(ストリーム途中で解像度が変化した場合、古い解像度のバッファをそのまま使うと壊れるため)
+    auto allocFieldPairBuf = [this](std::unique_ptr<CUFrameBuf>& fieldPairBuf, const RGYFrameInfo *frameInfo, const TCHAR *bufName) {
+        RGYFrameInfo fieldFrame = *frameInfo;
+        fieldFrame.height >>= 1;
+        fieldFrame.picstruct = RGY_PICSTRUCT_FRAME;
+        fieldFrame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
+        if (fieldPairBuf && !cmpFrameInfoCspResolution(&fieldPairBuf->frame, &fieldFrame)) {
+            return RGY_ERR_NONE;
+        }
+        auto uptr = std::make_unique<CUFrameBuf>(fieldFrame);
         uptr->releasePtr();
-        uptr->frame.height >>= 1;
-        uptr->frame.picstruct = RGY_PICSTRUCT_FRAME;
-        uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
         auto ret = uptr->alloc();
         if (ret != RGY_ERR_NONE) {
-            m_frameBuf.clear();
             return ret;
         }
-        m_pFieldPairIn = std::move(uptr);
+        AddMessage(RGY_LOG_DEBUG, _T("allocated field pair buffer(%s): %dx%d %s.\n"),
+            bufName, uptr->frame.width, uptr->frame.height, RGY_CSP_NAMES[uptr->frame.csp]);
+        //確保に成功してから差し替える(失敗時に古いバッファを失わないようにするため)
+        fieldPairBuf = std::move(uptr);
+        return RGY_ERR_NONE;
+    };
+    if (auto ret = allocFieldPairBuf(m_pFieldPairIn, pInputFrame, _T("in")); ret != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate field pair buffer(in): %s.\n"), get_err_mes(ret));
+        m_frameBuf.clear();
+        return ret;
     }
-    if (!m_pFieldPairOut) {
-        auto uptr = std::make_unique<CUFrameBuf>(*pOutputFrame);
-        uptr->releasePtr();
-        uptr->frame.height >>= 1;
-        uptr->frame.picstruct = RGY_PICSTRUCT_FRAME;
-        uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
-        auto ret = uptr->alloc();
-        if (ret != RGY_ERR_NONE) {
-            m_frameBuf.clear();
-            return ret;
-        }
-        m_pFieldPairOut = std::move(uptr);
+    if (auto ret = allocFieldPairBuf(m_pFieldPairOut, pOutputFrame, _T("out")); ret != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate field pair buffer(out): %s.\n"), get_err_mes(ret));
+        m_frameBuf.clear();
+        return ret;
     }
 
     for (int i = 0; i < 2; i++) {
