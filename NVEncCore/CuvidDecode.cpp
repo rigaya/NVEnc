@@ -176,7 +176,7 @@ static int CUDAAPI HandlePictureDisplay(void *pUserData, CUVIDPARSERDISPINFO *pP
 
 CuvidDecode::CuvidDecode() :
     m_pFrameQueue(nullptr), m_decodedFrames(0), m_parsedPackets(0), m_videoParser(nullptr), m_videoDecoder(nullptr),
-    m_ctxLock(nullptr), m_pPrintMes(), m_bIgnoreDynamicFormatChange(false), m_bError(false), m_videoInfo(), m_nDecType(0) {
+    m_ctxLock(nullptr), m_pPrintMes(), m_bError(false), m_videoInfo(), m_nDecType(0) {
     memset(&m_videoDecodeCreateInfo, 0, sizeof(m_videoDecodeCreateInfo));
     memset(&m_videoFormatEx, 0, sizeof(m_videoFormatEx));
 }
@@ -235,13 +235,6 @@ int CuvidDecode::DecVideoSequence(CUVIDEOFORMAT *pFormat) {
     if (   (pFormat->coded_width   != m_videoDecodeCreateInfo.ulWidth)
         || (pFormat->coded_height  != m_videoDecodeCreateInfo.ulHeight)) {
         AddMessage(RGY_LOG_DEBUG, _T("dynamic video format changing detected\n"));
-        m_videoDecodeCreateInfo.CodecType    = pFormat->codec;
-        m_videoDecodeCreateInfo.ulWidth      = pFormat->coded_width;
-        m_videoDecodeCreateInfo.ulHeight     = pFormat->coded_height;
-        m_videoDecodeCreateInfo.ChromaFormat = pFormat->chroma_format;
-        if (pFormat->coded_width != m_videoDecodeCreateInfo.ulWidth && pFormat->coded_height != m_videoDecodeCreateInfo.ulHeight) {
-            memcpy(&m_videoDecodeCreateInfo.display_area, &pFormat->display_area, sizeof(pFormat->display_area));
-        }
         return 0;
     }
     return 1;
@@ -359,7 +352,7 @@ CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
     return curesult;
 }
 
-CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool lowLatency, bool ignoreDynamicFormatChange) {
+CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool lowLatency) {
     //初期化
     CloseDecoder();
 
@@ -370,7 +363,6 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     }
     m_nDecType = nDecType;
     m_pPrintMes = pLog;
-    m_bIgnoreDynamicFormatChange = ignoreDynamicFormatChange;
     m_deinterlaceMode = (vpp) ? vpp->deinterlace : cudaVideoDeinterlaceMode_Weave;
 
     if (!check_if_nvcuvid_dll_available()) {

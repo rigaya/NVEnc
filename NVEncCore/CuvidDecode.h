@@ -60,7 +60,7 @@ public:
     CuvidDecode();
     ~CuvidDecode();
 
-    CUresult InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool lowLatency = false, bool ignoreDynamicFormatChange = false);
+    CUresult InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool lowLatency = false);
     RGY_ERR CloseDecoder();
     CUresult DecodePacket(uint8_t *data, size_t nSize, int64_t timestamp, AVRational streamtimebase);
     CUresult FlushParser();
@@ -121,7 +121,6 @@ protected:
     CUVIDDECODECREATEINFO        m_videoDecodeCreateInfo;
     CUVIDEOFORMATEX              m_videoFormatEx;
     shared_ptr<RGYLog>           m_pPrintMes;  //ログ出力
-    bool                         m_bIgnoreDynamicFormatChange;
     bool                         m_bError;
     cudaVideoDeinterlaceMode     m_deinterlaceMode;
     VideoInfo                    m_videoInfo;

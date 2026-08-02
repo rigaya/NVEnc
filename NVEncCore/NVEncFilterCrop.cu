@@ -3554,7 +3554,7 @@ RGY_ERR NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pCropParam->frameOut.pitch[0] = m_frameBuf[0]->frame.pitch[0];
+        pCropParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
     //フィルタ情報の調整
