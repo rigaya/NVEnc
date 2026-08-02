@@ -234,7 +234,10 @@ int CuvidDecode::DecVideoSequence(CUVIDEOFORMAT *pFormat) {
     }
     if (   (pFormat->coded_width   != m_videoDecodeCreateInfo.ulWidth)
         || (pFormat->coded_height  != m_videoDecodeCreateInfo.ulHeight)) {
-        AddMessage(RGY_LOG_DEBUG, _T("dynamic video format changing detected\n"));
+        AddMessage(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d (coded size), which is not supported yet.\n"),
+            (int)m_videoDecodeCreateInfo.ulWidth, (int)m_videoDecodeCreateInfo.ulHeight, (int)pFormat->coded_width, (int)pFormat->coded_height);
+        AddMessage(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
+        m_bError = true;
         return 0;
     }
     return 1;

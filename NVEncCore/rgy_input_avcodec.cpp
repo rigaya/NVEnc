@@ -3577,6 +3577,14 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
             }
         }
 
+        if (   m_Demux.video.frame->width  != m_inputVideoInfo.srcWidth
+            || m_Demux.video.frame->height != m_inputVideoInfo.srcHeight) {
+            AddMessage(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, which is not supported yet.\n"),
+                m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_Demux.video.frame->width, m_Demux.video.frame->height);
+            AddMessage(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+
         //実際には初期化時と異なるcspの場合があるので、ここで再度チェック
         m_inputCsp = csp_avpixfmt_to_rgy((AVPixelFormat)m_Demux.video.frame->format);
         if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, m_Demux.video.simdCsp) == nullptr) {
