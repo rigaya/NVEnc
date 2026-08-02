@@ -386,6 +386,7 @@ NVEncCore::NVEncCore() :
     m_vpFilters(),
     m_pLastFilterParam(),
     m_normalizeResizeParam(),
+    m_normalizeFilterCsp(RGY_CSP_NA),
 #if ENABLE_SSIM
     m_videoQualityMetric(),
 #endif //#if ENABLE_SSIM
@@ -3365,6 +3366,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     m_normalizeResizeParam->bicubic = inputParam->vpp.resize_bicubic;
     m_normalizeResizeParam->baseFps = m_encFps;
     m_normalizeResizeParam->bOutOverwrite = false;
+    m_normalizeFilterCsp = filterCsp;
     m_stPicStruct = picstruct_rgy_to_enc(inputFrame.picstruct);
     m_encVUI = inputParam->common.out_vui;
     if (m_rgbAsYUV444) {
@@ -5875,6 +5877,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         auto taskCudaVpp = dynamic_cast<PipelineTaskCUDAVpp *>(m_pipelineTasks.back().get());
         taskCudaVpp->setNormalizeTargetFrame(vppblock.vppnv.front()->GetFilterParam()->frameOut);
         taskCudaVpp->setNormalizeResizeParam(m_normalizeResizeParam);
+        taskCudaVpp->setNormalizeFilterCsp(m_normalizeFilterCsp);
         taskLastCudaVpp = taskCudaVpp;
         if (taskFirstCudaVpp == nullptr) {
             taskFirstCudaVpp = taskCudaVpp;

@@ -219,6 +219,7 @@ protected:
     std::vector<VppVilterBlock> m_vpFilters;
     std::shared_ptr<NVEncFilterParam>    m_pLastFilterParam;
     std::shared_ptr<NVEncFilterParamResize> m_normalizeResizeParam;
+    RGY_CSP m_normalizeFilterCsp;
 #if ENABLE_SSIM
     std::unique_ptr<NVEncFilterSsim>  m_videoQualityMetric;
 #endif //#if ENABLE_SSIM

@@ -3396,6 +3396,7 @@ protected:
     PipelineTaskNVEncode *m_encode;
     RGYFrameInfo m_normalizeTargetFrame;
     std::shared_ptr<NVEncFilterParamResize> m_normalizeResizeParam;
+    RGY_CSP m_normalizeFilterCsp;
     int m_normalizeResizeIdx;
 
     RGY_ERR reconstructFilterChain(const RGYFrameInfo& newInputFrame) {
@@ -3413,7 +3414,9 @@ protected:
                 RGY_CSP_NAMES[firstFilterParam->frameIn.csp], RGY_CSP_NAMES[newInputFrame.csp]);
             return RGY_ERR_UNSUPPORTED;
         }
-        if (m_vpFilters.size() < 2 || RGY_CSP_PLANES[firstFilterParam->frameOut.csp] < 3) {
+        const bool reconstructSingleFilter = m_vpFilters.size() == 1 && RGY_CSP_PLANES[firstFilterParam->frameOut.csp] < 3;
+        const bool reconstructPlanarChain = m_vpFilters.size() >= 2 && RGY_CSP_PLANES[firstFilterParam->frameOut.csp] >= 3;
+        if (!reconstructSingleFilter && !reconstructPlanarChain) {
             PrintMes(RGY_LOG_ERROR, _T("resolution change is not supported for this filter configuration yet (filters: %d, first frameOut csp: %s).\n"),
                 (int)m_vpFilters.size(), RGY_CSP_NAMES[firstFilterParam->frameOut.csp]);
             return RGY_ERR_UNSUPPORTED;
@@ -3426,6 +3429,88 @@ protected:
         if (m_normalizeResizeParam == nullptr || m_normalizeTargetFrame.width <= 0 || m_normalizeTargetFrame.height <= 0) {
             PrintMes(RGY_LOG_ERROR, _T("resolution change is not supported because the normalization resize parameters are not initialized.\n"));
             return RGY_ERR_INVALID_OPERATION;
+        }
+        if (reconstructSingleFilter) {
+            if (m_normalizeFilterCsp == RGY_CSP_NA || RGY_CSP_PLANES[m_normalizeFilterCsp] < 3) {
+                PrintMes(RGY_LOG_ERROR, _T("resolution change is not supported because the normalization planar colorspace is invalid: %s.\n"),
+                    RGY_CSP_NAMES[m_normalizeFilterCsp]);
+                return RGY_ERR_INVALID_OPERATION;
+            }
+
+            auto firstCropParam = std::make_shared<NVEncFilterParamCrop>(*oldCropParam);
+            firstCropParam->frameIn.width = newInputFrame.width;
+            firstCropParam->frameIn.height = newInputFrame.height;
+            firstCropParam->frameIn.picstruct = newInputFrame.picstruct;
+            for (int i = 0; i < (int)_countof(firstCropParam->frameIn.pitch); i++) {
+                firstCropParam->frameIn.pitch[i] = newInputFrame.pitch[i];
+            }
+            firstCropParam->frameOut.csp = m_normalizeFilterCsp;
+            firstCropParam->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[m_normalizeFilterCsp];
+            auto firstCropFilter = std::make_unique<NVEncFilterCspCrop>();
+            {
+                NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                const auto sts = firstCropFilter->init(firstCropParam, m_log);
+                if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to initialize the first CspCrop on resolution change (%dx%d): %s.\n"),
+                        newInputFrame.width, newInputFrame.height, get_err_mes(sts));
+                    return sts;
+                }
+            }
+
+            auto resizeParam = std::make_shared<NVEncFilterParamResize>(*m_normalizeResizeParam);
+            resizeParam->frameIn = firstCropParam->frameOut;
+            resizeParam->frameOut = m_normalizeTargetFrame;
+            resizeParam->frameOut.csp = resizeParam->frameIn.csp;
+            resizeParam->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[resizeParam->frameOut.csp];
+            resizeParam->frameOut.picstruct = resizeParam->frameIn.picstruct;
+            resizeParam->baseFps = m_normalizeResizeParam->baseFps;
+            auto resizeFilter = std::make_unique<NVEncFilterResize>();
+            {
+                NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                const auto sts = resizeFilter->init(resizeParam, m_log);
+                if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to initialize the normalization resize on resolution change: %s.\n"), get_err_mes(sts));
+                    return sts;
+                }
+            }
+
+            auto lastCropParam = std::make_shared<NVEncFilterParamCrop>(*oldCropParam);
+            lastCropParam->frameIn = resizeParam->frameOut;
+            lastCropParam->frameOut = oldCropParam->frameOut;
+            // cropは新しい先頭フィルタで適用済みのため、末尾フィルタでは二重適用しない。
+            lastCropParam->crop = initCrop();
+            {
+                NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                const auto sts = m_vpFilters.front()->init(lastCropParam, m_log);
+                if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to reinitialize the last CspCrop on resolution change: %s.\n"), get_err_mes(sts));
+                    return sts;
+                }
+            }
+
+            m_vpFilters.insert(m_vpFilters.begin(), std::move(firstCropFilter));
+            m_vpFilters.insert(m_vpFilters.begin() + 1, std::move(resizeFilter));
+            m_normalizeResizeIdx = 1;
+            PrintMes(RGY_LOG_DEBUG, _T("resolution change: first CspCrop inserted (frameIn: %dx%d %s, frameOut: %dx%d %s).\n"),
+                firstCropParam->frameIn.width, firstCropParam->frameIn.height, RGY_CSP_NAMES[firstCropParam->frameIn.csp],
+                firstCropParam->frameOut.width, firstCropParam->frameOut.height, RGY_CSP_NAMES[firstCropParam->frameOut.csp]);
+            PrintMes(RGY_LOG_DEBUG, _T("resolution change: normalization resize inserted (frameIn: %dx%d %s, frameOut: %dx%d %s).\n"),
+                resizeParam->frameIn.width, resizeParam->frameIn.height, RGY_CSP_NAMES[resizeParam->frameIn.csp],
+                resizeParam->frameOut.width, resizeParam->frameOut.height, RGY_CSP_NAMES[resizeParam->frameOut.csp]);
+            PrintMes(RGY_LOG_DEBUG, _T("resolution change: last CspCrop reinitialized (frameIn: %dx%d %s, frameOut: %dx%d %s).\n"),
+                lastCropParam->frameIn.width, lastCropParam->frameIn.height, RGY_CSP_NAMES[lastCropParam->frameIn.csp],
+                lastCropParam->frameOut.width, lastCropParam->frameOut.height, RGY_CSP_NAMES[lastCropParam->frameOut.csp]);
+
+            int temporalStateResetCount = 0;
+            for (int i = 0; i < (int)m_vpFilters.size(); i++) {
+                if (i != 0 && i != m_normalizeResizeIdx) {
+                    m_vpFilters[i]->resetTemporalState();
+                    temporalStateResetCount++;
+                }
+            }
+            PrintMes(RGY_LOG_DEBUG, _T("resolution change: reset temporal state for %d filters.\n"), temporalStateResetCount);
+            PrintMes(RGY_LOG_DEBUG, _T("resolution change: filter chain reconstruction completed.\n"));
+            return RGY_ERR_NONE;
         }
 
         auto newCropParam = std::make_shared<NVEncFilterParamCrop>(*oldCropParam);
@@ -3505,7 +3590,7 @@ public:
         PipelineTask(PipelineTaskType::CUDA, dev, outMaxQueueSize, false, threadParam, log), m_vpFilters(vppfilters), m_videoMetric(videoMetric),
         m_frameReleaseData(dev->vidCtxLock(), 4, threadParam), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444),
         m_cudaStreamOpt(cudaStreamOpt), m_cudaMT(cudaMT), m_eventDefaultToFilter(nullptr),m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev(), m_encode(nullptr),
-        m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1) {
+        m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeFilterCsp(RGY_CSP_NA), m_normalizeResizeIdx(-1) {
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         if (cudaStreamOpt > 1) {
@@ -3572,6 +3657,10 @@ public:
 
     void setNormalizeResizeParam(const std::shared_ptr<NVEncFilterParamResize>& resizeParam) {
         m_normalizeResizeParam = resizeParam;
+    }
+
+    void setNormalizeFilterCsp(const RGY_CSP filterCsp) {
+        m_normalizeFilterCsp = filterCsp;
     }
 
     FrameReleaseData<cudaEvent_t> *cuvidFrameReleaseData() {
