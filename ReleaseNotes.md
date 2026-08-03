@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 9.29
+
+- Rearrage GPU DeviceId to follow CUDA enumeration order [-d, --device](./NVEncC_Options.en.md#-d---device-int). ( #789 )
+
 ## 9.28
 
 - Speed up [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) / [--vpp-degrain](./NVEncC_Options.en.md#--vpp-degrain-param1value1).
