@@ -61,7 +61,9 @@ static constexpr int KFM_MAX_OUTPUT_FRAMES = 16;
 static constexpr int KFM_UCF_NOISE_LIMIT_NMIN = 1;
 static constexpr int KFM_UCF_NOISE_LIMIT_RANGE = 128;
 static constexpr int KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY = 2;
-static constexpr int KFM_UCF_LAZY_SOURCE_CACHE_MARGIN = 512;
+// UCFの需要駆動RTGMCが短い巻き戻しを行える余裕を残す。
+// 512フレーム保持は1080iで数GBの常駐を招くため、realtime+の履歴余裕2個分に抑える。
+static constexpr int KFM_UCF_LAZY_SOURCE_CACHE_MARGIN = KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN * 2;
 static constexpr size_t KFM_CLEAN_SUPER_CACHE_SIZE = 6;
 static constexpr double KFM_UCF_GAUSS_P = 2.5;
 static constexpr double KFM_UCF_GAUSS_CROP_EPS = 0.0001;

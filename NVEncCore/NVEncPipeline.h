@@ -191,7 +191,7 @@ struct CUFrameEnc : public CUFrameBufBase {
         return std::make_pair(RGY_ERR_UNSUPPORTED, nullptr);
     }
     virtual RGY_ERR map() = 0;
-    virtual void unmap() = 0;
+    virtual RGY_ERR unmap() = 0;
     EncodeBuffer *encBuffer() { return m_encBuffer; }
 protected:
     CUFrameEnc(const CUFrameEnc &) = delete;
@@ -201,7 +201,10 @@ protected:
     }
     virtual RGY_ERR memfree(uint8_t **mem) override {
         if (mem[0]) {
-            unmap();
+            const auto sts = unmap();
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
             mem[0] = nullptr;
         }
         return RGY_ERR_NONE;
@@ -228,27 +231,44 @@ struct CUFrameEncDevWrap : public CUFrameEnc {
         clear();
     }
     virtual RGY_ERR map() override {
+        if (m_encBuffer->stInputBfr.hInputSurface != nullptr
+            || m_encBuffer->stInputBfrAlpha.hInputSurface != nullptr) {
+            return RGY_ERR_INVALID_CALL;
+        }
         auto nvencret = m_encoder->NvEncMapInputResource(m_encBuffer->stInputBfr.nvRegisteredResource, &m_encBuffer->stInputBfr.hInputSurface);
         if (nvencret != NV_ENC_SUCCESS) {
             return err_to_rgy(nvencret);
         }
         if (m_encBuffer->stInputBfrAlpha.nvRegisteredResource) {
             nvencret = m_encoder->NvEncMapInputResource(m_encBuffer->stInputBfrAlpha.nvRegisteredResource, &m_encBuffer->stInputBfrAlpha.hInputSurface);
-                if (nvencret != NV_ENC_SUCCESS) {
-                    return err_to_rgy(nvencret);
+            if (nvencret != NV_ENC_SUCCESS) {
+                m_encoder->NvEncUnmapInputResource(m_encBuffer->stInputBfr.hInputSurface);
+                m_encBuffer->stInputBfr.hInputSurface = nullptr;
+                return err_to_rgy(nvencret);
             }
         }
         frame.ptr[0] = (uint8_t *)m_encBuffer->stInputBfr.pNV12devPtr;
         frame.pitch[0] = m_encBuffer->stInputBfr.uNV12Stride;
         return RGY_ERR_NONE;
     }
-    virtual void unmap() override {
-        m_encoder->NvEncUnmapInputResource(m_encBuffer->stInputBfr.hInputSurface);
-        if (m_encBuffer->stInputBfrAlpha.nvRegisteredResource) {
-            m_encoder->NvEncUnmapInputResource(m_encBuffer->stInputBfrAlpha.hInputSurface);
+    virtual RGY_ERR unmap() override {
+        auto sts = RGY_ERR_NONE;
+        if (m_encBuffer->stInputBfr.hInputSurface != nullptr) {
+            sts = err_to_rgy(m_encoder->NvEncUnmapInputResource(m_encBuffer->stInputBfr.hInputSurface));
+            if (sts == RGY_ERR_NONE) {
+                m_encBuffer->stInputBfr.hInputSurface = nullptr;
+            }
         }
-        frame.ptr[0] = nullptr;
-        frame.pitch[0] = 0;
+        if (m_encBuffer->stInputBfrAlpha.hInputSurface != nullptr) {
+            const auto alphaSts = err_to_rgy(m_encoder->NvEncUnmapInputResource(m_encBuffer->stInputBfrAlpha.hInputSurface));
+            if (alphaSts == RGY_ERR_NONE) {
+                m_encBuffer->stInputBfrAlpha.hInputSurface = nullptr;
+            }
+            if (sts == RGY_ERR_NONE) {
+                sts = alphaSts;
+            }
+        }
+        return sts;
     }
 protected:
     CUFrameEncDevWrap(const CUFrameEncDevWrap &) = delete;
@@ -278,11 +298,15 @@ struct CUFrameEncHostWrap : public CUFrameEnc {
         frame.pitch[0] = lockedPitch;
         return RGY_ERR_NONE;
     }
-    virtual void unmap() override {
-        m_encoder->NvEncUnlockInputBuffer(m_encBuffer->stInputBfr.hInputSurface);
+    virtual RGY_ERR unmap() override {
+        auto sts = err_to_rgy(m_encoder->NvEncUnlockInputBuffer(m_encBuffer->stInputBfr.hInputSurface));
         if (m_encBuffer->stInputBfrAlpha.nvRegisteredResource) {
-            m_encoder->NvEncUnlockInputBuffer(m_encBuffer->stInputBfrAlpha.hInputSurface);
+            const auto alphaSts = err_to_rgy(m_encoder->NvEncUnlockInputBuffer(m_encBuffer->stInputBfrAlpha.hInputSurface));
+            if (sts == RGY_ERR_NONE) {
+                sts = alphaSts;
+            }
         }
+        return sts;
     }
 protected:
     CUFrameEncHostWrap(const CUFrameEncHostWrap &) = delete;
@@ -3061,7 +3085,24 @@ public:
             const auto getOutputMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - getOutputStart).count();
             outputBitstreamWaitMsTotal += getOutputMs;
             outputBitstreamWaitMsMax = (std::max)(outputBitstreamWaitMsMax, getOutputMs);
+            const bool devFrame = frameEnc->bufType() == CUFrameBufType::EncDevWrap;
+            if (outBs.first == RGY_ERR_NONE && devFrame) {
+                // NVENCが入力surfaceを使い終えた後、free queueへ戻す前に必ずmapを解除する。
+                // 同じ登録resourceをmapしたまま再利用すると、ドライバ側の管理情報が長時間蓄積する。
+                NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                const auto unmapSts = frameEnc->unmap();
+                if (unmapSts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to unmap input frame: %s.\n"), get_err_mes(unmapSts));
+                    // map状態が不明なsurfaceをfree queueへ戻さず、パイプライン停止後の破棄時に再解放する。
+                    frameEnc.release();
+                    return unmapSts;
+                }
+            }
             if (outBs.first != RGY_ERR_NONE) {
+                if (devFrame) {
+                    // NVENCの完了を確認できないsurfaceは再利用しない。
+                    frameEnc.release();
+                }
                 if (outBs.first == RGY_ERR_MORE_DATA) {
                     if (!getOneFrame) {
                         const auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - outputStart).count();
@@ -3359,7 +3400,11 @@ public:
                     return sts;
                 }
             } else if (surfEncodeIn->bufType() == CUFrameBufType::EncHostWrap) {
-                surfEncodeIn->unmap();
+                const auto sts = surfEncodeIn->unmap();
+                if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to unlock input frame: %s.\n"), get_err_mes(sts));
+                    return sts;
+                }
             }
             if (m_stopwatch) m_stopwatch->add(0, 0);
         }
@@ -3367,6 +3412,13 @@ public:
         if (surfEncodeIn) {
             auto sts = encodeFrame(surfEncodeIn->encBuffer(), m_inFrames++, surfEncodeIn->timestamp(), surfEncodeIn->duration(), surfEncodeIn->inputFrameId(), surfEncodeIn->dataList());
             if (sts != RGY_ERR_NONE) {
+                if (surfEncodeIn->bufType() == CUFrameBufType::EncDevWrap) {
+                    NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                    const auto unmapSts = surfEncodeIn->unmap();
+                    if (unmapSts != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to unmap input frame after encode error: %s.\n"), get_err_mes(unmapSts));
+                    }
+                }
                 PrintMes(RGY_LOG_ERROR, _T("Failed to encode frame: %s.\n"), get_err_mes(sts));
                 return sts;
             }
