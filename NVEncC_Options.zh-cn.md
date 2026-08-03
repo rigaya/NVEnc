@@ -322,7 +322,7 @@ ffmpeg -y -i "<input>" <options for ffmpeg> -codec:a copy -codec:v rawvideo -pix
 
 ### --check-device
 
-显示可以被 NVEnc 识别的 GPU 设备列表
+显示可以被 NVEnc 识别的 GPU DeviceId 和 PCI Bus ID。DeviceId 遵循 CUDA 设备顺序。
 
 ### --check-hw [&lt;int&gt;]
 

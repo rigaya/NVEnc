@@ -359,7 +359,7 @@ public:
 
     void close_device();
 
-    RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, RGYParamInitVulkan initVulkan, bool skipHWDecodeCheck, bool disableNVML, const NVEncDeviceInfoCache *deviceInfoCache = nullptr);
+    RGY_ERR initDevice(int cudaDeviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, RGYParamInitVulkan initVulkan, bool skipHWDecodeCheck, bool disableNVML, const NVEncDeviceInfoCache *deviceInfoCache = nullptr);
     RGY_ERR initEncoder();
     tstring infostr() const;
 protected:

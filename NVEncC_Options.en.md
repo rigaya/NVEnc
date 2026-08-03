@@ -390,7 +390,7 @@ Show version of NVEncC
 Show option list.
 
 ### --check-device
-Show device of available GPU recognized by NVEnc
+Show the DeviceId and PCI Bus ID of available GPUs recognized by NVEnc. DeviceId follows the CUDA device order.
 
 ### --check-hw [&lt;int&gt;]
 Check whether the specified device is able to run NVEnc. DeviceID: "0" will be checked if not specified.
