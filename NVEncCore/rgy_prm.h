@@ -3586,7 +3586,16 @@ enum class VppStDeintMode {
     Normal,
 };
 
+// モデルごとのフィールドの与え方。チャンネル数からは判別できない
+// (DDDとDeFはどちらも9ch入力/3ch出力だが、DDDは転置したフィールド、DeFは行補間した
+//  フレームを受け取る)ため、明示的に指定する。
+enum class VppStDeintArch {
+    StDeint,
+    DDD,
+};
+
 extern const CX_DESC list_vpp_stdeint_mode[];
+extern const CX_DESC list_vpp_stdeint_arch[];
 
 struct VppStDeint {
     bool    enable;
@@ -3595,6 +3604,7 @@ struct VppStDeint {
     tstring provider;
     tstring precision;
     VppStDeintMode mode;
+    VppStDeintArch arch;
     CspMatrix colormatrix;
     CspColorRange colorrange;
 

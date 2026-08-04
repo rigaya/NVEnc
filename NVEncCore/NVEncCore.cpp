@@ -3739,6 +3739,7 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         param->precision = inputParam->vpp.stdeint.precision;
         param->cacheDir = inputParam->vpp.onnx.cacheDir;
         param->mode = inputParam->vpp.stdeint.mode;
+        param->arch = inputParam->vpp.stdeint.arch;
         param->colormatrix = inputParam->vpp.stdeint.colormatrix;
         param->colorrange = inputParam->vpp.stdeint.colorrange;
         param->deviceID = m_dev->id();

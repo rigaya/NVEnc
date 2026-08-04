@@ -30,6 +30,10 @@
 #include "rgy_filesystem.h"
 #include "rgy_model_registry.h"
 #include <algorithm>
+#include <cstring>
+
+static const int STDEINT_TEMPORAL_IN_CHANNELS = 9;
+static const int STDEINT_TEMPORAL_OUT_CHANNELS = 3;
 
 static const TCHAR *stdeint_cx_desc_or_unknown(const CX_DESC *list, int value) {
     const auto desc = get_cx_desc(list, value);
@@ -88,7 +92,8 @@ NVEncFilterStDeint::NVEncFilterStDeint() :
     m_havePrevTimestamp(false), m_prevTimestamp(0), m_prevDuration(0),
     m_inputBuf(), m_outputBuf(), m_inputDevice(), m_outputDevice(), m_weaveDevice(),
     m_modelPath(), m_provider(RGYOnnxRTProvider::Auto),
-    m_precision(_T("fp32")), m_cacheDir(), m_deviceID(-1), m_cudaPathTried(false), m_cudaPath(false) {
+    m_precision(_T("fp32")), m_cacheDir(), m_deviceID(-1), m_cudaPathTried(false), m_cudaPath(false),
+    m_temporal(false), m_framesIn(0), m_frameOut(0), m_weaveBuf(), m_temporalRing() {
     m_name = _T("stdeint");
 }
 
@@ -105,6 +110,13 @@ void NVEncFilterStDeint::close() {
     m_weaveDevice.reset();
     m_inputBuf.clear();
     m_outputBuf.clear();
+    m_weaveBuf.clear();
+    for (auto& slot : m_temporalRing) {
+        slot.frame.reset();
+        slot.rgb.clear();
+    }
+    m_framesIn = 0;
+    m_frameOut = 0;
     m_frameBuf.clear();
     m_havePrevTimestamp = false;
     m_cudaPathTried = false;
@@ -193,7 +205,11 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return RGY_ERR_FILE_OPEN;
     }
     tstring errorMessage;
-    auto err = m_ov->init(m_modelPath, m_deviceID, m_provider, m_height, m_width, errorMessage,
+    // DDDはフィールドを転置して渡すため、モデルの縦横はフレーム幅とフィールド高さになる。
+    m_temporal = (prm->arch == VppStDeintArch::DDD);
+    const int modelHeight = m_temporal ? m_width : m_height;
+    const int modelWidth = m_temporal ? m_height / 2 : m_width;
+    auto err = m_ov->init(m_modelPath, m_deviceID, m_provider, modelHeight, modelWidth, errorMessage,
         nullptr, m_precision, m_cacheDir);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to load/compile model: %s\n"), errorMessage.c_str());
@@ -208,19 +224,32 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     if (!m_ov->cacheInfo().empty()) {
         AddMessage(RGY_LOG_INFO, _T("stdeint: %s\n"), m_ov->cacheInfo().c_str());
     }
-    if (m_ov->inChannels() != 3 || m_ov->outChannels() != 6) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: invalid model (expected 3ch input / 6ch output, got %dch / %dch).\n"),
-            m_ov->inChannels(), m_ov->outChannels());
-        return RGY_ERR_UNSUPPORTED;
-    }
-    if (m_ov->outHeight() == m_height && m_ov->outWidth() == m_width) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: this model contains the legacy ONNX weave output; re-export it with the current export_stdeint.py.\n"));
-        return RGY_ERR_UNSUPPORTED;
-    }
-    if (m_ov->outHeight() != m_height / 2 || m_ov->outWidth() != m_width) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: restoration output must be 6ch with half input height (expected %dx%d, got %dx%d).\n"),
-            m_width, m_height / 2, m_ov->outWidth(), m_ov->outHeight());
-        return RGY_ERR_UNSUPPORTED;
+    if (m_temporal) {
+        if (m_ov->inChannels() != STDEINT_TEMPORAL_IN_CHANNELS || m_ov->outChannels() != STDEINT_TEMPORAL_OUT_CHANNELS) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: invalid temporal model (expected %dch input / %dch output, got %dch / %dch).\n"),
+                STDEINT_TEMPORAL_IN_CHANNELS, STDEINT_TEMPORAL_OUT_CHANNELS, m_ov->inChannels(), m_ov->outChannels());
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_ov->outHeight() != modelHeight || m_ov->outWidth() != modelWidth) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: temporal output must keep the transposed field size (expected %dx%d, got %dx%d).\n"),
+                modelWidth, modelHeight, m_ov->outWidth(), m_ov->outHeight());
+            return RGY_ERR_UNSUPPORTED;
+        }
+    } else {
+        if (m_ov->inChannels() != 3 || m_ov->outChannels() != 6) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: invalid model (expected 3ch input / 6ch output, got %dch / %dch).\n"),
+                m_ov->inChannels(), m_ov->outChannels());
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_ov->outHeight() == m_height && m_ov->outWidth() == m_width) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: this model contains the legacy ONNX weave output; re-export it with the current export_stdeint.py.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_ov->outHeight() != m_height / 2 || m_ov->outWidth() != m_width) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: restoration output must be 6ch with half input height (expected %dx%d, got %dx%d).\n"),
+                m_width, m_height / 2, m_ov->outWidth(), m_ov->outHeight());
+            return RGY_ERR_UNSUPPORTED;
+        }
     }
 
     prm->frameOut.csp = inputCsp;
@@ -244,16 +273,22 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     }
 
     const size_t plane = (size_t)m_width * m_height;
-    m_inputBuf.resize(3 * plane);
+    const size_t modelPlane = (size_t)modelHeight * modelWidth;
+    m_inputBuf.resize(m_temporal ? STDEINT_TEMPORAL_IN_CHANNELS * modelPlane : 3 * plane);
     m_outputBuf.resize(m_ov->outElemCount());
+    m_weaveBuf.resize(3 * plane);
     m_cudaPathTried = false;
     m_cudaPath = false;
-    m_inputDevice = std::make_unique<CUMemBuf>(m_inputBuf.size() * sizeof(float));
+    m_inputDevice = std::make_unique<CUMemBuf>(3 * plane * sizeof(float));
     m_outputDevice = std::make_unique<CUMemBuf>(m_outputBuf.size() * sizeof(float));
     m_weaveDevice = std::make_unique<CUMemBuf>(m_inputBuf.size() * sizeof(float));
     if (m_inputDevice->alloc() != RGY_ERR_NONE || m_outputDevice->alloc() != RGY_ERR_NONE || m_weaveDevice->alloc() != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to allocate RGB tensor buffers.\n"));
         return RGY_ERR_MEMORY_ALLOC;
+    }
+    if (m_temporal) {
+        err = allocTemporalRing(prm->frameIn);
+        if (err != RGY_ERR_NONE) return err;
     }
 
     auto rgbInfo = rgbFrame((float *)m_inputDevice->ptr);
@@ -288,10 +323,10 @@ RGY_ERR NVEncFilterStDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
 
     m_havePrevTimestamp = false;
     m_param = prm;
-    setFilterInfo(prm->print() + _T(", path host"));
-    AddMessage(RGY_LOG_DEBUG, _T("stdeint: %s, %dx%d, mode %s, provider %s, path host.\n"),
+    setFilterInfo(prm->print() + strsprintf(_T(", path host%s"), m_temporal ? _T(", temporal") : _T("")));
+    AddMessage(RGY_LOG_DEBUG, _T("stdeint: %s, %dx%d, mode %s, provider %s, path host, model %dch/%dch %dx%d.\n"),
         prm->modelFile.c_str(), m_width, m_height, get_cx_desc(list_vpp_stdeint_mode, (int)m_mode),
-        m_ov->providerName().c_str());
+        m_ov->providerName().c_str(), m_ov->inChannels(), m_ov->outChannels(), modelWidth, modelHeight);
     return RGY_ERR_NONE;
 }
 
@@ -428,12 +463,183 @@ RGY_ERR NVEncFilterStDeint::runHost(const RGYFrameInfo *input, RGYFrameInfo **ou
     return RGY_ERR_NONE;
 }
 
+RGY_ERR NVEncFilterStDeint::allocTemporalRing(const RGYFrameInfo& frameInfo) {
+    const size_t plane = (size_t)m_width * m_height;
+    for (auto& slot : m_temporalRing) {
+        slot.frame = std::make_unique<CUFrameBuf>(frameInfo);
+        if (!slot.frame || slot.frame->alloc() != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to allocate the temporal frame ring.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        slot.rgb.assign(3 * plane, 0.0f);
+        slot.tff = m_defaultTff;
+        slot.interlaced = false;
+    }
+    m_framesIn = 0;
+    m_frameOut = 0;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterStDeint::addTemporalFrame(const RGYFrameInfo *input, cudaStream_t stream) {
+    auto& slot = m_temporalRing[m_framesIn % m_temporalRing.size()];
+    auto err = copyFrameAsync(&slot.frame->frame, input, stream);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to copy input into the temporal frame ring: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    copyFrameProp(&slot.frame->frame, input);
+    err = convertToRgb(input, stream);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to convert input to RGB: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    auto cudaerr = cudaMemcpyAsync(slot.rgb.data(), m_inputDevice->ptr,
+        slot.rgb.size() * sizeof(float), cudaMemcpyDeviceToHost, stream);
+    if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
+    err = err_to_rgy(cudaStreamSynchronize(stream));
+    if (err != RGY_ERR_NONE) return err;
+
+    slot.tff = m_defaultTff;
+    if (input->picstruct & RGY_PICSTRUCT_BFF) {
+        slot.tff = false;
+    } else if (input->picstruct & RGY_PICSTRUCT_TFF) {
+        slot.tff = true;
+    }
+    slot.interlaced = (input->picstruct & RGY_PICSTRUCT_INTERLACED) != 0;
+    m_framesIn++;
+    return RGY_ERR_NONE;
+}
+
+// フィールドはフレームごとに表示順（0が先、1が後）で数える。
+// 戻り値は0がtop field（偶数行）、1がbottom field（奇数行）。
+int NVEncFilterStDeint::temporalFieldParity(const int fieldIndex) const {
+    const auto& slot = m_temporalRing[(fieldIndex / 2) % m_temporalRing.size()];
+    const int fieldPos = fieldIndex & 1;
+    return slot.tff ? fieldPos : 1 - fieldPos;
+}
+
+// 出力フィールドの前・現在・次を転置し、フィールド単位の9chテンソルを組み立てる。
+void NVEncFilterStDeint::buildTemporalInput(const int frameIndex, const int fieldPos) {
+    const int fieldHeight = m_height / 2;
+    const int fieldIndex = frameIndex * 2 + fieldPos;
+    const int lastField = (m_framesIn - 1) * 2 + 1;
+    const bool flip = temporalFieldParity(fieldIndex) == 0;
+    for (int i = 0; i < 3; i++) {
+        int refIndex = fieldIndex - 1 + i;
+        if (refIndex < 0) refIndex = -refIndex;
+        if (refIndex > lastField) refIndex = 2 * lastField - refIndex;
+        const auto& slot = m_temporalRing[(refIndex / 2) % m_temporalRing.size()];
+        const int parity = temporalFieldParity(refIndex);
+        for (int c = 0; c < 3; c++) {
+            const float *srcPlane = slot.rgb.data() + (size_t)c * m_width * m_height;
+            float *dstPlane = m_inputBuf.data() + (size_t)(i * 3 + c) * m_width * fieldHeight;
+            for (int x = 0; x < m_width; x++) {
+                float *dstLine = dstPlane + (size_t)x * fieldHeight;
+                for (int y = 0; y < fieldHeight; y++) {
+                    const int srcRow = 2 * (flip ? (fieldHeight - 1 - y) : y) + parity;
+                    dstLine[y] = srcPlane[(size_t)srcRow * m_width + x];
+                }
+            }
+        }
+    }
+}
+
+// モデル出力と中央の既知フィールドを合成し、転置を戻して1枚のRGBフレームにする。
+void NVEncFilterStDeint::combineTemporalOutput(const int frameIndex, const int fieldPos, float *dst) const {
+    const int fieldHeight = m_height / 2;
+    const int fieldIndex = frameIndex * 2 + fieldPos;
+    const int parity = temporalFieldParity(fieldIndex);
+    const bool flip = (parity == 0);
+    const auto& slot = m_temporalRing[frameIndex % m_temporalRing.size()];
+    for (int c = 0; c < 3; c++) {
+        const float *modelPlane = m_outputBuf.data() + (size_t)c * m_width * fieldHeight;
+        const float *midPlane = slot.rgb.data() + (size_t)c * m_width * m_height;
+        float *dstPlane = dst + (size_t)c * m_width * m_height;
+        for (int y = 0; y < m_height; y++) {
+            const int pos = flip ? (m_height - 1 - y) : y;
+            float *dstLine = dstPlane + (size_t)y * m_width;
+            if ((pos & 1) == 0) {
+                const int row = pos / 2;
+                for (int x = 0; x < m_width; x++) {
+                    dstLine[x] = modelPlane[(size_t)x * fieldHeight + row];
+                }
+            } else {
+                const int row = flip ? (fieldHeight - 1 - pos / 2) : (pos / 2);
+                std::memcpy(dstLine, midPlane + (size_t)(2 * row + parity) * m_width, (size_t)m_width * sizeof(float));
+            }
+        }
+    }
+}
+
+RGY_ERR NVEncFilterStDeint::procTemporalField(const int frameIndex, const int fieldPos,
+    RGYFrameInfo *output, cudaStream_t stream) {
+    buildTemporalInput(frameIndex, fieldPos);
+    auto err = m_ov->infer(m_inputBuf.data(), m_outputBuf.data());
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: inference failed: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    combineTemporalOutput(frameIndex, fieldPos, m_weaveBuf.data());
+    auto cudaerr = cudaMemcpyAsync(m_weaveDevice->ptr, m_weaveBuf.data(),
+        m_weaveBuf.size() * sizeof(float), cudaMemcpyHostToDevice, stream);
+    if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
+    return convertFromRgb(output, stream);
+}
+
+RGY_ERR NVEncFilterStDeint::emitTemporalFrame(const int frameIndex, RGYFrameInfo **outputs,
+    int *outputFrameNum, cudaStream_t stream) {
+    const auto& slot = m_temporalRing[frameIndex % m_temporalRing.size()];
+    const auto *source = &slot.frame->frame;
+    const bool bob = m_mode == VppStDeintMode::Bob;
+    const int outputCount = bob ? 2 : 1;
+    for (int i = 0; i < outputCount; i++) {
+        auto output = &m_frameBuf[i]->frame;
+        const auto err = slot.interlaced
+            ? procTemporalField(frameIndex, i, output, stream)
+            : copyFrameAsync(output, source, stream);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to emit temporal frame: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        setOutputFrameProp(output, source);
+        outputs[i] = output;
+    }
+    *outputFrameNum = outputCount;
+    if (bob) setBobTimestamp(source, outputs);
+    return RGY_ERR_NONE;
+}
+
+// 前後フィールドを参照するため1フレーム遅延させ、drainで末尾を出力する。
+RGY_ERR NVEncFilterStDeint::runTemporal(const RGYFrameInfo *input, RGYFrameInfo **outputs,
+    int *outputFrameNum, cudaStream_t stream) {
+    if (input->ptr[0] != nullptr) {
+        auto err = addTemporalFrame(input, stream);
+        if (err != RGY_ERR_NONE) return err;
+        if (m_frameOut + 1 < m_framesIn) {
+            const int frameIndex = m_frameOut++;
+            return emitTemporalFrame(frameIndex, outputs, outputFrameNum, stream);
+        }
+        return RGY_ERR_NONE;
+    }
+    if (m_frameOut < m_framesIn) {
+        const int frameIndex = m_frameOut++;
+        return emitTemporalFrame(frameIndex, outputs, outputFrameNum, stream);
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR NVEncFilterStDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
     int *pOutputFrameNum, cudaStream_t stream) {
     *pOutputFrameNum = 0;
     ppOutputFrames[0] = nullptr;
     ppOutputFrames[1] = nullptr;
-    if (!pInputFrame || !pInputFrame->ptr[0]) {
+    if (!pInputFrame) {
+        return RGY_ERR_NONE;
+    }
+    if (m_temporal) {
+        return runTemporal(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
+    }
+    if (!pInputFrame->ptr[0]) {
         return RGY_ERR_NONE;
     }
 

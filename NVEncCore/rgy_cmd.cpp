@@ -6204,7 +6204,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "enable", "model", "device", "provider", "precision", "mode", "colormatrix", "colorrange" };
+        const auto paramList = std::vector<std::string>{ "enable", "model", "device", "provider", "precision", "mode", "arch", "colormatrix", "colorrange" };
         for (const auto& param : split(strInput[i], _T(","))) {
             const auto pos = param.find_first_of(_T("="));
             if (pos == tstring::npos) {
@@ -6243,6 +6243,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     return 1;
                 }
                 vpp->stdeint.mode = (VppStDeintMode)mode;
+            } else if (name == _T("arch")) {
+                int arch = 0;
+                if (!get_list_value(list_vpp_stdeint_arch, value.c_str(), &arch)) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value, list_vpp_stdeint_arch);
+                    return 1;
+                }
+                vpp->stdeint.arch = (VppStDeintArch)arch;
             } else if (name == _T("colormatrix")) {
                 int matrix = 0;
                 if (!get_list_value(list_colormatrix, value.c_str(), &matrix)) {

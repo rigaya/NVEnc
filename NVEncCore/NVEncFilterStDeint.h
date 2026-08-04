@@ -33,6 +33,7 @@
 #include "NVEncFilterParam.h"
 #include "rgy_prm.h"
 #include "rgy_onnxrt_cuda.h"
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -44,13 +45,14 @@ public:
     tstring precision;
     tstring cacheDir;
     VppStDeintMode mode;
+    VppStDeintArch arch;
     CspMatrix colormatrix;
     CspColorRange colorrange;
     int deviceID;
 
     NVEncFilterParamStDeint() :
         modelFile(), modelDir(), provider(_T("auto")), precision(_T("fp32")), cacheDir(), mode(VppStDeintMode::Bob),
-        colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), deviceID(-1) {};
+        arch(VppStDeintArch::StDeint), colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), deviceID(-1) {};
     virtual tstring print() const override;
 };
 
@@ -77,6 +79,24 @@ protected:
         const int sourceIndices[2], cudaStream_t stream);
     RGY_ERR runHost(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
         const int sourceIndices[2], cudaStream_t stream);
+
+    // 9ch入力/3ch出力で前後のフィールドを参照するtemporalモデル用の経路。
+    struct TemporalFrame {
+        std::unique_ptr<CUFrameBuf> frame;
+        std::vector<float> rgb;
+        bool tff;
+        bool interlaced;
+        TemporalFrame() : frame(), rgb(), tff(true), interlaced(false) {};
+    };
+    RGY_ERR allocTemporalRing(const RGYFrameInfo& frameInfo);
+    RGY_ERR addTemporalFrame(const RGYFrameInfo *input, cudaStream_t stream);
+    int temporalFieldParity(const int fieldIndex) const;
+    void buildTemporalInput(const int frameIndex, const int fieldPos);
+    void combineTemporalOutput(const int frameIndex, const int fieldPos, float *dst) const;
+    RGY_ERR procTemporalField(const int frameIndex, const int fieldPos, RGYFrameInfo *output, cudaStream_t stream);
+    RGY_ERR emitTemporalFrame(const int frameIndex, RGYFrameInfo **outputs, int *outputFrameNum, cudaStream_t stream);
+    RGY_ERR runTemporal(const RGYFrameInfo *input, RGYFrameInfo **outputs, int *outputFrameNum, cudaStream_t stream);
+
     std::unique_ptr<RGYOnnxRTCUDA> m_ov;
     std::unique_ptr<NVEncFilterCspCrop> m_cropToRgb;
     std::unique_ptr<NVEncFilterCspCrop> m_cropFromRgb;
@@ -100,6 +120,11 @@ protected:
     int m_deviceID;
     bool m_cudaPathTried;
     bool m_cudaPath;
+    bool m_temporal;
+    int m_framesIn;
+    int m_frameOut;
+    std::vector<float> m_weaveBuf;
+    std::array<TemporalFrame, 3> m_temporalRing;
 };
 
 #endif //__NVENC_FILTER_STDEINT_H__

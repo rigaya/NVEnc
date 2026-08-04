@@ -2161,6 +2161,12 @@ const CX_DESC list_vpp_stdeint_mode[] = {
     { nullptr, 0 }
 };
 
+const CX_DESC list_vpp_stdeint_arch[] = {
+    { _T("stdeint"), (int)VppStDeintArch::StDeint },
+    { _T("ddd"),     (int)VppStDeintArch::DDD },
+    { nullptr, 0 }
+};
+
 VppStDeint::VppStDeint() :
     enable(false),
     modelFile(),
@@ -2168,6 +2174,7 @@ VppStDeint::VppStDeint() :
     provider(_T("auto")),
     precision(_T("fp32")),
     mode(VppStDeintMode::Bob),
+    arch(VppStDeintArch::StDeint),
     colormatrix(RGY_MATRIX_AUTO),
     colorrange(RGY_COLORRANGE_AUTO) {
 }
@@ -2179,6 +2186,7 @@ bool VppStDeint::operator==(const VppStDeint& x) const {
         && provider == x.provider
         && precision == x.precision
         && mode == x.mode
+        && arch == x.arch
         && colormatrix == x.colormatrix
         && colorrange == x.colorrange;
 }
