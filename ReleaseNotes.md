@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 9.30
+
+- Update for NVEnc.auo2 only.
+
 ## 9.29
 
 - Rearrage GPU DeviceId to follow CUDA enumeration order [-d, --device](./NVEncC_Options.en.md#-d---device-int). ( #789 )
