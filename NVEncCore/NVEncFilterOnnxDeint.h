@@ -37,6 +37,20 @@
 #include <memory>
 #include <vector>
 
+// 選択したモデル方式のテンソル契約を一か所で保持する。
+// modelHeight/modelWidth は入力フレーム解像度から初期化時に決定する。
+struct OnnxDeintModelSpec {
+    VppOnnxDeintArchitecture architecture;
+    int inputChannels;
+    int outputChannels;
+    int modelHeight;
+    int modelWidth;
+    int outputHeight;
+    int outputWidth;
+    int lookaheadFrames;
+    bool supportsSharedCuda;
+};
+
 class NVEncFilterParamOnnxDeint : public NVEncFilterParam {
 public:
     tstring modelFile;
@@ -113,7 +127,9 @@ protected:
     std::unique_ptr<CUMemBuf> m_inputDevice;
     std::unique_ptr<CUMemBuf> m_outputDevice;
     std::unique_ptr<CUMemBuf> m_weaveDevice;
+    tstring m_modelName;
     tstring m_modelPath;
+    OnnxDeintModelSpec m_spec;
     RGYOnnxRTProvider m_provider;
     tstring m_precision;
     tstring m_cacheDir;

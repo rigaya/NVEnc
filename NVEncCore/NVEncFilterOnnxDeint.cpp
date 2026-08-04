@@ -32,8 +32,12 @@
 #include <algorithm>
 #include <cstring>
 
-static const int ONNX_DEINT_TEMPORAL_IN_CHANNELS = 9;
-static const int ONNX_DEINT_TEMPORAL_OUT_CHANNELS = 3;
+static OnnxDeintModelSpec onnxDeintModelSpec(VppOnnxDeintArchitecture architecture, int frameWidth, int frameHeight) {
+    if (architecture == VppOnnxDeintArchitecture::DDD) {
+        return { architecture, 9, 3, frameWidth, frameHeight / 2, frameWidth, frameHeight / 2, 1, false };
+    }
+    return { architecture, 3, 6, frameHeight, frameWidth, frameHeight / 2, frameWidth, 0, true };
+}
 
 static const TCHAR *onnx_deint_cx_desc_or_unknown(const CX_DESC *list, int value) {
     const auto desc = get_cx_desc(list, value);
@@ -91,7 +95,7 @@ NVEncFilterOnnxDeint::NVEncFilterOnnxDeint() :
     NVEncFilter(), m_ov(), m_cropToRgb(), m_cropFromRgb(), m_width(0), m_height(0), m_mode(VppOnnxDeintMode::Bob), m_defaultTff(true),
     m_havePrevTimestamp(false), m_prevTimestamp(0), m_prevDuration(0),
     m_inputBuf(), m_outputBuf(), m_inputDevice(), m_outputDevice(), m_weaveDevice(),
-    m_modelPath(), m_provider(RGYOnnxRTProvider::Auto),
+    m_modelName(), m_modelPath(), m_spec(), m_provider(RGYOnnxRTProvider::Auto),
     m_precision(_T("fp32")), m_cacheDir(), m_deviceID(-1), m_cudaPathTried(false), m_cudaPath(false),
     m_temporal(false), m_framesIn(0), m_frameOut(0), m_weaveBuf(), m_temporalRing() {
     m_name = _T("onnx-deint");
@@ -111,6 +115,8 @@ void NVEncFilterOnnxDeint::close() {
     m_inputBuf.clear();
     m_outputBuf.clear();
     m_weaveBuf.clear();
+    m_modelName.clear();
+    m_modelPath.clear();
     for (auto& slot : m_temporalRing) {
         slot.frame.reset();
         slot.rgb.clear();
@@ -124,7 +130,7 @@ void NVEncFilterOnnxDeint::close() {
 }
 
 tstring NVEncFilterParamOnnxDeint::print() const {
-    return strsprintf(_T("onnx-deint: %s, mode %s, provider %s, precision %s, cache_dir %s, colormatrix %s, colorrange %s"), modelFile.c_str(),
+    return strsprintf(_T("onnx-deint: model=%s, mode %s, provider %s, precision %s, cache_dir %s, colormatrix %s, colorrange %s"), modelFile.c_str(),
         get_cx_desc(list_vpp_onnx_deint_mode, (int)mode), provider.c_str(), precision.c_str(),
         cacheDir.empty() ? _T("disabled") : cacheDir.c_str(),
         onnx_deint_cx_desc_or_unknown(list_colormatrix, colormatrix), onnx_deint_cx_desc_or_unknown(list_colorrange, colorrange));
@@ -178,9 +184,10 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
             prm->modelFile.c_str(), modelEntry->onnxDeintArchitecture->c_str());
         return RGY_ERR_INVALID_PARAM;
     }
-    prm->modelFile = registry.resolveModelPath(prm->modelFile);
-    if (!rgy_file_exists(prm->modelFile)) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model file not found: %s\n"), prm->modelFile.c_str());
+    m_modelName = prm->modelFile;
+    m_modelPath = registry.resolveModelPath(m_modelName);
+    if (!rgy_file_exists(m_modelPath)) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model file not found: %s\n"), m_modelPath.c_str());
         return RGY_ERR_FILE_OPEN;
     }
     const auto inputCsp = prm->frameIn.csp;
@@ -218,7 +225,6 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     if (m_deviceID < 0) {
         cudaGetDevice(&m_deviceID);
     }
-    m_modelPath = prm->modelFile;
     m_provider = onnx_deint_provider(prm->provider);
     m_precision = prm->precision;
     m_cacheDir = prm->cacheDir;
@@ -227,11 +233,10 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         return RGY_ERR_FILE_OPEN;
     }
     tstring errorMessage;
-    // DDDはフィールドを転置して渡すため、モデルの縦横はフレーム幅とフィールド高さになる。
-    m_temporal = (prm->architecture == VppOnnxDeintArchitecture::DDD);
-    const int modelHeight = m_temporal ? m_width : m_height;
-    const int modelWidth = m_temporal ? m_height / 2 : m_width;
-    auto err = m_ov->init(m_modelPath, m_deviceID, m_provider, modelHeight, modelWidth, errorMessage,
+    // モデル方式はマニフェストのarchitectureで確定し、チャンネル数から推測しない。
+    m_spec = onnxDeintModelSpec(prm->architecture, m_width, m_height);
+    m_temporal = (m_spec.architecture == VppOnnxDeintArchitecture::DDD);
+    auto err = m_ov->init(m_modelPath, m_deviceID, m_provider, m_spec.modelHeight, m_spec.modelWidth, errorMessage,
         nullptr, m_precision, m_cacheDir);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to load/compile model: %s\n"), errorMessage.c_str());
@@ -246,28 +251,21 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     if (!m_ov->cacheInfo().empty()) {
         AddMessage(RGY_LOG_INFO, _T("onnx-deint: %s\n"), m_ov->cacheInfo().c_str());
     }
-    if (m_temporal) {
-        if (m_ov->inChannels() != ONNX_DEINT_TEMPORAL_IN_CHANNELS || m_ov->outChannels() != ONNX_DEINT_TEMPORAL_OUT_CHANNELS) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: invalid temporal model (expected %dch input / %dch output, got %dch / %dch).\n"),
-                ONNX_DEINT_TEMPORAL_IN_CHANNELS, ONNX_DEINT_TEMPORAL_OUT_CHANNELS, m_ov->inChannels(), m_ov->outChannels());
-            return RGY_ERR_UNSUPPORTED;
-        }
-        if (m_ov->outHeight() != modelHeight || m_ov->outWidth() != modelWidth) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: temporal output must keep the transposed field size (expected %dx%d, got %dx%d).\n"),
-                modelWidth, modelHeight, m_ov->outWidth(), m_ov->outHeight());
-            return RGY_ERR_UNSUPPORTED;
-        }
-    } else {
-        if (m_ov->inChannels() != 3 || m_ov->outChannels() != 6) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: invalid model (expected 3ch input / 6ch output, got %dch / %dch).\n"),
-                m_ov->inChannels(), m_ov->outChannels());
-            return RGY_ERR_UNSUPPORTED;
-        }
-        if (m_ov->outHeight() != m_height / 2 || m_ov->outWidth() != m_width) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: restoration output must be 6ch with half input height (expected %dx%d, got %dx%d).\n"),
-                m_width, m_height / 2, m_ov->outWidth(), m_ov->outHeight());
-            return RGY_ERR_UNSUPPORTED;
-        }
+    if (m_ov->inChannels() != m_spec.inputChannels || m_ov->outChannels() != m_spec.outputChannels) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: invalid %s model (expected %dch input / %dch output, got %dch / %dch).\n"),
+            m_temporal ? _T("DDD") : _T("ST-DeInt"), m_spec.inputChannels, m_spec.outputChannels,
+            m_ov->inChannels(), m_ov->outChannels());
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (m_ov->inHeight() != m_spec.modelHeight || m_ov->inWidth() != m_spec.modelWidth) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model input size mismatch (expected %dx%d, got %dx%d).\n"),
+            m_spec.modelWidth, m_spec.modelHeight, m_ov->inWidth(), m_ov->inHeight());
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (m_ov->outHeight() != m_spec.outputHeight || m_ov->outWidth() != m_spec.outputWidth) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model output size mismatch (expected %dx%d, got %dx%d).\n"),
+            m_spec.outputWidth, m_spec.outputHeight, m_ov->outWidth(), m_ov->outHeight());
+        return RGY_ERR_UNSUPPORTED;
     }
 
     prm->frameOut.csp = inputCsp;
@@ -291,9 +289,10 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     }
 
     const size_t plane = (size_t)m_width * m_height;
-    const size_t modelPlane = (size_t)modelHeight * modelWidth;
-    m_inputBuf.resize(m_temporal ? ONNX_DEINT_TEMPORAL_IN_CHANNELS * modelPlane : 3 * plane);
-    m_outputBuf.resize(m_ov->outElemCount());
+    const size_t inputPlane = (size_t)m_spec.modelHeight * m_spec.modelWidth;
+    const size_t outputPlane = (size_t)m_spec.outputHeight * m_spec.outputWidth;
+    m_inputBuf.resize((size_t)m_spec.inputChannels * inputPlane);
+    m_outputBuf.resize((size_t)m_spec.outputChannels * outputPlane);
     m_weaveBuf.resize(3 * plane);
     m_cudaPathTried = false;
     m_cudaPath = false;
@@ -341,10 +340,12 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
 
     m_havePrevTimestamp = false;
     m_param = prm;
-    setFilterInfo(prm->print() + strsprintf(_T(", path host%s"), m_temporal ? _T(", temporal") : _T("")));
-    AddMessage(RGY_LOG_DEBUG, _T("onnx-deint: %s, %dx%d, mode %s, provider %s, path host, model %dch/%dch %dx%d.\n"),
-        prm->modelFile.c_str(), m_width, m_height, get_cx_desc(list_vpp_onnx_deint_mode, (int)m_mode),
-        m_ov->providerName().c_str(), m_ov->inChannels(), m_ov->outChannels(), modelWidth, modelHeight);
+    setFilterInfo(prm->print() + strsprintf(_T(", resolved=%s, architecture=%s, execution=host"),
+        m_modelPath.c_str(), m_temporal ? _T("ddd") : _T("stdeint")));
+    AddMessage(RGY_LOG_DEBUG, _T("onnx-deint: model=%s, resolved=%s, architecture=%s, %dx%d, mode %s, provider %s, execution=host, model %dch/%dch %dx%d.\n"),
+        m_modelName.c_str(), m_modelPath.c_str(), m_temporal ? _T("ddd") : _T("stdeint"), m_width, m_height,
+        get_cx_desc(list_vpp_onnx_deint_mode, (int)m_mode), m_ov->providerName().c_str(),
+        m_ov->inChannels(), m_ov->outChannels(), m_spec.modelWidth, m_spec.modelHeight);
     return RGY_ERR_NONE;
 }
 
@@ -416,11 +417,12 @@ RGY_ERR NVEncFilterOnnxDeint::initCudaPath(cudaStream_t stream) {
     }
     auto deviceSession = std::make_unique<RGYOnnxRTCUDA>();
     tstring errorMessage;
-    auto err = deviceSession->init(m_modelPath, m_deviceID, m_provider, m_height, m_width, errorMessage,
+    auto err = deviceSession->init(m_modelPath, m_deviceID, m_provider, m_spec.modelHeight, m_spec.modelWidth, errorMessage,
         stream, m_precision, m_cacheDir);
-    if (err != RGY_ERR_NONE || !deviceSession->deviceIOAvailable()
-        || deviceSession->inChannels() != 3 || deviceSession->outChannels() != 6
-        || deviceSession->outHeight() != m_height / 2 || deviceSession->outWidth() != m_width) {
+    if (err != RGY_ERR_NONE || !m_spec.supportsSharedCuda || !deviceSession->deviceIOAvailable()
+        || deviceSession->inChannels() != m_spec.inputChannels || deviceSession->outChannels() != m_spec.outputChannels
+        || deviceSession->inHeight() != m_spec.modelHeight || deviceSession->inWidth() != m_spec.modelWidth
+        || deviceSession->outHeight() != m_spec.outputHeight || deviceSession->outWidth() != m_spec.outputWidth) {
         const auto reason = !errorMessage.empty() ? errorMessage : deviceSession->lastError();
         AddMessage(RGY_LOG_WARN, _T("onnx-deint: CUDA zero-copy initialization failed; using host path: %s\n"), reason.c_str());
         return (err != RGY_ERR_NONE) ? err : RGY_ERR_UNSUPPORTED;
@@ -428,7 +430,8 @@ RGY_ERR NVEncFilterOnnxDeint::initCudaPath(cudaStream_t stream) {
     m_ov = std::move(deviceSession);
     m_cudaPath = true;
     const auto prm = std::dynamic_pointer_cast<NVEncFilterParamOnnxDeint>(m_param);
-    if (prm) setFilterInfo(prm->print() + _T(", path cuda-zerocopy"));
+    if (prm) setFilterInfo(prm->print() + strsprintf(_T(", resolved=%s, architecture=%s, execution=cuda-zerocopy"),
+        m_modelPath.c_str(), m_temporal ? _T("ddd") : _T("stdeint")));
     AddMessage(RGY_LOG_INFO, _T("onnx-deint: path cuda-zerocopy initialized on the filter stream.\n"));
     return RGY_ERR_NONE;
 }
@@ -633,7 +636,7 @@ RGY_ERR NVEncFilterOnnxDeint::runTemporal(const RGYFrameInfo *input, RGYFrameInf
     if (input->ptr[0] != nullptr) {
         auto err = addTemporalFrame(input, stream);
         if (err != RGY_ERR_NONE) return err;
-        if (m_frameOut + 1 < m_framesIn) {
+        if (m_frameOut + m_spec.lookaheadFrames < m_framesIn) {
             const int frameIndex = m_frameOut++;
             return emitTemporalFrame(frameIndex, outputs, outputFrameNum, stream);
         }
