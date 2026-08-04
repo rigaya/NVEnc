@@ -1066,7 +1066,7 @@ void NVEncFilterKfm::trimDeint60Cache(std::deque<KfmCachedDeint60>& cache) {
         cache.pop_front();
     }
     const auto cacheLimit = deint60CacheLimit();
-    while (cache.size() > cacheLimit && !cache.empty() && cache.front().n60 < trimFloor) {
+    while (cache.size() > cacheLimit && !cache.empty()) {
         cache.pop_front();
     }
 }
@@ -1723,7 +1723,9 @@ int NVEncFilterKfm::sourceCacheTrimFloor() const {
             const auto& result = m_analyzerOutputResults[clamp(frame24Index / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
             const auto info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
             const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
-            trimFloor = std::max(0, ((firstField & ~1) >> 1) - 2);
+            // 次の24pフレームではcycle境界のparity sourceも参照するため、
+            // 直前フレームの先頭より十分前まで保持する。
+            trimFloor = std::max(0, ((firstField & ~1) >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND);
         } catch (...) {
             return 0;
         }
@@ -1788,7 +1790,7 @@ int NVEncFilterKfm::deint60CacheTrimFloor() const {
 }
 
 bool NVEncFilterKfm::lazyDeint60Enabled(const NVEncFilterParamKfm& prm) const {
-    return prm.kfm.mode == VppKfmMode::VFR && !kfmForceEagerRtgmc();
+    return (prm.kfm.mode == VppKfmMode::VFR || prm.kfm.mode == VppKfmMode::P24) && !kfmForceEagerRtgmc();
 }
 
 const RGYFrameInfo *NVEncFilterKfm::findDeint60Frame(int n60, std::vector<RGYCudaEvent> *wait_events) const {
@@ -3508,8 +3510,9 @@ int NVEncFilterKfm::telecine24FrameCount(bool drain) const {
     }
     const int analyzedFrames = (int)m_analyzerOutputResults.size() * 4;
     const int totalFields = m_cachedSourceFrames * 2;
-    int readyFrames = 0;
-    for (int frame24Index = 0; frame24Index < analyzedFrames; frame24Index++) {
+    // 出力済みフレームのsourceはtrim済みなので、先頭から再検査しない。
+    int readyFrames = std::min(m_nextTelecine24Frame, analyzedFrames);
+    for (int frame24Index = readyFrames; frame24Index < analyzedFrames; frame24Index++) {
         const auto& result = m_analyzerOutputResults[frame24Index / 4];
         RGYKFM::Frame24Info info;
         try {
@@ -7424,9 +7427,10 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        sts = (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr)
-            ? drainDeint60Branch(stream)
-            : runDeint60Branch(pInputFrame, stream, {});
+        const bool lazyDeint60 = lazyDeint60Enabled(*prm);
+        sts = lazyDeint60
+            ? ((pInputFrame && pInputFrame->ptr[0]) ? m_deint60Lane.feedHot(stream) : RGY_ERR_NONE)
+            : ((pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) ? drainDeint60Branch(stream) : runDeint60Branch(pInputFrame, stream, {}));
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -7600,6 +7604,15 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                     }
                 }
                 if (patchN60 >= 0) {
+                    if (lazyDeint60) {
+                        sts = m_deint60Lane.ensureRange(patchN60, patchN60 + 1, stream);
+                        if (sts == RGY_ERR_MORE_DATA) {
+                            break;
+                        }
+                        if (sts != RGY_ERR_NONE) {
+                            return sts;
+                        }
+                    }
                     std::vector<RGYCudaEvent> patchWaitEvents = removeWaitEvents;
                     if (outputEvent() != nullptr) {
                         patchWaitEvents.push_back(outputEvent);
@@ -7755,6 +7768,11 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                     return sts;
                 }
             }
+        }
+        if (!drain && std::getenv("NVENC_KFM_STATS") && m_cachedSourceFrames > 0 && (m_cachedSourceFrames % 1000) == 0) {
+            AddMessage(RGY_LOG_INFO, _T("KFM P24 progress stats: source=%d sourceCache=%d deint60Cache=%d analyzer=%d output24=%d.\n"),
+                m_cachedSourceFrames, (int)m_sourceCache.size(), (int)m_deint60Lane.cache().size(),
+                (int)m_analyzerOutputResults.size(), m_nextTelecine24Frame);
         }
         return RGY_ERR_NONE;
     }
