@@ -97,7 +97,7 @@ NVEncFilterOnnxDeint::NVEncFilterOnnxDeint() :
     m_inputBuf(), m_outputBuf(), m_inputDevice(), m_outputDevice(), m_weaveDevice(),
     m_modelName(), m_modelPath(), m_spec(), m_provider(RGYOnnxRTProvider::Auto),
     m_precision(_T("fp32")), m_cacheDir(), m_deviceID(-1), m_cudaPathTried(false), m_cudaPath(false),
-    m_temporal(false), m_framesIn(0), m_frameOut(0), m_weaveBuf(), m_temporalRing() {
+    m_framesIn(0), m_frameOut(0), m_weaveBuf(), m_temporalRing() {
     m_name = _T("onnx-deint");
 }
 
@@ -175,10 +175,11 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model \"%s\" architecture must be a string.\n"), prm->modelFile.c_str());
         return RGY_ERR_INVALID_PARAM;
     }
+    VppOnnxDeintArchitecture architecture;
     if (*modelEntry->onnxDeintArchitecture == _T("stdeint")) {
-        prm->architecture = VppOnnxDeintArchitecture::StDeint;
+        architecture = VppOnnxDeintArchitecture::StDeint;
     } else if (*modelEntry->onnxDeintArchitecture == _T("ddd")) {
-        prm->architecture = VppOnnxDeintArchitecture::DDD;
+        architecture = VppOnnxDeintArchitecture::DDD;
     } else {
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model \"%s\" has unknown architecture \"%s\" (expected stdeint or ddd).\n"),
             prm->modelFile.c_str(), modelEntry->onnxDeintArchitecture->c_str());
@@ -234,8 +235,7 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     }
     tstring errorMessage;
     // モデル方式はマニフェストのarchitectureで確定し、チャンネル数から推測しない。
-    m_spec = onnxDeintModelSpec(prm->architecture, m_width, m_height);
-    m_temporal = (m_spec.architecture == VppOnnxDeintArchitecture::DDD);
+    m_spec = onnxDeintModelSpec(architecture, m_width, m_height);
     auto err = m_ov->init(m_modelPath, m_deviceID, m_provider, m_spec.modelHeight, m_spec.modelWidth, errorMessage,
         nullptr, m_precision, m_cacheDir);
     if (err != RGY_ERR_NONE) {
@@ -253,7 +253,7 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     }
     if (m_ov->inChannels() != m_spec.inputChannels || m_ov->outChannels() != m_spec.outputChannels) {
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: invalid %s model (expected %dch input / %dch output, got %dch / %dch).\n"),
-            m_temporal ? _T("DDD") : _T("ST-DeInt"), m_spec.inputChannels, m_spec.outputChannels,
+            m_spec.architecture == VppOnnxDeintArchitecture::DDD ? _T("DDD") : _T("ST-DeInt"), m_spec.inputChannels, m_spec.outputChannels,
             m_ov->inChannels(), m_ov->outChannels());
         return RGY_ERR_UNSUPPORTED;
     }
@@ -303,9 +303,11 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to allocate RGB tensor buffers.\n"));
         return RGY_ERR_MEMORY_ALLOC;
     }
-    if (m_temporal) {
+    if (m_spec.architecture == VppOnnxDeintArchitecture::DDD) {
         err = allocTemporalRing(prm->frameIn);
-        if (err != RGY_ERR_NONE) return err;
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
     }
 
     auto rgbInfo = rgbFrame((float *)m_inputDevice->ptr);
@@ -341,9 +343,9 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     m_havePrevTimestamp = false;
     m_param = prm;
     setFilterInfo(prm->print() + strsprintf(_T(", resolved=%s, architecture=%s, execution=host"),
-        m_modelPath.c_str(), m_temporal ? _T("ddd") : _T("stdeint")));
+        m_modelPath.c_str(), m_spec.architecture == VppOnnxDeintArchitecture::DDD ? _T("ddd") : _T("stdeint")));
     AddMessage(RGY_LOG_DEBUG, _T("onnx-deint: model=%s, resolved=%s, architecture=%s, %dx%d, mode %s, provider %s, execution=host, model %dch/%dch %dx%d.\n"),
-        m_modelName.c_str(), m_modelPath.c_str(), m_temporal ? _T("ddd") : _T("stdeint"), m_width, m_height,
+        m_modelName.c_str(), m_modelPath.c_str(), m_spec.architecture == VppOnnxDeintArchitecture::DDD ? _T("ddd") : _T("stdeint"), m_width, m_height,
         get_cx_desc(list_vpp_onnx_deint_mode, (int)m_mode), m_ov->providerName().c_str(),
         m_ov->inChannels(), m_ov->outChannels(), m_spec.modelWidth, m_spec.modelHeight);
     return RGY_ERR_NONE;
@@ -373,14 +375,24 @@ RGY_ERR NVEncFilterOnnxDeint::convertToRgb(const RGYFrameInfo *input, cudaStream
     auto outputFrame = rgbFrame((float *)m_inputDevice->ptr);
     RGYFrameInfo *outputs[1] = { &outputFrame };
     int outputCount = 0;
-    return m_cropToRgb->filter(&inputFrame, outputs, &outputCount, stream);
+    const auto err = m_cropToRgb->filter(&inputFrame, outputs, &outputCount, stream);
+    if (err != RGY_ERR_NONE || outputCount != 1) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: YUV-to-RGB conversion returned %d outputs (err=%s).\n"), outputCount, get_err_mes(err));
+        return err != RGY_ERR_NONE ? err : RGY_ERR_UNKNOWN;
+    }
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterOnnxDeint::convertFromRgb(RGYFrameInfo *output, cudaStream_t stream) {
     auto inputFrame = rgbFrame((float *)m_weaveDevice->ptr);
     RGYFrameInfo *outputs[1] = { output };
     int outputCount = 0;
-    return m_cropFromRgb->filter(&inputFrame, outputs, &outputCount, stream);
+    const auto err = m_cropFromRgb->filter(&inputFrame, outputs, &outputCount, stream);
+    if (err != RGY_ERR_NONE || outputCount != 1) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: RGB-to-YUV conversion returned %d outputs (err=%s).\n"), outputCount, get_err_mes(err));
+        return err != RGY_ERR_NONE ? err : RGY_ERR_UNKNOWN;
+    }
+    return RGY_ERR_NONE;
 }
 
 void NVEncFilterOnnxDeint::setOutputFrameProp(RGYFrameInfo *output, const RGYFrameInfo *input) const {
@@ -407,6 +419,25 @@ void NVEncFilterOnnxDeint::setBobTimestamp(const RGYFrameInfo *input, RGYFrameIn
     m_havePrevTimestamp = true;
 }
 
+RGY_ERR NVEncFilterOnnxDeint::copyProgressiveOutputs(const RGYFrameInfo *input, RGYFrameInfo **outputs,
+    int *outputCount, cudaStream_t stream) {
+    const bool bob = m_mode == VppOnnxDeintMode::Bob;
+    const int count = bob ? 2 : 1;
+    for (int i = 0; i < count; i++) {
+        auto output = &m_frameBuf[i]->frame;
+        const auto err = copyFrameAsync(output, input, stream);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to copy progressive input: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        setOutputFrameProp(output, input);
+        outputs[i] = output;
+    }
+    *outputCount = count;
+    if (bob) setBobTimestamp(input, outputs);
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR NVEncFilterOnnxDeint::initCudaPath(cudaStream_t stream) {
     OnnxDeintCudaContextRestorer contextRestorer;
     if (m_cudaPathTried) return m_cudaPath ? RGY_ERR_NONE : RGY_ERR_UNSUPPORTED;
@@ -431,7 +462,7 @@ RGY_ERR NVEncFilterOnnxDeint::initCudaPath(cudaStream_t stream) {
     m_cudaPath = true;
     const auto prm = std::dynamic_pointer_cast<NVEncFilterParamOnnxDeint>(m_param);
     if (prm) setFilterInfo(prm->print() + strsprintf(_T(", resolved=%s, architecture=%s, execution=cuda-zerocopy"),
-        m_modelPath.c_str(), m_temporal ? _T("ddd") : _T("stdeint")));
+        m_modelPath.c_str(), m_spec.architecture == VppOnnxDeintArchitecture::DDD ? _T("ddd") : _T("stdeint")));
     AddMessage(RGY_LOG_INFO, _T("onnx-deint: path cuda-zerocopy initialized on the filter stream.\n"));
     return RGY_ERR_NONE;
 }
@@ -449,7 +480,10 @@ RGY_ERR NVEncFilterOnnxDeint::runCuda(const RGYFrameInfo *input, RGYFrameInfo **
         err = run_onnx_deint_weave_rgb((float *)m_weaveDevice->ptr, (const float *)m_inputDevice->ptr,
             (const float *)m_outputDevice->ptr + (size_t)frameIndex * restorationElements,
             frameIndex == 0, m_width, m_height, stream);
-        if (err != RGY_ERR_NONE) return err;
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: CUDA weave failed: %s.\n"), get_err_mes(err));
+            return err;
+        }
         err = convertFromRgb(outputs[i], stream);
         if (err != RGY_ERR_NONE) return err;
     }
@@ -477,7 +511,10 @@ RGY_ERR NVEncFilterOnnxDeint::runHost(const RGYFrameInfo *input, RGYFrameInfo **
         err = run_onnx_deint_weave_rgb((float *)m_weaveDevice->ptr, (const float *)m_inputDevice->ptr,
             (const float *)m_outputDevice->ptr + (size_t)frameIndex * restorationElements,
             frameIndex == 0, m_width, m_height, stream);
-        if (err != RGY_ERR_NONE) return err;
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: CUDA weave failed: %s.\n"), get_err_mes(err));
+            return err;
+        }
         err = convertFromRgb(outputs[i], stream);
         if (err != RGY_ERR_NONE) return err;
     }
@@ -613,11 +650,12 @@ RGY_ERR NVEncFilterOnnxDeint::emitTemporalFrame(const int frameIndex, RGYFrameIn
     const auto *source = &slot.frame->frame;
     const bool bob = m_mode == VppOnnxDeintMode::Bob;
     const int outputCount = bob ? 2 : 1;
+    if (!slot.interlaced) {
+        return copyProgressiveOutputs(source, outputs, outputFrameNum, stream);
+    }
     for (int i = 0; i < outputCount; i++) {
         auto output = &m_frameBuf[i]->frame;
-        const auto err = slot.interlaced
-            ? procTemporalField(frameIndex, i, output, stream)
-            : copyFrameAsync(output, source, stream);
+        const auto err = procTemporalField(frameIndex, i, output, stream);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to emit temporal frame: %s.\n"), get_err_mes(err));
             return err;
@@ -657,32 +695,19 @@ RGY_ERR NVEncFilterOnnxDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
     if (!pInputFrame) {
         return RGY_ERR_NONE;
     }
-    if (m_temporal) {
+    if (m_spec.architecture == VppOnnxDeintArchitecture::DDD) {
         return runTemporal(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
     }
     if (!pInputFrame->ptr[0]) {
         return RGY_ERR_NONE;
     }
 
+    if ((pInputFrame->picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
+        return copyProgressiveOutputs(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
+    }
+
     const bool bob = m_mode == VppOnnxDeintMode::Bob;
     const int outputCount = bob ? 2 : 1;
-    if ((pInputFrame->picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
-        for (int i = 0; i < outputCount; i++) {
-            auto output = &m_frameBuf[i]->frame;
-            const auto err = copyFrameAsync(output, pInputFrame, stream);
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to copy progressive input: %s.\n"), get_err_mes(err));
-                return err;
-            }
-            setOutputFrameProp(output, pInputFrame);
-            ppOutputFrames[i] = output;
-        }
-        *pOutputFrameNum = outputCount;
-        if (bob) {
-            setBobTimestamp(pInputFrame, ppOutputFrames);
-        }
-        return RGY_ERR_NONE;
-    }
 
     bool inputTff = m_defaultTff;
     if (pInputFrame->picstruct & RGY_PICSTRUCT_BFF) {

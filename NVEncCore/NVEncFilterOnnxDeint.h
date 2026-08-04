@@ -59,14 +59,13 @@ public:
     tstring precision;
     tstring cacheDir;
     VppOnnxDeintMode mode;
-    VppOnnxDeintArchitecture architecture;
     CspMatrix colormatrix;
     CspColorRange colorrange;
     int deviceID;
 
     NVEncFilterParamOnnxDeint() :
         modelFile(), modelDir(), provider(_T("auto")), precision(_T("fp32")), cacheDir(), mode(VppOnnxDeintMode::Bob),
-        architecture(VppOnnxDeintArchitecture::StDeint), colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), deviceID(-1) {};
+        colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), deviceID(-1) {};
     virtual tstring print() const override;
 };
 
@@ -85,6 +84,7 @@ protected:
 
     void setOutputFrameProp(RGYFrameInfo *output, const RGYFrameInfo *input) const;
     void setBobTimestamp(const RGYFrameInfo *input, RGYFrameInfo **outputs);
+    RGY_ERR copyProgressiveOutputs(const RGYFrameInfo *input, RGYFrameInfo **outputs, int *outputCount, cudaStream_t stream);
     RGYFrameInfo rgbFrame(float *ptr) const;
     RGY_ERR convertToRgb(const RGYFrameInfo *input, cudaStream_t stream);
     RGY_ERR convertFromRgb(RGYFrameInfo *output, cudaStream_t stream);
@@ -136,7 +136,6 @@ protected:
     int m_deviceID;
     bool m_cudaPathTried;
     bool m_cudaPath;
-    bool m_temporal;
     int m_framesIn;
     int m_frameOut;
     std::vector<float> m_weaveBuf;
