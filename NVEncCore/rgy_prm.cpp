@@ -97,7 +97,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_KFM,                  _T("kfm")),
     std::make_pair(VppType::CL_YADIF,                _T("yadif")),
     std::make_pair(VppType::CL_DECOMB,               _T("decomb")),
-    std::make_pair(VppType::CL_STDEINT,              _T("stdeint")),
+    std::make_pair(VppType::CL_ONNX_DEINT,              _T("onnx-deint")),
     std::make_pair(VppType::CL_IVTC,                 _T("ivtc")),
     std::make_pair(VppType::CL_DECIMATE,             _T("decimate")),
     std::make_pair(VppType::CL_MPDECIMATE,           _T("mpdecimate")),
@@ -2155,49 +2155,39 @@ tstring VppRifeOV::print() const {
         modelFile.c_str(), device.c_str(), multi, colormatrix.c_str(), colorrange.c_str());
 }
 
-const CX_DESC list_vpp_stdeint_mode[] = {
-    { _T("bob"),    (int)VppStDeintMode::Bob },
-    { _T("normal"), (int)VppStDeintMode::Normal },
+const CX_DESC list_vpp_onnx_deint_mode[] = {
+    { _T("bob"),    (int)VppOnnxDeintMode::Bob },
+    { _T("normal"), (int)VppOnnxDeintMode::Normal },
     { nullptr, 0 }
 };
 
-const CX_DESC list_vpp_stdeint_arch[] = {
-    { _T("stdeint"), (int)VppStDeintArch::StDeint },
-    { _T("ddd"),     (int)VppStDeintArch::DDD },
-    { nullptr, 0 }
-};
-
-VppStDeint::VppStDeint() :
+VppOnnxDeint::VppOnnxDeint() :
     enable(false),
     modelFile(),
     device(_T("GPU.0")),
-    provider(_T("auto")),
     precision(_T("fp32")),
-    mode(VppStDeintMode::Bob),
-    arch(VppStDeintArch::StDeint),
+    mode(VppOnnxDeintMode::Bob),
     colormatrix(RGY_MATRIX_AUTO),
     colorrange(RGY_COLORRANGE_AUTO) {
 }
 
-bool VppStDeint::operator==(const VppStDeint& x) const {
+bool VppOnnxDeint::operator==(const VppOnnxDeint& x) const {
     return enable == x.enable
         && modelFile == x.modelFile
         && device == x.device
-        && provider == x.provider
         && precision == x.precision
         && mode == x.mode
-        && arch == x.arch
         && colormatrix == x.colormatrix
         && colorrange == x.colorrange;
 }
 
-bool VppStDeint::operator!=(const VppStDeint& x) const {
+bool VppOnnxDeint::operator!=(const VppOnnxDeint& x) const {
     return !(*this == x);
 }
 
-tstring VppStDeint::print() const {
-    return strsprintf(_T("model=%s,device=%s,provider=%s,precision=%s,mode=%s,colormatrix=%s,colorrange=%s"),
-        modelFile.c_str(), device.c_str(), provider.c_str(), precision.c_str(), get_cx_desc(list_vpp_stdeint_mode, (int)mode),
+tstring VppOnnxDeint::print() const {
+    return strsprintf(_T("model=%s,device=%s,precision=%s,mode=%s,colormatrix=%s,colorrange=%s"),
+        modelFile.c_str(), device.c_str(), precision.c_str(), get_cx_desc(list_vpp_onnx_deint_mode, (int)mode),
         get_cx_desc(list_colormatrix, colormatrix), get_cx_desc(list_colorrange, colorrange));
 }
 
@@ -3964,7 +3954,7 @@ RGYParamVpp::RGYParamVpp() :
     kfm(),
     yadif(),
     decomb(),
-    stdeint(),
+    onnxDeint(),
     ivtc(),
     rff(),
     selectevery(),
@@ -4047,7 +4037,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && kfm == x.kfm
         && yadif == x.yadif
         && decomb == x.decomb
-        && stdeint == x.stdeint
+        && onnxDeint == x.onnxDeint
         && ivtc == x.ivtc
         && rff == x.rff
         && selectevery == x.selectevery

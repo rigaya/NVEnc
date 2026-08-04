@@ -26,8 +26,8 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
-#ifndef __NVENC_FILTER_STDEINT_H__
-#define __NVENC_FILTER_STDEINT_H__
+#ifndef __NVENC_FILTER_ONNX_DEINT_H__
+#define __NVENC_FILTER_ONNX_DEINT_H__
 
 #include "NVEncFilter.h"
 #include "NVEncFilterParam.h"
@@ -37,32 +37,32 @@
 #include <memory>
 #include <vector>
 
-class NVEncFilterParamStDeint : public NVEncFilterParam {
+class NVEncFilterParamOnnxDeint : public NVEncFilterParam {
 public:
     tstring modelFile;
     tstring modelDir;
     tstring provider;
     tstring precision;
     tstring cacheDir;
-    VppStDeintMode mode;
-    VppStDeintArch arch;
+    VppOnnxDeintMode mode;
+    VppOnnxDeintArchitecture architecture;
     CspMatrix colormatrix;
     CspColorRange colorrange;
     int deviceID;
 
-    NVEncFilterParamStDeint() :
-        modelFile(), modelDir(), provider(_T("auto")), precision(_T("fp32")), cacheDir(), mode(VppStDeintMode::Bob),
-        arch(VppStDeintArch::StDeint), colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), deviceID(-1) {};
+    NVEncFilterParamOnnxDeint() :
+        modelFile(), modelDir(), provider(_T("auto")), precision(_T("fp32")), cacheDir(), mode(VppOnnxDeintMode::Bob),
+        architecture(VppOnnxDeintArchitecture::StDeint), colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), deviceID(-1) {};
     virtual tstring print() const override;
 };
 
-RGY_ERR run_stdeint_weave_rgb(float *output, const float *input,
+RGY_ERR run_onnx_deint_weave_rgb(float *output, const float *input,
     const float *restoration, bool frameA, int width, int height, cudaStream_t stream);
 
-class NVEncFilterStDeint : public NVEncFilter {
+class NVEncFilterOnnxDeint : public NVEncFilter {
 public:
-    NVEncFilterStDeint();
-    virtual ~NVEncFilterStDeint();
+    NVEncFilterOnnxDeint();
+    virtual ~NVEncFilterOnnxDeint();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
@@ -102,7 +102,7 @@ protected:
     std::unique_ptr<NVEncFilterCspCrop> m_cropFromRgb;
     int m_width;
     int m_height;
-    VppStDeintMode m_mode;
+    VppOnnxDeintMode m_mode;
     bool m_defaultTff;
     bool m_havePrevTimestamp;
     int64_t m_prevTimestamp;
@@ -127,4 +127,4 @@ protected:
     std::array<TemporalFrame, 3> m_temporalRing;
 };
 
-#endif //__NVENC_FILTER_STDEINT_H__
+#endif //__NVENC_FILTER_ONNX_DEINT_H__

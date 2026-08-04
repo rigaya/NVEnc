@@ -6198,13 +6198,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-stdeint") && ENABLE_VPP_FILTER_STDEINT) {
-        vpp->stdeint.enable = true;
+    if (IS_OPTION("vpp-onnx-deint") && ENABLE_VPP_FILTER_ONNX_DEINT) {
+        vpp->onnxDeint.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "enable", "model", "device", "provider", "precision", "mode", "arch", "colormatrix", "colorrange" };
+        const auto paramList = std::vector<std::string>{ "enable", "model", "device", "precision", "mode", "colormatrix", "colorrange" };
         for (const auto& param : split(strInput[i], _T(","))) {
             const auto pos = param.find_first_of(_T("="));
             if (pos == tstring::npos) {
@@ -6214,56 +6214,42 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             const auto name = tolowercase(param.substr(0, pos));
             const auto value = param.substr(pos + 1);
             if (name == _T("enable")) {
-                if (cmd_string_to_bool(&vpp->stdeint.enable, value)) {
+                if (cmd_string_to_bool(&vpp->onnxDeint.enable, value)) {
                     print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
                     return 1;
                 }
             } else if (name == _T("model")) {
-                vpp->stdeint.modelFile = value;
+                vpp->onnxDeint.modelFile = value;
             } else if (name == _T("device")) {
-                vpp->stdeint.device = touppercase(value);
-            } else if (name == _T("provider")) {
-                const auto normalized = tolowercase(value);
-                if (normalized != _T("auto") && normalized != _T("cuda") && normalized != _T("tensorrt")) {
-                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
-                    return 1;
-                }
-                vpp->stdeint.provider = normalized;
+                vpp->onnxDeint.device = touppercase(value);
             } else if (name == _T("precision")) {
                 const auto normalized = tolowercase(value);
                 if (normalized != _T("fp32") && normalized != _T("auto")) {
                     print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
                     return 1;
                 }
-                vpp->stdeint.precision = normalized;
+                vpp->onnxDeint.precision = normalized;
             } else if (name == _T("mode")) {
                 int mode = 0;
-                if (!get_list_value(list_vpp_stdeint_mode, value.c_str(), &mode)) {
-                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value, list_vpp_stdeint_mode);
+                if (!get_list_value(list_vpp_onnx_deint_mode, value.c_str(), &mode)) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value, list_vpp_onnx_deint_mode);
                     return 1;
                 }
-                vpp->stdeint.mode = (VppStDeintMode)mode;
-            } else if (name == _T("arch")) {
-                int arch = 0;
-                if (!get_list_value(list_vpp_stdeint_arch, value.c_str(), &arch)) {
-                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value, list_vpp_stdeint_arch);
-                    return 1;
-                }
-                vpp->stdeint.arch = (VppStDeintArch)arch;
+                vpp->onnxDeint.mode = (VppOnnxDeintMode)mode;
             } else if (name == _T("colormatrix")) {
                 int matrix = 0;
                 if (!get_list_value(list_colormatrix, value.c_str(), &matrix)) {
                     print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value, list_colormatrix);
                     return 1;
                 }
-                vpp->stdeint.colormatrix = (CspMatrix)matrix;
+                vpp->onnxDeint.colormatrix = (CspMatrix)matrix;
             } else if (name == _T("colorrange")) {
                 int range = 0;
                 if (!get_list_value(list_colorrange, value.c_str(), &range)) {
                     print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value, list_colorrange);
                     return 1;
                 }
-                vpp->stdeint.colorrange = (CspColorRange)range;
+                vpp->onnxDeint.colorrange = (CspColorRange)range;
             } else {
                 print_cmd_error_unknown_opt_param(option_name, name, paramList);
                 return 1;
@@ -6272,7 +6258,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
     if (IS_OPTION("vpp-onnx-cache-dir")
-        && (ENABLE_VPP_FILTER_ONNX || ENABLE_VPP_FILTER_STDEINT)
+        && (ENABLE_VPP_FILTER_ONNX || ENABLE_VPP_FILTER_ONNX_DEINT)
         && (ENABLE_OPENVINO || ENCODER_NVENC)) {
         i++;
         vpp->onnx.cacheDir = tstring(strInput[i]);
@@ -14063,24 +14049,23 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         cmd << _T(" --vpp-rife-ov ") << tmp.str().substr(1);
     }
-    if (param->stdeint != defaultPrm->stdeint) {
+    if (param->onnxDeint != defaultPrm->onnxDeint) {
         tmp.str(tstring());
-        if (!param->stdeint.enable && save_disabled_prm) {
+        if (!param->onnxDeint.enable && save_disabled_prm) {
             tmp << _T(",enable=false");
         }
-        if (param->stdeint.enable || save_disabled_prm) {
-            if (!param->stdeint.modelFile.empty()) tmp << _T(",model=") << param->stdeint.modelFile;
-            tmp << _T(",device=") << param->stdeint.device;
-            tmp << _T(",provider=") << param->stdeint.provider;
-            tmp << _T(",precision=") << param->stdeint.precision;
-            tmp << _T(",mode=") << get_cx_desc(list_vpp_stdeint_mode, (int)param->stdeint.mode);
-            tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->stdeint.colormatrix);
-            tmp << _T(",colorrange=") << get_cx_desc(list_colorrange, param->stdeint.colorrange);
+        if (param->onnxDeint.enable || save_disabled_prm) {
+            if (!param->onnxDeint.modelFile.empty()) tmp << _T(",model=") << param->onnxDeint.modelFile;
+            tmp << _T(",device=") << param->onnxDeint.device;
+            tmp << _T(",precision=") << param->onnxDeint.precision;
+            tmp << _T(",mode=") << get_cx_desc(list_vpp_onnx_deint_mode, (int)param->onnxDeint.mode);
+            tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->onnxDeint.colormatrix);
+            tmp << _T(",colorrange=") << get_cx_desc(list_colorrange, param->onnxDeint.colorrange);
         }
         if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-stdeint ") << tmp.str().substr(1);
-        } else if (param->stdeint.enable) {
-            cmd << _T(" --vpp-stdeint");
+            cmd << _T(" --vpp-onnx-deint ") << tmp.str().substr(1);
+        } else if (param->onnxDeint.enable) {
+            cmd << _T(" --vpp-onnx-deint");
         }
     }
     if (!param->onnx.cacheDir.empty()) {
@@ -16837,17 +16822,12 @@ tstring gen_cmd_help_vpp() {
         _T("      colormatrix=<string>        auto / bt601 / bt709 / bt2020\n")
         _T("      colorrange=<string>         auto / tv / pc\n"));
 #endif
-#if ENABLE_VPP_FILTER_STDEINT
+#if ENABLE_VPP_FILTER_ONNX_DEINT
     str += strsprintf(_T("\n")
-        _T("   --vpp-stdeint [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     ST-DeInt deinterlacing using an ONNX model.\n")
-        _T("      model=<name|path>           Registered ST-DeInt model name or ONNX path (required)\n")
-        _T("                                  Names require --vpp-onnx-model-dir (stdeint_ov_models.json).\n")
-        _T("      arch=<string>               stdeint (default) / ddd\n")
-        _T("                                  Selects how fields are fed to the model:\n")
-        _T("                                  stdeint takes row-interpolated frames, ddd takes\n")
-        _T("                                  transposed fields. Both are 9ch in / 3ch out, so it\n")
-        _T("                                  cannot be inferred from the model.\n")
+        _T("   --vpp-onnx-deint [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     ONNX model based deinterlacing.\n")
+        _T("      model=<name>                Registered model name (required)\n")
+        _T("                                  Names require --vpp-onnx-model-dir (onnx_deint_models.json).\n")
         _T("      mode=<string>               bob (default, double frame rate) / normal\n")
 #if ENABLE_OPENVINO
         _T("      device=<string>             GPU.0 (default) / CPU / GPU / AUTO / NPU\n")
@@ -16855,14 +16835,7 @@ tstring gen_cmd_help_vpp() {
         _T("                                  Recommended: stdeint+fp32 for quality, stdeint_fast+auto for HD speed.\n")
 #endif
 #if ENCODER_NVENC
-        _T("      provider=<string>           auto (default) / cuda / tensorrt\n")
-        _T("                                  TensorRT builds an engine on the first run, which takes time.\n")
         _T("      precision=<string>          fp32 (default) / auto (TensorRT fp16)\n")
-#endif
-#if ENCODER_VCEENC
-        _T("      device=<string>             compatibility parameter; DirectML uses the encoder GPU\n")
-        _T("      provider=<string>           auto (default, DirectML)\n")
-        _T("      precision=<string>          fp32 (default) / auto (both use authored fp32)\n")
 #endif
         _T("      colormatrix=<string>        same list as --colormatrix; supports\n")
         _T("                                  auto / auto_res / bt709 / smpte170m / bt470bg / bt2020nc\n")

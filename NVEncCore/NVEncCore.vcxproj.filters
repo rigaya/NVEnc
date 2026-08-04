@@ -309,7 +309,7 @@
     <ClCompile Include="NVEncFilterRifeOV.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="NVEncFilterStDeint.cpp">
+    <ClCompile Include="NVEncFilterOnnxDeint.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="rgy_model_registry.cpp">
@@ -814,7 +814,7 @@
     <ClInclude Include="NVEncFilterRifeOV.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="NVEncFilterStDeint.h">
+    <ClInclude Include="NVEncFilterOnnxDeint.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_model_registry.h">
@@ -987,7 +987,7 @@
     <CudaCompile Include="NVEncFilterBwdif.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
-    <CudaCompile Include="NVEncFilterStDeint.cu">
+    <CudaCompile Include="NVEncFilterOnnxDeint.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterOnnx.cu">

@@ -47,6 +47,8 @@ struct OnnxModelEntry {
     CspMatrix colormatrixOut; // 未指定時は RGY_MATRIX_UNSPECIFIED。colormatrix_out=auto の場合のみ適用。
     // ONNXデインターレース用。未指定はnullopt、未知の文字列は値を保持する。
     std::optional<tstring> onnxDeintArchitecture;
+    bool onnxDeintArchitecturePresent = false;
+    bool onnxDeintArchitectureTypeValid = true;
 };
 
 class RGYModelRegistry {

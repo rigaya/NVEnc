@@ -25,10 +25,10 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include "NVEncFilterStDeint.h"
+#include "NVEncFilterOnnxDeint.h"
 #include <cuda_runtime.h>
 
-__global__ void kernel_stdeint_weave_rgb(float *output, const float *input,
+__global__ void kernel_onnx_deint_weave_rgb(float *output, const float *input,
     const float *restoration, const int width, const int height, const bool frameA) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -45,10 +45,10 @@ __global__ void kernel_stdeint_weave_rgb(float *output, const float *input,
     }
 }
 
-RGY_ERR run_stdeint_weave_rgb(float *output, const float *input,
+RGY_ERR run_onnx_deint_weave_rgb(float *output, const float *input,
     const float *restoration, bool frameA, int width, int height, cudaStream_t stream) {
     const dim3 block(32, 8);
     const dim3 grid(divCeil(width, (int)block.x), divCeil(height, (int)block.y));
-    kernel_stdeint_weave_rgb<<<grid, block, 0, stream>>>(output, input, restoration, width, height, frameA);
+    kernel_onnx_deint_weave_rgb<<<grid, block, 0, stream>>>(output, input, restoration, width, height, frameA);
     return err_to_rgy(cudaGetLastError());
 }
