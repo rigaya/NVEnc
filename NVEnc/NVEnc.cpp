@@ -114,7 +114,9 @@ OUTPUT_PLUGIN_TABLE output_plugin_table = {
     func_config_get,              // 出力設定データを取得する時に呼ばれる関数へのポインタ (NULLなら呼ばれません)
     func_config_set,              // 出力設定データを設定する時に呼ばれる関数へのポインタ (NULLなら呼ばれません)
 #else
-    OUTPUT_PLUGIN_TABLE::FLAG_PROJECT_CONFIG, // フラグ
+    // AviUtl2 2.1.3 以降、映像/音声サポートを申告しないと保存ダイアログの音声出力切替が不安定になり、
+    // OUTPUT_INFO が VIDEO のみ / audio_n=0 で渡ることがあるため FLAG_VIDEO|FLAG_AUDIO を明示する。
+    OUTPUT_PLUGIN_TABLE::FLAG_VIDEO | OUTPUT_PLUGIN_TABLE::FLAG_AUDIO | OUTPUT_PLUGIN_TABLE::FLAG_PROJECT_CONFIG, // フラグ
     AUO_FULL_NAME_W,              // プラグインの名前
     AUO_EXT_FILTER_W,             // 出力ファイルのフィルタ
     AUO_VERSION_INFO_W,           // プラグインの情報
