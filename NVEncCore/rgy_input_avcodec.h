@@ -32,6 +32,8 @@
 #include "rgy_input.h"
 #include "rgy_version.h"
 
+// このファイルはQSVEnc/NVEnc/VCEEnc/rkmppencの共有ファイルで、解像度変更に未対応のリポジトリでは
+// rgy_version.hにENABLE_INPUT_RESOLUTION_CHANGEが定義されていないため、無効(=明示エラー)をここで既定とする。
 #ifndef ENABLE_INPUT_RESOLUTION_CHANGE
 #define ENABLE_INPUT_RESOLUTION_CHANGE 0
 #endif
@@ -1069,7 +1071,8 @@ protected:
     tstring          m_logFramePosList;           //FramePosListの内容を入力終了時に出力する (デバッグ用)
     std::unique_ptr<FILE, fp_deleter> m_fpPacketList; // 読み取ったパケット情報を出力するファイル
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
-    int              m_initialSrcWidth;             //入力初期解像度（途中の拡大可否判定用）
+    //入力初期解像度。下流のサーフェスはこの解像度で確保されるため、途中でこれを超える解像度になった場合は対応できず明示エラーとする
+    int              m_initialSrcWidth;
     int              m_initialSrcHeight;
     bool             m_suppressPulldownDetect;     // true: skip avgDuration *= 1.25 after bPulldown is detected. bPulldown itself is still set so log/diagnostic paths see it. Mirrors RGYInputAvcodecPrm::suppressPulldownMutation.
     bool             m_pulldownDetected;           // true when getFirstFramePosAndFrameRate detected soft pulldown.

@@ -85,6 +85,8 @@ public:
     FrameQueue *frameQueue() {
         return m_pFrameQueue;
     }
+    //入力途中の解像度変更に伴うデコーダリセットの待ち合わせ用。デコードスレッドがformatChangeReq()を立てて待機するので、
+    //パイプライン側は下流のフレームがすべて解放されたことを確認してallowFormatChange()で解除する。
     bool formatChangeReq() const {
         return m_formatChangeReq.load();
     }
@@ -128,17 +130,18 @@ protected:
     CUvideodecoder               m_videoDecoder;
     CUvideoctxlock               m_ctxLock;
     CUVIDDECODECREATEINFO        m_videoDecodeCreateInfo;
-    CUVIDDECODECAPS              m_videoDecodeCaps;
+    CUVIDDECODECAPS              m_videoDecodeCaps;    //デコーダの対応解像度範囲。解像度変更時の上限clampに使用(bIsSupported=falseなら未取得)
     CUVIDEOFORMATEX              m_videoFormatEx;
     shared_ptr<RGYLog>           m_pPrintMes;  //ログ出力
     bool                         m_bError;
     cudaVideoDeinterlaceMode     m_deinterlaceMode;
     VideoInfo                    m_videoInfo;
     int                          m_nDecType;
-    std::atomic<bool>            m_formatChangeReq;
+    //以下4つはデコーダリセットバリア用。デコードスレッド(parserコールバック)とパイプラインスレッドの間の同期に使う
+    std::atomic<bool>            m_formatChangeReq;     //リセット要求中か。パイプライン側からロックなしで見るためatomic
     std::mutex                   m_formatChangeMtx;
     std::condition_variable      m_formatChangeCv;
-    bool                         m_formatChangeAllowed;
+    bool                         m_formatChangeAllowed; //リセット許可が下りたか(mutex保護下。cvのspurious wakeup対策も兼ねる)
 };
 
 #endif //#if ENABLE_AVSW_READER

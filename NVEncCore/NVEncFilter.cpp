@@ -183,6 +183,7 @@ void NVEncFilter::setCheckPerformance(const bool check) {
 RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, cudaStream_t stream) {
     //フィールドペア用のバッファは未確保のときだけでなく、解像度・色空間が変化したときにも確保しなおす必要がある
     //(ストリーム途中で解像度が変化した場合、古い解像度のバッファをそのまま使うと壊れるため)
+    //この経路を通るのはインタレ保持のままフィルタをかける構成(--interlace tff/bff + フレーム単位で処理できないフィルタ)
     auto allocFieldPairBuf = [this](std::unique_ptr<CUFrameBuf>& fieldPairBuf, const RGYFrameInfo *frameInfo, const TCHAR *bufName) {
         RGYFrameInfo fieldFrame = *frameInfo;
         fieldFrame.height >>= 1;

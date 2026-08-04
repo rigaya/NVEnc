@@ -218,9 +218,10 @@ protected:
 
     std::vector<VppVilterBlock> m_vpFilters;
     std::shared_ptr<NVEncFilterParam>    m_pLastFilterParam;
-    std::shared_ptr<NVEncFilterParamResize> m_normalizeResizeParam;
-    RGY_CSP m_normalizeFilterCsp;
-    int m_inputCropOffsetW;
+    //以下4つは入力途中の解像度変更対応用。PipelineTaskCUDAVppへ渡され、解像度変更時のフィルタチェーン再構成に使われる
+    std::shared_ptr<NVEncFilterParamResize> m_normalizeResizeParam; //元の解像度へ戻す正規化resizeのパラメータ雛形
+    RGY_CSP m_normalizeFilterCsp;                                   //フィルタチェーンで使用するplanarのcsp
+    int m_inputCropOffsetW;                                         //入力サーフェスとフィルタ入力の解像度差(=cropで削られる分)
     int m_inputCropOffsetH;
 #if ENABLE_SSIM
     std::unique_ptr<NVEncFilterSsim>  m_videoQualityMetric;

@@ -3554,7 +3554,7 @@ RGY_ERR NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pCropParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
+        pCropParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i]; //以前は[0]固定で、プレーンごとにpitchが異なるcspで下流のpitchが壊れていた
     }
 
     //フィルタ情報の調整

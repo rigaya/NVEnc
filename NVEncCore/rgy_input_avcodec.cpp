@@ -3561,6 +3561,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
             #pragma warning(pop)
             if (qp_table != nullptr) {
                 auto table = m_Demux.video.qpTableListRef->get();
+                //qpテーブルのサイズはデコード結果のフレームから求める。解像度変更後はpSurfaceが確保時(=初期)解像度のままのことがあり、pSurfaceからでは大きさが合わない
                 const int qpw = (qp_stride) ? qp_stride : (m_Demux.video.frame->width + 15) / 16;
                 const int qph = (qp_stride) ? (m_Demux.video.frame->height + 15) / 16 : 1;
                 table->setQPTable(qp_table, qpw, qph, qp_stride, qscale_type, m_Demux.video.frame->pict_type, m_Demux.video.frame->pts);
@@ -3581,11 +3582,16 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
             }
         }
 
+        //入力ファイル途中での解像度変更の検出 (--avsw / avhwのsw decode時)
+        //ARIBのマルチ編成TSなどでHD(1440x1080)とSD(720x480)が切り替わる場合にここに来る。
+        //追従する場合はm_inputVideoInfo.srcWidth/Heightを更新して継続し、以降のフレームは新解像度でサーフェスへ書き込まれる。
+        //解像度変更を下流へ伝播させない処理(正規化resizeの挿入)はPipelineTaskCUDAVpp側で行う。
         if (   m_Demux.video.frame->width  != m_inputVideoInfo.srcWidth
             || m_Demux.video.frame->height != m_inputVideoInfo.srcHeight) {
 #if ENABLE_INPUT_RESOLUTION_CHANGE
             const int newWidth = m_Demux.video.frame->width;
             const int newHeight = m_Demux.video.frame->height;
+            //下流のサーフェスは初期解像度で確保済みなので、それを超える解像度には対応できない
             if (newWidth > m_initialSrcWidth || newHeight > m_initialSrcHeight) {
                 AddMessage(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, exceeding the initial resolution %dx%d, which is not supported.\n"),
                     m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, newWidth, newHeight,
@@ -3593,6 +3599,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
                 AddMessage(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
                 return RGY_ERR_UNSUPPORTED;
             }
+            //--cropは新解像度に対しても同じ画素数で適用されるため、cropしきれない小さな解像度になった場合は対応できない
             if (m_inputVideoInfo.crop.e.left + m_inputVideoInfo.crop.e.right >= newWidth
                 || m_inputVideoInfo.crop.e.up + m_inputVideoInfo.crop.e.bottom >= newHeight) {
                 AddMessage(RGY_LOG_ERROR, _T("input crop is too large for the changed resolution %dx%d.\n"), newWidth, newHeight);
@@ -3619,6 +3626,9 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
         }
 
         //フレームデータをコピー
+        //pSurface->ptrArray()は使えない。pSurfaceは確保時(=初期)解像度のままのことがあり、
+        //その場合planarでは各プレーンの先頭オフセットが確保時解像度基準となり、新解像度でのプレーン配置とずれてしまうため、
+        //新解像度で作り直したdstFrameInfoからプレーンのポインタとpitchを求める。
         void *dst_array[RGY_MAX_PLANES];
         auto dstFrameInfo = pSurface->frameInfo();
         dstFrameInfo.width = m_inputVideoInfo.srcWidth;

@@ -1065,6 +1065,7 @@ public:
     int workSurfacesAllocPriority() const {
         return getPipelineTaskAllocPriority(m_type);
     }
+    //隣接タスクの対はinitPipeline()で先に構築しておく。isPassThroughなタスクはスキップ済みのものが渡される
     void setNextTask(PipelineTask *next) {
         m_nextTask = next;
     }
@@ -1111,6 +1112,9 @@ protected:
         return RGY_ERR_NONE;
     }
 public:
+    //自身(t0)と次のタスク(t1)の間で共有するワークサーフェスを確保する。
+    //元はNVEncCore::allocatePiplelineFrames()にタスク種別ごとの分岐として書かれていたが、
+    //タスク固有の事情(デコーダ管理のサーフェスは確保不要など)はタスク側のoverrideで表現できるようにここへ内部化した。
     virtual RGY_ERR allocWorkSurfaces(const int asyncDepth) {
         if (m_nextTask == nullptr) {
             PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline, next task not found!\n"));
@@ -1340,6 +1344,10 @@ public:
             return err;
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
+        //入力途中の解像度変更(--avsw / avhwのsw decode時)への追従。
+        //サーフェス自体は初期解像度で確保されたものを使い回すが(そのため新解像度は初期解像度以下であることが前提)、
+        //width/heightを実際の解像度に更新しないと、下流のフィルタが確保時の解像度で処理してしまう。
+        //hostFrame側も更新するのは、readerがhostFrameに対して書き込みを行うため。
         const auto inputFrameInfo = m_input->GetInputFrameInfo();
         if (   cuframe->frame.width != inputFrameInfo.srcWidth || cuframe->frame.height != inputFrameInfo.srcHeight
             || cuframe->refFrameHost->frame.width != inputFrameInfo.srcWidth || cuframe->refFrameHost->frame.height != inputFrameInfo.srcHeight) {
@@ -1436,6 +1444,7 @@ public:
         RGYFrameInfo info(inputFrameInfo.srcWidth, inputFrameInfo.srcHeight, inputFrameInfo.csp, inputFrameInfo.bitdepth, inputFrameInfo.picstruct, RGY_MEM_TYPE_GPU);
         return std::make_pair(info, 0);
     };
+    //cuvidデコーダのサーフェスはデコーダ自身が管理しているため、ここでの確保は不要
     virtual RGY_ERR allocWorkSurfaces(const int asyncDepth) override {
         UNREFERENCED_PARAMETER(asyncDepth);
         if (m_nextTask == nullptr) {
@@ -1603,6 +1612,10 @@ protected:
                     m_frameReleaseData->waitFrameSingleThread(0);
                     m_workSurfs.deleteFreedSurface(); // これを呼ばないとフレームが解放されず、デコードが止まってしまうことがある
                 }
+                //デコーダから解像度変更に伴うリセット要求が出ている場合、デコーダのフレームを誰も参照していない状態
+                //(フレームキューが空 && ワークサーフェスがすべて解放済み)になったらリセットを許可する。
+                //デコーダの再作成/reconfigureはデコーダの保持するフレームを無効化するため、参照が残ったまま行うと絵が壊れる。
+                //ここに来るのはフレームが取り出せなかったとき、つまり解放待ちの状態なので、リセット待ちで進まなくなることはない。
                 if (m_dec->formatChangeReq()
                     && m_dec->frameQueue()->isEmpty()
                     && m_workSurfs.isAllFree()) {
@@ -3456,13 +3469,17 @@ protected:
     cudaStream_t m_streamDownload;
     std::unique_ptr<PipelineTaskOutput> m_cuvidPrev;
     PipelineTaskNVEncode *m_encode;
-    RGYFrameInfo m_normalizeTargetFrame;
-    std::shared_ptr<NVEncFilterParamResize> m_normalizeResizeParam;
-    RGY_CSP m_normalizeFilterCsp;
-    int m_inputCropOffsetW;
+    //以下6つは入力途中の解像度変更対応用。解像度変更を下流に伝播させないため、チェーン先頭を新解像度で作り直した直後に元の解像度へ戻す正規化resizeを挿入する
+    RGYFrameInfo m_normalizeTargetFrame;                              //初期化時のチェーン先頭の出力フレーム情報。正規化resizeはここへ戻す(=下流から見た解像度は不変)
+    std::shared_ptr<NVEncFilterParamResize> m_normalizeResizeParam;   //正規化resizeのパラメータ雛形。NVEncCore::InitFilters()で生成されsetNormalizeResizeParam()で渡される
+    RGY_CSP m_normalizeFilterCsp;                                     //フィルタチェーンで使用するplanarのcsp。vppなし構成でチェーンを組み立てる際に必要
+    int m_inputCropOffsetW;                                           //入力サーフェスとフィルタ入力の解像度差(=cropで削られる分)。新解像度からフィルタ入力解像度を求めるのに使う
     int m_inputCropOffsetH;
-    int m_normalizeResizeIdx;
+    int m_normalizeResizeIdx;                                         //挿入済みの正規化resizeのm_vpFilters内index。-1なら未挿入(=まだ解像度変更が起きていない)
 
+    //入力途中の解像度変更対応の本丸。チェーン先頭のcropを新解像度で作り直し、その直後に元の解像度へ戻す正規化resizeを挿入する。
+    //これにより2段目以降のフィルタとエンコーダは解像度変更を一切知らずに済む(=下流の再初期化が不要になる)。
+    //呼び出し前にチェーンのdrain(内部に溜まったフレームの吐き出し)が完了していることが前提。
     RGY_ERR reconstructFilterChain(const RGYFrameInfo& newInputFrame) {
         if (m_vpFilters.empty()) {
             PrintMes(RGY_LOG_ERROR, _T("resolution change is not supported for an empty filter configuration.\n"));
@@ -3478,6 +3495,10 @@ protected:
                 RGY_CSP_NAMES[firstFilterParam->frameIn.csp], RGY_CSP_NAMES[newInputFrame.csp]);
             return RGY_ERR_UNSUPPORTED;
         }
+        //想定するチェーン構成は2通り。
+        //  reconstructSingleFilter: vppなし構成。チェーンはcsp変換のcrop 1個だけで、出力はエンコーダに渡すNV12等(<3plane)。
+        //    この構成ではresizeを差し込む場所がないので、[新解像度crop(→planar)] + [正規化resize] + [既存cropをplanar→NV12に再init] の3段に組み替える。
+        //  reconstructPlanarChain: vppあり構成。チェーン先頭のcropがplanarを出力しているので、その直後にresizeを挿入するだけでよい。
         const bool reconstructSingleFilter = m_vpFilters.size() == 1 && RGY_CSP_PLANES[firstFilterParam->frameOut.csp] < 3;
         const bool reconstructPlanarChain = m_vpFilters.size() >= 2 && RGY_CSP_PLANES[firstFilterParam->frameOut.csp] >= 3;
         if (!reconstructSingleFilter && !reconstructPlanarChain) {
@@ -3501,6 +3522,8 @@ protected:
                 return RGY_ERR_INVALID_OPERATION;
             }
 
+            //1段目: 新解像度を入力とするcrop。出力はplanar(m_normalizeFilterCsp)にして、次段のresizeが扱えるようにする。
+            //cropのパラメータ(--crop指定分)は元のものをそのまま引き継ぐ = 新解像度に対しても同じ画素数だけ削られる。
             auto firstCropParam = std::make_shared<NVEncFilterParamCrop>(*oldCropParam);
             firstCropParam->frameIn.width = newInputFrame.width;
             firstCropParam->frameIn.height = newInputFrame.height;
@@ -3521,11 +3544,14 @@ protected:
                 }
             }
 
+            //2段目: 正規化resize。1段目のcrop後の解像度を、初期化時のチェーン先頭出力(=下流が期待する解像度)へ戻す。
+            //csp/bitdepthはm_normalizeTargetFrameのものではなく1段目の出力(planar)に合わせる必要がある(csp変換は3段目のcropの仕事)。
             auto resizeParam = std::make_shared<NVEncFilterParamResize>(*m_normalizeResizeParam);
             resizeParam->frameIn = firstCropParam->frameOut;
             resizeParam->frameOut = m_normalizeTargetFrame;
             resizeParam->frameOut.csp = resizeParam->frameIn.csp;
             resizeParam->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[resizeParam->frameOut.csp];
+            //m_normalizeTargetFrameは解像度変更前のpicstructを保持しているため、変更後のものに合わせる
             resizeParam->frameOut.picstruct = resizeParam->frameIn.picstruct;
             resizeParam->baseFps = m_normalizeResizeParam->baseFps;
             auto resizeFilter = std::make_unique<NVEncFilterResize>();
@@ -3538,6 +3564,8 @@ protected:
                 }
             }
 
+            //3段目: 既存のcropフィルタをplanar -> エンコーダ入力cspの変換専用として再init。
+            //frameOutは元のまま(=下流から見た出力は不変)。
             auto lastCropParam = std::make_shared<NVEncFilterParamCrop>(*oldCropParam);
             lastCropParam->frameIn = resizeParam->frameOut;
             lastCropParam->frameOut = oldCropParam->frameOut;
@@ -3552,6 +3580,7 @@ protected:
                 }
             }
 
+            //すべてのinitが成功してから差し替える(途中で失敗した場合に既存チェーンを壊さないため)
             m_vpFilters.insert(m_vpFilters.begin(), std::move(firstCropFilter));
             m_vpFilters.insert(m_vpFilters.begin() + 1, std::move(resizeFilter));
             m_normalizeResizeIdx = 1;
@@ -3565,6 +3594,8 @@ protected:
                 lastCropParam->frameIn.width, lastCropParam->frameIn.height, RGY_CSP_NAMES[lastCropParam->frameIn.csp],
                 lastCropParam->frameOut.width, lastCropParam->frameOut.height, RGY_CSP_NAMES[lastCropParam->frameOut.csp]);
 
+            //degrainやrtgmcなど前後フレームを内部に保持するフィルタは、解像度変更をまたいだ状態が無効になるためリセットする。
+            //先頭のcropと正規化resizeはたった今initしたばかりなので対象外。
             int temporalStateResetCount = 0;
             for (int i = 0; i < (int)m_vpFilters.size(); i++) {
                 if (i != 0 && i != m_normalizeResizeIdx) {
@@ -3577,6 +3608,8 @@ protected:
             return RGY_ERR_NONE;
         }
 
+        //ここからはreconstructPlanarChain(vppあり構成)の処理。
+        //先頭のcropを新解像度で再initし、その出力を正規化resizeで元の解像度へ戻す。2段目以降は触らない。
         auto newCropParam = std::make_shared<NVEncFilterParamCrop>(*oldCropParam);
         newCropParam->frameIn.width = newInputFrame.width;
         newCropParam->frameIn.height = newInputFrame.height;
@@ -3607,6 +3640,8 @@ protected:
         //(実際のpicstructはrun_filter内で入力フレームのものに上書きされるが、パラメータ間で不整合を残さないようにする)
         resizeParam->frameOut.picstruct = resizeParam->frameIn.picstruct;
         resizeParam->baseFps = m_normalizeResizeParam->baseFps;
+        //初回の解像度変更なら正規化resizeを挿入し、2回目以降は既に挿入済みのものをre-initして解像度だけ更新する。
+        //毎回挿入するとチェーンにresizeが積み上がってしまうので、m_normalizeResizeIdxで挿入済みかを管理する。
         const bool insertResize = m_normalizeResizeIdx < 0;
         if (insertResize) {
             auto resizeFilter = std::make_unique<NVEncFilterResize>();
@@ -3637,6 +3672,8 @@ protected:
             resizeParam->frameIn.width, resizeParam->frameIn.height, RGY_CSP_NAMES[resizeParam->frameIn.csp],
             resizeParam->frameOut.width, resizeParam->frameOut.height, RGY_CSP_NAMES[resizeParam->frameOut.csp]);
 
+        //degrainやrtgmcなど前後フレームを内部に保持するフィルタは、解像度変更をまたいだ状態が無効になるためリセットする。
+        //先頭のcropと正規化resizeはたった今initしたばかりなので対象外。
         int temporalStateResetCount = 0;
         for (int i = 0; i < (int)m_vpFilters.size(); i++) {
             if (i != 0 && i != m_normalizeResizeIdx) {
@@ -3716,6 +3753,7 @@ public:
         m_videoMetric = videoMetric;
     }
 
+    //以下4つは入力途中の解像度変更対応用のパラメータ設定。NVEncCore::initPipeline()から呼ばれる
     void setNormalizeTargetFrame(const RGYFrameInfo& targetFrame) {
         m_normalizeTargetFrame = targetFrame;
     }
@@ -3797,6 +3835,9 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Invalid task surface (not opencl or amf).\n"));
                 return RGY_ERR_NULL_PTR;
             }
+            //入力途中の解像度変更の検出。上流(reader/デコーダ)は既に新解像度で出力してきているので、ここでチェーンを組み替える。
+            //読み込み時にcrop済みの構成では入力サーフェスの解像度はcrop前(srcWidth/Height)のままなので、
+            //その差分(m_inputCropOffsetW/H)を引いてフィルタチェーンの入力解像度と比較する。
             if (frame && !filterframes.empty() && !m_vpFilters.empty() && filterframes.front().first.ptr[0] != nullptr) {
                 auto inputFrame = filterframes.front().first;
                 inputFrame.width -= m_inputCropOffsetW;
@@ -3805,6 +3846,10 @@ public:
                 if (inputFrame.width != expectedFrame.width || inputFrame.height != expectedFrame.height) {
                     PrintMes(RGY_LOG_DEBUG, _T("resolution change detected in CUDA filter input: %dx%d -> %dx%d.\n"),
                         expectedFrame.width, expectedFrame.height, inputFrame.width, inputFrame.height);
+                    //チェーンを組み替える前に、フィルタ内部に溜まっている旧解像度のフレームをすべて吐き出させる。
+                    //nullフレームを渡すのがdrain要求で、RGY_ERR_MORE_DATAが返るまで繰り返す(=これ以上出るものがない)。
+                    //ここで得られた出力はm_outQeueueに積まれ、組み替え後のフレームより先に下流へ流れる。
+                    //回数上限を設けているのは、フィルタの不具合等でMORE_DATAが返らない場合に無限ループするのを防ぐため。
                     const size_t queueSizeBefore = m_outQeueue.size();
                     int drainLoops = 0;
                     for (;;) {

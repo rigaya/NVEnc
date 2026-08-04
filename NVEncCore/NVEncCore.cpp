@@ -3106,6 +3106,8 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         inputFrame.width = croppedWidth;
         inputFrame.height = croppedHeight;
     }
+    //入力サーフェスの解像度はcrop前(srcWidth/Height)のままなので、読み込み時にcrop済みの構成では
+    //フィルタチェーンの入力解像度との間に差が生じる。解像度変更の検出時にこの差分を補正するため保持しておく。
     m_inputCropOffsetW = inputParam->input.srcWidth - inputFrame.width;
     m_inputCropOffsetH = inputParam->input.srcHeight - inputFrame.height;
     // 読み込み時に同時にGPUに転送されるので、スタートは常にGPU
@@ -3352,10 +3354,15 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
     m_uEncWidth = inputFrame.width;
     m_uEncHeight = inputFrame.height;
+    //入力途中の解像度変更が起きた際に挿入する、元の解像度へ戻す正規化resizeのパラメータ雛形を作っておく。
+    //実際にフィルタを生成するのはPipelineTaskCUDAVpp::reconstructFilterChain()で、解像度が変わるまで生成はされない。
     m_normalizeResizeParam = std::make_shared<NVEncFilterParamResize>();
     if (inputParam->vpp.resize_algo == RGY_VPP_RESIZE_AUTO) {
+        //autoは拡大/縮小の比率から実際のアルゴリズムを決めるが、ここでは比率が事前に決まらないのでbicubic固定とする
         m_normalizeResizeParam->interp = RGY_VPP_RESIZE_BICUBIC;
         PrintMes(RGY_LOG_DEBUG, _T("resolution change: normalization resize uses bicubic for auto resize mode.\n"));
+    //nvvfx/ngx/libplaceboのresizeは初期化時の解像度に固定された外部ライブラリのモデル/コンテキストを持つため、
+    //解像度が動的に変わる正規化resizeには使えない。bicubicへフォールバックする(警告を出してユーザーに知らせる)。
     } else if (isNvvfxResizeFiter(inputParam->vpp.resize_algo)
         || isNgxResizeFiter(inputParam->vpp.resize_algo)
         || isLibplaceboResizeFiter(inputParam->vpp.resize_algo)) {
@@ -3368,7 +3375,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     m_normalizeResizeParam->fsr1 = inputParam->vpp.resize_fsr1;
     m_normalizeResizeParam->nis = inputParam->vpp.resize_nis;
     m_normalizeResizeParam->bicubic = inputParam->vpp.resize_bicubic;
-    m_normalizeResizeParam->baseFps = m_encFps;
+    m_normalizeResizeParam->baseFps = m_encFps; //baseFpsが0だとフィルタのinitに失敗するので必ず設定する
     m_normalizeResizeParam->bOutOverwrite = false;
     m_normalizeFilterCsp = filterCsp;
     m_stPicStruct = picstruct_rgy_to_enc(inputFrame.picstruct);
@@ -5879,6 +5886,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskCUDAVpp>(m_dev.get(), vppblock.vppnv, m_videoQualityMetric.get(),
             m_encRunCtx->qEncodeBufferFree(), m_rgbAsYUV444, prm->cudaStreamOpt, prm->cudaMT, 1, prm->ctrl.threadParams.get(RGYThreadType::FILTER), m_pLog));
         auto taskCudaVpp = dynamic_cast<PipelineTaskCUDAVpp *>(m_pipelineTasks.back().get());
+        //解像度変更時の正規化resizeの戻し先は、そのフィルタブロックの先頭フィルタの出力解像度(=下流が期待する解像度)
         taskCudaVpp->setNormalizeTargetFrame(vppblock.vppnv.front()->GetFilterParam()->frameOut);
         taskCudaVpp->setNormalizeResizeParam(m_normalizeResizeParam);
         taskCudaVpp->setNormalizeFilterCsp(m_normalizeFilterCsp);
@@ -5950,6 +5958,8 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         return RGY_ERR_INVALID_OPERATION;
     }
 
+    // 各タスクに次のタスクを教えておく。ワークサーフェスの確保は隣接タスクの要求の両方を見る必要があり、
+    // それを各タスク自身(PipelineTask::allocWorkSurfaces())で行えるようにするため、確保前にここでチェーンを張る。
     PipelineTask *t0 = m_pipelineTasks[0].get();
     for (size_t ip = 1; ip < m_pipelineTasks.size(); ip++) {
         if (t0->isPassThrough()) {
@@ -5958,7 +5968,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         }
         PipelineTask *t1 = nullptr;
         for (; ip < m_pipelineTasks.size(); ip++) {
-            if (!m_pipelineTasks[ip]->isPassThrough()) {
+            if (!m_pipelineTasks[ip]->isPassThrough()) { // isPassThroughがtrueなtaskはスキップ
                 t1 = m_pipelineTasks[ip].get();
                 break;
             }
