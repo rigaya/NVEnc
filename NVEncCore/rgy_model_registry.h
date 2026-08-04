@@ -45,6 +45,8 @@ struct OnnxModelEntry {
     int frames;          // 時間窓のフレーム数。デフォルトは1。
     bool fp32;           // fp32推論を強制する。デフォルトはfalse。
     CspMatrix colormatrixOut; // 未指定時は RGY_MATRIX_UNSPECIFIED。colormatrix_out=auto の場合のみ適用。
+    // ONNXデインターレース用。未指定はnullopt、未知の文字列は値を保持する。
+    std::optional<tstring> onnxDeintArchitecture;
 };
 
 class RGYModelRegistry {

@@ -100,6 +100,14 @@ RGY_ERR RGYModelRegistry::load(const tstring& jsonPath, std::shared_ptr<RGYLog> 
                     char_to_tstring(name.c_str()).c_str(), matrixOutStr.c_str());
             }
         }
+        if (val.contains("architecture")) {
+            if (val["architecture"].is_string()) {
+                entry.onnxDeintArchitecture = char_to_tstring(val["architecture"].get<std::string>().c_str());
+            } else {
+                log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("models.json: model \"%s\" has non-string architecture, ignoring\n"),
+                    char_to_tstring(name.c_str()).c_str());
+            }
+        }
         m_models[char_to_tstring(name.c_str())] = std::move(entry);
     }
 
