@@ -16843,6 +16843,11 @@ tstring gen_cmd_help_vpp() {
         _T("     ST-DeInt deinterlacing using an ONNX model.\n")
         _T("      model=<name|path>           Registered ST-DeInt model name or ONNX path (required)\n")
         _T("                                  Names require --vpp-onnx-model-dir (stdeint_ov_models.json).\n")
+        _T("      arch=<string>               stdeint (default) / ddd\n")
+        _T("                                  Selects how fields are fed to the model:\n")
+        _T("                                  stdeint takes row-interpolated frames, ddd takes\n")
+        _T("                                  transposed fields. Both are 9ch in / 3ch out, so it\n")
+        _T("                                  cannot be inferred from the model.\n")
         _T("      mode=<string>               bob (default, double frame rate) / normal\n")
 #if ENABLE_OPENVINO
         _T("      device=<string>             GPU.0 (default) / CPU / GPU / AUTO / NPU\n")
