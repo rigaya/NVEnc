@@ -96,6 +96,39 @@
                 "isDefault": false
             },
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "dev_deploy (Release/x64 + AviUtl2)",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/dev_deploy.ps1",
+                "-Configuration",
+                "Release",
+                "-Platform",
+                "x64"
+            ],
+            "group": "none",
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "dev_deploy (SkipBuild + AviUtl2)",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/dev_deploy.ps1",
+                "-SkipBuild"
+            ],
+            "group": "none",
+            "problemMatcher": []
         }
     ]
 }

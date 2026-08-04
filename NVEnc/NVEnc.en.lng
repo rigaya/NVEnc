@@ -287,6 +287,7 @@ AUO_CONF_UI_THEME_DARK1=Dark
 
 [AUO_BAT]
 AUO_BAT_RUN=bat file process
+AUO_BAT_FINISH=Bat file process finished. Exit code: %u
 
 [AUO_VIDEO]
 AUO_VIDEO_KEY_FRAME_DETECTION_START=Aviutl keyframe detection...

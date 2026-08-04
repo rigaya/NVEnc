@@ -286,6 +286,7 @@ AUO_CONF_UI_THEME_DARK1=Dark(黒窓)
 
 [AUO_BAT]
 AUO_BAT_RUN=バッチファイル処理
+AUO_BAT_FINISH=バッチファイル処理が終了しました。終了コード: %u
 
 [AUO_VIDEO]
 AUO_VIDEO_KEY_FRAME_DETECTION_START=Aviutl キーフレーム検出中…

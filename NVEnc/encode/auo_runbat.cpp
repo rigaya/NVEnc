@@ -194,7 +194,7 @@ AUO_RESULT run_bat_file(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PR
         return ret;
 
     //バッチ処理の実行
-    PROCESS_INFORMATION pi_bat;
+    PROCESS_INFORMATION pi_bat = { 0 };
     int rp_ret;
     TCHAR bat_args[MAX_PATH_LEN];
     TCHAR bat_dir[MAX_PATH_LEN];
@@ -204,9 +204,22 @@ AUO_RESULT run_bat_file(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PR
     if (RP_SUCCESS != (rp_ret = RunProcess(bat_args, sys_dat->aviutl_dir, &pi_bat, NULL, NORMAL_PRIORITY_CLASS, FALSE, sys_dat->exstg->s_local.run_bat_minimized))) {
         ret |= AUO_RESULT_ERROR; error_run_process(g_auo_mes.get(AUO_BAT_RUN), rp_ret);
     }
-    if (!ret && !(conf->oth.dont_wait_bat_fin & run_bat_mode))
+    const bool wait_bat_fin = !(conf->oth.dont_wait_bat_fin & run_bat_mode);
+    if (!ret && wait_bat_fin && pi_bat.hProcess) {
         while (WaitForSingleObject(pi_bat.hProcess, LOG_UPDATE_INTERVAL) == WAIT_TIMEOUT)
             log_process_events();
+        DWORD exit_code = 0;
+        if (GetExitCodeProcess(pi_bat.hProcess, &exit_code)) {
+            const int log_type = (exit_code == 0) ? LOG_INFO : LOG_WARNING;
+            write_log_auo_line_fmt(log_type, g_auo_mes.get(AUO_BAT_FINISH), exit_code);
+        }
+    }
+    if (pi_bat.hProcess) {
+        CloseHandle(pi_bat.hProcess);
+    }
+    if (pi_bat.hThread) {
+        CloseHandle(pi_bat.hThread);
+    }
 
     set_window_title(g_auo_mes.get(AUO_GUIEX_FULL_NAME), PROGRESSBAR_DISABLED);
 

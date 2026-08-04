@@ -1,0 +1,14 @@
+{
+  "mediainfo": "X:\\Encoders\\x64\\MediaInfo\\MediaInfo.exe",
+  "ffprobe": "X:\\Encoders\\x64\\ffprobe.exe",
+  "aup2": "F:\\temp\\test3.aup2",
+  "plugin_name_contains": [
+    "NVEnc",
+    "拡張 NVEnc 出力",
+    "Output.拡張 NVEnc 出力"
+  ],
+  "require_video": true,
+  "require_audio_if_log_has_audio": true,
+  "min_duration_sec": 0.1,
+  "result_filename": "smoke_result.txt"
+}

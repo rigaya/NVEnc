@@ -415,6 +415,7 @@ enum AuoMes {
     //section = AUO_BAT
     AUO_BAT_SECTION_START = AUO_CONF_SECTION_FIN,
     AUO_BAT_RUN,
+    AUO_BAT_FINISH,
     AUO_BAT_SECTION_FIN,
 
     //section = AUO_VIDEO
