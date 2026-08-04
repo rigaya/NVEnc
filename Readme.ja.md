@@ -98,7 +98,7 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
 
   | カテゴリ | フィルタ |
   |:--|:--|
-  | インタレ解除 | deinterlace (CUVID), afs, bwdif, yadif, nnedi, rtgmc, kfm, decomb, stdeint |
+  | インタレ解除 | deinterlace (CUVID), afs, bwdif, yadif, nnedi, rtgmc, kfm, decomb, onnx-deint |
   | 逆テレシネ・間引き | rff, ivtc, decimate, mpdecimate, select-every |
   | ノイズ除去 | knn, pmd, nlmeans, hqdn3d, smooth, denoise-dct, fft3d, msmooth, degrain, convolution3d, gauss, nvvfx-denoise, nvvfx-artifact-reduction |
   | リサイズ | resize (様々なアルゴリズム, [npp](https://developer.nvidia.com/npp), [nvvfx](https://github.com/NVIDIA/MAXINE-VFX-SDK), [ngx-vsr](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html), [libplacebo](https://code.videolan.org/videolan/libplacebo)), descale |

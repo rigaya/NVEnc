@@ -16826,6 +16826,7 @@ tstring gen_cmd_help_vpp() {
     str += strsprintf(_T("\n")
         _T("   --vpp-onnx-deint [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     ONNX model based deinterlacing.\n")
+        _T("      enable=<bool>               true (default, enable filter) / false\n")
         _T("      model=<name>                Registered model name (required)\n")
         _T("                                  Names require --vpp-onnx-model-dir (onnx_deint_models.json).\n")
         _T("      mode=<string>               bob (default, double frame rate) / normal\n")
