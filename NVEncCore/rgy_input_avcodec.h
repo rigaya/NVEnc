@@ -871,6 +871,7 @@ public:
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
     RGYOptList     inputOpt;                //入力オプション
     RGYHEVCBsf     hevcbsf;
+    std::pair<int, int> adaptResolution;     //入力途中の解像度変更で許容する最大解像度
     tstring        avswDecoder;             //avswデコーダの指定
 
     RGYInputAvcodecPrm(RGYInputPrm base);
@@ -884,6 +885,21 @@ public:
     virtual ~RGYInputAvcodec();
 
     virtual void Close() override;
+
+    //avswではデコード結果を受け取る前にINPUT-CUDA間のhost/deviceサーフェスを確保するため、
+    //途中で現れうる最大解像度を初期確保サイズとして返す必要がある。
+    //一方、GetInputFrameInfo()は現在フレームの実解像度を返し続ける。両者を混ぜると、
+    //小さい区間を最大解像度として処理して読み越すため、専用overrideで分離している。
+    //native avhwではデコードサーフェスをCUVIDが管理しPipelineTaskNVDecodeが確保をskipするため、この値は使われない。
+    //avhw指定でも対応外codec等でsoftware decodeへfallbackした場合はPipelineTaskInputを通るので、avswと同じ確保が必要になる。
+    virtual VideoInfo GetInputFrameInfoForAlloc() override {
+        auto info = m_inputVideoInfo;
+        if (m_maxSrcWidth > 0 && m_maxSrcHeight > 0) {
+            info.srcWidth = m_maxSrcWidth;
+            info.srcHeight = m_maxSrcHeight;
+        }
+        return info;
+    }
 
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
     virtual RGY_ERR GetNextBitstream(RGYBitstream *pBitstream) override;
@@ -1071,9 +1087,10 @@ protected:
     tstring          m_logFramePosList;           //FramePosListの内容を入力終了時に出力する (デバッグ用)
     std::unique_ptr<FILE, fp_deleter> m_fpPacketList; // 読み取ったパケット情報を出力するファイル
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
-    //入力初期解像度。下流のサーフェスはこの解像度で確保されるため、途中でこれを超える解像度になった場合は対応できず明示エラーとする
-    int              m_initialSrcWidth;
-    int              m_initialSrcHeight;
+    //入力解像度の上限。未指定時はコンテナ宣言解像度、指定時は--adapt-resolutionの値となる。
+    //avswの下流サーフェスはこのサイズで初期確保済みなので、途中で超えた場合は書き込み前に明示エラーとする。
+    int              m_maxSrcWidth;
+    int              m_maxSrcHeight;
     bool             m_suppressPulldownDetect;     // true: skip avgDuration *= 1.25 after bPulldown is detected. bPulldown itself is still set so log/diagnostic paths see it. Mirrors RGYInputAvcodecPrm::suppressPulldownMutation.
     bool             m_pulldownDetected;           // true when getFirstFramePosAndFrameRate detected soft pulldown.
 

@@ -229,6 +229,12 @@ public:
     VideoInfo GetInputFrameInfo() {
         return m_inputVideoInfo;
     }
+    //実際に処理するフレーム情報と、ワークサーフェスの確保容量を分離するための取得口。
+    //通常の入力は両者が同じだが、可変解像度入力では最大解像度で確保しつつ、
+    //フィルタには各時点の実解像度を渡す必要がある。GetInputFrameInfo()を置き換えてはいけない。
+    virtual VideoInfo GetInputFrameInfoForAlloc() {
+        return m_inputVideoInfo;
+    }
     void SetInputFrames(int frames) {
         m_inputVideoInfo.frames = frames;
     }

@@ -682,6 +682,9 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.audioReadOffsetSec = (ctrl->lowLatency) ? ((output_is_pipe(common)) ? 0.0 : 2.0) : 0.0;
         inputInfoAVCuvid.timestampPassThrough = common->timestampPassThrough;
         inputInfoAVCuvid.hevcbsf = common->hevcbsf;
+        //reader初期化時にコンテナ宣言解像度との大小を検証し、avswまたはsoftware decode fallback時の確保上限として保持する。
+        //native avhw側では同じ値をNVEncCoreからCUVIDへ直接渡す。どちらのdecode経路でも同じCLI上限を使うため二重に配線する。
+        inputInfoAVCuvid.adaptResolution = common->adaptResolution;
         inputInfoAVCuvid.avswDecoder = inprm->avswDecoder;
         pInputPrm = &inputInfoAVCuvid;
         log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avhw/sw reader selected.\n"));

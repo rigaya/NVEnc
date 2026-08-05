@@ -240,7 +240,10 @@ int CuvidDecode::DecVideoSequence(CUVIDEOFORMAT *pFormat) {
     //この関数はparser(=デコードスレッド)から呼ばれるコールバックで、ここから戻るまでデコードは進まない。
     if (   (pFormat->coded_width   != m_videoDecodeCreateInfo.ulWidth)
         || (pFormat->coded_height  != m_videoDecodeCreateInfo.ulHeight)) {
-        //デコーダの解像度上限は最初の作成時に固定され、作り直しても引き上げられないので、上限超過は対応不可
+        //デコーダの解像度上限は最初の作成時に固定され、同じparserセッション内でdecoderだけ作り直しても引き上げられない。
+        //実測では再作成自体が成功しても、上限を超えた最初のcuvidDecodePicture()がCUDA_ERROR_INVALID_VALUEになった。
+        //--adapt-resolutionはこの上限を初回作成前に広げるための指定であり、ここへ到達してからの再確保はできない。
+        //バリアへ入って下流を止める前に弾くことで、タイムアウトや原因の分かりにくいdecode失敗を避ける。
         if (   pFormat->coded_width  > m_videoDecodeCreateInfo.ulMaxWidth
             || pFormat->coded_height > m_videoDecodeCreateInfo.ulMaxHeight) {
             AddMessage(RGY_LOG_ERROR, _T("input resolution %dx%d exceeds the decoder creation limit %dx%d (coded size).\n"),
@@ -511,7 +514,7 @@ CUresult CuvidDecode::ReconfigureDecoder(CUVIDEOFORMAT *pFormat) {
     return curesult;
 }
 
-CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool lowLatency) {
+CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool lowLatency, const std::pair<int, int>& adaptResolution) {
     //初期化
     CloseDecoder();
 
@@ -552,6 +555,16 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
         AddMessage(RGY_LOG_DEBUG, _T("decoder caps: min %dx%d, max %dx%d.\n"),
             (int)m_videoDecodeCaps.nMinWidth, (int)m_videoDecodeCaps.nMinHeight,
             (int)m_videoDecodeCaps.nMaxWidth, (int)m_videoDecodeCaps.nMaxHeight);
+        //未指定時のコンテナ宣言値はUpdateDecoderCreateInfo()でcapsへclampする従来挙動を維持する。
+        //一方、ユーザが明示した上限を黙って縮めると、指定範囲を処理できるように見えて切替点で初めて失敗するため、
+        //明示指定だけはparser/decoderを作る前にエラーにする。表示解像度との比較なので、ここでは32アライン前の値を使う。
+        if (adaptResolution.first > 0
+            && (adaptResolution.first > (int)m_videoDecodeCaps.nMaxWidth || adaptResolution.second > (int)m_videoDecodeCaps.nMaxHeight)) {
+            AddMessage(RGY_LOG_ERROR, _T("--adapt-resolution %dx%d exceeds the decoder limit %dx%d.\n"),
+                adaptResolution.first, adaptResolution.second,
+                (int)m_videoDecodeCaps.nMaxWidth, (int)m_videoDecodeCaps.nMaxHeight);
+            return CUDA_ERROR_NOT_SUPPORTED;
+        }
     } else {
         memset(&m_videoDecodeCaps, 0, sizeof(m_videoDecodeCaps));
         AddMessage(RGY_LOG_DEBUG, _T("failed to get decoder caps %d (%s), decoder limit will not be clamped.\n"),
@@ -642,10 +655,16 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     m_videoDecodeCreateInfo.CodecType = cudaVideoCodec_NumCodecs; // こうしておいて後からDecVideoSequence()->CreateDecoder()で設定する
     m_videoDecodeCreateInfo.ulWidth   = input->srcWidth;
     m_videoDecodeCreateInfo.ulHeight  = input->srcHeight;
-    //ストリーム途中の解像度変更に備えて、コンテナが宣言している解像度をcoded size相当に切り上げて
-    //デコーダの解像度上限とする。上限を余分に取るとその分だけVRAMを常時消費するのでヘッドルームは取らない。
-    m_videoDecodeCreateInfo.ulMaxWidth = ALIGN32(input->srcWidth);
-    m_videoDecodeCreateInfo.ulMaxHeight = ALIGN32(input->srcHeight);
+    //ストリーム途中の解像度変更に備えて、指定された最大表示解像度をcoded size相当に切り上げてデコーダ上限とする。
+    //H.264のフィールド符号化などでは表示高さ1080に対してcoded height 1088が来るため、表示値をそのまま入れると
+    //「指定上限と同じ解像度」への切替でも上限超過になる。幅・高さとも32アラインしてこの差を吸収する。
+    //この値はデコードサーフェス全枚数の確保量に効き、無闇に大きくすると解像度変更のない通常入力でもVRAMを消費する。
+    //そのため未指定時は従来どおりコンテナ宣言解像度だけを使い、必要な入力に限ってユーザ指定で広げる。
+    //なおUpdateDecoderCreateInfo()は取得済みcapsへ最終clampし、一度設定した上限を縮小後も維持する。
+    const int maxWidth = (adaptResolution.first > 0) ? adaptResolution.first : input->srcWidth;
+    const int maxHeight = (adaptResolution.second > 0) ? adaptResolution.second : input->srcHeight;
+    m_videoDecodeCreateInfo.ulMaxWidth = ALIGN32(maxWidth);
+    m_videoDecodeCreateInfo.ulMaxHeight = ALIGN32(maxHeight);
     m_videoDecodeCreateInfo.ulNumDecodeSurfaces = FrameQueue::cnMaximumSize;
 
     m_videoDecodeCreateInfo.ChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[input->csp]);

@@ -1738,7 +1738,9 @@ RGY_ERR NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 
         m_pDecoder.reset(new CuvidDecode());
 
-        auto result = m_pDecoder->InitDecode(m_dev->vidCtxLock(), &inputParam->input, &inputParam->vppnv, streamIn->time_base, m_pLog, inputParam->nHWDecType, enableCuvidResize(inputParam), inputParam->ctrl.lowLatency);
+        //--adapt-resolutionは表示解像度で受け取り、CUVID側でcoded size向けにアラインして初期上限へ変換する。
+        //input.srcWidth/Height自体は現在の入力解像度として下流の固定出力設計に使うため、ここで上書きしない。
+        auto result = m_pDecoder->InitDecode(m_dev->vidCtxLock(), &inputParam->input, &inputParam->vppnv, streamIn->time_base, m_pLog, inputParam->nHWDecType, enableCuvidResize(inputParam), inputParam->ctrl.lowLatency, inputParam->common.adaptResolution);
         if (result != CUDA_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init decoder.\n"));
             return RGY_ERR_UNSUPPORTED;

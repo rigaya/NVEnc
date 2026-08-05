@@ -11996,6 +11996,23 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("adapt-resolution")) {
+        //未指定はRGYParamCommonの{ 0, 0 }で表すため、オプションを明示した場合は両方とも正数だけを許可する。
+        //片方だけ0を許すと「未指定」と「一方向だけ上限指定」の区別が下流ごとに変わってしまうため不可とする。
+        if (i + 1 >= nArgNum) {
+            print_cmd_error_invalid_value(option_name, _T(""));
+            return 1;
+        }
+        i++;
+        int resolution[2] = { 0, 0 };
+        if (2 != _stscanf_s(strInput[i], _T("%dx%d"), &resolution[0], &resolution[1])
+            || resolution[0] <= 0 || resolution[1] <= 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        common->adaptResolution = std::make_pair(resolution[0], resolution[1]);
+        return 0;
+    }
 #if !ENCODER_MPP
     if (IS_OPTION("ssim")) {
         common->metric.ssim = true;
@@ -15388,6 +15405,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
 
     OPT_LST(_T("--input-hevc-bsf"), hevcbsf, list_hevc_bsf_mode);
+    if (param->adaptResolution != defaultPrm->adaptResolution) {
+        cmd << _T(" --adapt-resolution ") << param->adaptResolution.first << _T("x") << param->adaptResolution.second;
+    }
     OPT_STR_PATH(_T("--tcfile-in"), tcfileIn);
     if (param->timebase != defaultPrm->timebase) {
         cmd << _T(" --timebase ") << param->timebase.n() << _T("/") << param->timebase.d();
@@ -15897,7 +15917,10 @@ tstring gen_cmd_help_common() {
         _T("\n")
         _T("   --input-hevc-bsf <string>    switch hevc bitstream filter used for hw decoder input\n")
         _T("                                 - internal   ... use internal implementation (default)\n")
-        _T("                                 - libavcodec ... use hevc_mp4toannexb bsf\n"),
+        _T("                                 - libavcodec ... use hevc_mp4toannexb bsf\n")
+        _T("   --adapt-resolution <int>x<int>\n")
+        _T("                                入力途中の解像度変更で許容する最大解像度を指定する。\n")
+        _T("                                avhwではデコーダ、avswでは入力サーフェスを指定値で確保する。\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
     str += _T("\n")
         _T("   --input-pixel-format <string>  set input pixel format for avdevice\n")

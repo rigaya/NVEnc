@@ -4257,6 +4257,10 @@ struct RGYParamCommon {
     tstring tcfileIn;
     rgy_rational<int> timebase;
     RGYHEVCBsf hevcbsf;
+    //入力途中の解像度変更で許容する最大表示解像度。{ 0, 0 } は未指定を表す。
+    //現在の入力解像度とは別物であり、この値で入力情報を書き換えてはいけない。
+    //avhwではCUVIDの初期作成上限、avswでは入力サーフェスの確保容量として使う。
+    std::pair<int, int> adaptResolution;
 
     RGYVideoQualityMetric metric;
 

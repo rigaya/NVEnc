@@ -1276,7 +1276,10 @@ public:
     }
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override {
-        const auto inputFrameInfo = m_input->GetInputFrameInfo();
+        //可変解像度avswでは、現在の実解像度ではなく--adapt-resolutionで指定した上限を使って初期確保する。
+        //ここをGetInputFrameInfo()のままにすると、readerが後で上限内の大きいAVFrameを検出できても、
+        //その書き込み先は開始時の小さいサイズのままなので、変換時点でバッファオーバーランする。
+        const auto inputFrameInfo = m_input->GetInputFrameInfoForAlloc();
         RGYFrameInfo info(inputFrameInfo.srcWidth, inputFrameInfo.srcHeight, inputFrameInfo.csp, inputFrameInfo.bitdepth, inputFrameInfo.picstruct, RGY_MEM_TYPE_GPU);
         return std::make_pair(info, m_outMaxQueueSize);
     };
@@ -1345,9 +1348,10 @@ public:
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
         //入力途中の解像度変更(--avsw / avhwのsw decode時)への追従。
-        //サーフェス自体は初期解像度で確保されたものを使い回すが(そのため新解像度は初期解像度以下であることが前提)、
+        //サーフェス自体は設定上限の解像度で確保されたものを使い回すが(そのため新解像度は設定上限以下であることが前提)、
         //width/heightを実際の解像度に更新しないと、下流のフィルタが確保時の解像度で処理してしまう。
         //hostFrame側も更新するのは、readerがhostFrameに対して書き込みを行うため。
+        //確保容量はCUFrameBuf内部に残るので、ここでframe.width/heightを小さくしても再確保や容量縮小は発生しない。
         const auto inputFrameInfo = m_input->GetInputFrameInfo();
         if (   cuframe->frame.width != inputFrameInfo.srcWidth || cuframe->frame.height != inputFrameInfo.srcHeight
             || cuframe->refFrameHost->frame.width != inputFrameInfo.srcWidth || cuframe->refFrameHost->frame.height != inputFrameInfo.srcHeight) {

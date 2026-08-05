@@ -63,7 +63,9 @@ public:
     CuvidDecode();
     ~CuvidDecode();
 
-    CUresult InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool lowLatency = false);
+    //adaptResolutionは表示解像度で指定された初回作成上限。実際のcoded sizeへのアラインとcaps検証はInitDecode内で行う。
+    //既存の内部デコーダ呼び出しを変えないため末尾の省略可能引数とし、未指定時は従来のコンテナ宣言解像度を使う。
+    CUresult InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool lowLatency = false, const std::pair<int, int>& adaptResolution = { 0, 0 });
     RGY_ERR CloseDecoder();
     CUresult DecodePacket(uint8_t *data, size_t nSize, int64_t timestamp, AVRational streamtimebase);
     CUresult FlushParser();
