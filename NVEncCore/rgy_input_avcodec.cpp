@@ -680,6 +680,11 @@ bool RGYInputAvcodec::isSelectedLangTrack(const std::string &lang, const AVStrea
     return rgy_lang_equal(lang, streamLang);
 }
 
+bool RGYInputAvcodec::isNotExcludedLangTrack(const std::string &langs, const AVStream *stream) {
+    const auto langList = split(langs, ",");
+    return std::none_of(langList.begin(), langList.end(), [&](const auto& lang) { return isSelectedLangTrack(lang, stream); });
+}
+
 bool RGYInputAvcodec::isSelectedCodecTrack(const std::string &selectCodec, const AVStream *stream) {
     const auto desc = avcodec_descriptor_get_by_name(selectCodec.c_str());
     if (desc == nullptr) return false;
@@ -1860,6 +1865,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 for (int i = 0; !useStream && i < input_prm->nSubtitleSelectCount; i++) {
                     if ((input_prm->ppSubtitleSelect[i]->trackID == 0 && input_prm->ppSubtitleSelect[i]->encCodec.length() > 0) //特に指定なし = 全指定かどうか
                         || (input_prm->ppSubtitleSelect[i]->trackID == TRACK_SELECT_BY_LANG && isSelectedLangTrack(input_prm->ppSubtitleSelect[i]->lang, srcStream))
+                        || (input_prm->ppSubtitleSelect[i]->trackID == TRACK_SELECT_BY_LANG_EXCLUDE && isNotExcludedLangTrack(input_prm->ppSubtitleSelect[i]->lang, srcStream))
                         || (input_prm->ppSubtitleSelect[i]->trackID == TRACK_SELECT_BY_CODEC && isSelectedCodecTrack(input_prm->ppSubtitleSelect[i]->selectCodec, srcStream))
                         || input_prm->ppSubtitleSelect[i]->trackID - 1 == (iTrack - m_Demux.format.audioTracks)) {
                         useStream = true;
@@ -1879,6 +1885,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 //音声の場合
                 for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
                     if ((input_prm->ppAudioSelect[i]->trackID == TRACK_SELECT_BY_LANG && isSelectedLangTrack(input_prm->ppAudioSelect[i]->lang, srcStream))
+                        || (input_prm->ppAudioSelect[i]->trackID == TRACK_SELECT_BY_LANG_EXCLUDE && isNotExcludedLangTrack(input_prm->ppAudioSelect[i]->lang, srcStream))
                         || (input_prm->ppAudioSelect[i]->trackID == TRACK_SELECT_BY_CODEC && isSelectedCodecTrack(input_prm->ppAudioSelect[i]->selectCodec, srcStream))
                         || (input_prm->ppAudioSelect[i]->trackID - 1 == (iTrack))) {
                         useStream = true;

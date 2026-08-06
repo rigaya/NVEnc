@@ -1324,6 +1324,10 @@ static bool audioSelected(const AudioSelect *sel, const AVDemuxStream *stream) {
     if (sel->trackID == TRACK_SELECT_BY_LANG && rgy_lang_equal(sel->lang, stream->lang)) {
         return true;
     }
+    if (sel->trackID == TRACK_SELECT_BY_LANG_EXCLUDE) {
+        const auto langs = split(sel->lang, ",");
+        return std::none_of(langs.begin(), langs.end(), [&](const auto& lang) { return rgy_lang_equal(lang, stream->lang); });
+    }
     if (sel->trackID == TRACK_SELECT_BY_CODEC && stream->stream != nullptr && avcodec_equal(sel->selectCodec, stream->stream->codecpar->codec_id)) {
         return true;
     }
@@ -1335,6 +1339,10 @@ static bool subSelected(const SubtitleSelect *sel, const AVDemuxStream *stream) 
     }
     if (sel->trackID == TRACK_SELECT_BY_LANG && rgy_lang_equal(sel->lang, stream->lang)) {
         return true;
+    }
+    if (sel->trackID == TRACK_SELECT_BY_LANG_EXCLUDE) {
+        const auto langs = split(sel->lang, ",");
+        return std::none_of(langs.begin(), langs.end(), [&](const auto& lang) { return rgy_lang_equal(lang, stream->lang); });
     }
     if (sel->trackID == TRACK_SELECT_BY_CODEC && stream->stream != nullptr && avcodec_equal(sel->selectCodec, stream->stream->codecpar->codec_id)) {
         return true;

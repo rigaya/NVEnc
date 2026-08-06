@@ -1013,6 +1013,9 @@ protected:
     //streamで指定されたtrackの言語属性がlangの言語と等しいか
     bool isSelectedLangTrack(const std::string &lang, const AVStream *stream);
 
+    //streamで指定されたtrackが除外言語のいずれにも一致しないか
+    bool isNotExcludedLangTrack(const std::string &langs, const AVStream *stream);
+
     //streamで指定されたtrackのコーデックがselectCodecのコーデックと等しいか
     bool isSelectedCodecTrack(const std::string &selectCodec, const AVStream *stream);
 
