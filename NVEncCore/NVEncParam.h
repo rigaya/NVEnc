@@ -752,6 +752,10 @@ const CX_DESC list_nvenc_caps_bref_mode[] = {
     { _T("each"),               1 },
     { _T("only middle"),        2 },
     { _T("each + only middle"), 3 },
+    { _T("hierarchical"),       NV_ENC_BFRAME_REF_MODE_HIERARCHICAL },
+    { _T("each + hierarchical"), NV_ENC_BFRAME_REF_MODE_EACH | NV_ENC_BFRAME_REF_MODE_HIERARCHICAL },
+    { _T("only middle + hierarchical"), NV_ENC_BFRAME_REF_MODE_MIDDLE | NV_ENC_BFRAME_REF_MODE_HIERARCHICAL },
+    { _T("each + only middle + hierarchical"), NV_ENC_BFRAME_REF_MODE_EACH | NV_ENC_BFRAME_REF_MODE_MIDDLE | NV_ENC_BFRAME_REF_MODE_HIERARCHICAL },
     { NULL, 0 }
 };
 

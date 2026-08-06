@@ -2655,7 +2655,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     set_bitDepth(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, m_dev->encoder()->getAPIver(), (NV_ENC_BIT_DEPTH)clamp(inputParam->outputDepth, 8, 10));
 
     if (inputParam->codec_rgy == RGY_CODEC_HEVC || inputParam->codec_rgy == RGY_CODEC_AV1) {
-        if (!m_dev->encoder()->checkAPIver(13, 0)) {
+        if (m_dev->encoder()->checkAPIver(13, 0)) {
             set_enableTemporalSVC(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalSVC ? 1 : 0);
         }
     }

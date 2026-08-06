@@ -73,10 +73,11 @@ bool check_if_nvcuda_dll_available() {
 
 //前提とするAPIバージョンのチェック
 static_assert(NVENCAPI_MAJOR_VERSION == 13);
-static_assert(NVENCAPI_MINOR_VERSION == 0);
+static_assert(NVENCAPI_MINOR_VERSION == 1);
 //対応するAPIバージョンの管理
 static constexpr auto API_VER_LIST = make_array<uint32_t>(
     nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION),
+    nvenc_api_ver(13, 0),
     nvenc_api_ver(12, 2),
     nvenc_api_ver(12, 1),
     nvenc_api_ver(12, 0),
@@ -133,7 +134,7 @@ void NVEncoder::setStructVer(NV_ENC_INITIALIZE_PARAMS& obj) const {
         //API 12.1までは6
         obj.version = NVENC_STRUCT_VER1(6, m_apiVer);
     } else {
-        //API 12.0までは7
+        //API 12.0までは5
         obj.version = NVENC_STRUCT_VER1(5, m_apiVer);
     }
 }
@@ -167,7 +168,7 @@ void NVEncoder::setStructVer(NV_ENC_PIC_PARAMS& obj) const {
         //API 12.1までは6
         obj.version = NVENC_STRUCT_VER1(6, m_apiVer);
     } else {
-        //API 11.1までは7
+        //API 11.1までは4
         obj.version = NVENC_STRUCT_VER1(4, m_apiVer);
     }
 }
@@ -694,10 +695,10 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
         nvStatus = nvEncodeAPICreateInstance(m_pEncodeAPI.get());
         if (nvStatus != NV_ENC_SUCCESS) {
             if (nvStatus == NV_ENC_ERR_INVALID_VERSION) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to create instance of nvEncodeAPI(ver=0x%x: %d.%d), please consider updating your GPU driver.\n"), apiver, nvenc_api_ver_major(apiver), nvenc_api_ver_minor(apiver));
-            } else {
-                NVPrintFuncError(_T("nvEncodeAPICreateInstance"), nvStatus);
+                PrintMes(RGY_LOG_DEBUG, _T("Failed to create instance of nvEncodeAPI(ver=0x%x: %d.%d), trying an older API version.\n"), apiver, nvenc_api_ver_major(apiver), nvenc_api_ver_minor(apiver));
+                continue;
             }
+            NVPrintFuncError(_T("nvEncodeAPICreateInstance"), nvStatus);
             return nvStatus;
         }
         PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance(APIVer=0x%x: %d.%d): Success.\n"), apiver, nvenc_api_ver_major(apiver), nvenc_api_ver_minor(apiver));
