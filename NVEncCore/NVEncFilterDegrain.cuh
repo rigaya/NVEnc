@@ -4459,7 +4459,7 @@ static RGY_ERR launchNVEncDegrainMotionSearchSearchParallelBlock(
         }
         break;
     default:
-        return RGY_ERR_INVALID_PARAM;
+        break;
     }
 #undef NVENC_DEGRAIN_LAUNCH_SEARCH
     return RGY_ERR_INVALID_PARAM;
