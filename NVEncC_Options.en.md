@@ -810,6 +810,15 @@ Specify B frame reference mode.
 - disabled
 - each ... use each B frames as references  
 - middle ... only (Number of B-frame)/2 th B-frame will be used for reference  
+- hierarchical ... use hierarchical B-frame references (AV1, NVENC API 13.1 or later)
+
+`hierarchical` has the following restrictions.
+
+- `--bframes` must be 0, 1, 3, 7, 15, or 31.
+- Lookahead must be disabled. When enabling Lookahead, specify `--lookahead-level 0`, `--no-i-adapt`, and `--no-b-adapt` together.
+- `--multipass` must be `none`.
+- `--split-enc` must be `auto` (recommended) or `disable`.
+- PTD must be enabled. NVEncC always enables PTD.
 
 ### --direct &lt;string&gt; [H.264]
 Specify H.264 B Direct mode.

@@ -2189,10 +2189,24 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             }
         }
     }
+    if (inputParam->brefMode == NV_ENC_BFRAME_REF_MODE_HIERARCHICAL) {
+        if (!m_dev->encoder()->checkAPIver(13, 1)) {
+            PrintMes(RGY_LOG_ERROR, _T("bref-mode hierarchical requires NVENC API 13.1 or later.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (inputParam->codec_rgy != RGY_CODEC_AV1) {
+            PrintMes(RGY_LOG_ERROR, _T("bref-mode hierarchical is supported only with AV1.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
     if (inputParam->brefMode > NV_ENC_BFRAME_REF_MODE_DISABLED) {
         const int cap = codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE);
         if ((cap & inputParam->brefMode) != inputParam->brefMode) {
-            error_feature_unsupported(RGY_LOG_WARN, strsprintf(_T("B Ref Mode %s"), get_chr_from_value(list_bref_mode, inputParam->brefMode)).c_str());
+            const bool hierarchical = inputParam->brefMode == NV_ENC_BFRAME_REF_MODE_HIERARCHICAL;
+            error_feature_unsupported(hierarchical ? RGY_LOG_ERROR : RGY_LOG_WARN, strsprintf(_T("B Ref Mode %s"), get_chr_from_value(list_bref_mode, inputParam->brefMode)).c_str());
+            if (hierarchical) {
+                return RGY_ERR_UNSUPPORTED;
+            }
             inputParam->brefMode = NV_ENC_BFRAME_REF_MODE_DISABLED;
         }
     }
@@ -2520,7 +2534,9 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         m_stCreateEncodeParams.presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver9_2);
     }
     //Bフレーム数が3以下では強制的に無効
-    if (m_stEncConfig.frameIntervalP - 1 < 3 && inputParam->brefMode != NV_ENC_BFRAME_REF_MODE_DISABLED) {
+    if (m_stEncConfig.frameIntervalP - 1 < 3
+        && inputParam->brefMode != NV_ENC_BFRAME_REF_MODE_DISABLED
+        && inputParam->brefMode != NV_ENC_BFRAME_REF_MODE_HIERARCHICAL) {
         const auto loglevel = (inputParam->brefMode != NV_ENC_BFRAME_REF_MODE_AUTO && m_stEncConfig.frameIntervalP - 1 > 0) ? RGY_LOG_WARN : RGY_LOG_DEBUG;
         PrintMes(loglevel, _T("bref-mode will be disabled as B-frames is smaller than 3.\n"));
         inputParam->brefMode = NV_ENC_BFRAME_REF_MODE_DISABLED;
@@ -2672,6 +2688,33 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
 
     if (inputParam->temporalLayers.has_value()) {
         set_temporalLayers(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalLayers.value(), m_dev->encoder()->getAPIver());
+    }
+
+    if (inputParam->brefMode == NV_ENC_BFRAME_REF_MODE_HIERARCHICAL) {
+        const uint32_t frameIntervalP = m_stEncConfig.frameIntervalP;
+        if (frameIntervalP == 0 || frameIntervalP > 32 || (frameIntervalP & (frameIntervalP - 1)) != 0) {
+            PrintMes(RGY_LOG_ERROR, _T("bref-mode hierarchical requires --bframes 0, 1, 3, 7, 15, or 31.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_stEncConfig.rcParams.enableLookahead
+            && m_stEncConfig.rcParams.lookaheadLevel != NV_ENC_LOOKAHEAD_LEVEL_0) {
+            PrintMes(RGY_LOG_ERROR, _T("bref-mode hierarchical requires lookahead disabled or --lookahead-level 0.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_stEncConfig.rcParams.enableLookahead
+            && (!m_stEncConfig.rcParams.disableIadapt || !m_stEncConfig.rcParams.disableBadapt)) {
+            PrintMes(RGY_LOG_ERROR, _T("bref-mode hierarchical with lookahead requires --no-i-adapt and --no-b-adapt.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_stEncConfig.rcParams.multiPass != NV_ENC_MULTI_PASS_DISABLED) {
+            PrintMes(RGY_LOG_ERROR, _T("bref-mode hierarchical requires --multipass none.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_stCreateEncodeParams.splitEncodeMode != NV_ENC_SPLIT_AUTO_MODE
+            && m_stCreateEncodeParams.splitEncodeMode != NV_ENC_SPLIT_DISABLE_MODE) {
+            PrintMes(RGY_LOG_ERROR, _T("bref-mode hierarchical requires --split-enc auto or disable.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
     }
 
     auto require_repeat_headers = [this, inputParam]() {

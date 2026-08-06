@@ -493,6 +493,7 @@ const CX_DESC list_bref_mode[] = {
     { _T("disabled"), NV_ENC_BFRAME_REF_MODE_DISABLED },
     { _T("each"),     NV_ENC_BFRAME_REF_MODE_EACH },
     { _T("middle"),   NV_ENC_BFRAME_REF_MODE_MIDDLE },
+    { _T("hierarchical"), NV_ENC_BFRAME_REF_MODE_HIERARCHICAL },
     { NULL, 0 }
 };
 

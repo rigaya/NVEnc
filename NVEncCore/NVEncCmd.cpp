@@ -268,6 +268,7 @@ tstring encoder_help() {
         _T("                                  - disabled\n")
         _T("                                  - each\n")
         _T("                                  - middle\n")
+        _T("                                  - hierarchical (AV1, API 13.1+)\n")
         _T("   --tf-level <int>             set temporal filtering level (0 (default), 4)\n")
         _T("                                  requires bframes >= 4\n")
         _T("   --temporal-layers <int>      set number of temporal layers\n")

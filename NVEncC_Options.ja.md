@@ -819,6 +819,15 @@ Bフレームの参照モードを指定する。
 - disabled
 - each ... すべてのBフレームを参照フレームとして利用する  
 - middle ... 偶数番目のBフレームのみが参照フレームとして利用できる  
+- hierarchical ... 階層型Bフレーム参照を使用する (AV1、NVENC API 13.1以降)
+
+`hierarchical` には次の制約があります。
+
+- `--bframes` は 0、1、3、7、15、31 のいずれかにする必要があります。
+- Lookaheadは無効にする必要があります。有効にする場合は、`--lookahead-level 0`、`--no-i-adapt`、`--no-b-adapt` をすべて指定してください。
+- `--multipass` は `none` にする必要があります。
+- `--split-enc` は `auto` (推奨) または `disable` にする必要があります。
+- PTDを有効にする必要があります。NVEncCではPTDを常に有効にしています。
 
 ### --temporal-layers &lt;int&gt;  
 hierarchialフレームの階層数を指定する。

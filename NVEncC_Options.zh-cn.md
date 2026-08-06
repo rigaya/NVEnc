@@ -86,7 +86,7 @@
     - [--aq](#--aq)
     - [--aq-temporal](#--aq-temporal)
     - [--aq-strength \<int\>](#--aq-strength-int)
-    - [--bref-mode \<string\> \[H.264\]](#--bref-mode-string-h264)
+    - [--bref-mode \<string\>](#--bref-mode-string)
     - [--direct \<string\> \[H.264\]](#--direct-string-h264)
     - [--(no-)adapt-transform \[H.264\]](#--no-adapt-transform-h264)
     - [--hierarchial-p \[H.264\]](#--hierarchial-p-h264)
@@ -734,7 +734,7 @@ P1为最快，P7为质量最高
 
 指定自适应量化强度（Adaptive Quantization Strength）。(1 (弱) - 15 (强), 0 = 自动)
 
-### --bref-mode &lt;string&gt; [H.264]
+### --bref-mode &lt;string&gt;
 指定 B 帧参考模式。
 
 - auto (默认)
@@ -743,6 +743,10 @@ P1为最快，P7为质量最高
   将每一 B 帧作为参考
 - middle
   只有第 (B帧数量)/2 个B帧会被作为参考  
+- hierarchical
+  使用层次化 B 帧参考结构（AV1、NVENC API 13.1 或更高版本）
+
+`hierarchical` 要求 `--bframes` 为 0、1、3、7、15 或 31，启用 PTD，禁用多遍编码，并将分割编码设为 `auto`（推荐）或 `disable`。前向分析必须禁用；或者同时指定 `--lookahead-level 0`、`--no-i-adapt` 和 `--no-b-adapt`。
 
 ### --direct &lt;string&gt; [H.264]
 
