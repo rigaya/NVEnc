@@ -699,6 +699,10 @@ RGY_ERR NVEncFilterOnnx::initCudaPath(cudaStream_t stream) {
         || ((m_io == OnnxIO::Chroma || (m_io == OnnxIO::RGB && m_ycbcr)) && (!m_cropToYuv444 || !m_cropFromYuv444))) {
         return RGY_ERR_UNSUPPORTED;
     }
+
+    // 初期化時のホスト経路用セッションを保持したまま同じモデルをウォームアップすると、
+    // 重いモデルでは一時的に2セッション分のVRAMが必要になるため、先に解放する。
+    m_ov.reset();
     auto session = std::make_unique<RGYOnnxRTCUDA>();
     tstring errorMessage;
     auto err = session->init(m_modelPath, m_deviceID, m_provider,
@@ -709,7 +713,23 @@ RGY_ERR NVEncFilterOnnx::initCudaPath(cudaStream_t stream) {
         || session->outWidth() * session->outHeight() * session->outChannels() != (int)m_outBuf.size()) {
         const auto reason = !errorMessage.empty() ? errorMessage : session->lastError();
         AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー経路を初期化できないためホスト経路を使用します: %s\n"), reason.c_str());
-        return (err != RGY_ERR_NONE) ? err : RGY_ERR_UNSUPPORTED;
+        const auto cudaPathErr = (err != RGY_ERR_NONE) ? err : RGY_ERR_UNSUPPORTED;
+
+        // 失敗したゼロコピー用セッションを破棄してから、ホスト経路用を再生成する。
+        // 両方を同時に保持しないことで、フォールバック時にもVRAMのピークを抑える。
+        session.reset();
+        auto hostSession = std::make_unique<RGYOnnxRTCUDA>();
+        tstring hostErrorMessage;
+        const auto hostErr = hostSession->init(m_modelPath, m_deviceID, m_provider,
+            m_param->frameIn.height, m_param->frameIn.width, hostErrorMessage,
+            nullptr, m_precision, m_cacheDir);
+        if (hostErr != RGY_ERR_NONE) {
+            const auto hostReason = !hostErrorMessage.empty() ? hostErrorMessage : hostSession->lastError();
+            AddMessage(RGY_LOG_ERROR, _T("onnx: ホスト経路用セッションの再初期化に失敗しました: %s\n"), hostReason.c_str());
+            return hostErr;
+        }
+        m_ov = std::move(hostSession);
+        return cudaPathErr;
     }
     m_ov = std::move(session);
     m_cudaPath = true;
@@ -796,26 +816,39 @@ RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     copyFramePropWithoutRes(coreFrame, pInputFrame);
 
     RGY_ERR cerr = RGY_ERR_UNSUPPORTED;
-    if ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr && initCudaPath(stream) == RGY_ERR_NONE) {
-        cerr = runCudaRGB(pInputFrame, coreFrame, stream);
-        if (cerr != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
-            m_cudaPath = false;
+    RGY_ERR cudaPathInitErr = RGY_ERR_NONE;
+    if ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr) {
+        cudaPathInitErr = initCudaPath(stream);
+        if (cudaPathInitErr == RGY_ERR_NONE) {
+            cerr = runCudaRGB(pInputFrame, coreFrame, stream);
+            if (cerr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
+                m_cudaPath = false;
+            }
         }
-    } else if (m_io == OnnxIO::GrayNoise && initCudaPath(stream) == RGY_ERR_NONE) {
-        cerr = runCudaGrayNoise(pInputFrame, coreFrame, stream);
-        if (cerr != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
-            m_cudaPath = false;
+    } else if (m_io == OnnxIO::GrayNoise) {
+        cudaPathInitErr = initCudaPath(stream);
+        if (cudaPathInitErr == RGY_ERR_NONE) {
+            cerr = runCudaGrayNoise(pInputFrame, coreFrame, stream);
+            if (cerr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
+                m_cudaPath = false;
+            }
         }
-    } else if ((m_io == OnnxIO::Chroma || (m_io == OnnxIO::RGB && m_ycbcr)) && initCudaPath(stream) == RGY_ERR_NONE) {
-        cerr = runCudaYuv444(pInputFrame, coreFrame, stream);
-        if (cerr != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
-            m_cudaPath = false;
+    } else if (m_io == OnnxIO::Chroma || (m_io == OnnxIO::RGB && m_ycbcr)) {
+        cudaPathInitErr = initCudaPath(stream);
+        if (cudaPathInitErr == RGY_ERR_NONE) {
+            cerr = runCudaYuv444(pInputFrame, coreFrame, stream);
+            if (cerr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr));
+                m_cudaPath = false;
+            }
         }
     }
     if (!m_cudaPath) {
+        if (!m_ov) {
+            return (cudaPathInitErr != RGY_ERR_NONE) ? cudaPathInitErr : RGY_ERR_UNKNOWN;
+        }
         cerr = runHost(pInputFrame, coreFrame, stream);
     }
     if (cerr != RGY_ERR_NONE) {
