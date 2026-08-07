@@ -3050,10 +3050,12 @@ void RGYInputAvcodec::checkPmtChange() {
                         m_Demux.video.stream->time_base.num, m_Demux.video.stream->time_base.den,
                         newStream->time_base.num, newStream->time_base.den);
                 } else {
-                    const bool extradataDiffers = oldCodec->extradata_size != newCodec->extradata_size
-                        || (oldCodec->extradata_size > 0
-                            && (oldCodec->extradata == nullptr || newCodec->extradata == nullptr
-                                || memcmp(oldCodec->extradata, newCodec->extradata, oldCodec->extradata_size) != 0));
+                    //新しいAVStreamはextradataが未解析で空のことがあるため、
+                    //両方に中身があるときだけ比較する(空は「不明」であって「変化した」ではない)
+                    const bool extradataDiffers = oldCodec->extradata_size > 0 && newCodec->extradata_size > 0
+                        && oldCodec->extradata != nullptr && newCodec->extradata != nullptr
+                        && (oldCodec->extradata_size != newCodec->extradata_size
+                            || memcmp(oldCodec->extradata, newCodec->extradata, oldCodec->extradata_size) != 0);
                     if (extradataDiffers) {
                         AddMessage(RGY_LOG_WARN, _T("pmt follow: video extradata differs between stream %d and %d.\n"),
                             m_Demux.video.index, newIndex);
@@ -3107,12 +3109,17 @@ void RGYInputAvcodec::checkPmtChange() {
             continue;
         }
         if (mediaType == AVMEDIA_TYPE_AUDIO) {
-            if (newCodec->sample_rate != oldCodec->sample_rate) {
+            //新しいAVStreamはavformat_find_stream_info()を通っていないため、
+            //PMTから判別できないsample_rate/ch_layoutは0/未設定のことがある。
+            //これらは「不明」であって「変化した」ではないので、両方が有効なときだけ比較する
+            if (newCodec->sample_rate > 0 && oldCodec->sample_rate > 0
+                && newCodec->sample_rate != oldCodec->sample_rate) {
                 AddMessage(RGY_LOG_WARN, _T("pmt follow: audio stream %d -> %d rejected because sample rate changed from %d to %d.\n"),
                     stream.indexCurrent, newIndex, oldCodec->sample_rate, newCodec->sample_rate);
                 continue;
             }
-            if (av_channel_layout_compare(&newCodec->ch_layout, &oldCodec->ch_layout) != 0) {
+            if (newCodec->ch_layout.nb_channels > 0 && oldCodec->ch_layout.nb_channels > 0
+                && av_channel_layout_compare(&newCodec->ch_layout, &oldCodec->ch_layout) != 0) {
                 AddMessage(RGY_LOG_WARN, _T("pmt follow: audio stream %d -> %d rejected because channel layout changed.\n"),
                     stream.indexCurrent, newIndex);
                 continue;
