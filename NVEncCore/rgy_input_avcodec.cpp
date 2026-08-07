@@ -2986,7 +2986,19 @@ RGY_ERR RGYInputAvcodec::initPmtFollow(const bool disableFollow) {
     return RGY_ERR_NONE;
 }
 
+//demux直後の生パケット用: 現在パケットが流れてきているstream indexで突合する
 AVDemuxStream *RGYInputAvcodec::getPacketStreamData(const AVPacket *pkt) {
+    int streamIndex = pkt->stream_index;
+    for (int i = 0; i < (int)m_Demux.stream.size(); i++) {
+        if (m_Demux.stream[i].indexCurrent == streamIndex) {
+            return &m_Demux.stream[i];
+        }
+    }
+    return nullptr;
+}
+
+//キューに積んだ後のパケット用: stream_indexは既に論理index(オープン時のindex)に書き戻されている
+AVDemuxStream *RGYInputAvcodec::getStreamDataByLogicalIndex(const AVPacket *pkt) {
     int streamIndex = pkt->stream_index;
     for (int i = 0; i < (int)m_Demux.stream.size(); i++) {
         if (m_Demux.stream[i].index == streamIndex) {
@@ -3197,6 +3209,8 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
                 const auto timestamp = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts;
                 AddMessage(RGY_LOG_WARN, _T("corrupt packet in stream %d: %lld (%s)\n"), pkt->stream_index, (long long int)timestamp, getTimestampString(timestamp, stream->stream->time_base).c_str());
             }
+            //PMT変更で追従した場合、以降(キュー処理・muxer)はオープン時のstream_indexで突合するため書き戻す
+            pkt->stream_index = stream->index;
             if (stream->stream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
                 // 字幕パケットの場合、パケットのタイムスタンプの順序が入れ替わっている場合がある
                 // これを修正するため、いったんバッファにためておき、一定期間すぎたらソートして出力するようにする
@@ -3343,7 +3357,7 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
     auto move_pkt = [this](double vidEstDurationSec) {
         while (!m_Demux.qStreamPktL1.empty()) {
             auto pkt2 = m_Demux.qStreamPktL1.front();
-            AVDemuxStream *pStream2 = getPacketStreamData(pkt2);
+            AVDemuxStream *pStream2 = getStreamDataByLogicalIndex(pkt2);
             // 比較する時は、最初のptsを引いて比較する (pkt自体のptsは出力側で調整するのでここでは変更しない)
             const auto firstPts = pStream2->pktSample->pts;
             const double pkt2timeSec = (pkt2->pts - firstPts) * (double)pStream2->stream->time_base.num / (double)pStream2->stream->time_base.den;
@@ -3370,6 +3384,8 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
                 pkt.reset();
                 continue;
             }
+            //PMT変更で追従した場合、以降(キュー処理・muxer)はオープン時のstream_indexで突合するため書き戻す
+            pkt->stream_index = pStream->index;
             const auto delay_ts = (int64_t)(pStream->addDelayMs * 0.001 / av_q2d(pStream->timebase) + 0.5);
             if (pkt->pts != AV_NOPTS_VALUE) pkt->pts += delay_ts;
             if (pkt->dts != AV_NOPTS_VALUE) pkt->dts += delay_ts;
@@ -3467,7 +3483,7 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
     //出力するパケットを選択する
     while (!m_Demux.qStreamPktL1.empty()) {
         auto pkt = m_Demux.qStreamPktL1.front();
-        AVDemuxStream *pStream = getPacketStreamData(pkt);
+        AVDemuxStream *pStream = getStreamDataByLogicalIndex(pkt);
         const auto delay_ts = (int64_t)(pStream->addDelayMs * 0.001 / av_q2d(pStream->timebase) + 0.5);
         if (!m_Demux.frames.isEof() // 最後まで読み込んでいたらすべて転送するようにする
             && 0 < av_compare_ts(pkt->pts + delay_ts, pStream->timebase, m_Demux.frames.getMaxPts() + audioReadOffsetPTS, vid_pkt_timebase)) { //音声のptsが映像の終わりのptsを行きすぎたらやめる
