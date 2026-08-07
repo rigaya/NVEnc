@@ -715,6 +715,8 @@ typedef struct VideoFrameData {
 
 struct AVDemuxFormat {
     AVFormatContext          *formatCtx;             //動画ファイルのformatContext
+    int                       programId;             //PMT変更追従の対象program id (-1: 追従しない)
+    int                       pmtVersion;            //最後に処理したPMTのversion
     double                    analyzeSec;            //動画ファイルを先頭から分析する時間
     bool                      isPipe;                //入力がパイプ
     bool                      lowLatency;            //低遅延モード
@@ -751,6 +753,7 @@ struct AVDemuxVideo {
     AVCodecContext           *codecCtxDecode;        //動画のデコーダ (使用しない場合はnullptr)
     AVFrame                  *frame;                 //動画デコード用のフレーム
     int                       index;                 //動画のストリームID
+    bool                      waitKeyAfterSwitch;    //PMT変更で切り替えた直後、次のキーフレームまでパケットを捨てる
     int64_t                   streamFirstKeyPts;     //動画ファイルの最初のpts
     int64_t                   beforeSeekStreamFirstKeyPts; //シーク前の動画ファイルの最初のpts (checkTimeSeekToでしか使わないはず)
     AVPacket                 *firstPkt;              //動画の最初のpacket
@@ -1007,6 +1010,9 @@ protected:
 
     RGY_ERR initFormatCtx(const TCHAR *strFileName, const RGYInputAvcodecPrm *input_prm, const int iretry);
     RGY_ERR initVideoBsfs();
+    int findStreamInProgram(const AVProgram *prog, AVMediaType type, int nth) const;
+    const AVProgram *getFollowProgram() const;
+    RGY_ERR initPmtFollow(const bool disableFollow);
     RGY_ERR initVideoParser();
     RGY_ERR parseVideoExtraData(const AVPacket *pkt);
 

@@ -64,6 +64,8 @@ const char *csp_rgy_to_y4mheader(const RGY_CSP csp);
 #if ENABLE_AVSW_READER
 struct AVDemuxStream {
     int                       index;                  //音声・字幕のストリームID (libavのストリームID)
+    int                       indexCurrent;           //現在パケットが流れてくるstream index (PMT変更追従用、初期値=index)
+    int                       pmtTrackPos;            //追従対象program内で同じcodec_typeの何番目か (-1: 追従対象外)
     int                       trackId;                //音声のトラックID (QSVEncC独自, 1,2,3,...)、字幕は0
     int                       subStreamId;            //通常は0、音声のチャンネルを分離する際に複製として作成
     int                       sourceFileIndex;        //audio/sub/data-source経由の場合、そのファイルインデックス
@@ -85,6 +87,8 @@ struct AVDemuxStream {
 
     AVDemuxStream() :
         index(0),
+        indexCurrent(0),
+        pmtTrackPos(-1),
         trackId(0),
         subStreamId(0),
         sourceFileIndex(0),

@@ -66,6 +66,8 @@ static inline void extend_array_size(VideoFrameData *dataset) {
 
 AVDemuxFormat::AVDemuxFormat() :
     formatCtx(nullptr),
+    programId(-1),
+    pmtVersion(-1),
     analyzeSec(0.0),
     isPipe(false),
     lowLatency(false),
@@ -127,6 +129,7 @@ AVDemuxVideo::AVDemuxVideo() :
     codecCtxDecode(nullptr),
     frame(nullptr),
     index(-1),
+    waitKeyAfterSwitch(false),
     streamFirstKeyPts(0),
     beforeSeekStreamFirstKeyPts(0),
     firstPkt(nullptr),
@@ -1968,6 +1971,14 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
     }
 
+    //merge_pmt_versionsが明示指定されている場合、PMT変更追従は行わない (ユーザー指定を尊重する)
+    const bool mergePmtVersions = std::any_of(input_prm->inputOpt.begin(), input_prm->inputOpt.end(),
+        [](const auto& opt) { return tchar_to_string(opt.first) == "merge_pmt_versions" && tchar_to_string(opt.second) != "0"; });
+    const auto pmtFollowErr = initPmtFollow(mergePmtVersions);
+    if (pmtFollowErr != RGY_ERR_NONE) {
+        return pmtFollowErr;
+    }
+
     if (input_prm->readChapter) {
         m_Demux.chapter = make_vector((const AVChapter **)m_Demux.format.formatCtx->chapters, m_Demux.format.formatCtx->nb_chapters);
     }
@@ -2856,6 +2867,123 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *strea
         pkt->dts -= stream->trimOffset;
     }
     return result;
+}
+
+//追従対象program内で、codec_typeが一致するnth番目のstream indexを返す (見つからなければ-1)
+int RGYInputAvcodec::findStreamInProgram(const AVProgram *prog, AVMediaType type, int nth) const {
+    if (prog == nullptr || nth < 0 || m_Demux.format.formatCtx == nullptr) {
+        return -1;
+    }
+    int count = 0;
+    for (uint32_t i = 0; i < prog->nb_stream_indexes; i++) {
+        const uint32_t streamIndex = prog->stream_index[i];
+        if (streamIndex >= m_Demux.format.formatCtx->nb_streams) {
+            continue;
+        }
+        const auto *stream = m_Demux.format.formatCtx->streams[streamIndex];
+        if (stream != nullptr && stream->codecpar != nullptr && stream->codecpar->codec_type == type) {
+            if (count == nth) {
+                return static_cast<int>(streamIndex);
+            }
+            count++;
+        }
+    }
+    return -1;
+}
+
+//追従対象のAVProgramを返す (追従しない場合や見つからない場合はnullptr)
+const AVProgram *RGYInputAvcodec::getFollowProgram() const {
+    if (m_Demux.format.programId < 0 || m_Demux.format.formatCtx == nullptr) {
+        return nullptr;
+    }
+    for (uint32_t i = 0; i < m_Demux.format.formatCtx->nb_programs; i++) {
+        const auto *program = m_Demux.format.formatCtx->programs[i];
+        if (program != nullptr && program->id == m_Demux.format.programId) {
+            return program;
+        }
+    }
+    return nullptr;
+}
+
+RGY_ERR RGYInputAvcodec::initPmtFollow(const bool disableFollow) {
+    m_Demux.format.programId = -1;
+    m_Demux.format.pmtVersion = -1;
+    for (auto& stream : m_Demux.stream) {
+        stream.indexCurrent = stream.index;
+        stream.pmtTrackPos = -1;
+    }
+
+    const auto *formatCtx = m_Demux.format.formatCtx;
+    if (formatCtx == nullptr || formatCtx->nb_programs == 0) {
+        return RGY_ERR_NONE;
+    }
+    if (disableFollow) {
+        AddMessage(RGY_LOG_INFO, _T("pmt follow: disabled by merge_pmt_versions.\n"));
+        return RGY_ERR_NONE;
+    }
+    if (m_Demux.video.stream == nullptr) {
+        return RGY_ERR_NONE;
+    }
+
+    std::vector<const AVProgram *> candidates;
+    for (uint32_t i = 0; i < formatCtx->nb_programs; i++) {
+        const auto *program = formatCtx->programs[i];
+        if (program == nullptr) {
+            continue;
+        }
+        for (uint32_t j = 0; j < program->nb_stream_indexes; j++) {
+            if (program->stream_index[j] == static_cast<uint32_t>(m_Demux.video.index)) {
+                candidates.push_back(program);
+                break;
+            }
+        }
+    }
+    if (candidates.empty()) {
+        AddMessage(RGY_LOG_DEBUG, _T("pmt follow: video stream %d does not belong to any program, disabled.\n"), m_Demux.video.index);
+        return RGY_ERR_NONE;
+    }
+
+    const auto *followProgram = candidates.front();
+    m_Demux.format.programId = followProgram->id;
+    m_Demux.format.pmtVersion = followProgram->pmt_version;
+    AddMessage(RGY_LOG_DEBUG, _T("pmt follow: program %d (pmt_version %d), video stream %d\n"),
+        m_Demux.format.programId, m_Demux.format.pmtVersion, m_Demux.video.index);
+
+    if (candidates.size() > 1) {
+        tstring candidateIds;
+        for (const auto *program : candidates) {
+            if (!candidateIds.empty()) {
+                candidateIds += _T(", ");
+            }
+            candidateIds += strsprintf(_T("%d"), program->id);
+        }
+        AddMessage(RGY_LOG_INFO, _T("pmt follow: video stream %d belongs to multiple programs [%s], selected program %d.\n"),
+            m_Demux.video.index, candidateIds.c_str(), m_Demux.format.programId);
+    }
+
+    for (auto& stream : m_Demux.stream) {
+        if (stream.stream == nullptr || stream.stream->codecpar == nullptr) {
+            continue;
+        }
+        int trackPos = 0;
+        for (uint32_t i = 0; i < followProgram->nb_stream_indexes; i++) {
+            const uint32_t streamIndex = followProgram->stream_index[i];
+            if (streamIndex >= formatCtx->nb_streams) {
+                continue;
+            }
+            const auto *programStream = formatCtx->streams[streamIndex];
+            if (programStream == nullptr || programStream->codecpar == nullptr
+                || programStream->codecpar->codec_type != stream.stream->codecpar->codec_type) {
+                continue;
+            }
+            if (streamIndex == static_cast<uint32_t>(stream.index)) {
+                stream.pmtTrackPos = trackPos;
+                break;
+            }
+            trackPos++;
+        }
+    }
+    return RGY_ERR_NONE;
 }
 
 AVDemuxStream *RGYInputAvcodec::getPacketStreamData(const AVPacket *pkt) {
