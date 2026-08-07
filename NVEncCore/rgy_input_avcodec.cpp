@@ -129,7 +129,10 @@ AVDemuxVideo::AVDemuxVideo() :
     codecCtxDecode(nullptr),
     frame(nullptr),
     index(-1),
+    pmtTrackPos(-1),
+    pmtNoSuccessorWarned(false),
     waitKeyAfterSwitch(false),
+    pmtSwitchDropCount(0),
     streamFirstKeyPts(0),
     beforeSeekStreamFirstKeyPts(0),
     firstPkt(nullptr),
@@ -2908,6 +2911,9 @@ const AVProgram *RGYInputAvcodec::getFollowProgram() const {
 RGY_ERR RGYInputAvcodec::initPmtFollow(const bool disableFollow) {
     m_Demux.format.programId = -1;
     m_Demux.format.pmtVersion = -1;
+    m_Demux.video.pmtTrackPos = -1;
+    m_Demux.video.pmtNoSuccessorWarned = false;
+    m_Demux.video.pmtSwitchDropCount = 0;
     for (auto& stream : m_Demux.stream) {
         stream.indexCurrent = stream.index;
         stream.pmtTrackPos = -1;
@@ -2949,6 +2955,24 @@ RGY_ERR RGYInputAvcodec::initPmtFollow(const bool disableFollow) {
     AddMessage(RGY_LOG_DEBUG, _T("pmt follow: program %d (pmt_version %d), video stream %d\n"),
         m_Demux.format.programId, m_Demux.format.pmtVersion, m_Demux.video.index);
 
+    int videoTrackPos = 0;
+    for (uint32_t i = 0; i < followProgram->nb_stream_indexes; i++) {
+        const uint32_t streamIndex = followProgram->stream_index[i];
+        if (streamIndex >= formatCtx->nb_streams) {
+            continue;
+        }
+        const auto *programStream = formatCtx->streams[streamIndex];
+        if (programStream == nullptr || programStream->codecpar == nullptr
+            || programStream->codecpar->codec_type != AVMEDIA_TYPE_VIDEO) {
+            continue;
+        }
+        if (streamIndex == static_cast<uint32_t>(m_Demux.video.index)) {
+            m_Demux.video.pmtTrackPos = videoTrackPos;
+            break;
+        }
+        videoTrackPos++;
+    }
+
     if (candidates.size() > 1) {
         tstring candidateIds;
         for (const auto *program : candidates) {
@@ -2984,6 +3008,125 @@ RGY_ERR RGYInputAvcodec::initPmtFollow(const bool disableFollow) {
         }
     }
     return RGY_ERR_NONE;
+}
+
+//PMT変更を検出し、同じprogram内の後継ストリームへ追従する
+//av_read_frame()の直後に呼ぶこと
+void RGYInputAvcodec::checkPmtChange() {
+    const AVProgram *program = getFollowProgram();
+    if (program == nullptr) {
+        return;
+    }
+    //pmt_versionは5bitの巡回カウンタで、23->16のように減ることもあるため!=で判定する
+    if (program->pmt_version == m_Demux.format.pmtVersion) {
+        return;
+    }
+    m_Demux.format.pmtVersion = program->pmt_version;
+
+    auto *formatCtx = m_Demux.format.formatCtx;
+    if (m_Demux.video.stream != nullptr && m_Demux.video.pmtTrackPos >= 0) {
+        const int newIndex = findStreamInProgram(program, AVMEDIA_TYPE_VIDEO, m_Demux.video.pmtTrackPos);
+        if (newIndex < 0) {
+            if (!m_Demux.video.pmtNoSuccessorWarned) {
+                AddMessage(RGY_LOG_WARN, _T("pmt follow: video stream %d has no successor in program %d.\n"),
+                    m_Demux.video.index, m_Demux.format.programId);
+                m_Demux.video.pmtNoSuccessorWarned = true;
+            }
+        } else {
+            m_Demux.video.pmtNoSuccessorWarned = false;
+            if (newIndex != m_Demux.video.index) {
+                const auto *newStream = formatCtx->streams[newIndex];
+                const auto *oldCodec = m_Demux.video.stream->codecpar;
+                const auto *newCodec = newStream->codecpar;
+                if (newCodec->codec_id != oldCodec->codec_id) {
+                    AddMessage(RGY_LOG_WARN, _T("pmt follow: video stream %d -> %d rejected because codec changed from %s to %s.\n"),
+                        m_Demux.video.index, newIndex,
+                        char_to_tstring(avcodec_get_name(oldCodec->codec_id)).c_str(),
+                        char_to_tstring(avcodec_get_name(newCodec->codec_id)).c_str());
+                } else if (newStream->time_base.num != m_Demux.video.stream->time_base.num
+                    || newStream->time_base.den != m_Demux.video.stream->time_base.den) {
+                    AddMessage(RGY_LOG_WARN, _T("pmt follow: video stream %d -> %d rejected because time base changed from %d/%d to %d/%d.\n"),
+                        m_Demux.video.index, newIndex,
+                        m_Demux.video.stream->time_base.num, m_Demux.video.stream->time_base.den,
+                        newStream->time_base.num, newStream->time_base.den);
+                } else {
+                    const bool extradataDiffers = oldCodec->extradata_size != newCodec->extradata_size
+                        || (oldCodec->extradata_size > 0
+                            && (oldCodec->extradata == nullptr || newCodec->extradata == nullptr
+                                || memcmp(oldCodec->extradata, newCodec->extradata, oldCodec->extradata_size) != 0));
+                    if (extradataDiffers) {
+                        AddMessage(RGY_LOG_WARN, _T("pmt follow: video extradata differs between stream %d and %d.\n"),
+                            m_Demux.video.index, newIndex);
+                    }
+                    const auto *oldCurrentStream = formatCtx->streams[m_Demux.video.index];
+                    AddMessage(RGY_LOG_INFO, _T("pmt follow: video stream %d (pid 0x%x) -> %d (pid 0x%x).\n"),
+                        m_Demux.video.index, oldCurrentStream->id, newIndex, newStream->id);
+                    m_Demux.video.index = newIndex;
+                    m_Demux.video.waitKeyAfterSwitch = true;
+                    m_Demux.video.pmtSwitchDropCount = 0;
+                }
+            }
+        }
+    }
+
+    for (auto& stream : m_Demux.stream) {
+        if (stream.pmtTrackPos < 0 || stream.stream == nullptr || stream.stream->codecpar == nullptr) {
+            continue;
+        }
+        const auto mediaType = stream.stream->codecpar->codec_type;
+        const int newIndex = findStreamInProgram(program, mediaType, stream.pmtTrackPos);
+        if (newIndex < 0) {
+            if (stream.indexCurrent >= 0) {
+                AddMessage(RGY_LOG_WARN, _T("pmt follow: %s stream %d has no successor in program %d.\n"),
+                    char_to_tstring(av_get_media_type_string(mediaType)).c_str(), stream.indexCurrent, m_Demux.format.programId);
+                stream.indexCurrent = -1;
+            }
+            continue;
+        }
+        if (newIndex == stream.indexCurrent) {
+            continue;
+        }
+
+        const auto *newStream = formatCtx->streams[newIndex];
+        const auto *oldCodec = stream.stream->codecpar;
+        const auto *newCodec = newStream->codecpar;
+        const auto mediaTypeName = char_to_tstring(av_get_media_type_string(mediaType));
+        if (newCodec->codec_id != oldCodec->codec_id) {
+            AddMessage(RGY_LOG_WARN, _T("pmt follow: %s stream %d -> %d rejected because codec changed from %s to %s.\n"),
+                mediaTypeName.c_str(), stream.indexCurrent, newIndex,
+                char_to_tstring(avcodec_get_name(oldCodec->codec_id)).c_str(),
+                char_to_tstring(avcodec_get_name(newCodec->codec_id)).c_str());
+            continue;
+        }
+        if (newStream->time_base.num != stream.stream->time_base.num
+            || newStream->time_base.den != stream.stream->time_base.den) {
+            AddMessage(RGY_LOG_WARN, _T("pmt follow: %s stream %d -> %d rejected because time base changed from %d/%d to %d/%d.\n"),
+                mediaTypeName.c_str(), stream.indexCurrent, newIndex,
+                stream.stream->time_base.num, stream.stream->time_base.den,
+                newStream->time_base.num, newStream->time_base.den);
+            continue;
+        }
+        if (mediaType == AVMEDIA_TYPE_AUDIO) {
+            if (newCodec->sample_rate != oldCodec->sample_rate) {
+                AddMessage(RGY_LOG_WARN, _T("pmt follow: audio stream %d -> %d rejected because sample rate changed from %d to %d.\n"),
+                    stream.indexCurrent, newIndex, oldCodec->sample_rate, newCodec->sample_rate);
+                continue;
+            }
+            if (av_channel_layout_compare(&newCodec->ch_layout, &oldCodec->ch_layout) != 0) {
+                AddMessage(RGY_LOG_WARN, _T("pmt follow: audio stream %d -> %d rejected because channel layout changed.\n"),
+                    stream.indexCurrent, newIndex);
+                continue;
+            }
+        }
+
+        const int oldIndex = stream.indexCurrent;
+        const auto *oldCurrentStream = (oldIndex >= 0 && oldIndex < static_cast<int>(formatCtx->nb_streams))
+            ? formatCtx->streams[oldIndex] : nullptr;
+        AddMessage(RGY_LOG_INFO, _T("pmt follow: %s stream %d (pid 0x%x) -> %d (pid 0x%x).\n"),
+            mediaTypeName.c_str(), oldIndex, (oldCurrentStream != nullptr) ? oldCurrentStream->id : -1,
+            newIndex, newStream->id);
+        stream.indexCurrent = newIndex;
+    }
 }
 
 //demux直後の生パケット用: 現在パケットが流れてきているstream indexで突合する
@@ -3069,6 +3212,7 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
+        checkPmtChange(); //PMT変更があれば追従先のstream indexを更新する
         if (m_fpPacketList) {
             fprintf(m_fpPacketList.get(), "stream %2d, %12s, %s, %s,%5lld,%2d, %12lld\n",
                 pkt->stream_index, avcodec_get_name(m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id),
@@ -3090,6 +3234,23 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
             }
         }
         if (pkt->stream_index == m_Demux.video.index) {
+            //PMT変更で切り替えた直後は、新ストリームの先頭がIピクチャとは限らないため、
+            //次のキーフレームが来るまでパケットを捨てる
+            if (m_Demux.video.waitKeyAfterSwitch) {
+                if ((pkt->flags & AV_PKT_FLAG_KEY) == 0) {
+                    m_Demux.video.pmtSwitchDropCount++;
+                    //キーフレームがいつまでも来ない場合、映像が出ないまま終わってしまうため痕跡を残す
+                    if (m_Demux.video.pmtSwitchDropCount == 600) {
+                        AddMessage(RGY_LOG_WARN, _T("pmt follow: no keyframe found in video stream %d after %d packets.\n"),
+                            m_Demux.video.index, m_Demux.video.pmtSwitchDropCount);
+                    }
+                    pkt.reset();
+                    continue;
+                }
+                AddMessage(RGY_LOG_DEBUG, _T("pmt follow: video resumed at keyframe (dropped %d packets).\n"),
+                    m_Demux.video.pmtSwitchDropCount);
+                m_Demux.video.waitKeyAfterSwitch = false;
+            }
             if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
                 const auto timestamp = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts;
                 AddMessage(RGY_LOG_WARN, _T("corrupt packet in video: %lld (%s)\n"), (long long int)timestamp, getTimestampString(timestamp, m_Demux.video.stream->time_base).c_str());
@@ -3374,6 +3535,7 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
     //およそ1フレーム分のパケットを取得する
     auto pkt = m_poolPkt->getFree();
     for (; av_read_frame(m_Demux.format.formatCtx, pkt.get()) >= 0; pkt = m_poolPkt->getFree()) {
+        checkPmtChange(); //PMT変更があれば追従先のstream indexを更新する
         const auto codec_type = m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_type;
         if (codec_type != AVMEDIA_TYPE_AUDIO && codec_type != AVMEDIA_TYPE_SUBTITLE) {
             pkt.reset();

@@ -753,7 +753,10 @@ struct AVDemuxVideo {
     AVCodecContext           *codecCtxDecode;        //動画のデコーダ (使用しない場合はnullptr)
     AVFrame                  *frame;                 //動画デコード用のフレーム
     int                       index;                 //動画のストリームID
+    int                       pmtTrackPos;            //追従対象program内で同じcodec_typeの何番目か (-1: 追従対象外)
+    bool                      pmtNoSuccessorWarned;  //後継ストリーム消失のWARNを出し済みか (同一状態での重複WARN抑制用)
     bool                      waitKeyAfterSwitch;    //PMT変更で切り替えた直後、次のキーフレームまでパケットを捨てる
+    int                       pmtSwitchDropCount;    //切替後キーフレーム待ちで捨てたパケット数
     int64_t                   streamFirstKeyPts;     //動画ファイルの最初のpts
     int64_t                   beforeSeekStreamFirstKeyPts; //シーク前の動画ファイルの最初のpts (checkTimeSeekToでしか使わないはず)
     AVPacket                 *firstPkt;              //動画の最初のpacket
@@ -1013,6 +1016,7 @@ protected:
     int findStreamInProgram(const AVProgram *prog, AVMediaType type, int nth) const;
     const AVProgram *getFollowProgram() const;
     RGY_ERR initPmtFollow(const bool disableFollow);
+    void checkPmtChange();
     RGY_ERR initVideoParser();
     RGY_ERR parseVideoExtraData(const AVPacket *pkt);
 
