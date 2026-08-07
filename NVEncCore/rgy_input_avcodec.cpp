@@ -2873,6 +2873,8 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *strea
 }
 
 //追従対象program内で、codec_typeが一致するnth番目のstream indexを返す (見つからなければ-1)
+//initPmtFollow()が記録したpmtTrackPos(=nth)を、いまのPMTでのstream indexに引き直すための関数。
+//PMT変更でPIDもstream indexも変わるため、program内の序数だけが切替前後をつなぐ手がかりになる
 int RGYInputAvcodec::findStreamInProgram(const AVProgram *prog, AVMediaType type, int nth) const {
     if (prog == nullptr || nth < 0 || m_Demux.format.formatCtx == nullptr) {
         return -1;
@@ -2908,7 +2910,23 @@ const AVProgram *RGYInputAvcodec::getFollowProgram() const {
     return nullptr;
 }
 
+//PMT変更追従の初期化。オープン直後に一度だけ呼ぶ
+//
+//【何をするか】
+//  (1) 追従対象とするprogram(番組)を1つ決めて m_Demux.format.programId に記録する
+//  (2) 各トラックが「そのprogram内で同じcodec_typeの何番目か」を pmtTrackPos に記録する
+//  この2つ以外は何も変えない(挙動を変えるのは checkPmtChange() 側)。
+//
+//【なぜ「何番目か」を覚えるのか】
+//  TSのPMTが変更されると(サブチャンネル分割など)、PIDが変わり、libavformatは
+//  新しいAVStreamを追加する。このとき stream index も PID も別物になるので、
+//  それらでは切替前後のトラックを同一視できない。
+//  一方「このprogramのn番目の映像/音声」という位置はPMTをまたいでも保たれるため、
+//  これを唯一の手がかりとして後継ストリームを引き当てる。
+//
+//  disableFollow: merge_pmt_versionsが指定されている場合はtrue(追従しない)
 RGY_ERR RGYInputAvcodec::initPmtFollow(const bool disableFollow) {
+    //シーク時などに呼び直されても状態が残らないよう、まず全部リセットする
     m_Demux.format.programId = -1;
     m_Demux.format.pmtVersion = -1;
     m_Demux.video.pmtTrackPos = -1;
@@ -2919,18 +2937,23 @@ RGY_ERR RGYInputAvcodec::initPmtFollow(const bool disableFollow) {
         stream.pmtTrackPos = -1;
     }
 
+    //以下のいずれかならprogramId = -1のままにして追従を行わない
+    //(getFollowProgram()がnullptrを返すので checkPmtChange() は即returnする)
     const auto *formatCtx = m_Demux.format.formatCtx;
     if (formatCtx == nullptr || formatCtx->nb_programs == 0) {
-        return RGY_ERR_NONE;
+        return RGY_ERR_NONE; //programの概念がない入力(mp4等)。そもそもPMT変更は起きない
     }
     if (disableFollow) {
+        //merge_pmt_versionsはPMT変更後のストリームを既存AVStreamに合流させる指定なので、
+        //追従と併用すると二重に切り替わってしまう。ユーザー指定を優先して追従は行わない
         AddMessage(RGY_LOG_INFO, _T("pmt follow: disabled by merge_pmt_versions.\n"));
         return RGY_ERR_NONE;
     }
     if (m_Demux.video.stream == nullptr) {
-        return RGY_ERR_NONE;
+        return RGY_ERR_NONE; //映像なし。追従対象programを決める起点がない
     }
 
+    //(1) 追従対象programを決める: 現在の映像ストリームが属するprogramを集める
     std::vector<const AVProgram *> candidates;
     for (uint32_t i = 0; i < formatCtx->nb_programs; i++) {
         const auto *program = formatCtx->programs[i];
@@ -2949,12 +2972,18 @@ RGY_ERR RGYInputAvcodec::initPmtFollow(const bool disableFollow) {
         return RGY_ERR_NONE;
     }
 
+    //分割前のマルチ編成TSでは、複数のprogramが同じ映像PIDを共有していることがあり、
+    //候補が複数になる。どちらを追うかは入力からは決められないので先頭を採用する
+    //(選択結果は候補が複数のときだけ後段でINFOに出す)
     const auto *followProgram = candidates.front();
     m_Demux.format.programId = followProgram->id;
+    //以降 checkPmtChange() はこの値との差分でPMT変更を検出する
     m_Demux.format.pmtVersion = followProgram->pmt_version;
     AddMessage(RGY_LOG_DEBUG, _T("pmt follow: program %d (pmt_version %d), video stream %d\n"),
         m_Demux.format.programId, m_Demux.format.pmtVersion, m_Demux.video.index);
 
+    //(2-a) 映像: 採用programの映像ストリームを先頭から数えて、現在のストリームが何番目かを求める
+    //  input_prm->videoTrackは「ファイル全体の映像中の序数」でありprogram内の序数ではないため使えない
     int videoTrackPos = 0;
     for (uint32_t i = 0; i < followProgram->nb_stream_indexes; i++) {
         const uint32_t streamIndex = followProgram->stream_index[i];
@@ -2985,6 +3014,8 @@ RGY_ERR RGYInputAvcodec::initPmtFollow(const bool disableFollow) {
             m_Demux.video.index, candidateIds.c_str(), m_Demux.format.programId);
     }
 
+    //(2-b) 音声・字幕など: 同じ要領で、採用program内の同じcodec_typeの中での序数を求める
+    //  採用programに属さないトラック(別番組の音声など)は pmtTrackPos = -1 のままとなり、追従対象外になる
     for (auto& stream : m_Demux.stream) {
         if (stream.stream == nullptr || stream.stream->codecpar == nullptr) {
             continue;
@@ -3012,29 +3043,58 @@ RGY_ERR RGYInputAvcodec::initPmtFollow(const bool disableFollow) {
 
 //PMT変更を検出し、同じprogram内の後継ストリームへ追従する
 //av_read_frame()の直後に呼ぶこと
+//
+//【流れ】
+//  1. 追従対象programのpmt_versionが前回と違えば「PMTが変わった」とみなす
+//  2. initPmtFollow()で覚えたpmtTrackPos(program内の序数)を、いまのPMTで引き直す
+//  3. 引き直した結果が現在と違うストリームなら、そちらへ切り替える
+//
+//【切替時に何を書き換えるか】
+//  映像: m_Demux.video.index (パケットの振り分けにもav_seek_frameにも使われる生のindex)
+//  音声/字幕: stream.indexCurrent のみ。stream.index は変えない
+//    -> indexが下流(キュー・muxer)との突合に使う論理IDで、
+//       indexCurrentが「いまパケットが流れてくる生のindex」という二段構えになっている。
+//       パケットは振り分け後に stream_index を index へ書き戻すので、下流は変更に気づかない
+//
+//【AVStreamそのものは差し替えないこと】
+//  PMT変更で現れた新しいAVStreamは avformat_find_stream_info() を通っていないため、
+//  信用できるのは codec_id (PMTのstream_type由来)と time_base (mpegtsが1/90000固定)だけ。
+//  width/height/sample_rate/ch_layout/extradata は 0 または未設定のままなので、
+//  m_Demux.video.stream / stream.stream を差し替えると下流が壊れる。
+//  同じ理由で、適用前チェックも「新旧どちらも有効な値を持つとき」しか比較していない
+//
+//【性能】
+//  パケット1個ごとに呼ばれる。変化がない場合は getFollowProgram() の線形探索とint比較だけで抜ける
 void RGYInputAvcodec::checkPmtChange() {
     const AVProgram *program = getFollowProgram();
     if (program == nullptr) {
-        return;
+        return; //追従無効(initPmtFollow()参照)、またはprogramが消えた
     }
     //pmt_versionは5bitの巡回カウンタで、23->16のように減ることもあるため!=で判定する
     if (program->pmt_version == m_Demux.format.pmtVersion) {
         return;
     }
     m_Demux.format.pmtVersion = program->pmt_version;
+    //ここから先はPMTが変わったときだけ通る。
+    //ただしPIDが変わらない更新でも版数は上がる(実測で先頭6700packet中8回)ので、
+    //以降の再解決が現在と同じ結果になる空振りは頻繁に起きる。空振り時は何もログを出さない
 
     auto *formatCtx = m_Demux.format.formatCtx;
+    //--- 映像の追従 ---
     if (m_Demux.video.stream != nullptr && m_Demux.video.pmtTrackPos >= 0) {
         const int newIndex = findStreamInProgram(program, AVMEDIA_TYPE_VIDEO, m_Demux.video.pmtTrackPos);
         if (newIndex < 0) {
+            //後継が見つからない。映像はindexを-1にできない(av_seek_frameの引数やstreams[]の添字に使うため)ので、
+            //従来どおり現在のindexのまま読み続ける。専用フラグで同一状態の重複WARNだけ抑制する
             if (!m_Demux.video.pmtNoSuccessorWarned) {
                 AddMessage(RGY_LOG_WARN, _T("pmt follow: video stream %d has no successor in program %d.\n"),
                     m_Demux.video.index, m_Demux.format.programId);
                 m_Demux.video.pmtNoSuccessorWarned = true;
             }
         } else {
-            m_Demux.video.pmtNoSuccessorWarned = false;
+            m_Demux.video.pmtNoSuccessorWarned = false; //後継が復活したので、次に消えたらまた警告する
             if (newIndex != m_Demux.video.index) {
+                //別ストリームに移った。ただし中身が別物になっていないか確認してから適用する
                 const auto *newStream = formatCtx->streams[newIndex];
                 const auto *oldCodec = m_Demux.video.stream->codecpar;
                 const auto *newCodec = newStream->codecpar;
@@ -3064,6 +3124,8 @@ void RGYInputAvcodec::checkPmtChange() {
                     AddMessage(RGY_LOG_INFO, _T("pmt follow: video stream %d (pid 0x%x) -> %d (pid 0x%x).\n"),
                         m_Demux.video.index, oldCurrentStream->id, newIndex, newStream->id);
                     m_Demux.video.index = newIndex;
+                    //新ストリームの途中から読み始めることになるため、先頭がIピクチャとは限らない。
+                    //次のキーフレームが来るまでパケットを捨てる(実際の破棄は getSample() 側)
                     m_Demux.video.waitKeyAfterSwitch = true;
                     m_Demux.video.pmtSwitchDropCount = 0;
                 }
@@ -3071,13 +3133,16 @@ void RGYInputAvcodec::checkPmtChange() {
         }
     }
 
+    //--- 音声・字幕などの追従 ---
     for (auto& stream : m_Demux.stream) {
         if (stream.pmtTrackPos < 0 || stream.stream == nullptr || stream.stream->codecpar == nullptr) {
-            continue;
+            continue; //追従対象program外のトラック
         }
         const auto mediaType = stream.stream->codecpar->codec_type;
         const int newIndex = findStreamInProgram(program, mediaType, stream.pmtTrackPos);
         if (newIndex < 0) {
+            //後継が見つからない = このトラックは消えた。従来動作と同じくここで終端させる。
+            //映像と違いindexCurrentは-1にできるので、それを重複WARN抑制も兼ねたフラグとして使う
             if (stream.indexCurrent >= 0) {
                 AddMessage(RGY_LOG_WARN, _T("pmt follow: %s stream %d has no successor in program %d.\n"),
                     char_to_tstring(av_get_media_type_string(mediaType)).c_str(), stream.indexCurrent, m_Demux.format.programId);
@@ -3086,9 +3151,11 @@ void RGYInputAvcodec::checkPmtChange() {
             continue;
         }
         if (newIndex == stream.indexCurrent) {
-            continue;
+            continue; //PID据え置きのPMT更新。空振り
         }
 
+        //映像と同様、適用前に中身が別物になっていないか確認する。
+        //弾いた場合はindexCurrentを据え置くので、従来どおり古いストリームを読み続ける
         const auto *newStream = formatCtx->streams[newIndex];
         const auto *oldCodec = stream.stream->codecpar;
         const auto *newCodec = newStream->codecpar;
@@ -3126,6 +3193,8 @@ void RGYInputAvcodec::checkPmtChange() {
             }
         }
 
+        //oldIndexは上の「後継なし」分岐で-1になっている場合がある(トラックが一度消えて復活したケース)ため、
+        //ログ用のstreams[]参照は範囲チェックしてから行う
         const int oldIndex = stream.indexCurrent;
         const auto *oldCurrentStream = (oldIndex >= 0 && oldIndex < static_cast<int>(formatCtx->nb_streams))
             ? formatCtx->streams[oldIndex] : nullptr;
