@@ -6,6 +6,7 @@
 - Support AV1 hierarchical B-frame reference mode in [--bref-mode](./NVEncC_Options.en.md#--bref-mode-string).
 - Support mid-stream resolution changes.
 - Add [--adapt-resolution](./NVEncC_Options.en.md#--adapt-resolution-intxint).
+- Add support to track PMT change.
 - Add ONNX deinterlace filter [--vpp-onnx-deint](./NVEncC_Options.en.md#--vpp-onnx-deint-param1value1param2value2).
 - Support language exclusion for audio/subtitle track selection ([--audio-copy](./NVEncC_Options.en.md#--audio-copy-intstringintstring) / [--sub-copy](./NVEncC_Options.en.md#--sub-copy-intstringintstring)).
 - Improve [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) zero-copy path to reduce memory usage. ( #791 )

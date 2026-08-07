@@ -219,6 +219,7 @@ NVIDIA グラフィックドライバ 551.23
 - AV1 hierarchical Bフレーム参照モードに対応。(--bref-mode hierarchical)
 - 入力途中の解像度変更に対応。
 - 可変解像度の最大入力解像度指定を追加。(--adapt-resolution)
+- PMT変更追従機能を追加。
 - ONNXデインターレースフィルタを追加。(--vpp-onnx-deint)
 - 音声・字幕の言語除外指定に対応。
 - --vpp-kfmのmode=24で長尺処理時にGPUメモリが増え続ける問題を修正。
