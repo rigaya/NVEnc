@@ -12,6 +12,7 @@
 - Improve [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) zero-copy path to reduce memory usage. ( #791 )
 - Fix GPU memory growth in long [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) mode=24 runs.
 - Improve memory retention for [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) and NVENC input.
+- Output mp4 trailer even if error has occurred.
 
 ## 9.30
 
