@@ -12056,14 +12056,14 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
     if (IS_OPTION("adapt-resolution")) {
-        //未指定はRGYParamCommonの{ 0, 0 }で表すため、オプションを明示した場合は両方とも正数だけを許可する。
-        //片方だけ0を許すと「未指定」と「一方向だけ上限指定」の区別が下流ごとに変わってしまうため不可とする。
         if (i + 1 >= nArgNum) {
             print_cmd_error_invalid_value(option_name, _T(""));
             return 1;
         }
         i++;
         int resolution[2] = { 0, 0 };
+        // 共通パーサでは形式と正数であることだけを確認する。サーフェス型の上限や初期入力との大小関係は、
+        // encoderとヘッダ解析結果に依存するため、reader初期化後のpipeline側で検証する。
         if (2 != _stscanf_s(strInput[i], _T("%dx%d"), &resolution[0], &resolution[1])
             || resolution[0] <= 0 || resolution[1] <= 0) {
             print_cmd_error_invalid_value(option_name, strInput[i]);

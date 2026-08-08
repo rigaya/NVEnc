@@ -32,12 +32,6 @@
 #include "rgy_input.h"
 #include "rgy_version.h"
 
-// このファイルはQSVEnc/NVEnc/VCEEnc/rkmppencの共有ファイルで、解像度変更に未対応のリポジトリでは
-// rgy_version.hにENABLE_INPUT_RESOLUTION_CHANGEが定義されていないため、無効(=明示エラー)をここで既定とする。
-#ifndef ENABLE_INPUT_RESOLUTION_CHANGE
-#define ENABLE_INPUT_RESOLUTION_CHANGE 0
-#endif
-
 #if ENABLE_AVSW_READER
 #include "rgy_avutil.h"
 #include "rgy_queue.h"
@@ -877,7 +871,7 @@ public:
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
     RGYOptList     inputOpt;                //入力オプション
     RGYHEVCBsf     hevcbsf;
-    std::pair<int, int> adaptResolution;     //入力途中の解像度変更で許容する最大解像度
+    std::pair<int, int> adaptResolution;    // pipelineの入力プールと同じ物理確保上限。{ 0, 0 }なら初期入力解像度を上限にする。
     tstring        avswDecoder;             //avswデコーダの指定
 
     RGYInputAvcodecPrm(RGYInputPrm base);
@@ -1101,8 +1095,8 @@ protected:
     tstring          m_logFramePosList;           //FramePosListの内容を入力終了時に出力する (デバッグ用)
     std::unique_ptr<FILE, fp_deleter> m_fpPacketList; // 読み取ったパケット情報を出力するファイル
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
-    //入力解像度の上限。未指定時はコンテナ宣言解像度、指定時は--adapt-resolutionの値となる。
-    //avswの下流サーフェスはこのサイズで初期確保済みなので、途中で超えた場合は書き込み前に明示エラーとする。
+    // 入力プールの物理確保上限。m_inputVideoInfo.srcWidth/Heightのように現在の論理解像度に追従させない。
+    // 途中でこれを超えた場合は、サーフェスへのコピー前に明示エラーとする。
     int              m_maxSrcWidth;
     int              m_maxSrcHeight;
     bool             m_suppressPulldownDetect;     // true: skip avgDuration *= 1.25 after bPulldown is detected. bPulldown itself is still set so log/diagnostic paths see it. Mirrors RGYInputAvcodecPrm::suppressPulldownMutation.

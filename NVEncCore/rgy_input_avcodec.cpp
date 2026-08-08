@@ -2314,9 +2314,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         //情報を格納
         m_inputVideoInfo.srcWidth    = m_Demux.video.stream->codecpar->width;
         m_inputVideoInfo.srcHeight   = m_Demux.video.stream->codecpar->height;
-        //ここで比較するのは、どちらもcrop前の表示解像度。
-        //AVFrame::width/heightも解像度変更検出時には同じ基準なので、coded size用のアラインはreader側では行わない。
-        //指定値が初期解像度より小さい場合にmax()で丸めると、指定ミスを隠してCLIの「最大値」という契約が曖昧になるためエラーにする。
+        // avcodec readerは--avswだけでなく、--avhwへ圧縮パケットを供給する経路でも使われる。
+        // ここではヘッダ解析後の実際の初期解像度を基準に、入力中に許可する物理上限を固定する。
+        // m_inputVideoInfo.srcWidth/Heightはフレームごとに変化する現在の論理解像度、m_maxSrcWidth/Heightは
+        // pipelineが先行確保したサーフェスと一致させる不変の上限で、両者を兼用してはいけない。
+        // 初期値より小さい指定は処理開始前に失敗させる。pipeline側でも同じ検査を行うのは、
+        // avcodec以外のreaderも共通パラメータを通るため。未指定時は初期解像度を上限とし、従来のメモリ使用量を保つ。
         if (input_prm->adaptResolution.first > 0 && input_prm->adaptResolution.second > 0) {
             if (input_prm->adaptResolution.first < m_inputVideoInfo.srcWidth
                 || input_prm->adaptResolution.second < m_inputVideoInfo.srcHeight) {
@@ -3990,16 +3993,15 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
         //入力ファイル途中での解像度変更の検出 (--avsw / avhwのsw decode時)
         //ARIBのマルチ編成TSなどでHD(1440x1080)とSD(720x480)が切り替わる場合にここに来る。
         //追従する場合はm_inputVideoInfo.srcWidth/Heightを更新して継続し、以降のフレームは新解像度でサーフェスへ書き込まれる。
-        //解像度変更を下流へ伝播させない処理(正規化resizeの挿入)はPipelineTaskCUDAVpp側で行う。
+        //解像度変更を下流へ伝播させない処理(正規化resizeの挿入)はPipelineTaskOpenCL側で行う。
         if (   m_Demux.video.frame->width  != m_inputVideoInfo.srcWidth
             || m_Demux.video.frame->height != m_inputVideoInfo.srcHeight) {
-#if ENABLE_INPUT_RESOLUTION_CHANGE
             const int newWidth = m_Demux.video.frame->width;
             const int newHeight = m_Demux.video.frame->height;
-            //この時点ではAVFrameの新解像度は判明しているが、呼び出し元PipelineTaskInputは旧フレームを返した後、
-            //既に確保済みのhostサーフェスを渡している。ここから再確保するにはAVFrameの保留、全下流のdrain、
-            //サーフェス全解放待ち、同一AVFrameの再投入が必要になるため、指定上限を初期確保してその範囲内で追従する。
-            //上限超過をm_convert->run()より前で止めないと、確保容量を越えて書き込みメモリを破壊する。
+            // この判定は、現在解像度を更新したりフレームをサーフェスへコピーしたりする前に行う。
+            // 下流の入力プールはこの上限で先行確保され、途中での再確保は行わない。上限超過を通すと
+            // LoadNextFrameのコピーが確保範囲を超えるため、安全に継続できない。通過後に更新するのは
+            // m_inputVideoInfoの論理解像度だけで、後続のMFX/OpenCL VPPが変更を検出して初期出力解像度へ正規化する。
             if (newWidth > m_maxSrcWidth || newHeight > m_maxSrcHeight) {
                 AddMessage(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, exceeding the configured resolution limit %dx%d, which is not supported.\n"),
                     m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, newWidth, newHeight,
@@ -4007,7 +4009,6 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
                 AddMessage(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
                 return RGY_ERR_UNSUPPORTED;
             }
-            //--cropは新解像度に対しても同じ画素数で適用されるため、cropしきれない小さな解像度になった場合は対応できない
             if (m_inputVideoInfo.crop.e.left + m_inputVideoInfo.crop.e.right >= newWidth
                 || m_inputVideoInfo.crop.e.up + m_inputVideoInfo.crop.e.bottom >= newHeight) {
                 AddMessage(RGY_LOG_ERROR, _T("input crop is too large for the changed resolution %dx%d.\n"), newWidth, newHeight);
@@ -4017,12 +4018,6 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
                 m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, newWidth, newHeight);
             m_inputVideoInfo.srcWidth = newWidth;
             m_inputVideoInfo.srcHeight = newHeight;
-#else
-            AddMessage(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, which is not supported yet.\n"),
-                m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_Demux.video.frame->width, m_Demux.video.frame->height);
-            AddMessage(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
-            return RGY_ERR_UNSUPPORTED;
-#endif
         }
 
         //実際には初期化時と異なるcspの場合があるので、ここで再度チェック
