@@ -497,8 +497,15 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
 
 void RGYOutputAvcodec::CloseFormat(AVMuxFormat *muxFormat) {
     if (muxFormat->formatCtx) {
-        if (!muxFormat->streamError && m_Mux.format.fileHeaderWritten) {
-            av_write_trailer(muxFormat->formatCtx);
+        if (m_Mux.format.fileHeaderWritten) {
+            //trailerを書かないとmp4のmoovが作られず、それまでに書き出した分すら再生できないファイルになってしまう。
+            //そのため、途中でエラーになった場合でもtrailerの書き込みは必ず試みて、部分的にでも再生できる状態で残す
+            const auto ret = av_write_trailer(muxFormat->formatCtx);
+            if (ret < 0) {
+                AddMessage(RGY_LOG_WARN, _T("failed to write trailer: %s.\n"), qsv_av_err2str(ret).c_str());
+            } else if (muxFormat->streamError) {
+                AddMessage(RGY_LOG_WARN, _T("output file was finalized, but it is incomplete due to the error above.\n"));
+            }
         }
 #if USE_CUSTOM_IO
         if (!muxFormat->fpOutput) {
