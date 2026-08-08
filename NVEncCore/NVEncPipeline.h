@@ -2434,8 +2434,15 @@ public:
         if (m_tsPrev >= outPtsSource) {
             if (m_tsPrev - outPtsSource >= MAX_FORCECFR_INSERT_FRAMES * m_outFrameDuration) {
                 PrintMes(RGY_LOG_DEBUG, _T("check_pts: previous pts %lld, current pts %lld, estimated pts %lld, m_tsOutFirst %lld, changing offset.\n"), m_tsPrev, outPtsSource, m_tsOutEstimated, m_tsOutFirst);
-                m_tsOutFirst += (outPtsSource - m_tsOutEstimated); //今後の位置合わせのための補正
-                outPtsSource = m_tsOutEstimated;
+                //m_tsOutEstimatedはCFR仮定でoutDurationを積み上げた値のため、vfrや長尺では
+                //実際の出力pts(m_tsPrev)から徐々にずれていく(長尺TSで数十フレーム分遅れる例あり)。
+                //そのままm_tsOutEstimatedを採用すると出力ptsが直前のフレームより前に戻ってしまい、
+                //muxerに "non monotonically increasing dts" で拒否されて出力が破綻するため、
+                //必ず直前のフレームより後になる位置を選ぶ
+                const auto tsOutNext = std::max(m_tsOutEstimated, m_tsPrev + m_outFrameDuration);
+                m_tsOutFirst += (outPtsSource - tsOutNext); //今後の位置合わせのための補正
+                outPtsSource = tsOutNext;
+                m_tsOutEstimated = tsOutNext; //ずれをここで解消しておかないと、以降のフレームでも同じ逆行が起こる
                 PrintMes(RGY_LOG_DEBUG, _T("check_pts:   changed to m_tsOutFirst %lld, outPtsSource %lld.\n"), m_tsOutFirst, outPtsSource);
             } else {
                 if (m_avsync & RGY_AVSYNC_FORCE_CFR) {

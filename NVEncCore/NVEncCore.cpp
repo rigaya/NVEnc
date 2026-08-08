@@ -6873,8 +6873,15 @@ NVENCSTATUS NVEncCore::Encode() {
         if (nLastPts >= outPtsSource) {
             if (nLastPts - outPtsSource >= 32 * nOutFrameDuration) {
                 PrintMes(RGY_LOG_DEBUG, _T("check_pts: previous pts %lld, current pts %lld, estimated pts %lld, nOutFirstPts %lld, changing offset.\n"), nLastPts, outPtsSource, nOutEstimatedPts, nOutFirstPts);
-                nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
-                outPtsSource = nOutEstimatedPts;
+                //nOutEstimatedPtsはCFR仮定でoutDurationを積み上げた値のため、vfrや長尺では
+                //実際の出力pts(nLastPts)から徐々にずれていく(長尺TSで数十フレーム分遅れる例あり)。
+                //そのままnOutEstimatedPtsを採用すると出力ptsが直前のフレームより前に戻ってしまい、
+                //muxerに "non monotonically increasing dts" で拒否されて出力が破綻するため、
+                //必ず直前のフレームより後になる位置を選ぶ
+                const auto tsOutNext = std::max(nOutEstimatedPts, nLastPts + nOutFrameDuration);
+                nOutFirstPts += (outPtsSource - tsOutNext); //今後の位置合わせのための補正
+                outPtsSource = tsOutNext;
+                nOutEstimatedPts = tsOutNext; //ずれをここで解消しておかないと、以降のフレームでも同じ逆行が起こる
                 PrintMes(RGY_LOG_DEBUG, _T("check_pts:   changed to nOutFirstPts %lld, outPtsSource %lld.\n"), nOutFirstPts, outPtsSource);
                 ignoreVideoTimestampErrorCount = 0;
             } else {
