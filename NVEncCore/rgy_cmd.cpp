@@ -5976,7 +5976,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
 
         const auto paramList = std::vector<std::string>{
-            "enable", "model", "modelfile", "provider", "device", "interop", "precision",
+            "enable", "model", "modelfile", "provider", "device",
+#if ENCODER_NVENC
+            "interop",
+#endif
+            "precision",
             "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "frames", "mask", "out_res", "resize"
         };
 
@@ -6015,6 +6019,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     vpp->onnx.device = touppercase(param_val);
                     continue;
                 }
+#if ENCODER_NVENC
                 if (param_arg == _T("interop")) {
                     const tstring v = tolowercase(param_val);
                     if (v == _T("auto") || v == _T("ocl") || v == _T("host")) {
@@ -6025,6 +6030,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+#endif
                 if (param_arg == _T("prec") || param_arg == _T("precision")) {
                     const tstring v = tolowercase(param_val);
                     if (v == _T("auto") || v == _T("fp16") || v == _T("f16") || v == _T("fp32") || v == _T("f32")) {
@@ -6096,7 +6102,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         return 1;
                     }
                     if (vpp->onnx.frames < 1 || (vpp->onnx.frames % 2) == 0) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("framesは正の奇数で指定してください"));
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("frames must be a positive odd number"));
                         return 1;
                     }
                     continue;
@@ -9443,59 +9449,117 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
     }
     if (IS_OPTION("vpp-v360")) {
         vpp->v360.enable = true;
-        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) return 0;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
         i++;
         const auto paramList = std::vector<std::string>{ "in", "out", "yaw", "pitch", "roll", "in_hfov", "h_fov", "w", "h" };
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
-            if (pos == std::string::npos) { print_cmd_error_unknown_opt_param(option_name, param, paramList); return 1; }
-            auto param_arg = tolowercase(param.substr(0, pos));
-            auto param_val = param.substr(pos + 1);
-            if (param_arg == _T("enable")) {
-                bool b = false; if (!cmd_string_to_bool(&b, param_val)) vpp->v360.enable = b;
-                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" enable="), param_val); return 1; }
-            } else if (param_arg == _T("in") || param_arg == _T("out")) {
-                int value = 0;
-                if (!get_list_value(list_vpp_v360_proj, param_val.c_str(), &value)) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_v360_proj); return 1; }
-                if (param_arg == _T("in")) vpp->v360.in_proj = value; else vpp->v360.out_proj = value;
-            } else if (param_arg == _T("yaw") || param_arg == _T("pitch") || param_arg == _T("roll") || param_arg == _T("in_hfov") || param_arg == _T("h_fov")) {
-                try {
-                    const float value = std::stof(param_val);
-                    if (param_arg == _T("yaw")) vpp->v360.yaw = value;
-                    else if (param_arg == _T("pitch")) vpp->v360.pitch = value;
-                    else if (param_arg == _T("roll")) vpp->v360.roll = value;
-                    else if (param_arg == _T("in_hfov")) vpp->v360.in_hfov = value;
-                    else vpp->v360.out_hfov = value;
-                } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
-            } else if (param_arg == _T("w") || param_arg == _T("h")) {
-                try { const int value = std::stoi(param_val); if (param_arg == _T("w")) vpp->v360.w = value; else vpp->v360.h = value; }
-                catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
-            } else { print_cmd_error_unknown_opt_param(option_name, param_arg, paramList); return 1; }
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) { vpp->v360.enable = b; }
+                    else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("in")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_v360_proj, param_val.c_str(), &value)) { vpp->v360.in_proj = value; }
+                    else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_v360_proj); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("out")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_v360_proj, param_val.c_str(), &value)) { vpp->v360.out_proj = value; }
+                    else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_v360_proj); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("yaw")) {
+                    try { vpp->v360.yaw = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("pitch")) {
+                    try { vpp->v360.pitch = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("roll")) {
+                    try { vpp->v360.roll = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("h_fov")) {
+                    try { vpp->v360.out_hfov = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("in_hfov")) {
+                    try { vpp->v360.in_hfov = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("w")) {
+                    try { vpp->v360.w = std::stoi(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("h")) {
+                    try { vpp->v360.h = std::stoi(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
         }
         return 0;
     }
     if (IS_OPTION("vpp-lenscorrection")) {
         vpp->lenscorrection.enable = true;
-        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) return 0;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
         i++;
         const auto paramList = std::vector<std::string>{ "k1", "k2", "cx", "cy" };
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
-            if (pos == std::string::npos) { print_cmd_error_unknown_opt_param(option_name, param, paramList); return 1; }
-            auto param_arg = tolowercase(param.substr(0, pos));
-            auto param_val = param.substr(pos + 1);
-            if (param_arg == _T("enable")) {
-                bool b = false; if (!cmd_string_to_bool(&b, param_val)) vpp->lenscorrection.enable = b;
-                else { print_cmd_error_invalid_value(tstring(option_name) + _T(" enable="), param_val); return 1; }
-            } else if (param_arg == _T("k1") || param_arg == _T("k2") || param_arg == _T("cx") || param_arg == _T("cy")) {
-                try {
-                    const float value = std::stof(param_val);
-                    if (param_arg == _T("k1")) vpp->lenscorrection.k1 = value;
-                    else if (param_arg == _T("k2")) vpp->lenscorrection.k2 = value;
-                    else if (param_arg == _T("cx")) vpp->lenscorrection.cx = value;
-                    else vpp->lenscorrection.cy = value;
-                } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
-            } else { print_cmd_error_unknown_opt_param(option_name, param_arg, paramList); return 1; }
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->lenscorrection.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("k1")) {
+                    try { vpp->lenscorrection.k1 = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("k2")) {
+                    try { vpp->lenscorrection.k2 = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("cx")) {
+                    try { vpp->lenscorrection.cx = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("cy")) {
+                    try { vpp->lenscorrection.cy = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
         }
         return 0;
     }
@@ -14092,7 +14156,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 tmp << _T(",model=") << param->onnx.modelFile;
             }
             tmp << _T(",device=") << param->onnx.device;
+#if ENCODER_NVENC
             tmp << _T(",interop=") << param->onnx.interop;
+#endif
             tmp << _T(",prec=") << param->onnx.precision;
             tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->onnx.colormatrix);
             if (param->onnx.colormatrixOut != RGY_MATRIX_AUTO) {
@@ -15990,11 +16056,12 @@ tstring gen_cmd_help_common() {
         _T("\n")
         _T("   --input-hevc-bsf <string>    switch hevc bitstream filter used for hw decoder input\n")
         _T("                                 - internal   ... use internal implementation (default)\n")
-        _T("                                 - libavcodec ... use hevc_mp4toannexb bsf\n")
+        _T("                                 - libavcodec ... use hevc_mp4toannexb bsf\n"),
+        DEFAULT_IGNORE_DECODE_ERROR);
+    str += _T("\n")
         _T("   --adapt-resolution <int>x<int>\n")
         _T("                                入力途中の解像度変更で許容する最大解像度を指定する。\n")
-        _T("                                avhwではデコーダ、avswでは入力サーフェスを指定値で確保する。\n"),
-        DEFAULT_IGNORE_DECODE_ERROR);
+        _T("                                avhwではデコーダ、avswでは入力サーフェスを指定値で確保する。\n");
     str += _T("\n")
         _T("   --input-pixel-format <string>  set input pixel format for avdevice\n")
         _T("   --offset-video-dts-advance  offset timestamp to cancel bframe delay\n")
@@ -16869,6 +16936,12 @@ tstring gen_cmd_help_vpp() {
 #endif
 #if ENABLE_VPP_FILTER_ONNX
     str += strsprintf(_T("\n")
+        _T("   --vpp-lenscorrection [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("      k1=<float>, k2=<float>     radial distortion coefficients\n")
+        _T("      cx=<float>, cy=<float>     correction centre (default=0.5,0.5)\n")
+        _T("   --vpp-v360 [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("      in/out=equirect|flat|cubemap, yaw/pitch/roll=<float>, h_fov=<float>, w/h=<int>\n"));
+    str += strsprintf(_T("\n")
         _T("   --vpp-onnx [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     ONNX Runtime CNN filter: loads and runs an ONNX model directly.\n")
         _T("    params\n")
@@ -16876,13 +16949,11 @@ tstring gen_cmd_help_vpp() {
 #if ENABLE_OPENVINO
         _T("      device=<string>             OpenVINO device: GPU.0 (default) / GPU / CPU / AUTO / NPU\n")
         _T("                                    NPU needs an NPU-enabled OpenVINO runtime (Core Ultra).\n")
-        _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
         _T("      prec=<string>               auto (default) / fp16 / fp32\n")
 #endif
 #if ENCODER_NVENC
         _T("      provider=<string>           execution provider for inference\n")
         _T("                                    auto (default, = cuda), cuda, tensorrt\n")
-        _T("      prec=<string>               auto (default, TensorRT fp16) / fp16 / fp32\n")
 #endif
         _T("      colormatrix=<string>        same list as --colormatrix; onnx supports\n")
         _T("                                    auto / auto_res / smpte170m / bt470bg\n")
@@ -16926,14 +16997,8 @@ tstring gen_cmd_help_vpp() {
         _T("      model=<name>                Registered model name (required)\n")
         _T("                                  Names require --vpp-onnx-model-dir (onnx_deint_models.json).\n")
         _T("      mode=<string>               bob (default, double frame rate) / normal\n")
-#if ENABLE_OPENVINO
-        _T("      device=<string>             GPU.0 (default) / CPU / GPU / AUTO / NPU\n")
-        _T("      precision=<string>          fp32 (default, high quality) / auto (fast)\n")
-        _T("                                  Recommended: stdeint+fp32 for quality, stdeint_fast+auto for HD speed.\n")
-#endif
-#if ENCODER_NVENC
-        _T("      precision=<string>          fp32 (default) / auto (TensorRT fp16)\n")
-#endif
+        _T("      device=<string>             inference device (backend dependent)\n")
+        _T("      precision=<string>          inference precision (backend dependent)\n")
         _T("      colormatrix=<string>        same list as --colormatrix; supports\n")
         _T("                                  auto / auto_res / bt709 / smpte170m / bt470bg / bt2020nc\n")
         _T("      colorrange=<string>         same list as --colorrange; supports\n")
@@ -17509,12 +17574,6 @@ tstring gen_cmd_help_vpp() {
         _T("      flip_y=<bool>\n")
         _T("      transpose=<bool>\n")
     );
-    str += strsprintf(_T("\n")
-        _T("   --vpp-lenscorrection [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("      k1=<float>, k2=<float>     radial distortion coefficients\n")
-        _T("      cx=<float>, cy=<float>     correction centre (default=0.5,0.5)\n")
-        _T("   --vpp-v360 [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("      in/out=equirect|flat|cubemap, yaw/pitch/roll=<float>, h_fov=<float>, w/h=<int>\n"));
 #if ENABLE_VPP_FILTER_DEBAND
     str += strsprintf(_T("\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")
