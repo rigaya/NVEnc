@@ -4283,7 +4283,9 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
         //以前のptsより前になりそうになったら修正する
         const auto maxPts = pMuxOther->lastPtsOut + ((m_Mux.format.formatCtx->oformat->flags & AVFMT_TS_NONSTRICT) ? 0 : 1);
         if (pkt->pts < maxPts) {
-            auto loglevel = (maxPts - pkt->pts > 2 && pMuxOther->streamOut->codecpar->codec_type != AVMEDIA_TYPE_SUBTITLE /*字幕の場合は頻繁に発生することがある*/) ? RGY_LOG_WARN : RGY_LOG_DEBUG;
+            const auto loglevel = (pMuxOther->streamOut->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE)
+                ? RGY_LOG_TRACE // 字幕の場合は頻繁に発生することがある
+                : ((maxPts - pkt->pts > 2) ? RGY_LOG_WARN : RGY_LOG_DEBUG);
             if (loglevel >= m_printMes->getLogLevel(RGY_LOGT_OUT)) {
                 AddMessage(loglevel, _T("Timestamp error in stream %d, previous: %lld, current: %lld [timebase: %d/%d].\n"),
                     pMuxOther->streamOut->index,
