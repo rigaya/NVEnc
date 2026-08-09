@@ -99,6 +99,7 @@ protected:
     RGY_ERR emitTemporalOutput(int64_t outIdx, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
     RGY_ERR initMask(const std::shared_ptr<NVEncFilterParamOnnx> &prm, int inW, int inH, RGY_CSP inCsp);
     RGY_ERR runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
+    RGY_ERR reinitHostPath(tstring &errorMessage);
     RGY_ERR initCudaPath(cudaStream_t stream);
     RGY_ERR runCudaRGB(const RGYFrameInfo *input, RGYFrameInfo *output, cudaStream_t stream);
     RGY_ERR runCudaGrayNoise(const RGYFrameInfo *input, RGYFrameInfo *output, cudaStream_t stream);
