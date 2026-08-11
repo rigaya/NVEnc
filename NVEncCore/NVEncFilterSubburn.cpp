@@ -43,21 +43,6 @@
 
 #if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 
-#pragma comment(lib, "libass-9.lib")
-
-static bool check_libass_dll() {
-#if defined(_WIN32) || defined(_WIN64)
-    HMODULE hDll = LoadLibrary(_T("libass.dll"));
-    if (hDll == NULL) {
-        return false;
-    }
-    FreeLibrary(hDll);
-    return true;
-#else
-    return true;
-#endif //#if defined(_WIN32) || defined(_WIN64)
-}
-
 //MSGL_FATAL 0 - RGY_LOG_ERROR  2
 //MSGL_ERR   1 - RGY_LOG_ERROR  2
 //MSGL_WARN  2 - RGY_LOG_WARN   1
@@ -126,9 +111,10 @@ NVEncFilterSubburn::NVEncFilterSubburn() :
     m_outCodecDecodeCtx(),
     m_subData(),
     m_subImages(),
-    m_assLibrary(unique_ptr<ASS_Library, decltype(&ass_library_done)>(nullptr, ass_library_done)),
-    m_assRenderer(unique_ptr<ASS_Renderer, decltype(&ass_renderer_done)>(nullptr, ass_renderer_done)),
-    m_assTrack(unique_ptr<ASS_Track, decltype(&ass_free_track)>(nullptr, ass_free_track)),
+    m_ass(),
+    m_assLibrary(nullptr, RGYLibassLibraryDeleter()),
+    m_assRenderer(nullptr, RGYLibassRendererDeleter()),
+    m_assTrack(nullptr, RGYLibassTrackDeleter()),
     m_resize(),
     m_poolPkt(nullptr),
     m_queueSubPackets() {
@@ -333,12 +319,16 @@ RGY_ERR NVEncFilterSubburn::initAVCodec(const std::shared_ptr<NVEncFilterParamSu
 
 RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSubburn> prm) {
     //libassの初期化
-    m_assLibrary = unique_ptr<ASS_Library, decltype(&ass_library_done)>(ass_library_init(), ass_library_done);
+    if (!m_ass.load()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load %s.\n"), RGY_LIBASS_FILENAME);
+        return RGY_ERR_NULL_PTR;
+    }
+    m_assLibrary = unique_ptr<ASS_Library, RGYLibassLibraryDeleter>(m_ass.p_ass_library_init()(), RGYLibassLibraryDeleter(m_ass.p_ass_library_done()));
     if (!m_assLibrary) {
         AddMessage(RGY_LOG_ERROR, _T("failed to initialize libass.\n"));
         return RGY_ERR_NULL_PTR;
     }
-    ass_set_message_cb(m_assLibrary.get(), ass_log, m_pLog.get());
+    m_ass.p_ass_set_message_cb()(m_assLibrary.get(), ass_log, m_pLog.get());
 
     if (prm->subburn.fontsdir.length() > 0) {
         if (!std::filesystem::exists(std::filesystem::path(prm->subburn.fontsdir))) {
@@ -350,7 +340,7 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
                 return RGY_ERR_NULL_PTR;
             }
             AddMessage(RGY_LOG_DEBUG, _T("Setting fontsdir \"%s\"\n"), prm->subburn.fontsdir.c_str());
-            ass_set_fonts_dir(m_assLibrary.get(), fontsdir.c_str());
+            m_ass.p_ass_set_fonts_dir()(m_assLibrary.get(), fontsdir.c_str());
         }
     }
     for (const auto& s : prm->attachmentStreams) {
@@ -358,29 +348,29 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
             const AVDictionaryEntry *tag = av_dict_get(s->metadata, "filename", NULL, AV_DICT_MATCH_CASE);
             if (tag) {
                 AddMessage(RGY_LOG_DEBUG, _T("Loading attached font: %s\n"), char_to_tstring(tag->value).c_str());
-                ass_add_font(m_assLibrary.get(), tag->value, (char *)s->codecpar->extradata, s->codecpar->extradata_size);
+                m_ass.p_ass_add_font()(m_assLibrary.get(), tag->value, (char *)s->codecpar->extradata, s->codecpar->extradata_size);
             } else {
                 AddMessage(RGY_LOG_WARN, _T("Font attachment has no filename, ignored.\n"));
             }
         }
     }
 
-    ass_set_extract_fonts(m_assLibrary.get(), 1);
-    ass_set_style_overrides(m_assLibrary.get(), nullptr);
+    m_ass.p_ass_set_extract_fonts()(m_assLibrary.get(), 1);
+    m_ass.p_ass_set_style_overrides()(m_assLibrary.get(), nullptr);
 
-    m_assRenderer = unique_ptr<ASS_Renderer, decltype(&ass_renderer_done)>(ass_renderer_init(m_assLibrary.get()), ass_renderer_done);
+    m_assRenderer = unique_ptr<ASS_Renderer, RGYLibassRendererDeleter>(m_ass.p_ass_renderer_init()(m_assLibrary.get()), RGYLibassRendererDeleter(m_ass.p_ass_renderer_done()));
     if (!m_assRenderer) {
         AddMessage(RGY_LOG_ERROR, _T("failed to initialize libass renderer.\n"));
         return RGY_ERR_NULL_PTR;
     }
 
-    ass_set_fonts(m_assRenderer.get(), nullptr, nullptr, 1, nullptr, 1);
+    m_ass.p_ass_set_fonts()(m_assRenderer.get(), nullptr, nullptr, 1, nullptr, 1);
 
-    ass_set_use_margins(m_assRenderer.get(), 0);
+    m_ass.p_ass_set_use_margins()(m_assRenderer.get(), 0);
     //ass_set_hinting(m_assRenderer.get(), ASS_HINTING_LIGHT); // これを有効にすると動く字幕がガタガタしてしまうので無効化
-    ass_set_font_scale(m_assRenderer.get(), 1.0);
-    ass_set_line_spacing(m_assRenderer.get(), 1.0);
-    ass_set_shaper(m_assRenderer.get(), (ASS_ShapingLevel)prm->subburn.assShaping);
+    m_ass.p_ass_set_font_scale()(m_assRenderer.get(), 1.0);
+    m_ass.p_ass_set_line_spacing()(m_assRenderer.get(), 1.0);
+    m_ass.p_ass_set_shaper()(m_assRenderer.get(), (ASS_ShapingLevel)prm->subburn.assShaping);
 
     if (prm->videoInfo.srcWidth <= 0 || prm->videoInfo.srcHeight <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("failed to detect frame size: %dx%d.\n"), prm->videoInfo.srcWidth, prm->videoInfo.srcHeight);
@@ -388,24 +378,24 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
     }
     const int width = prm->videoInfo.srcWidth - prm->videoInfo.crop.e.left - prm->videoInfo.crop.e.right;
     const int height = prm->videoInfo.srcHeight - prm->videoInfo.crop.e.up - prm->videoInfo.crop.e.bottom;
-    ass_set_frame_size(m_assRenderer.get(), width, height);
-    ass_set_storage_size(m_assRenderer.get(), width, height);
+    m_ass.p_ass_set_frame_size()(m_assRenderer.get(), width, height);
+    m_ass.p_ass_set_storage_size()(m_assRenderer.get(), width, height);
 
     const AVRational sar = { prm->videoInfo.sar[0], prm->videoInfo.sar[1] };
     double par = 1.0;
     if (sar.num * sar.den > 0) {
         par = (double)sar.num / sar.den;
     }
-    ass_set_pixel_aspect(m_assRenderer.get(), par);
+    m_ass.p_ass_set_pixel_aspect()(m_assRenderer.get(), par);
 
-    m_assTrack = unique_ptr<ASS_Track, decltype(&ass_free_track)>(ass_new_track(m_assLibrary.get()), ass_free_track);
+    m_assTrack = unique_ptr<ASS_Track, RGYLibassTrackDeleter>(m_ass.p_ass_new_track()(m_assLibrary.get()), RGYLibassTrackDeleter(m_ass.p_ass_free_track()));
     if (!m_assTrack) {
         AddMessage(RGY_LOG_ERROR, _T("failed to initialize libass track.\n"));
         return RGY_ERR_NULL_PTR;
     }
 
     if (m_outCodecDecodeCtx && m_outCodecDecodeCtx->subtitle_header && m_outCodecDecodeCtx->subtitle_header_size > 0) {
-        ass_process_codec_private(m_assTrack.get(), (char *)m_outCodecDecodeCtx->subtitle_header, m_outCodecDecodeCtx->subtitle_header_size);
+        m_ass.p_ass_process_codec_private()(m_assTrack.get(), (char *)m_outCodecDecodeCtx->subtitle_header, m_outCodecDecodeCtx->subtitle_header_size);
     }
     return RGY_ERR_NONE;
 }
@@ -562,7 +552,7 @@ RGY_ERR NVEncFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, cudaStream_t s
                 if (!ass) {
                     break;
                 }
-                ass_process_chunk(m_assTrack.get(), ass, (int)strlen(ass), nStartTime, nDuration);
+                m_ass.p_ass_process_chunk()(m_assTrack.get(), ass, (int)strlen(ass), nStartTime, nDuration);
             }
         }
         m_poolPkt->returnFree(&pkt);
@@ -628,6 +618,7 @@ void NVEncFilterSubburn::close() {
     m_assTrack.reset();
     m_assRenderer.reset();
     m_assLibrary.reset();
+    m_ass.close();
     m_queueSubPackets.clear();
     m_subData.reset();
     m_outCodecDecodeCtx.reset();

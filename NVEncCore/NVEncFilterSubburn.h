@@ -57,7 +57,7 @@ public:
 
 #if ENABLE_LIBASS_SUBBURN
 
-#include "ass/ass.h"
+#include "rgy_libass.h"
 
 struct subtitle_deleter {
     void operator()(AVSubtitle *subtitle) const {
@@ -106,9 +106,10 @@ protected:
     unique_ptr<AVSubtitle, subtitle_deleter> m_subData;
     vector<SubImageData> m_subImages;
 
-    unique_ptr<ASS_Library, decltype(&ass_library_done)> m_assLibrary; //libassのコンテキスト
-    unique_ptr<ASS_Renderer, decltype(&ass_renderer_done)> m_assRenderer; //libassのレンダラ
-    unique_ptr<ASS_Track, decltype(&ass_free_track)> m_assTrack; //libassのトラック
+    RGYLibassLoader m_ass;
+    unique_ptr<ASS_Library, RGYLibassLibraryDeleter> m_assLibrary; //libassのコンテキスト
+    unique_ptr<ASS_Renderer, RGYLibassRendererDeleter> m_assRenderer; //libassのレンダラ
+    unique_ptr<ASS_Track, RGYLibassTrackDeleter> m_assTrack; //libassのトラック
 
     unique_ptr<NVEncFilterResize> m_resize;
 

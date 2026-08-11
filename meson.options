@@ -30,6 +30,12 @@ option('enable_libass',
   description: 'Enable libass subtitle burn-in'
 )
 
+option('libass_static',
+  type: 'boolean',
+  value: true,
+  description: 'Statically link libass on Linux'
+)
+
 option('enable_libplacebo',
   type: 'combo',
   choices: ['auto', 'enabled', 'disabled'],

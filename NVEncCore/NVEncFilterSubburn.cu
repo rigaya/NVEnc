@@ -276,7 +276,7 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
 
 RGY_ERR NVEncFilterSubburn::procFrameText(RGYFrameInfo *pOutputFrame, int64_t frameTimeMs, cudaStream_t stream) {
     int nDetectChange = 0;
-    const auto frameImages = ass_render_frame(m_assRenderer.get(), m_assTrack.get(), frameTimeMs, &nDetectChange);
+    const auto frameImages = m_ass.p_ass_render_frame()(m_assRenderer.get(), m_assTrack.get(), frameTimeMs, &nDetectChange);
 
     if (!frameImages) {
         m_subImages.clear();
