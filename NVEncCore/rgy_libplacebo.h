@@ -61,6 +61,7 @@ class RGYLibplaceboLoader {
 private:
     HMODULE m_hModule;
     bool m_loaded;
+    int m_apiVersion;
 
     pl_color_space *m_pl_color_space_bt2020_hlg;
     pl_color_space *m_pl_color_space_bt709;
@@ -137,14 +138,15 @@ public:
     bool load();
     void close();
     bool loaded() const { return m_loaded; }
+    int api_version() const { return m_apiVersion; }
 
     pl_color_space p_color_space_bt2020_hlg() const { return *m_pl_color_space_bt2020_hlg; }
     pl_color_space p_color_space_bt709() const { return *m_pl_color_space_bt709; }
     pl_color_space p_color_space_srgb() const { return *m_pl_color_space_srgb; }
     pl_color_space p_color_space_hdr10() const { return *m_pl_color_space_hdr10; }
     pl_hdr_metadata p_hdr_metadata_empty() const { return *m_pl_hdr_metadata_empty; }
-    pl_render_params p_render_default_params() const { return *m_pl_render_default_params; }
-    pl_peak_detect_params p_peak_detect_default_params() const { return *m_pl_peak_detect_default_params; }
+    pl_render_params p_render_default_params() const;
+    pl_peak_detect_params p_peak_detect_default_params() const;
     pl_color_map_params p_color_map_default_params() const { return *m_pl_color_map_default_params; }
     pl_sigmoid_params p_sigmoid_default_params() const { return *m_pl_sigmoid_default_params; }
     pl_dither_params p_dither_default_params() const { return *m_pl_dither_default_params; }
@@ -192,6 +194,14 @@ public:
     auto p_color_space_infer_map() const { return m_pl_color_space_infer_map; }
 
     auto p_frame_set_chroma_location() const { return m_pl_frame_set_chroma_location; }
+
+#if ENABLE_D3D11
+    pl_d3d11 create_d3d11(pl_log log, const pl_d3d11_params *params) const;
+#elif ENABLE_VULKAN
+    pl_vulkan create_vulkan(pl_log log, const pl_vulkan_params *params) const;
+#endif
+    bool render_image(pl_renderer renderer, const pl_frame *image, const pl_frame *target, const pl_render_params *params) const;
+    void frame_set_chroma_location(pl_frame *frame, pl_chroma_location chroma_location) const;
 
     auto p_shader_custom() const { return m_pl_shader_custom; }
     auto p_mpv_user_shader_parse() const { return m_pl_mpv_user_shader_parse; }
