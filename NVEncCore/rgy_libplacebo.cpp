@@ -656,6 +656,57 @@ static const auto RGY_CHROMALOC_TO_LIBPLACEBO = make_array<std::pair<CspChromalo
 
 MAP_PAIR_0_1(chromaloc, rgy, CspChromaloc, libplacebo, pl_chroma_location, RGY_CHROMALOC_TO_LIBPLACEBO, RGY_CHROMALOC_UNSPECIFIED, PL_CHROMA_UNKNOWN);
 
+std::optional<pl_color_system> colorsystem_rgy_to_libplacebo(const VppLibplaceboColorsystem colorsystem, [[maybe_unused]] const int apiVersion) {
+    switch (colorsystem) {
+    case VppLibplaceboColorsystem::UNKNOWN:     return PL_COLOR_SYSTEM_UNKNOWN;
+    case VppLibplaceboColorsystem::BT_601:      return PL_COLOR_SYSTEM_BT_601;
+    case VppLibplaceboColorsystem::BT_709:      return PL_COLOR_SYSTEM_BT_709;
+    case VppLibplaceboColorsystem::SMPTE_240M:  return PL_COLOR_SYSTEM_SMPTE_240M;
+    case VppLibplaceboColorsystem::BT_2020_NC:  return PL_COLOR_SYSTEM_BT_2020_NC;
+    case VppLibplaceboColorsystem::BT_2020_C:   return PL_COLOR_SYSTEM_BT_2020_C;
+    case VppLibplaceboColorsystem::BT_2100_PQ:  return PL_COLOR_SYSTEM_BT_2100_PQ;
+    case VppLibplaceboColorsystem::BT_2100_HLG: return PL_COLOR_SYSTEM_BT_2100_HLG;
+    case VppLibplaceboColorsystem::DOLBYVISION: return PL_COLOR_SYSTEM_DOLBYVISION;
+    case VppLibplaceboColorsystem::YCGCO:       return PL_COLOR_SYSTEM_YCGCO;
+    case VppLibplaceboColorsystem::RGB:         return PL_COLOR_SYSTEM_RGB;
+    case VppLibplaceboColorsystem::XYZ:         return PL_COLOR_SYSTEM_XYZ;
+#if PL_API_VER >= 360
+    case VppLibplaceboColorsystem::YCGCO_RE:
+        return (apiVersion >= 360) ? std::optional<pl_color_system>(PL_COLOR_SYSTEM_YCGCO_RE) : std::nullopt;
+    case VppLibplaceboColorsystem::YCGCO_RO:
+        return (apiVersion >= 360) ? std::optional<pl_color_system>(PL_COLOR_SYSTEM_YCGCO_RO) : std::nullopt;
+#else
+    case VppLibplaceboColorsystem::YCGCO_RE:
+    case VppLibplaceboColorsystem::YCGCO_RO:
+        return std::nullopt;
+#endif
+    default:
+        return std::nullopt;
+    }
+}
+
+VppLibplaceboColorsystem colorsystem_libplacebo_to_rgy(const pl_color_system colorsystem) {
+    switch (colorsystem) {
+    case PL_COLOR_SYSTEM_UNKNOWN:     return VppLibplaceboColorsystem::UNKNOWN;
+    case PL_COLOR_SYSTEM_BT_601:      return VppLibplaceboColorsystem::BT_601;
+    case PL_COLOR_SYSTEM_BT_709:      return VppLibplaceboColorsystem::BT_709;
+    case PL_COLOR_SYSTEM_SMPTE_240M:  return VppLibplaceboColorsystem::SMPTE_240M;
+    case PL_COLOR_SYSTEM_BT_2020_NC:  return VppLibplaceboColorsystem::BT_2020_NC;
+    case PL_COLOR_SYSTEM_BT_2020_C:   return VppLibplaceboColorsystem::BT_2020_C;
+    case PL_COLOR_SYSTEM_BT_2100_PQ:  return VppLibplaceboColorsystem::BT_2100_PQ;
+    case PL_COLOR_SYSTEM_BT_2100_HLG: return VppLibplaceboColorsystem::BT_2100_HLG;
+    case PL_COLOR_SYSTEM_DOLBYVISION: return VppLibplaceboColorsystem::DOLBYVISION;
+    case PL_COLOR_SYSTEM_YCGCO:       return VppLibplaceboColorsystem::YCGCO;
+#if PL_API_VER >= 360
+    case PL_COLOR_SYSTEM_YCGCO_RE:    return VppLibplaceboColorsystem::YCGCO_RE;
+    case PL_COLOR_SYSTEM_YCGCO_RO:    return VppLibplaceboColorsystem::YCGCO_RO;
+#endif
+    case PL_COLOR_SYSTEM_RGB:         return VppLibplaceboColorsystem::RGB;
+    case PL_COLOR_SYSTEM_XYZ:         return VppLibplaceboColorsystem::XYZ;
+    default:                          return VppLibplaceboColorsystem::UNKNOWN;
+    }
+}
+
 std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter> rgy_pl_tex_recreate(const RGYLibplaceboLoader *pl, pl_gpu gpu, const pl_tex_params& tex_params) {
     pl_tex tex_tmp = { 0 };
     if (!pl->p_tex_recreate()(gpu, &tex_tmp, &tex_params)) {

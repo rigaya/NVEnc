@@ -3199,7 +3199,7 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
     - colorsystem=&lt;string&gt;  
       Color system to use. Default: auto detect.
       ```
-      unknown, bt601, bt709, smpte240m, bt2020nc, bt2020c, bt2100pq, bt2100hlg, dolbyvision, ycgco, rgb, xyz
+      unknown, bt601, bt709, smpte240m, bt2020nc, bt2020c, bt2100pq, bt2100hlg, dolbyvision, ycgco, rgb, xyz, ycgco-re, ycgco-ro
       ```
 
     - transfer=&lt;string&gt;  

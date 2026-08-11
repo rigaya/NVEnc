@@ -233,6 +233,8 @@ MAP_PAIR_0_1_PROTO(tone_map_metadata, rgy, VppLibplaceboToneMappingMetadata, lib
 MAP_PAIR_0_1_PROTO(transfer, rgy, CspTransfer, libplacebo, pl_color_transfer);
 MAP_PAIR_0_1_PROTO(colorprim, rgy, CspColorprim, libplacebo, pl_color_primaries);
 MAP_PAIR_0_1_PROTO(chromaloc, rgy, CspChromaloc, libplacebo, pl_chroma_location);
+std::optional<pl_color_system> colorsystem_rgy_to_libplacebo(VppLibplaceboColorsystem colorsystem, int apiVersion);
+VppLibplaceboColorsystem colorsystem_libplacebo_to_rgy(pl_color_system colorsystem);
 
 static void libplacebo_log_func(void *private_data, pl_log_level level, const char* msg) {
     auto log = static_cast<RGYLog*>(private_data);

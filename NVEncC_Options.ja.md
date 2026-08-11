@@ -3255,7 +3255,7 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
     - colorsystem=&lt;string&gt;  
       使用する色空間を指定。デフォルトでは入力ファイルから自動的に設定される。
       ```
-      unknown, bt601, bt709, smpte240m, bt2020nc, bt2020c, bt2100pq, bt2100hlg, dolbyvision, ycgco, rgb, xyz
+      unknown, bt601, bt709, smpte240m, bt2020nc, bt2020c, bt2100pq, bt2100hlg, dolbyvision, ycgco, rgb, xyz, ycgco-re, ycgco-ro
       ```
 
     - transfer=&lt;string&gt;  

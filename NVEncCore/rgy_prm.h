@@ -1536,6 +1536,7 @@ struct VppLibplaceboDeband {
 };
 
 enum class VppLibplaceboColorsystem {
+    // libplaceboの列挙値はAPIで変わるため、この並びを同期させず変換関数を通す。
     UNKNOWN,
     BT_601,
     BT_709,
@@ -1548,6 +1549,8 @@ enum class VppLibplaceboColorsystem {
     YCGCO,
     RGB,
     XYZ,
+    YCGCO_RE,
+    YCGCO_RO,
     COUNT
 };
 
@@ -1577,6 +1580,8 @@ const CX_DESC list_vpp_libplacebo_colorsystem[] = {
     { _T("ycgco"),       (int)VppLibplaceboColorsystem::YCGCO },
     { _T("rgb"),         (int)VppLibplaceboColorsystem::RGB },
     { _T("xyz"),         (int)VppLibplaceboColorsystem::XYZ },
+    { _T("ycgco-re"),    (int)VppLibplaceboColorsystem::YCGCO_RE },
+    { _T("ycgco-ro"),    (int)VppLibplaceboColorsystem::YCGCO_RO },
     { NULL, 0 }
 };
 

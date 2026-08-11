@@ -1972,7 +1972,13 @@ RGY_ERR NVEncFilterLibplaceboShader::setLibplaceboParam(const NVEncFilterParam *
     }
     vui.apply_auto(VideoVUIInfo(), param->frameIn.height);
 
-    m_colorsystem = (pl_color_system)prm->shader.colorsystem;
+    const auto colorsystem = colorsystem_rgy_to_libplacebo(prm->shader.colorsystem, m_pl->api_version());
+    if (!colorsystem) {
+        AddMessage(RGY_LOG_ERROR, _T("Unsupported libplacebo color system for API %d: %s.\n"),
+            m_pl->api_version(), get_cx_desc(list_vpp_libplacebo_colorsystem, (int)prm->shader.colorsystem));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    m_colorsystem = *colorsystem;
     if (m_colorsystem == PL_COLOR_SYSTEM_UNKNOWN) {
         switch (vui.matrix) {
         case RGY_MATRIX_RGB: m_colorsystem = PL_COLOR_SYSTEM_RGB; break;
@@ -2103,7 +2109,7 @@ tstring NVEncFilterLibplaceboShader::printParams(const NVEncFilterParamLibplaceb
         return param->print();
     }
     NVEncFilterParamLibplaceboShader current = *prm;
-    current.shader.colorsystem = (VppLibplaceboColorsystem)m_colorsystem;
+    current.shader.colorsystem = colorsystem_libplacebo_to_rgy(m_colorsystem);
     current.shader.transfer = (VppLibplaceboToneMappingTransfer)m_transfer;
     return current.print();
 }
