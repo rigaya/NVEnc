@@ -1831,8 +1831,8 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         }
         int enc_sample_rate = (inputAudio->samplingRate) ? inputAudio->samplingRate : muxAudio->outCodecDecodeCtx->sample_rate;
         //select samplefmt
-        muxAudio->outCodecEncodeCtx->sample_fmt          = AutoSelectSampleFmt(muxAudio->outCodecEncode->sample_fmts, muxAudio->outCodecDecodeCtx);
-        muxAudio->outCodecEncodeCtx->sample_rate         = AutoSelectSamplingRate(muxAudio->outCodecEncode->supported_samplerates, enc_sample_rate);
+        muxAudio->outCodecEncodeCtx->sample_fmt          = AutoSelectSampleFmt(rgy_avcodec_get_sample_fmts(muxAudio->outCodecEncode), muxAudio->outCodecDecodeCtx);
+        muxAudio->outCodecEncodeCtx->sample_rate         = AutoSelectSamplingRate(rgy_avcodec_get_supported_samplerates(muxAudio->outCodecEncode), enc_sample_rate);
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
         muxAudio->outCodecEncodeCtx->ch_layout           = (*enc_channel_layout.get());
 #else
@@ -2013,8 +2013,6 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             }
         }
         muxAudio->streamOut->codecpar->codec_tag = codectag;
-
-        avformat_transfer_internal_stream_timing_info(m_Mux.format.formatCtx->oformat, muxAudio->streamOut, inputAudio->src.stream, AVFMT_TBCF_AUTO);
 
         if (muxAudio->streamOut->codecpar->codec_id == AV_CODEC_ID_MP3) {
             if (   muxAudio->streamOut->codecpar->block_align == 1

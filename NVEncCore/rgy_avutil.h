@@ -102,6 +102,34 @@ using uniuqeRGYChannelLayout = std::unique_ptr<RGYChannelLayout>;
 #define FF_PROFILE_UNKNOWN (AV_PROFILE_UNKNOWN)
 #endif
 
+static inline AVRational rgy_av_stream_get_codec_timebase(const AVStream *stream) {
+#if LIBAVFORMAT_VERSION_MAJOR < 63
+    return av_stream_get_codec_timebase(stream);
+#else
+    return stream->time_base;
+#endif
+}
+
+static inline const AVSampleFormat *rgy_avcodec_get_sample_fmts(const AVCodec *codec) {
+#if LIBAVCODEC_VERSION_MAJOR < 63
+    return codec->sample_fmts;
+#else
+    const void *sample_fmts = nullptr;
+    avcodec_get_supported_config(nullptr, codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, &sample_fmts, nullptr);
+    return static_cast<const AVSampleFormat *>(sample_fmts);
+#endif
+}
+
+static inline const int *rgy_avcodec_get_supported_samplerates(const AVCodec *codec) {
+#if LIBAVCODEC_VERSION_MAJOR < 63
+    return codec->supported_samplerates;
+#else
+    const void *samplerates = nullptr;
+    avcodec_get_supported_config(nullptr, codec, AV_CODEC_CONFIG_SAMPLE_RATE, 0, &samplerates, nullptr);
+    return static_cast<const int *>(samplerates);
+#endif
+}
+
 template<typename T>
 struct RGYAVDeleter {
     RGYAVDeleter() : deleter(nullptr) {};
