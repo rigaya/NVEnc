@@ -216,7 +216,7 @@ static RGY_ERR tweak_frame(RGYFrameInfo *pFrame, const NVEncFilterParamTweak *pr
         const float hue = hue_degree * (float)M_PI / 180.0f;
         kernel_tweak_uv<Type, Type4, bit_depth><<<gridSize, blockSize, 0, stream>>>(
             planeInputU.ptr[0], planeInputV.ptr[0], planeInputU.pitch[0], planeInputU.width, planeInputU.height,
-            saturation, std::sin(hue) * saturation, std::cos(hue) * saturation, swapuv,
+            saturation, std::sin(hue), std::cos(hue), swapuv,
             prm->tweak.cb.enabled(), prm->tweak.cb.gain, prm->tweak.cb.offset,
             prm->tweak.cr.enabled(), prm->tweak.cr.gain, prm->tweak.cr.offset,
             hue_limit, prm->tweak.startHue, prm->tweak.endHue, clamp_min, clamp_max_c);
