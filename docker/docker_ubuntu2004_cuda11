@@ -35,7 +35,6 @@ RUN apt update \
       gettext \
       make \
       pkg-config \
-      nasm \
       yasm \
       xxd \
       patch \
@@ -50,6 +49,10 @@ RUN apt update \
       libx11-dev \
       openssl \
       libssl-dev \
+    && wget -q https://archive.ubuntu.com/ubuntu/pool/universe/n/nasm/nasm_2.15.05-1_amd64.deb \
+      -O /tmp/nasm.deb \
+    && dpkg -i /tmp/nasm.deb \
+    && rm -f /tmp/nasm.deb \
     && wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc \
       | gpg --dearmor \
       > /usr/share/keyrings/kitware-archive-keyring.gpg \
