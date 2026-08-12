@@ -60,7 +60,7 @@ At runtime, place `onnxruntime.dll` and provider DLLs (`onnxruntime_providers_cu
 ```Batchfile
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
-curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20250830/ffmpeg_dlls_for_hwenc_20250830.7z
+curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20260812/ffmpeg_lgpl_20260812.7z
 7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
 ```
 
