@@ -16933,8 +16933,8 @@ tstring gen_cmd_help_vpp() {
         _T("                                the source aspect (magnitude=rounding step), like\n")
         _T("                                --output-res: out_res=-2x1080 -> 1440x1080 (4:3) or\n")
         _T("                                1920x1080 (16:9). default: off (output stays scale*src).\n")
-        _T("      resize=<string>           resampler for out_res (default=lanczos4):\n")
-        _T("                                lanczos4 | spline36 | jinc144 | nis | bicubic | ...\n"),
+        _T("      resize=<string>           resampler for out_res (default=spline16):\n")
+        _T("                                lanczos4 | spline16 | spline36 | jinc144 | nis | bicubic | ...\n"),
         FILTER_DEFAULT_ANIME4K_SCALE, FILTER_DEFAULT_ANIME4K_STRENGTH,
         FILTER_ANIME4K_STRENGTH_MIN, FILTER_ANIME4K_STRENGTH_MAX);
 #endif
