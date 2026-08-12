@@ -5749,6 +5749,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
     }
     if (IS_OPTION("vpp-anime4k-shader") && ENABLE_VPP_FILTER_ANIME4K) {
         vpp->anime4k.enable = true;
+        // Whether strength= was given explicitly. The deblur default below is
+        // derived after the whole option string is parsed, so it cannot depend
+        // on the order the parameters happen to be written in.
+        bool anime4kStrengthGiven = false;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
@@ -5782,13 +5786,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 int value = 0;
                 if (get_list_value(list_vpp_anime4k_mode, param_val.c_str(), &value)) {
                     vpp->anime4k.mode = (VppAnime4kMode)value;
-                    // deblur uses REFINE_STRENGTH=1.0 in the reference shader
-                    // while original uses 0.5. Promote the default strength
-                    // when the user picks deblur without an explicit value.
-                    if (vpp->anime4k.mode == VppAnime4kMode::Deblur
-                     && vpp->anime4k.strength == FILTER_DEFAULT_ANIME4K_STRENGTH) {
-                        vpp->anime4k.strength = 1.0f;
-                    }
                 } else {
                     print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_anime4k_mode);
                     return 1;
@@ -5807,6 +5804,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             if (param_arg == _T("strength")) {
                 try {
                     vpp->anime4k.strength = std::stof(param_val);
+                    anime4kStrengthGiven = true;
                 } catch (...) {
                     print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                     return 1;
@@ -5965,6 +5963,12 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             }
             print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
             return 1;
+        }
+        // deblur uses REFINE_STRENGTH=1.0 in the reference shader while original
+        // uses 0.5. Applied here, once the final mode is known, so that
+        // strength=0.5,mode=ani4k_deblur keeps the 0.5 the user asked for.
+        if (vpp->anime4k.mode == VppAnime4kMode::Deblur && !anime4kStrengthGiven) {
+            vpp->anime4k.strength = 1.0f;
         }
         return 0;
     }
