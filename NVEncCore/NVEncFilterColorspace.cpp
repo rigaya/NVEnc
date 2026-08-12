@@ -576,8 +576,8 @@ struct ColorspaceOpLUT3DPreLUT {
 
 class ColorspaceOpLUT3D : public ColorspaceOp {
 public:
-    ColorspaceOpLUT3D() : m_table_file(), m_interp(LUT3DInterp::Nearest), m_rgbscale(), m_tableSize0(0), m_tableSize01(0), m_preLUT() { m_type = COLORSPACE_OP_TYPE_LUT3D; };
-    ColorspaceOpLUT3D(const tstring& table_file, LUT3DInterp interp, std::shared_ptr<RGYLog> log) : m_table_file(table_file), m_interp(interp), m_rgbscale(), m_tableSize0(0), m_tableSize01(0), m_preLUT(), m_log(log) {
+    ColorspaceOpLUT3D() : m_table_file(), m_interp(LUT3DInterp::Nearest), m_rgbmin(), m_rgbscale(), m_tableSize0(0), m_tableSize01(0), m_preLUT() { m_type = COLORSPACE_OP_TYPE_LUT3D; };
+    ColorspaceOpLUT3D(const tstring& table_file, LUT3DInterp interp, std::shared_ptr<RGYLog> log) : m_table_file(table_file), m_interp(interp), m_rgbmin(), m_rgbscale(), m_tableSize0(0), m_tableSize01(0), m_preLUT(), m_log(log) {
         m_type = COLORSPACE_OP_TYPE_LUT3D;
     };
     virtual ~ColorspaceOpLUT3D() {};
@@ -592,6 +592,7 @@ protected:
     void clearTable();
     tstring m_table_file;
     LUT3DInterp m_interp;
+    vec3f m_rgbmin;
     vec3f m_rgbscale;
     int m_tableSize0;
     int m_tableSize01;
@@ -627,14 +628,16 @@ std::string ColorspaceOpLUT3D::print() {
         //lut3d main
         const int lutSize0  = %d;
         const int lutSize01 = %d;
-        const float lut_max_idx = (float)(lutSize0 - 1) + 1e-6f; 
-        x.x = clamp(x.x * %.16ef, 0.0f, lut_max_idx);
-        x.y = clamp(x.y * %.16ef, 0.0f, lut_max_idx);
-        x.z = clamp(x.z * %.16ef, 0.0f, lut_max_idx);
+        const float lut_max_idx = (float)(lutSize0 - 1) + 1e-6f;
+        x.x = clamp((x.x - %.16ef) * %.16ef, 0.0f, lut_max_idx);
+        x.y = clamp((x.y - %.16ef) * %.16ef, 0.0f, lut_max_idx);
+        x.z = clamp((x.z - %.16ef) * %.16ef, 0.0f, lut_max_idx);
         x = lut3d_interp_%s(x, getDevParamsLut(params), lutSize0, lutSize01);
     })",
         m_tableSize0, m_tableSize01,
-        scale_to_table((int)LUT3DIDX::r), scale_to_table((int)LUT3DIDX::g), scale_to_table((int)LUT3DIDX::b),
+        m_rgbmin((int)LUT3DIDX::r), scale_to_table((int)LUT3DIDX::r),
+        m_rgbmin((int)LUT3DIDX::g), scale_to_table((int)LUT3DIDX::g),
+        m_rgbmin((int)LUT3DIDX::b), scale_to_table((int)LUT3DIDX::b),
         tchar_to_string(get_cx_desc(list_vpp_colorspace_lut3d_interp, (int)m_interp)).c_str());
     return str;
 }
@@ -653,6 +656,7 @@ void ColorspaceOpLUT3D::clearTable() {
     m_preLUT.scale = vec3f(0.0f, 0.0f, 0.0f);
     m_tableSize0 = 0;
     m_tableSize01 = 0;
+    m_rgbmin = vec3f(0.0f, 0.0f, 0.0f);
     m_rgbscale = vec3f(0.0f, 0.0f, 0.0f);
 }
 
@@ -713,8 +717,18 @@ RGY_ERR ColorspaceOpLUT3D::parseCube(std::vector<uint8_t>& additionalParams) {
         return RGY_ERR_INVALID_DATA_TYPE;
     }
     for (int i = 0; i < 3; i++) {
-        m_rgbscale(i) = clamp(1.0f / (lutmax[i] - lutmin[i]), 0.0f, 1.0f);
-        m_log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("lut3d cube file: rgbscale(%d): %f\n"), i, m_rgbscale(i));
+        // LUTの添字は (入力値 - DOMAIN_MIN) / (DOMAIN_MAX - DOMAIN_MIN) で求める。
+        const float range = lutmax[i] - lutmin[i];
+        if (!(range > 0.0f)) {
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP,
+                _T("Invalid lut3d cube file: DOMAIN_MAX must exceed DOMAIN_MIN on axis %d (%f, %f)\n"),
+                i, lutmin[i], lutmax[i]);
+            return RGY_ERR_INVALID_DATA_TYPE;
+        }
+        m_rgbmin(i) = lutmin[i];
+        m_rgbscale(i) = 1.0f / range;
+        m_log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("lut3d cube file: rgbmin(%d): %f, rgbscale(%d): %f\n"),
+            i, m_rgbmin(i), i, m_rgbscale(i));
     }
     setAdditionalParams(additionalParams, luttable);
     return RGY_ERR_NONE;
