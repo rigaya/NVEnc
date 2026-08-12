@@ -70,84 +70,55 @@ static cudaError_t setAnime4kSrcTex(cudaTextureObject_t &tex, const RGYFrameInfo
     return cudaCreateTextureObject(&tex, &r, &t, nullptr);
 }
 
-// ---- base Anime4K chain (float4 scratch, pitchFloats == outW) ----
+// ---- 融合したAnime4K基本チェーン（scratchはfloat4をfloat2として再利用） ----
 
-__global__ void anime4k_sobel_x(float4 *__restrict__ pDstA, const int dstPitchFloats,
-    cudaTextureObject_t tex, const int outW, const int outH) {
-    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
-    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
-    if (ix >= outW || iy >= outH) return;
+__device__ __forceinline__ float2 anime4k_sobel_partial_at(
+    cudaTextureObject_t tex, const int ix, const int iy, const int outW, const int outH) {
     const float dx = 1.0f / (float)outW;
     const float px = ((float)ix + 0.5f) / (float)outW;
     const float py = ((float)iy + 0.5f) / (float)outH;
     const float l = tex2D<float>(tex, px - dx, py);
     const float c = tex2D<float>(tex, px, py);
     const float r = tex2D<float>(tex, px + dx, py);
-    pDstA[iy * dstPitchFloats + ix] = make_float4(-l + r, l + c + c + r, 0.0f, 0.0f);
+    return make_float2(-l + r, l + c + c + r);
 }
 
-__global__ void anime4k_sobel_y(float4 *__restrict__ pDstB, const int dstPitchFloats,
-    const float4 *__restrict__ pSrcA, const int srcPitchFloats, const int outW, const int outH, const float strength) {
+__global__ void anime4k_sobel(float2 *__restrict__ pDst, const int dstPitchFloat2,
+    cudaTextureObject_t tex, const int outW, const int outH, const float strength) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
     const int iy_t = max(iy - 1, 0);
     const int iy_b = min(iy + 1, outH - 1);
-    const float4 t = pSrcA[iy_t * srcPitchFloats + ix];
-    const float4 c = pSrcA[iy   * srcPitchFloats + ix];
-    const float4 b = pSrcA[iy_b * srcPitchFloats + ix];
+    const float2 t = anime4k_sobel_partial_at(tex, ix, iy_t, outW, outH);
+    const float2 c = anime4k_sobel_partial_at(tex, ix, iy,   outW, outH);
+    const float2 b = anime4k_sobel_partial_at(tex, ix, iy_b, outW, outH);
     const float xgrad = t.x + c.x + c.x + b.x;
     const float ygrad = -t.y + b.y;
     const float sobel_norm = clamp(sqrtf(xgrad * xgrad + ygrad * ygrad), 0.0f, 1.0f);
     const float dval = clamp(anime4k_poly5(sobel_norm) * strength, 0.0f, 1.0f);
-    pDstB[iy * dstPitchFloats + ix] = make_float4(sobel_norm, dval, 0.0f, 0.0f);
+    pDst[iy * dstPitchFloat2 + ix] = make_float2(sobel_norm, dval);
 }
 
-__global__ void anime4k_refine_x(float4 *__restrict__ pDstA, const int dstPitchFloats,
-    const float4 *__restrict__ pSrcB, const int srcPitchFloats, const int outW, const int outH) {
-    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
-    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
-    if (ix >= outW || iy >= outH) return;
-    const float4 cval = pSrcB[iy * srcPitchFloats + ix];
+__device__ __forceinline__ float3 anime4k_refine_partial_at(
+    const float2 *pSrc, const int srcPitchFloat2, const int ix, const int iy, const int outW) {
+    const float2 cval = pSrc[iy * srcPitchFloat2 + ix];
     const float dval = cval.y;
     if (dval < ANIME4K_DVAL_THRESHOLD) {
-        pDstA[iy * dstPitchFloats + ix] = make_float4(0.0f, 0.0f, dval, 0.0f);
-        return;
+        return make_float3(0.0f, 0.0f, dval);
     }
     const int ix_l = max(ix - 1, 0);
     const int ix_r = min(ix + 1, outW - 1);
-    const float l = pSrcB[iy * srcPitchFloats + ix_l].x;
+    const float l = pSrc[iy * srcPitchFloat2 + ix_l].x;
     const float c = cval.x;
-    const float r = pSrcB[iy * srcPitchFloats + ix_r].x;
-    pDstA[iy * dstPitchFloats + ix] = make_float4(-l + r, l + c + c + r, dval, 0.0f);
-}
-
-__global__ void anime4k_refine_y(float4 *__restrict__ pDstB, const int dstPitchFloats,
-    const float4 *__restrict__ pSrcA, const int srcPitchFloats, const int outW, const int outH) {
-    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
-    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
-    if (ix >= outW || iy >= outH) return;
-    const float4 cval = pSrcA[iy * srcPitchFloats + ix];
-    const float dval = cval.z;
-    if (dval < ANIME4K_DVAL_THRESHOLD) {
-        pDstB[iy * dstPitchFloats + ix] = make_float4(0.0f, 0.0f, dval, 0.0f);
-        return;
-    }
-    const int iy_t = max(iy - 1, 0);
-    const int iy_b = min(iy + 1, outH - 1);
-    const float4 t = pSrcA[iy_t * srcPitchFloats + ix];
-    const float4 b = pSrcA[iy_b * srcPitchFloats + ix];
-    const float xgrad = t.x + cval.x + cval.x + b.x;
-    const float ygrad = -t.y + b.y;
-    const float norm = sqrtf(xgrad * xgrad + ygrad * ygrad);
-    float ndx = 0.0f, ndy = 0.0f;
-    if (norm > 0.001f) { ndx = xgrad / norm; ndy = ygrad / norm; }
-    pDstB[iy * dstPitchFloats + ix] = make_float4(ndx, ndy, dval, 0.0f);
+    const float r = pSrc[iy * srcPitchFloat2 + ix_r].x;
+    return make_float3(-l + r, l + c + c + r, dval);
 }
 
 template<typename Type, int bit_depth>
-__global__ void anime4k_apply(uint8_t *__restrict__ pDstY, const int dstPitch,
-    cudaTextureObject_t tex, const float4 *__restrict__ pSrcB, const int srcPitchFloats, const int outW, const int outH) {
+__global__ void anime4k_refine_apply(uint8_t *__restrict__ pDstY, const int dstPitch,
+    cudaTextureObject_t tex, const float2 *__restrict__ pSrc, const int srcPitchFloat2,
+    const int outW, const int outH) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
@@ -156,21 +127,37 @@ __global__ void anime4k_apply(uint8_t *__restrict__ pDstY, const int dstPitch,
     const float px = ((float)ix + 0.5f) / (float)outW;
     const float py = ((float)iy + 0.5f) / (float)outH;
     const float center = tex2D<float>(tex, px, py);
-    const float4 dc = pSrcB[iy * srcPitchFloats + ix];
-    const float dval = dc.z;
+    const float dval = pSrc[iy * srcPitchFloat2 + ix].y;
     float result;
-    if (dval < ANIME4K_DVAL_THRESHOLD || fabsf(dc.x + dc.y) <= 0.0001f) {
+    if (dval < ANIME4K_DVAL_THRESHOLD) {
         result = center;
     } else {
-        const float sx = (dc.x > 0.0f) - (dc.x < 0.0f);
-        const float sy = (dc.y > 0.0f) - (dc.y < 0.0f);
-        const float xval = tex2D<float>(tex, px - sx * dx, py);
-        const float yval = tex2D<float>(tex, px, py - sy * dy);
-        const float adx = fabsf(dc.x);
-        const float ady = fabsf(dc.y);
-        const float xyratio = adx / (adx + ady + RGY_FLT_EPS);
-        const float avg = xyratio * xval + (1.0f - xyratio) * yval;
-        result = avg * dval + center * (1.0f - dval);
+        const int iy_t = max(iy - 1, 0);
+        const int iy_b = min(iy + 1, outH - 1);
+        const float3 cval = anime4k_refine_partial_at(pSrc, srcPitchFloat2, ix, iy,   outW);
+        const float3 t    = anime4k_refine_partial_at(pSrc, srcPitchFloat2, ix, iy_t, outW);
+        const float3 b    = anime4k_refine_partial_at(pSrc, srcPitchFloat2, ix, iy_b, outW);
+        const float xgrad = t.x + cval.x + cval.x + b.x;
+        const float ygrad = -t.y + b.y;
+        const float norm = sqrtf(xgrad * xgrad + ygrad * ygrad);
+        float ndx = 0.0f, ndy = 0.0f;
+        if (norm > 0.001f) {
+            ndx = xgrad / norm;
+            ndy = ygrad / norm;
+        }
+        if (fabsf(ndx + ndy) <= 0.0001f) {
+            result = center;
+        } else {
+            const float xstep = -((ndx > 0.0f) - (ndx < 0.0f)) * dx;
+            const float ystep = -((ndy > 0.0f) - (ndy < 0.0f)) * dy;
+            const float xval = tex2D<float>(tex, px + xstep, py);
+            const float yval = tex2D<float>(tex, px, py + ystep);
+            const float adx = fabsf(ndx);
+            const float ady = fabsf(ndy);
+            const float xyratio = adx / (adx + ady + RGY_FLT_EPS);
+            const float avg = xyratio * xval + (1.0f - xyratio) * yval;
+            result = avg * dval + center * (1.0f - dval);
+        }
     }
     result = clamp(result, 0.0f, 1.0f);
     Type *ptr = (Type *)(pDstY + iy * dstPitch + ix * sizeof(Type));
@@ -298,12 +285,12 @@ __device__ __forceinline__ float anime4k_read_y_norm(const uint8_t *pY, int pitc
 }
 
 template<typename Type, int bit_depth>
-__global__ void anime4k_copy_y_to_scratch(float4 *__restrict__ pDst, const int dstPitchFloats,
+__global__ void anime4k_copy_y_to_scratch(float *__restrict__ pDst, const int dstPitchScalars,
     const uint8_t *__restrict__ pY, const int srcPitch, const int W, const int H) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= W || iy >= H) return;
-    pDst[iy * dstPitchFloats + ix] = make_float4(anime4k_read_y_norm<Type, bit_depth>(pY, srcPitch, ix, iy), 0.0f, 0.0f, 0.0f);
+    pDst[iy * dstPitchScalars + ix] = anime4k_read_y_norm<Type, bit_depth>(pY, srcPitch, ix, iy);
 }
 
 // ---- bilateral denoise (mean / median / mode) ----
@@ -319,19 +306,19 @@ __device__ __forceinline__ float anime4k_denoise_sigma_i(float vc, float curve, 
 
 template<typename Type, int bit_depth>
 __global__ void anime4k_denoise_mean(uint8_t *__restrict__ pDstY, const int dstPitch,
-    const float4 *__restrict__ pSrcRef, const int srcPitchFloats, const int outW, const int outH,
+    const float *__restrict__ pSrcRef, const int srcPitchScalars, const int outW, const int outH,
     const float sigma_s, const float isigma, const float curve) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
-    const float vc = pSrcRef[iy * srcPitchFloats + ix].x;
+    const float vc = pSrcRef[iy * srcPitchScalars + ix];
     const float sigma_i = anime4k_denoise_sigma_i(vc, curve, isigma);
     float sum = 0.0f, n = 0.0f;
     for (int dy = -2; dy <= 2; ++dy) {
         const int yy = min(max(iy + dy, 0), outH - 1);
         for (int dx = -2; dx <= 2; ++dx) {
             const int xx = min(max(ix + dx, 0), outW - 1);
-            const float v = pSrcRef[yy * srcPitchFloats + xx].x;
+            const float v = pSrcRef[yy * srcPitchScalars + xx];
             const float w = anime4k_bilateral_weight(dx, dy, vc, v, sigma_s, sigma_i);
             sum += w * v; n += w;
         }
@@ -343,19 +330,19 @@ __global__ void anime4k_denoise_mean(uint8_t *__restrict__ pDstY, const int dstP
 
 template<typename Type, int bit_depth>
 __global__ void anime4k_denoise_median(uint8_t *__restrict__ pDstY, const int dstPitch,
-    const float4 *__restrict__ pSrcRef, const int srcPitchFloats, const int outW, const int outH,
+    const float *__restrict__ pSrcRef, const int srcPitchScalars, const int outW, const int outH,
     const float sigma_s, const float isigma, const float curve, const float reg) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
-    const float vc = pSrcRef[iy * srcPitchFloats + ix].x;
+    const float vc = pSrcRef[iy * srcPitchScalars + ix];
     const float sigma_i = anime4k_denoise_sigma_i(vc, curve, isigma);
     float vs[9], ws[9]; float total_w = 0.0f; int idx = 0;
     for (int dy = -1; dy <= 1; ++dy) {
         const int yy = min(max(iy + dy, 0), outH - 1);
         for (int dx = -1; dx <= 1; ++dx) {
             const int xx = min(max(ix + dx, 0), outW - 1);
-            const float v = pSrcRef[yy * srcPitchFloats + xx].x;
+            const float v = pSrcRef[yy * srcPitchScalars + xx];
             const float w = anime4k_bilateral_weight(dx, dy, vc, v, sigma_s, sigma_i);
             vs[idx] = v; ws[idx] = w; total_w += w; idx++;
         }
@@ -393,12 +380,12 @@ __global__ void anime4k_denoise_median(uint8_t *__restrict__ pDstY, const int ds
 
 template<typename Type, int bit_depth>
 __global__ void anime4k_denoise_mode(uint8_t *__restrict__ pDstY, const int dstPitch,
-    const float4 *__restrict__ pSrcRef, const int srcPitchFloats, const int outW, const int outH,
+    const float *__restrict__ pSrcRef, const int srcPitchScalars, const int outW, const int outH,
     const float sigma_s, const float isigma, const float curve, const float reg_in) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
-    const float vc = pSrcRef[iy * srcPitchFloats + ix].x;
+    const float vc = pSrcRef[iy * srcPitchScalars + ix];
     const float sigma_i = anime4k_denoise_sigma_i(vc, curve, isigma);
     const float reg = fmaxf(reg_in, 1e-6f);
     const float inv_reg = 1.0f / reg;
@@ -407,7 +394,7 @@ __global__ void anime4k_denoise_mode(uint8_t *__restrict__ pDstY, const int dstP
         const int yy = min(max(iy + dy, 0), outH - 1);
         for (int dx = -1; dx <= 1; ++dx) {
             const int xx = min(max(ix + dx, 0), outW - 1);
-            const float v = pSrcRef[yy * srcPitchFloats + xx].x;
+            const float v = pSrcRef[yy * srcPitchScalars + xx];
             vs[idx] = v; ws[idx] = anime4k_bilateral_weight(dx, dy, vc, v, sigma_s, sigma_i); ws_reg[idx] = 0.0f; idx++;
         }
     }
@@ -505,7 +492,7 @@ __device__ __forceinline__ float anime4k_gauss_w(float d, float sigma) {
 }
 
 template<typename Type, int bit_depth>
-__global__ void anime4k_darken_gauss1_x(float4 *__restrict__ pDstA, const int dstPitchFloats,
+__global__ void anime4k_darken_gauss1_x(float *__restrict__ pDstA, const int dstPitchScalars,
     const uint8_t *__restrict__ pSrcY, const int srcPitch, const int outW, const int outH, const float sigma, const int r) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -516,11 +503,11 @@ __global__ void anime4k_darken_gauss1_x(float4 *__restrict__ pDstA, const int ds
         const float w = anime4k_gauss_w((float)dx, sigma);
         acc += anime4k_read_y_norm<Type, bit_depth>(pSrcY, srcPitch, xx, iy) * w; wsum += w;
     }
-    pDstA[iy * dstPitchFloats + ix] = make_float4(acc / wsum, 0.0f, 0.0f, 0.0f);
+    pDstA[iy * dstPitchScalars + ix] = acc / wsum;
 }
 template<typename Type, int bit_depth>
-__global__ void anime4k_darken_dog_y(float4 *__restrict__ pDstB, const int dstPitchFloats,
-    const float4 *__restrict__ pSrcA, const int srcPitchFloats, const uint8_t *__restrict__ pSrcY, const int srcPitch,
+__global__ void anime4k_darken_dog_y(float *__restrict__ pDstB, const int dstPitchScalars,
+    const float *__restrict__ pSrcA, const int srcPitchScalars, const uint8_t *__restrict__ pSrcY, const int srcPitch,
     const int outW, const int outH, const float sigma, const int r) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -529,14 +516,14 @@ __global__ void anime4k_darken_dog_y(float4 *__restrict__ pDstB, const int dstPi
     for (int dy = -r; dy <= r; ++dy) {
         const int yy = min(max(iy + dy, 0), outH - 1);
         const float w = anime4k_gauss_w((float)dy, sigma);
-        acc += pSrcA[yy * srcPitchFloats + ix].x * w; wsum += w;
+        acc += pSrcA[yy * srcPitchScalars + ix] * w; wsum += w;
     }
     const float blur = acc / wsum;
     const float luma = anime4k_read_y_norm<Type, bit_depth>(pSrcY, srcPitch, ix, iy);
-    pDstB[iy * dstPitchFloats + ix] = make_float4(fminf(luma - blur, 0.0f), 0.0f, 0.0f, 0.0f);
+    pDstB[iy * dstPitchScalars + ix] = fminf(luma - blur, 0.0f);
 }
-__global__ void anime4k_darken_gauss2_x(float4 *__restrict__ pDstA, const int dstPitchFloats,
-    const float4 *__restrict__ pSrcB, const int srcPitchFloats, const int outW, const int outH, const float sigma, const int r) {
+__global__ void anime4k_darken_gauss2_x(float *__restrict__ pDstA, const int dstPitchScalars,
+    const float *__restrict__ pSrcB, const int srcPitchScalars, const int outW, const int outH, const float sigma, const int r) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
@@ -544,13 +531,13 @@ __global__ void anime4k_darken_gauss2_x(float4 *__restrict__ pDstA, const int ds
     for (int dx = -r; dx <= r; ++dx) {
         const int xx = min(max(ix + dx, 0), outW - 1);
         const float w = anime4k_gauss_w((float)dx, sigma);
-        acc += pSrcB[iy * srcPitchFloats + xx].x * w; wsum += w;
+        acc += pSrcB[iy * srcPitchScalars + xx] * w; wsum += w;
     }
-    pDstA[iy * dstPitchFloats + ix] = make_float4(acc / wsum, 0.0f, 0.0f, 0.0f);
+    pDstA[iy * dstPitchScalars + ix] = acc / wsum;
 }
 template<typename Type, int bit_depth>
 __global__ void anime4k_darken_apply_y(uint8_t *__restrict__ pDstY, const int dstPitch,
-    const float4 *__restrict__ pSrcA, const int srcPitchFloats, const int outW, const int outH, const float sigma, const int r, const float strength) {
+    const float *__restrict__ pSrcA, const int srcPitchScalars, const int outW, const int outH, const float sigma, const int r, const float strength) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
@@ -558,7 +545,7 @@ __global__ void anime4k_darken_apply_y(uint8_t *__restrict__ pDstY, const int ds
     for (int dy = -r; dy <= r; ++dy) {
         const int yy = min(max(iy + dy, 0), outH - 1);
         const float w = anime4k_gauss_w((float)dy, sigma);
-        acc += pSrcA[yy * srcPitchFloats + ix].x * w; wsum += w;
+        acc += pSrcA[yy * srcPitchScalars + ix] * w; wsum += w;
     }
     const float smoothed = acc / wsum;
     const float luma = anime4k_read_y_norm<Type, bit_depth>(pDstY, dstPitch, ix, iy);
@@ -571,29 +558,29 @@ __global__ void anime4k_darken_apply_y(uint8_t *__restrict__ pDstY, const int ds
 
 #define ANIME4K_THIN_STRENGTH 0.6f
 
-__device__ __forceinline__ float anime4k_bilinear_x(const float4 *buf, int pitchFloats, int w, int h, float fx, float fy) {
+__device__ __forceinline__ float anime4k_bilinear_x(const float *buf, int pitchScalars, int w, int h, float fx, float fy) {
     const int x0 = min(max((int)floorf(fx), 0), w - 1);
     const int y0 = min(max((int)floorf(fy), 0), h - 1);
     const int x1 = min(x0 + 1, w - 1), y1 = min(y0 + 1, h - 1);
     const float dx = fx - (float)x0, dy = fy - (float)y0;
-    const float v00 = buf[y0 * pitchFloats + x0].x, v01 = buf[y0 * pitchFloats + x1].x;
-    const float v10 = buf[y1 * pitchFloats + x0].x, v11 = buf[y1 * pitchFloats + x1].x;
+    const float v00 = buf[y0 * pitchScalars + x0], v01 = buf[y0 * pitchScalars + x1];
+    const float v10 = buf[y1 * pitchScalars + x0], v11 = buf[y1 * pitchScalars + x1];
     return (1.0f - dx) * (1.0f - dy) * v00 + dx * (1.0f - dy) * v01 + (1.0f - dx) * dy * v10 + dx * dy * v11;
 }
-__device__ __forceinline__ float2 anime4k_bilinear_xy(const float4 *buf, int pitchFloats, int w, int h, float fx, float fy) {
+__device__ __forceinline__ float2 anime4k_bilinear_xy(const float2 *buf, int pitchFloat2, int w, int h, float fx, float fy) {
     const int x0 = min(max((int)floorf(fx), 0), w - 1);
     const int y0 = min(max((int)floorf(fy), 0), h - 1);
     const int x1 = min(x0 + 1, w - 1), y1 = min(y0 + 1, h - 1);
     const float dx = fx - (float)x0, dy = fy - (float)y0;
-    const float4 v00 = buf[y0 * pitchFloats + x0], v01 = buf[y0 * pitchFloats + x1];
-    const float4 v10 = buf[y1 * pitchFloats + x0], v11 = buf[y1 * pitchFloats + x1];
+    const float2 v00 = buf[y0 * pitchFloat2 + x0], v01 = buf[y0 * pitchFloat2 + x1];
+    const float2 v10 = buf[y1 * pitchFloat2 + x0], v11 = buf[y1 * pitchFloat2 + x1];
     const float w00 = (1.0f - dx) * (1.0f - dy), w01 = dx * (1.0f - dy), w10 = (1.0f - dx) * dy, w11 = dx * dy;
     return make_float2(w00 * v00.x + w01 * v01.x + w10 * v10.x + w11 * v11.x,
                        w00 * v00.y + w01 * v01.y + w10 * v10.y + w11 * v11.y);
 }
 
 template<typename Type, int bit_depth>
-__global__ void anime4k_thin_sobel_xy(float4 *__restrict__ pDstB, const int dstPitchFloats,
+__global__ void anime4k_thin_sobel_xy(float *__restrict__ pDstB, const int dstPitchScalars,
     const uint8_t *__restrict__ pSrcY, const int srcPitch, const int outW, const int outH) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -610,10 +597,10 @@ __global__ void anime4k_thin_sobel_xy(float4 *__restrict__ pDstB, const int dstP
     const float xgrad = (xg_t + xg_c + xg_c + xg_b) * (1.0f / 8.0f);
     const float ygrad = (-yg_t + yg_b) * (1.0f / 8.0f);
     const float resp = powf(sqrtf(xgrad * xgrad + ygrad * ygrad), 0.7f);
-    pDstB[iy * dstPitchFloats + ix] = make_float4(resp, 0.0f, 0.0f, 0.0f);
+    pDstB[iy * dstPitchScalars + ix] = resp;
 }
-__global__ void anime4k_thin_gauss_x(float4 *__restrict__ pDstA, const int dstPitchFloats,
-    const float4 *__restrict__ pSrcB, const int srcPitchFloats, const int outW, const int outH, const float sigma, const int r) {
+__global__ void anime4k_thin_gauss_x(float *__restrict__ pDstA, const int dstPitchScalars,
+    const float *__restrict__ pSrcB, const int srcPitchScalars, const int outW, const int outH, const float sigma, const int r) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
@@ -621,12 +608,12 @@ __global__ void anime4k_thin_gauss_x(float4 *__restrict__ pDstA, const int dstPi
     for (int dx = -r; dx <= r; ++dx) {
         const int xx = min(max(ix + dx, 0), outW - 1);
         const float w = anime4k_gauss_w((float)dx, sigma);
-        acc += pSrcB[iy * srcPitchFloats + xx].x * w; wsum += w;
+        acc += pSrcB[iy * srcPitchScalars + xx] * w; wsum += w;
     }
-    pDstA[iy * dstPitchFloats + ix] = make_float4(acc / wsum, 0.0f, 0.0f, 0.0f);
+    pDstA[iy * dstPitchScalars + ix] = acc / wsum;
 }
-__global__ void anime4k_thin_gauss_y(float4 *__restrict__ pDstB, const int dstPitchFloats,
-    const float4 *__restrict__ pSrcA, const int srcPitchFloats, const int outW, const int outH, const float sigma, const int r) {
+__global__ void anime4k_thin_gauss_y(float *__restrict__ pDstB, const int dstPitchScalars,
+    const float *__restrict__ pSrcA, const int srcPitchScalars, const int outW, const int outH, const float sigma, const int r) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
@@ -634,17 +621,17 @@ __global__ void anime4k_thin_gauss_y(float4 *__restrict__ pDstB, const int dstPi
     for (int dy = -r; dy <= r; ++dy) {
         const int yy = min(max(iy + dy, 0), outH - 1);
         const float w = anime4k_gauss_w((float)dy, sigma);
-        acc += pSrcA[yy * srcPitchFloats + ix].x * w; wsum += w;
+        acc += pSrcA[yy * srcPitchScalars + ix] * w; wsum += w;
     }
-    pDstB[iy * dstPitchFloats + ix] = make_float4(acc / wsum, 0.0f, 0.0f, 0.0f);
+    pDstB[iy * dstPitchScalars + ix] = acc / wsum;
 }
-__global__ void anime4k_thin_kernel_xy(float4 *__restrict__ pDstA, const int dstPitchFloats,
-    const float4 *__restrict__ pSrcB, const int srcPitchFloats, const int outW, const int outH) {
+__global__ void anime4k_thin_kernel_xy(float2 *__restrict__ pDstA, const int dstPitchFloat2,
+    const float *__restrict__ pSrcB, const int srcPitchScalars, const int outW, const int outH) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
     const int xl = max(ix - 1, 0), xr = min(ix + 1, outW - 1), yt = max(iy - 1, 0), yb = min(iy + 1, outH - 1);
-    #define KZS(xx, yy) pSrcB[(yy) * srcPitchFloats + (xx)].x
+    #define KZS(xx, yy) pSrcB[(yy) * srcPitchScalars + (xx)]
     const float l_t = KZS(xl, yt), c_t = KZS(ix, yt), r_t = KZS(xr, yt);
     const float l_c = KZS(xl, iy), r_c = KZS(xr, iy);
     const float l_b = KZS(xl, yb), c_b = KZS(ix, yb), r_b = KZS(xr, yb);
@@ -654,28 +641,28 @@ __global__ void anime4k_thin_kernel_xy(float4 *__restrict__ pDstA, const int dst
     const float xg_b = -l_b + r_b, yg_b = l_b + c_b + c_b + r_b;
     const float xgrad = (xg_t + xg_c + xg_c + xg_b) * (1.0f / 8.0f);
     const float ygrad = (-yg_t + yg_b) * (1.0f / 8.0f);
-    pDstA[iy * dstPitchFloats + ix] = make_float4(xgrad, ygrad, 0.0f, 0.0f);
+    pDstA[iy * dstPitchFloat2 + ix] = make_float2(xgrad, ygrad);
 }
 template<typename Type, int bit_depth>
-__global__ void anime4k_thin_copy_y_to_ref(float4 *__restrict__ pDst, const int dstPitchFloats,
+__global__ void anime4k_thin_copy_y_to_ref(float *__restrict__ pDst, const int dstPitchScalars,
     const uint8_t *__restrict__ pSrcY, const int srcPitch, const int outW, const int outH) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
-    pDst[iy * dstPitchFloats + ix] = make_float4(anime4k_read_y_norm<Type, bit_depth>(pSrcY, srcPitch, ix, iy), 0.0f, 0.0f, 0.0f);
+    pDst[iy * dstPitchScalars + ix] = anime4k_read_y_norm<Type, bit_depth>(pSrcY, srcPitch, ix, iy);
 }
 template<typename Type, int bit_depth>
 __global__ void anime4k_thin_warp(uint8_t *__restrict__ pDstY, const int dstPitch,
-    const float4 *__restrict__ pSrcA, const int srcAPitchFloats, const float4 *__restrict__ pSrcB, const int srcBPitchFloats,
+    const float *__restrict__ pSrcA, const int srcAPitchScalars, const float2 *__restrict__ pSrcB, const int srcBPitchFloat2,
     const int outW, const int outH, const float relstr) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
-    const float2 flow = anime4k_bilinear_xy(pSrcB, srcBPitchFloats, outW, outH, (float)ix, (float)iy);
+    const float2 flow = anime4k_bilinear_xy(pSrcB, srcBPitchFloat2, outW, outH, (float)ix, (float)iy);
     const float invlen = 1.0f / (sqrtf(flow.x * flow.x + flow.y * flow.y) + 0.01f);
     const float ddx = flow.x * invlen * relstr;
     const float ddy = flow.y * invlen * relstr;
-    float result = clamp(anime4k_bilinear_x(pSrcA, srcAPitchFloats, outW, outH, (float)ix - ddx, (float)iy - ddy), 0.0f, 1.0f);
+    float result = clamp(anime4k_bilinear_x(pSrcA, srcAPitchScalars, outW, outH, (float)ix - ddx, (float)iy - ddy), 0.0f, 1.0f);
     Type *ptr = (Type *)(pDstY + iy * dstPitch + ix * sizeof(Type));
     ptr[0] = (Type)(result * (float)((1 << bit_depth) - 1) + 0.5f);
 }
@@ -777,14 +764,14 @@ __global__ void anime4k_copy_y_to_y(uint8_t *__restrict__ pDst, const int dstPit
 
 template<typename Type, int bit_depth>
 __global__ void anime4k_dtd_warp(uint8_t *__restrict__ pDstY, const int dstPitch,
-    const uint8_t *__restrict__ pSrcLuma, const int srcLumaPitch, const float4 *__restrict__ pSrcFlow, const int srcFlowPitchFloats,
+    const uint8_t *__restrict__ pSrcLuma, const int srcLumaPitch, const float2 *__restrict__ pSrcFlow, const int srcFlowPitchFloat2,
     const int srcW, const int srcH, const int outW, const int outH, const float relstr) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= outW || iy >= outH) return;
     const float fx_1x = ((float)ix + 0.5f) * (float)srcW / (float)outW - 0.5f;
     const float fy_1x = ((float)iy + 0.5f) * (float)srcH / (float)outH - 0.5f;
-    const float2 flow = anime4k_bilinear_xy(pSrcFlow, srcFlowPitchFloats, srcW, srcH, fx_1x, fy_1x);
+    const float2 flow = anime4k_bilinear_xy(pSrcFlow, srcFlowPitchFloat2, srcW, srcH, fx_1x, fy_1x);
     const float invlen = 1.0f / (sqrtf(flow.x * flow.x + flow.y * flow.y) + 0.01f);
     const float fx = fx_1x - flow.x * invlen * relstr;
     const float fy = fy_1x - flow.y * invlen * relstr;
@@ -825,17 +812,14 @@ RGY_ERR NVEncFilterAnime4k::runBaseChainY(RGYFrameInfo *pOutY, const RGYFrameInf
     auto cerr = setAnime4kSrcTex<uint8_t>(tex, pInY);
     if (cerr != cudaSuccess) return err_to_rgy(cerr);
 
-    float4 *A = (float4 *)m_scratchA->ptr;
-    float4 *B = (float4 *)m_scratchB->ptr;
-    const int pf = m_outW; // pitch in float4 elements (tightly packed)
+    float2 *A = (float2 *)m_scratchA->ptr;
+    const int pf2 = m_outW * 2; // float2 elements in the float4 scratch row
     dim3 block(ANIME4K_BLOCK_X, ANIME4K_BLOCK_Y);
     dim3 grid(divCeil(m_outW, block.x), divCeil(m_outH, block.y));
 
-    anime4k_sobel_x<<<grid, block, 0, stream>>>(A, pf, tex, m_outW, m_outH);
-    anime4k_sobel_y<<<grid, block, 0, stream>>>(B, pf, A, pf, m_outW, m_outH, m_strength);
-    anime4k_refine_x<<<grid, block, 0, stream>>>(A, pf, B, pf, m_outW, m_outH);
-    anime4k_refine_y<<<grid, block, 0, stream>>>(B, pf, A, pf, m_outW, m_outH);
-    anime4k_apply<uint8_t, 8><<<grid, block, 0, stream>>>((uint8_t *)pOutY->ptr[0], pOutY->pitch[0], tex, B, pf, m_outW, m_outH);
+    anime4k_sobel<<<grid, block, 0, stream>>>(A, pf2, tex, m_outW, m_outH, m_strength);
+    anime4k_refine_apply<uint8_t, 8><<<grid, block, 0, stream>>>(
+        (uint8_t *)pOutY->ptr[0], pOutY->pitch[0], tex, A, pf2, m_outW, m_outH);
 
     cerr = cudaGetLastError();
     cudaDestroyTextureObject(tex);
@@ -870,10 +854,14 @@ RGY_ERR NVEncFilterAnime4k::runDogChain(RGYFrameInfo *pOutY, const RGYFrameInfo 
 RGY_ERR NVEncFilterAnime4k::runDtdChain(RGYFrameInfo *pOutY, const RGYFrameInfo *pInY, cudaStream_t stream) {
     // dtd = darken_to_deblur: a 2x composite that darkens (1.8) and thins (0.4) the
     // 1x luma, warps+upscales it to 2x in one pass, then deblurs (DoG soft, 0.5) at 2x.
-    float4 *A = (float4 *)m_scratchA->ptr;
-    float4 *B = (float4 *)m_scratchB->ptr;
+    float *A = (float *)m_scratchA->ptr;
+    float *B = (float *)m_scratchB->ptr;
+    float2 *AFlow = (float2 *)m_scratchA->ptr;
+    float4 *A4 = (float4 *)m_scratchA->ptr;
+    float4 *B4 = (float4 *)m_scratchB->ptr;
     const int sW = pInY->width, sH = pInY->height;
-    const int pf1 = sW;        // 1x scratch pitch (float4 elements = source width)
+    const int pf1 = sW * 4;    // scalar pitch in the float4 scratch
+    const int pf1Flow = sW * 2;
     const int pf2 = m_outW;    // 2x scratch pitch
     uint8_t *src1x = (uint8_t *)m_dtdSrcLuma->ptr;
     const int src1xPitch = sW;
@@ -902,17 +890,17 @@ RGY_ERR NVEncFilterAnime4k::runDtdChain(RGYFrameInfo *pOutY, const RGYFrameInfo 
         anime4k_thin_sobel_xy<uint8_t, 8><<<gridS, block, 0, stream>>>(B, pf1, src1x, src1xPitch, sW, sH);
         anime4k_thin_gauss_x<<<gridS, block, 0, stream>>>(A, pf1, B, pf1, sW, sH, sigma, r);
         anime4k_thin_gauss_y<<<gridS, block, 0, stream>>>(B, pf1, A, pf1, sW, sH, sigma, r);
-        anime4k_thin_kernel_xy<<<gridS, block, 0, stream>>>(A, pf1, B, pf1, sW, sH); // flow -> A
+        anime4k_thin_kernel_xy<<<gridS, block, 0, stream>>>(AFlow, pf1Flow, B, pf1, sW, sH); // flow -> A
         anime4k_dtd_warp<uint8_t, 8><<<gridD, block, 0, stream>>>((uint8_t *)pOutY->ptr[0], pOutY->pitch[0],
-            src1x, src1xPitch, A, pf1, sW, sH, m_outW, m_outH, relstr);
+            src1x, src1xPitch, AFlow, pf1Flow, sW, sH, m_outW, m_outH, relstr);
     }
 
     // Stage C: deblur (DoG soft, strength 0.5) in place on the 2x output.
     {
-        anime4k_dog_kernel_x<uint8_t, 8><<<gridD, block, 0, stream>>>(A, pf2, (const uint8_t *)pOutY->ptr[0], pOutY->pitch[0], m_outW, m_outH);
-        anime4k_dog_kernel_y<<<gridD, block, 0, stream>>>(B, pf2, A, pf2, m_outW, m_outH);
+        anime4k_dog_kernel_x<uint8_t, 8><<<gridD, block, 0, stream>>>(A4, pf2, (const uint8_t *)pOutY->ptr[0], pOutY->pitch[0], m_outW, m_outH);
+        anime4k_dog_kernel_y<<<gridD, block, 0, stream>>>(B4, pf2, A4, pf2, m_outW, m_outH);
         anime4k_dog_apply_soft<uint8_t, 8><<<gridD, block, 0, stream>>>((uint8_t *)pOutY->ptr[0], pOutY->pitch[0],
-            (const uint8_t *)pOutY->ptr[0], pOutY->pitch[0], B, pf2, m_outW, m_outH, 0.5f);
+            (const uint8_t *)pOutY->ptr[0], pOutY->pitch[0], B4, pf2, m_outW, m_outH, 0.5f);
     }
     return err_to_rgy(cudaGetLastError());
 }
@@ -939,9 +927,9 @@ RGY_ERR NVEncFilterAnime4k::runChromaJoint(RGYFrameInfo *pOutC, const RGYFrameIn
 }
 
 RGY_ERR NVEncFilterAnime4k::runPrefilterDenoise(const RGYFrameInfo *pInY, cudaStream_t stream) {
-    float4 *ref = (float4 *)m_prefilterRef->ptr;
+    float *ref = (float *)m_prefilterRef->ptr;
     uint8_t *plane = (uint8_t *)m_prefilterPlane->ptr;
-    const int W = pInY->width, H = pInY->height, pf = W, pp = W;
+    const int W = pInY->width, H = pInY->height, pf = W * 4, pp = W;
     dim3 block(ANIME4K_BLOCK_X, ANIME4K_BLOCK_Y);
     dim3 grid(divCeil(W, block.x), divCeil(H, block.y));
     anime4k_copy_y_to_scratch<uint8_t, 8><<<grid, block, 0, stream>>>(ref, pf, (const uint8_t *)pInY->ptr[0], pInY->pitch[0], W, H);
@@ -958,9 +946,9 @@ RGY_ERR NVEncFilterAnime4k::runPrefilterDenoise(const RGYFrameInfo *pInY, cudaSt
 }
 
 RGY_ERR NVEncFilterAnime4k::runDarkenY(RGYFrameInfo *pOutY, cudaStream_t stream) {
-    float4 *A = (float4 *)m_scratchA->ptr;
-    float4 *B = (float4 *)m_scratchB->ptr;
-    const int pf = m_outW;
+    float *A = (float *)m_scratchA->ptr;
+    float *B = (float *)m_scratchB->ptr;
+    const int pf = m_outW * 4;
     const float sigma = m_darkenSigma;
     const int r = m_darkenRadius;
     dim3 block(ANIME4K_BLOCK_X, ANIME4K_BLOCK_Y);
@@ -973,9 +961,11 @@ RGY_ERR NVEncFilterAnime4k::runDarkenY(RGYFrameInfo *pOutY, cudaStream_t stream)
 }
 
 RGY_ERR NVEncFilterAnime4k::runThinY(RGYFrameInfo *pOutY, cudaStream_t stream) {
-    float4 *A = (float4 *)m_scratchA->ptr;
-    float4 *B = (float4 *)m_scratchB->ptr;
-    const int pf = m_outW;
+    float *A = (float *)m_scratchA->ptr;
+    float *B = (float *)m_scratchB->ptr;
+    float2 *AFlow = (float2 *)m_scratchA->ptr;
+    const int pf = m_outW * 4;
+    const int pfFlow = m_outW * 2;
     const float sigma = m_thinSigma;
     const int r = m_thinRadius;
     uint8_t *Y = (uint8_t *)pOutY->ptr[0];
@@ -985,15 +975,15 @@ RGY_ERR NVEncFilterAnime4k::runThinY(RGYFrameInfo *pOutY, cudaStream_t stream) {
     anime4k_thin_sobel_xy<uint8_t, 8><<<grid, block, 0, stream>>>(B, pf, Y, yp, m_outW, m_outH);        // Y -> B (shaped Sobel)
     anime4k_thin_gauss_x<<<grid, block, 0, stream>>>(A, pf, B, pf, m_outW, m_outH, sigma, r);            // B -> A
     anime4k_thin_gauss_y<<<grid, block, 0, stream>>>(B, pf, A, pf, m_outW, m_outH, sigma, r);            // A -> B
-    anime4k_thin_kernel_xy<<<grid, block, 0, stream>>>(A, pf, B, pf, m_outW, m_outH);                    // B -> A (flow)
+    anime4k_thin_kernel_xy<<<grid, block, 0, stream>>>(AFlow, pfFlow, B, pf, m_outW, m_outH);             // B -> A (flow)
     anime4k_thin_copy_y_to_ref<uint8_t, 8><<<grid, block, 0, stream>>>(B, pf, Y, yp, m_outW, m_outH);    // Y -> B (Yref)
-    anime4k_thin_warp<uint8_t, 8><<<grid, block, 0, stream>>>(Y, yp, B, pf, A, pf, m_outW, m_outH, m_thinRelstr); // Yref=B, flow=A
+    anime4k_thin_warp<uint8_t, 8><<<grid, block, 0, stream>>>(Y, yp, B, pf, AFlow, pfFlow, m_outW, m_outH, m_thinRelstr); // Yref=B, flow=A
     return err_to_rgy(cudaGetLastError());
 }
 
 RGY_ERR NVEncFilterAnime4k::runDenoiseY(RGYFrameInfo *pOutY, cudaStream_t stream) {
-    float4 *ref = (float4 *)m_scratchA->ptr;
-    const int pf = m_outW;
+    float *ref = (float *)m_scratchA->ptr;
+    const int pf = m_outW * 4;
     dim3 block(ANIME4K_BLOCK_X, ANIME4K_BLOCK_Y);
     dim3 grid(divCeil(m_outW, block.x), divCeil(m_outH, block.y));
     // stash the current output Y into the reference scratch, then denoise back into Y.
@@ -1168,7 +1158,7 @@ RGY_ERR NVEncFilterAnime4k::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         }
         if (tgtW > 0 && tgtH > 0 && (tgtW != m_outW || tgtH != m_outH)) {
             auto rp = std::make_shared<NVEncFilterParamResize>();
-            rp->interp = (prm->anime4k.postResizeAlgo == RGY_VPP_RESIZE_AUTO) ? RGY_VPP_RESIZE_LANCZOS4 : prm->anime4k.postResizeAlgo;
+            rp->interp = (prm->anime4k.postResizeAlgo == RGY_VPP_RESIZE_AUTO) ? RGY_VPP_RESIZE_SPLINE16 : prm->anime4k.postResizeAlgo;
             rp->frameIn = prm->frameOut;
             rp->frameOut = prm->frameOut;
             rp->frameOut.width = tgtW;
@@ -1193,7 +1183,7 @@ RGY_ERR NVEncFilterAnime4k::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         (m_doPrefilter ? _T(" prefilter") : _T("")));
     if (m_postResize) {
         info += strsprintf(_T(" -> out_res %dx%d (%s)"), prm->frameOut.width, prm->frameOut.height,
-            get_cx_desc(list_vpp_resize, (prm->anime4k.postResizeAlgo == RGY_VPP_RESIZE_AUTO) ? RGY_VPP_RESIZE_LANCZOS4 : prm->anime4k.postResizeAlgo));
+            get_cx_desc(list_vpp_resize, (prm->anime4k.postResizeAlgo == RGY_VPP_RESIZE_AUTO) ? RGY_VPP_RESIZE_SPLINE16 : prm->anime4k.postResizeAlgo));
     }
     setFilterInfo(info);
     m_param = prm;

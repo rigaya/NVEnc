@@ -60,7 +60,7 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
 
-    // base Anime4K luma chain (sobel_x/y -> refine_x/y -> apply) on the Y plane.
+    // 基本Anime4K輝度チェーン（Sobel融合・refine/apply融合）をY平面へ適用する。
     RGY_ERR runBaseChainY(RGYFrameInfo *pOutY, const RGYFrameInfo *pInY, cudaStream_t stream);
     // DoG alternative upscaler (dog_sharpen 1x / dog 2x).
     RGY_ERR runDogChain(RGYFrameInfo *pOutY, const RGYFrameInfo *pInY, cudaStream_t stream);
