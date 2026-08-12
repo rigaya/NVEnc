@@ -502,7 +502,7 @@ void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TC
         } else {
 #ifdef UNICODE
             if (!stderr_write_to_console) //出力先がリダイレクトされるならANSIで
-                fprintf(stderr, buffer_ptr);
+                fputs(buffer_ptr, stderr);
             if (stderr_write_to_console) //出力先がコンソールならWCHARで
 #endif
                 rgy_print_stderr(log_level, buffer, hStdErr, m_disableColor);
