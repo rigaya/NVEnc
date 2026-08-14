@@ -1,5 +1,38 @@
 # NVEnc Release Notes
 
+## 9.32
+
+- Update ffmpeg libraries. -> [binaries and src](https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/tag/20260812), [build_scripts](https://github.com/rigaya/build_scripts)
+  - ffmpeg 8.0 -> 9.0.1
+  - libvmaf 3.0.0 -> 3.2.0
+  - libpng 1.6.50 -> 1.6.58
+  - xz 5.8.2 -> 5.8.3
+  - expat 2.7.1 -> 2.8.2
+  - harfbuzz 11.4.4 -> 14.3.0
+  - libunibreak 6.1 -> 7.0
+  - libass 0.17.4 -> 0.17.5
+  - lame 3.100 -> 4.0
+  - libxml2 2.14.5 -> 2.15.3
+  - libbluray 1.3.4 -> 1.5.0
+  - libaribcaption 1.1.1 -> 1.1.2
+  - libav1d 1.5.3 -> 1.5.4
+  - libvpl 2.16.0 -> 2.17.0
+  - nv-codec-headers 12.2.72.0 -> 13.1.15.0
+  - glslang 15.4.0 -> 16.5.0
+  - shaderc 2024.1 -> 2026.3
+  - dovi_tool 2.3.1 -> 2.3.3
+  - libjpeg-turbo 3.1.1 -> 3.2.0
+  - lcms2 2.17 -> 2.19.1
+  - vulkan-loader 1.3.295 -> 1.4.359
+  - libplacebo 7.351.0 -> 7.360.1
+  - vvenc 1.13.1 -> 1.14.0
+  - svt-av1 3.1.0 -> 4.2.0
+  - dovi_tool 2.3.1 -> 2.3.3
+- Reinitialize host path after [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) zero-copy failure. ( #791 )
+- Fix [--vpp-anime4k-shader](./NVEncC_Options.en.md#--vpp-anime4k-shader-param1value1param2value2) deblur strength depending on parameter order.
+- Fix LUT3D input domain handling in [--vpp-colorspace](./NVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2).
+- Fix double application of saturation in [--vpp-tweak](./NVEncC_Options.en.md#--vpp-tweak-param1value1param2value2).
+
 ## 9.31
 
 - Update to NVENC SDK 13.1.

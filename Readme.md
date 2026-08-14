@@ -175,7 +175,7 @@ when there are multiple GPUs available which support NVENC.
 | 12.1 | NVIDIA graphics driver (Win 531.61 / Linux 530.41.03) or later |
 | 12.2 | NVIDIA graphics driver (Win 551.76 / Linux 550.54.144) or later |
 | 13.0 | NVIDIA graphics driver (Win 570.00 / Linux 570.00) or later |
-| 13.0 | NVIDIA graphics driver (Win 610.00 / Linux 610.00) or later |
+| 13.1 | NVIDIA graphics driver (Win 610.00 / Linux 610.00) or later |
 
 | CUDA version | Required graphics driver version |
 |:------ |:--------------------------------- |
