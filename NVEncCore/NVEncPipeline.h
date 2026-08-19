@@ -4168,9 +4168,11 @@ public:
 
 class PipelineTaskOutputRaw : public PipelineTask {
     RGYOutput *m_writer;
+    RGYTimecode *m_timecode;
+    rgy_rational<int> m_outputTimebase;
 public:
-    PipelineTaskOutputRaw(NVGPUInfo *dev, RGYOutput *writer, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OUTPUTRAW, dev, outMaxQueueSize, false, threadParam, log), m_writer(writer) {
+    PipelineTaskOutputRaw(NVGPUInfo *dev, RGYOutput *writer, RGYTimecode *timecode, rgy_rational<int> outputTimebase, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::OUTPUTRAW, dev, outMaxQueueSize, false, threadParam, log), m_writer(writer), m_timecode(timecode), m_outputTimebase(outputTimebase) {
     };
     virtual ~PipelineTaskOutputRaw() {
         if (m_writer) {
@@ -4186,6 +4188,13 @@ public:
             return RGY_ERR_MORE_DATA;
         }
         m_inFrames++;
+        if (m_timecode) {
+            auto surf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+            if (surf == nullptr || surf->surf().frame() == nullptr) {
+                return RGY_ERR_INVALID_OPERATION;
+            }
+            m_timecode->write(surf->surf().frame()->timestamp(), m_outputTimebase);
+        }
         m_outQeueue.push_back(std::move(frame));
         return RGY_ERR_NONE;
     }
