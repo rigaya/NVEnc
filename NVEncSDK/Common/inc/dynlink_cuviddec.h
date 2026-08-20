@@ -1204,7 +1204,7 @@ extern tcuvidReconfigureDecoder   *cuvidReconfigureDecoder;
 extern tcuvidMapVideoFrame        *cuvidMapVideoFrame;
 extern tcuvidUnmapVideoFrame      *cuvidUnmapVideoFrame;
 
-#if defined(__x86_64) || defined(AMD64) || defined(_M_AMD64)
+#if defined(_WIN64) || defined(__LP64__) || defined(__x86_64) || defined(AMD64) || defined(_M_AMD64)
 extern tcuvidMapVideoFrame64      *cuvidMapVideoFrame64;
 extern tcuvidUnmapVideoFrame64    *cuvidUnmapVideoFrame64;
 #endif

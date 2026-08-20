@@ -35,7 +35,7 @@ tcuvidReconfigureDecoder              *cuvidReconfigureDecoder;
 tcuvidMapVideoFrame                   *cuvidMapVideoFrame;
 tcuvidUnmapVideoFrame                 *cuvidUnmapVideoFrame;
 
-#if defined(WIN64) || defined(_WIN64) || defined(__x86_64) || defined(AMD64) || defined(_M_AMD64)
+#if defined(WIN64) || defined(_WIN64) || defined(__LP64__) || defined(__x86_64) || defined(AMD64) || defined(_M_AMD64)
 tcuvidMapVideoFrame64                 *cuvidMapVideoFrame64;
 tcuvidUnmapVideoFrame64               *cuvidUnmapVideoFrame64;
 #endif
@@ -187,7 +187,7 @@ CUresult CUDAAPI cuvidInit(unsigned int Flags)
     GET_PROC_OPTIONAL(cuvidGetDecodeStatus);
     GET_PROC_OPTIONAL(cuvidReconfigureDecoder);
 
-#if defined(WIN64) || defined(_WIN64) || defined(__x86_64) || defined(AMD64) || defined(_M_AMD64)
+#if defined(WIN64) || defined(_WIN64) || defined(__LP64__) || defined(__x86_64) || defined(AMD64) || defined(_M_AMD64)
     GET_PROC(cuvidMapVideoFrame64);
     GET_PROC(cuvidUnmapVideoFrame64);
     cuvidMapVideoFrame   = cuvidMapVideoFrame64;
