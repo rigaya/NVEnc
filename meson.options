@@ -12,6 +12,12 @@ option('nvenc_dev_ptx',
   description: 'Dev build: build PTX only for the local GPU (faster). Falls back to compute_75 if GPU detection fails. Default: false (all architectures)'
 )
 
+option('nvenc_cuda_cc',
+  type: 'string',
+  value: '',
+  description: 'Build PTX/SASS only for this CUDA compute capability (for example, 61 for GTX 1060). Overrides nvenc_dev_ptx.'
+)
+
 option('enable_vapoursynth',
   type: 'boolean',
   value: true,

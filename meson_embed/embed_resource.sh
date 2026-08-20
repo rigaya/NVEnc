@@ -35,7 +35,22 @@ trap cleanup EXIT
 TMPFILE="${WORKDIR}/${SYMBOL_BASE}"
 cp "$INPUT" "$TMPFILE"
 
+case "$(uname -m)" in
+    aarch64|arm64)
+        ELF_ARCH="elf64-littleaarch64"
+        BIN_ARCH="aarch64"
+        ;;
+    x86_64|amd64)
+        ELF_ARCH="elf64-x86-64"
+        BIN_ARCH="i386:x86-64"
+        ;;
+    *)
+        echo "Unsupported architecture: $(uname -m)" >&2
+        exit 1
+        ;;
+esac
+
 # カレントディレクトリを一時ディレクトリに変更して相対パスで処理
 cd "$WORKDIR"
-objcopy -I binary -O elf64-x86-64 -B i386:x86-64 "$SYMBOL_BASE" "$OUTPUT"
+objcopy -I binary -O "$ELF_ARCH" -B "$BIN_ARCH" "$SYMBOL_BASE" "$OUTPUT"
 objcopy --add-section .note.GNU-stack=/dev/null --set-section-flags .note.GNU-stack=contents,readonly "$OUTPUT"

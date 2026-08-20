@@ -21,6 +21,7 @@ build_root = meson.project_build_root()
 # プラットフォームチェック
 is_linux = host_machine.system() == 'linux'
 is_x86_64 = host_machine.cpu_family() == 'x86_64'
+is_aarch64 = host_machine.cpu_family() == 'aarch64'
 
 if not is_linux
   error('This meson.build is for Linux only')
@@ -45,7 +46,14 @@ message('Using CUDA path: ' + cuda_path)
 
 cuda_lib_dir = cuda_path / 'lib64'
 cuda_bin_dir = cuda_path / 'bin'
-cuda_target_lib_dir = cuda_path / 'targets' / 'x86_64-linux' / 'lib'
+if is_x86_64
+  cuda_target_name = 'x86_64-linux'
+elif is_aarch64
+  cuda_target_name = 'sbsa-linux'
+else
+  error('Unsupported Linux CPU architecture: ' + host_machine.cpu_family())
+endif
+cuda_target_lib_dir = cuda_path / 'targets' / cuda_target_name / 'lib'
 cuda_stub_lib_dir = cuda_target_lib_dir / 'stubs'
 
 # ==============================================================================
@@ -75,11 +83,19 @@ endif
 
 # CUDAバージョンに応じたGPU code生成オプション
 nvenc_dev_ptx = get_option('nvenc_dev_ptx')
+nvenc_cuda_cc = get_option('nvenc_cuda_cc')
 
-if nvenc_dev_ptx
+if nvenc_cuda_cc != ''
+  compute_num = nvenc_cuda_cc
+  message('Explicit CUDA CC: compute_' + compute_num)
+  gpu_code_gen = ['--generate-code', 'arch=compute_' + compute_num + ',code=[compute_' + compute_num + ',sm_' + compute_num + ']']
+elif nvenc_dev_ptx
   # 開発ビルド: 環境のGPUのみをビルド対象にして高速化
-  nvidia_smi_result = run_command('nvidia-smi', '--query-gpu=compute_cap', '--format=csv,noheader', check: false)
-  if nvidia_smi_result.returncode() == 0
+  nvidia_smi = find_program('nvidia-smi', required: false)
+  if nvidia_smi.found()
+    nvidia_smi_result = run_command(nvidia_smi, '--query-gpu=compute_cap', '--format=csv,noheader', check: false)
+  endif
+  if nvidia_smi.found() and nvidia_smi_result.returncode() == 0
     compute_cap = nvidia_smi_result.stdout().strip().split('\n')[0].strip()
     compute_num = compute_cap.replace('.', '')
     message('Dev PTX: detected GPU compute_' + compute_num)
@@ -667,6 +683,7 @@ endif
 # ==============================================================================
 # libdovi / libhdr10plus: system優先、なければ同梱build (configure互換)
 cargo_prog = find_program('cargo', required: false)
+cargo_multiarch_libdir = 'lib/' + host_machine.cpu_family() + '-linux-gnu'
 if cargo_prog.found()
   cargo_home_dir = source_root / '.cargo_home'
   cargo_c_check = run_command(
@@ -712,8 +729,8 @@ if not libdovi_dep.found()
     error('Failed to build bundled libdovi (exit=' + libdovi_build_result.returncode().to_string() + ')\nstdout:\n' + libdovi_build_result.stdout().strip() + '\nstderr:\n' + libdovi_build_result.stderr().strip())
   endif
   libdovi_lib_dirs = []
-  if fs.is_file(libdovi_install_dir / 'lib/x86_64-linux-gnu/libdovi.a')
-    libdovi_lib_dirs += libdovi_install_dir / 'lib/x86_64-linux-gnu'
+  if fs.is_file(libdovi_install_dir / cargo_multiarch_libdir / 'libdovi.a')
+    libdovi_lib_dirs += libdovi_install_dir / cargo_multiarch_libdir
   elif fs.is_file(libdovi_install_dir / 'lib64/libdovi.a')
     libdovi_lib_dirs += libdovi_install_dir / 'lib64'
   elif fs.is_file(libdovi_install_dir / 'lib/libdovi.a')
@@ -754,8 +771,8 @@ if not libhdr10plus_dep.found()
     error('Failed to build bundled libhdr10plus-rs (exit=' + libhdr10plus_build_result.returncode().to_string() + ')\nstdout:\n' + libhdr10plus_build_result.stdout().strip() + '\nstderr:\n' + libhdr10plus_build_result.stderr().strip())
   endif
   libhdr10plus_lib_dirs = []
-  if fs.is_file(libhdr10plus_install_dir / 'lib/x86_64-linux-gnu/libhdr10plus-rs.a')
-    libhdr10plus_lib_dirs += libhdr10plus_install_dir / 'lib/x86_64-linux-gnu'
+  if fs.is_file(libhdr10plus_install_dir / cargo_multiarch_libdir / 'libhdr10plus-rs.a')
+    libhdr10plus_lib_dirs += libhdr10plus_install_dir / cargo_multiarch_libdir
   elif fs.is_file(libhdr10plus_install_dir / 'lib64/libhdr10plus-rs.a')
     libhdr10plus_lib_dirs += libhdr10plus_install_dir / 'lib64'
   elif fs.is_file(libhdr10plus_install_dir / 'lib/libhdr10plus-rs.a')
@@ -1119,59 +1136,62 @@ cuda_sources = files(
 # ==============================================================================
 # SIMD専用ライブラリ (個別コンパイルフラグ)
 # ==============================================================================
-simd_sse2_lib = static_library('simd_sse2',
-  'NVEncCore/convert_csp_sse2.cpp',
-  cpp_args: common_cpp_args + ['-msse2'],
-  include_directories: common_include_dirs,
-)
+simd_libs = []
+if is_x86_64
+  simd_sse2_lib = static_library('simd_sse2',
+    'NVEncCore/convert_csp_sse2.cpp',
+    cpp_args: common_cpp_args + ['-msse2'],
+    include_directories: common_include_dirs,
+  )
 
-simd_ssse3_lib = static_library('simd_ssse3',
-  'NVEncCore/convert_csp_ssse3.cpp',
-  cpp_args: common_cpp_args + ['-mssse3'],
-  include_directories: common_include_dirs,
-)
+  simd_ssse3_lib = static_library('simd_ssse3',
+    'NVEncCore/convert_csp_ssse3.cpp',
+    cpp_args: common_cpp_args + ['-mssse3'],
+    include_directories: common_include_dirs,
+  )
 
-simd_sse41_lib = static_library('simd_sse41',
-  'NVEncCore/convert_csp_sse41.cpp',
-  cpp_args: common_cpp_args + ['-msse4.1'],
-  include_directories: common_include_dirs,
-)
+  simd_sse41_lib = static_library('simd_sse41',
+    'NVEncCore/convert_csp_sse41.cpp',
+    cpp_args: common_cpp_args + ['-msse4.1'],
+    include_directories: common_include_dirs,
+  )
 
-simd_avx_lib = static_library('simd_avx',
-  'NVEncCore/convert_csp_avx.cpp',
-  cpp_args: common_cpp_args + ['-mavx', '-mpopcnt'],
-  include_directories: common_include_dirs,
-)
+  simd_avx_lib = static_library('simd_avx',
+    'NVEncCore/convert_csp_avx.cpp',
+    cpp_args: common_cpp_args + ['-mavx', '-mpopcnt'],
+    include_directories: common_include_dirs,
+  )
 
-simd_avx2_lib = static_library('simd_avx2',
-  [
-    'NVEncCore/convert_csp_avx2.cpp',
-    'NVEncCore/rgy_bitstream_avx2.cpp',
-    'NVEncCore/rgy_faw_avx2.cpp',
-    'NVEncCore/rgy_memmem_avx2.cpp',
-  ],
-  cpp_args: common_cpp_args + ['-mavx2', '-mfma', '-mpopcnt', '-mbmi', '-mbmi2'],
-  include_directories: common_include_dirs,
-)
+  simd_avx2_lib = static_library('simd_avx2',
+    [
+      'NVEncCore/convert_csp_avx2.cpp',
+      'NVEncCore/rgy_bitstream_avx2.cpp',
+      'NVEncCore/rgy_faw_avx2.cpp',
+      'NVEncCore/rgy_memmem_avx2.cpp',
+    ],
+    cpp_args: common_cpp_args + ['-mavx2', '-mfma', '-mpopcnt', '-mbmi', '-mbmi2'],
+    include_directories: common_include_dirs,
+  )
 
-simd_avx512_lib = static_library('simd_avx512',
-  [
-    'NVEncCore/rgy_bitstream_avx512bw.cpp',
-    'NVEncCore/rgy_faw_avx512bw.cpp',
-    'NVEncCore/rgy_memmem_avx512bw.cpp',
-  ],
-  cpp_args: common_cpp_args + ['-mavx512f', '-mavx512bw', '-mpopcnt', '-mbmi', '-mbmi2'],
-  include_directories: common_include_dirs,
-)
+  simd_avx512_lib = static_library('simd_avx512',
+    [
+      'NVEncCore/rgy_bitstream_avx512bw.cpp',
+      'NVEncCore/rgy_faw_avx512bw.cpp',
+      'NVEncCore/rgy_memmem_avx512bw.cpp',
+    ],
+    cpp_args: common_cpp_args + ['-mavx512f', '-mavx512bw', '-mpopcnt', '-mbmi', '-mbmi2'],
+    include_directories: common_include_dirs,
+  )
 
-simd_libs = [
-  simd_sse2_lib,
-  simd_ssse3_lib,
-  simd_sse41_lib,
-  simd_avx_lib,
-  simd_avx2_lib,
-  simd_avx512_lib,
-]
+  simd_libs = [
+    simd_sse2_lib,
+    simd_ssse3_lib,
+    simd_sse41_lib,
+    simd_avx_lib,
+    simd_avx2_lib,
+    simd_avx512_lib,
+  ]
+endif
 
 # ==============================================================================
 # CUDA コンパイルフラグ (バージョンに応じて自動設定)
