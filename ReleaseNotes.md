@@ -41,7 +41,8 @@
 - Add [--adapt-resolution](./NVEncC_Options.en.md#--adapt-resolution-intxint) to set maximum mid-stream input resolution changes.
 - Add support to track PMT change.
 - Add ONNX deinterlace filter [--vpp-onnx-deint](./NVEncC_Options.en.md#--vpp-onnx-deint-param1value1param2value2).
-- Support language exclusion for audio/subtitle track selection ([--audio-copy](./NVEncC_Options.en.md#--audio-copy-intstringintstring) / [--sub-copy](./NVEncC_Options.en.md#--sub-copy-intstringintstring)).
+- Support language exclusion for audio/subtitle/data track selection ([--audio-copy](./NVEncC_Options.en.md#--audio-copy-intstringintstring) / [--audio-codec](./NVEncC_Options.en.md#--audio-codec-intstringstringstringstringstringstring) / [--sub-copy](./NVEncC_Options.en.md#--sub-copy-intstringintstring) / [--sub-codec](./NVEncC_Options.en.md#--sub-codec-intstringstring) / [--data-copy](./NVEncC_Options.en.md#--data-copy-intstringintstring)).
+- Support track exclusion with `!` for audio/subtitle/data selection.
 - Improve [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) zero-copy path to reduce memory usage. ( #791 )
 - Fix GPU memory growth in long [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) mode=24 runs.
 - Improve memory retention for [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) and NVENC input.

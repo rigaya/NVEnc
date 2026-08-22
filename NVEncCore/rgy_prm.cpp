@@ -4155,6 +4155,7 @@ AudioSelect::AudioSelect() :
     disposition(),
     lang(),
     selectCodec(),
+    excludeTrackIDs(),
     metadata(),
     resamplerPrm() {
 }
@@ -4177,6 +4178,7 @@ SubtitleSelect::SubtitleSelect() :
     disposition(),
     lang(),
     selectCodec(),
+    excludeTrackIDs(),
     metadata() {
 
 }
@@ -4195,6 +4197,7 @@ DataSelect::DataSelect() :
     disposition(),
     lang(),
     selectCodec(),
+    excludeTrackIDs(),
     metadata() {
 
 }

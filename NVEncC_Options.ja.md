@@ -175,10 +175,11 @@
   - [--keyfile \<string\>](#--keyfile-string)
   - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--sub-source-stringintparam1value1)
   - [--sub-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
+  - [--sub-codec \[\[\<int/string\>?\]\<string\>\]](#--sub-codec-intstringstring)
   - [--sub-disposition \[\<int/string\>?\]\<string\>\[,\<string\>\]\[\]...](#--sub-disposition-intstringstringstring)
   - [--sub-metadata \[\<int/string\>?\]\<string\> or \[\<int/string\>?\]\<string\>=\<string\>](#--sub-metadata-intstringstring-or-intstringstringstring)
   - [--sub-bsf \[\<int/string\>?\]\<string\>](#--sub-bsf-intstringstring)
-  - [--data-copy \[\<int\>\[,\<int\>\]...\]](#--data-copy-intint)
+  - [--data-copy \[\<int/string\>\[,\<int/string\>\]...\]](#--data-copy-intstringintstring)
   - [--attachment-copy \[\<int\>\[,\<int\>\]...\]](#--attachment-copy-intint)
   - [--attachment-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--attachment-source-stringintparam1value1)
   - [--input-option \<string1\>:\<string2\>](#--input-option-string1string2)
@@ -599,7 +600,7 @@ raw形式の場合のみ有効で、その他の場合は無視されるか、fp
   --output-res 1024x576 -> 通常の指定方法
   --output-res 960x0    -> 960x720にリサイズ (0のほうは720のまま)
   --output-res 1920x-2  -> 1920x1080にリサイズ (アスペクト比が維持できるように調整)
-  
+
   --output-res 1440x1440,preserve_aspect_ratio=increase -> 2560x1440にリサイズ
   --output-res 1440x1440,preserve_aspect_ratio=decrease -> 1440x810にリサイズ
   ```
@@ -1284,6 +1285,7 @@ avcodec映像エンコーダのパラメータをkey=value形式でカンマ区�
 tsなどでエラーが出るなどしてうまく動作しない場合は、[--audio-codec](#--audio-codec-intstring)で一度エンコードしたほうが安定動作するかもしれない。
 
 [&lt;int&gt;[,&lt;int&gt;]...]で、抽出する音声トラック(1,2,...)を指定したり、[&lt;string&gt;]で指定した言語の音声トラックをコピーすることもできる。
+トラック番号の先頭に `!` を付けると、そのトラックを除外する (例: `!1,!3`)。
 言語の先頭に `!` を付けると、それらの言語以外のすべてのトラックを選択する (例: `!eng,!jpn`)。
 
 - 使用例
@@ -1296,12 +1298,16 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
   
   例: 日本語と英語の音声トラックを抽出
   --audio-copy jpn,eng
+
+  例: トラック番号#1を除外して抽出
+  --audio-copy !1
   ```
 
 ### --audio-codec [[&lt;int/string&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;[,&lt;string&gt;=&lt;string&gt;]...]...]
 音声をエンコードして映像とともに出力する。使用可能なコーデックは[--check-encoders](#--check-codecs---check-decoders---check-encoders)で確認できる。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
+トラック番号の先頭に `!` を付けると、そのトラックを除外する (例: `--audio-codec !1,!3?aac`)。
 言語の先頭に `!` を付けると、それらの言語以外のすべてのトラックを選択する (例: `--audio-codec !eng,!jpn?copy`)。
 
 さらに、":"以降に音声エンコーダのオプションを指定したり、"#"以降に音声デコーダのオプションを指定することもできる。
@@ -1320,7 +1326,10 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
   例4: 日本語と英語の音声をaacに変換
   --audio-codec jpn?aac --audio-codec eng?aac
   
-  例5: aacエンコーダのパラメータ"aac_coder"に低ビットレートでより高品質な"twoloop"を指定
+  例5: 第1音声トラックを除外してaacに変換
+  --audio-codec !1?aac
+
+  例6: aacエンコーダのパラメータ"aac_coder"に低ビットレートでより高品質な"twoloop"を指定
   --audio-codec aac:aac_coder=twoloop
   ```
 
@@ -1675,6 +1684,7 @@ nero形式、apple形式、matroska形式に対応する。--chapter-copyとは�
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。
 
 [&lt;int&gt;[,&lt;int&gt;]...]で、抽出する字幕トラック(1,2,...)を指定したり、[&lt;string&gt;[,&lt;string&gt;]...]で指定した言語の字幕トラックをコピーすることもできる。
+トラック番号の先頭に `!` を付けると、そのトラックを除外する (例: `!1,!3`)。
 言語の先頭に `!` を付けると、それらの言語以外のすべてのトラックを選択する (例: `!eng,!jpn`)。
 
 対応する字幕は、PGS/srt/txt/ttxtなど。
@@ -1689,6 +1699,18 @@ nero形式、apple形式、matroska形式に対応する。--chapter-copyとは�
   
   例: 日本語と英語の音声トラックを抽出
   --sub-copy jpn,eng
+
+  例: 字幕トラック#1を除外してコピー
+  --sub-copy !1
+  ```
+
+### --sub-codec [[&lt;int/string&gt;?]&lt;string&gt;]
+字幕を指定したコーデックへ変換する。トラック番号または言語による選択と、先頭に `!` を付けた除外指定を使用できる。
+
+- 使用例
+  ```
+  例: 字幕トラック#1を除外してassへ変換
+  --sub-codec !1?ass
   ```
 
 ### --sub-disposition [&lt;int/string&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
@@ -1734,8 +1756,9 @@ nero形式、apple形式、matroska形式に対応する。--chapter-copyとは�
 ### --sub-bsf [&lt;int/string&gt;?]&lt;string&gt;
 字幕トラックにbitstream filterを適用する。使用可能なフィルタは、[こちら](https://ffmpeg.org/ffmpeg-bitstream-filters.html)の中から選択可能。
 
-### --data-copy [&lt;int&gt;[,&lt;int&gt;]...]
+### --data-copy [&lt;int/string&gt;[,&lt;int/string&gt;]...]
 データストリームをコピーする。avhw/avswリーダー使用時のみ有効。
+トラック番号または言語で対象を選択できる。先頭に `!` を付けると、そのトラック番号または言語を除外する (例: `!1,!3`, `!eng,!jpn`)。
 
 ### --attachment-copy [&lt;int&gt;[,&lt;int&gt;]...]
 attachmentストリームをコピーする。avhw/avswリーダー使用時のみ有効。

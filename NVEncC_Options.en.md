@@ -179,10 +179,11 @@
   - [--keyfile \<string\>](#--keyfile-string)
   - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>...\]/\[\]...\]](#--sub-source-stringintparam1value1)
   - [--sub-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
+  - [--sub-codec \[\[\<int/string\>?\]\<string\>\]](#--sub-codec-intstringstring)
   - [--sub-disposition \[\<int/string\>?\]\<string\>](#--sub-disposition-intstringstring)
   - [--sub-metadata \[\<int/string\>?\]\<string\> or \[\<int/string\>?\]\<string\>=\<string\>](#--sub-metadata-intstringstring-or-intstringstringstring)
   - [--sub-bsf \[\<int/string\>?\]\<string\>](#--sub-bsf-intstringstring)
-  - [--data-copy \[\<int\>\[,\<int\>\]...\]](#--data-copy-intint)
+  - [--data-copy \[\<int/string\>\[,\<int/string\>\]...\]](#--data-copy-intstringintstring)
   - [--attachment-copy \[\<int\>\[,\<int\>\]...\]](#--attachment-copy-intint)
   - [--attachment-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--attachment-source-stringintparam1value1)
   - [--input-option \<string1\>:\<string2\>](#--input-option-string1string2)
@@ -599,7 +600,7 @@ If not specified, it will be same as the input resolution. (no resize)
   --output-res 1024x576 -> normal
   --output-res 960x0    -> resize to 960x720 (0 will be replaced to 720, same as input)
   --output-res 1920x-2  -> resize to 1920x1080 (calculated to keep aspect ratio)
-  
+
   --output-res 1440x1440,preserve_aspect_ratio=increase -> resize to 2560x1440
   --output-res 1440x1440,preserve_aspect_ratio=decrease -> resize to 1440x810
   ```
@@ -1277,6 +1278,7 @@ Copy audio track into output file. Available only when avhw / avsw reader is use
 If it does not work well, try encoding with [--audio-codec](#--audio-codec-intstring), which is more stable.
 
 You can also specify the audio track (1, 2, ...) to extract with [&lt;int&gt;], or select audio track to copy by language with [&lt;string&gt;].
+Prefix a track number with `!` to exclude that track (for example, `!1,!3`).
 Prefix languages with `!` to select all tracks except those languages (for example, `!eng,!jpn`).
 
 - Examples
@@ -1289,12 +1291,16 @@ Prefix languages with `!` to select all tracks except those languages (for examp
   
   Example: Extract audio tracks marked as English and Japanese
   --audio-copy eng,jpn
+
+  Example: Copy all audio tracks except track #1
+  --audio-copy !1
   ```
 
 ### --audio-codec [[&lt;int/string&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;[,&lt;string&gt;=&lt;string&gt;]...]...]
 Encode audio track with the codec specified. If codec is not set, most suitable codec will be selected automatically. Codecs available could be checked with [--check-encoders](#--check-codecs---check-decoders---check-encoders).
 
 You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
+Prefix a track number with `!` to exclude that track (for example, `--audio-codec !1,!3?aac`).
 Prefix languages with `!` to select all tracks except those languages (for example, `--audio-codec !eng,!jpn?copy`).
 
 Also, after ":" you can specify params for audio encoder,  after "#" you can specify params for audio decoder.
@@ -1313,7 +1319,10 @@ Also, after ":" you can specify params for audio encoder,  after "#" you can spe
   Example 4: encode the English audio track and Japanese audio track to aac
   --audio-codec eng?aac --audio-codec jpn?aac
   
-  Example 5: set param "aac_coder" to "twoloop" which will improve quality at low bitrate for aac encoder
+  Example 5: encode all audio tracks except track #1 to aac
+  --audio-codec !1?aac
+
+  Example 6: set param "aac_coder" to "twoloop" which will improve quality at low bitrate for aac encoder
   --audio-codec aac:aac_coder=twoloop
   ```
 
@@ -1679,6 +1688,7 @@ Read subtitle from the specified file and mux into the output file.
 ### --sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
 It is also possible to specify subtitle tracks (1, 2, ...) to extract with [&lt;int&gt;], or select subtitle tracks to copy by language with [&lt;string&gt;].
+Prefix a track number with `!` to exclude that track (for example, `!1,!3`).
 Prefix languages with `!` to select all tracks except those languages (for example, `!eng,!jpn`).
 
 Supported subtitles are PGS / srt / txt / ttxt.
@@ -1693,6 +1703,18 @@ Supported subtitles are PGS / srt / txt / ttxt.
   
   Example: Copy subtitle tracks marked as English and Japanese
   --sub-copy eng,jpn
+
+  Example: Copy all subtitle tracks except track #1
+  --sub-copy !1
+  ```
+
+### --sub-codec [[&lt;int/string&gt;?]&lt;string&gt;]
+Convert subtitle tracks to the specified codec. Tracks can be selected by track number or language, and excluded by prefixing the selector with `!`.
+
+- Examples
+  ```
+  Example: Convert all subtitle tracks except track #1 to ass
+  --sub-codec !1?ass
   ```
 
 ### --sub-disposition [&lt;int/string&gt;?]&lt;string&gt;
@@ -1738,8 +1760,9 @@ Set metadata for subtitle track.
 ### --sub-bsf [&lt;int/string&gt;?]&lt;string&gt;
 Apply [bitstream filter](https://ffmpeg.org/ffmpeg-bitstream-filters.html) to subtitle track.
 
-### --data-copy [&lt;int&gt;[,&lt;int&gt;]...]
+### --data-copy [&lt;int/string&gt;[,&lt;int/string&gt;]...]
 Copy data stream from input file. Available only when avhw / avsw reader is used.
+Streams can be selected by track number or language. Prefix selectors with `!` to exclude those track numbers or languages (for example, `!1,!3` or `!eng,!jpn`).
 
 ### --attachment-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy attachment stream from input file. Available only when avhw / avsw reader is used.

@@ -1328,6 +1328,9 @@ static bool audioSelected(const AudioSelect *sel, const AVDemuxStream *stream) {
         const auto langs = split(sel->lang, ",");
         return std::none_of(langs.begin(), langs.end(), [&](const auto& lang) { return rgy_lang_equal(lang, stream->lang); });
     }
+    if (sel->trackID == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+        return std::find(sel->excludeTrackIDs.begin(), sel->excludeTrackIDs.end(), trackID(stream->trackId)) == sel->excludeTrackIDs.end();
+    }
     if (sel->trackID == TRACK_SELECT_BY_CODEC && stream->stream != nullptr && avcodec_equal(sel->selectCodec, stream->stream->codecpar->codec_id)) {
         return true;
     }
@@ -1344,6 +1347,9 @@ static bool subSelected(const SubtitleSelect *sel, const AVDemuxStream *stream) 
         const auto langs = split(sel->lang, ",");
         return std::none_of(langs.begin(), langs.end(), [&](const auto& lang) { return rgy_lang_equal(lang, stream->lang); });
     }
+    if (sel->trackID == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+        return std::find(sel->excludeTrackIDs.begin(), sel->excludeTrackIDs.end(), trackID(stream->trackId)) == sel->excludeTrackIDs.end();
+    }
     if (sel->trackID == TRACK_SELECT_BY_CODEC && stream->stream != nullptr && avcodec_equal(sel->selectCodec, stream->stream->codecpar->codec_id)) {
         return true;
     }
@@ -1355,6 +1361,13 @@ static bool dataSelected(const DataSelect *sel, const AVDemuxStream *stream) {
     }
     if (sel->trackID == TRACK_SELECT_BY_LANG && rgy_lang_equal(sel->lang, stream->lang)) {
         return true;
+    }
+    if (sel->trackID == TRACK_SELECT_BY_LANG_EXCLUDE) {
+        const auto langs = split(sel->lang, ",");
+        return std::none_of(langs.begin(), langs.end(), [&](const auto& lang) { return rgy_lang_equal(lang, stream->lang); });
+    }
+    if (sel->trackID == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+        return std::find(sel->excludeTrackIDs.begin(), sel->excludeTrackIDs.end(), trackID(stream->trackId)) == sel->excludeTrackIDs.end();
     }
     if (sel->trackID == TRACK_SELECT_BY_CODEC && stream->stream != nullptr && avcodec_equal(sel->selectCodec, stream->stream->codecpar->codec_id)) {
         return true;
@@ -1560,7 +1573,7 @@ RGY_ERR initWriters(
                             pDataSelect = common->ppDataSelectList[i];
                         }
                     }
-                    if (pSubtitleSelect == nullptr) {
+                    if (pDataSelect == nullptr) {
                         //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
                         for (int i = 0; i < common->nDataSelectCount; i++) {
                             if (common->ppDataSelectList[i]->trackID == 0) {
@@ -1573,6 +1586,9 @@ RGY_ERR initWriters(
                 if (pAudioSelect != nullptr || audioCopyAll || streamMediaType != AVMEDIA_TYPE_AUDIO) {
                     streamTrackUsed.push_back(stream.trackId);
                     if (pSubtitleSelect == nullptr && streamMediaType == AVMEDIA_TYPE_SUBTITLE) {
+                        continue;
+                    }
+                    if (pDataSelect == nullptr && streamMediaType == AVMEDIA_TYPE_DATA) {
                         continue;
                     }
                     AVOutputStreamPrm prm;

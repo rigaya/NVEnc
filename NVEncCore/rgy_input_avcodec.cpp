@@ -1872,6 +1872,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                     if ((input_prm->ppSubtitleSelect[i]->trackID == 0 && input_prm->ppSubtitleSelect[i]->encCodec.length() > 0) //特に指定なし = 全指定かどうか
                         || (input_prm->ppSubtitleSelect[i]->trackID == TRACK_SELECT_BY_LANG && isSelectedLangTrack(input_prm->ppSubtitleSelect[i]->lang, srcStream))
                         || (input_prm->ppSubtitleSelect[i]->trackID == TRACK_SELECT_BY_LANG_EXCLUDE && isNotExcludedLangTrack(input_prm->ppSubtitleSelect[i]->lang, srcStream))
+                        || (input_prm->ppSubtitleSelect[i]->trackID == TRACK_SELECT_BY_TRACK_EXCLUDE
+                            && std::find(input_prm->ppSubtitleSelect[i]->excludeTrackIDs.begin(), input_prm->ppSubtitleSelect[i]->excludeTrackIDs.end(), iTrack - m_Demux.format.audioTracks + 1) == input_prm->ppSubtitleSelect[i]->excludeTrackIDs.end())
                         || (input_prm->ppSubtitleSelect[i]->trackID == TRACK_SELECT_BY_CODEC && isSelectedCodecTrack(input_prm->ppSubtitleSelect[i]->selectCodec, srcStream))
                         || input_prm->ppSubtitleSelect[i]->trackID - 1 == (iTrack - m_Demux.format.audioTracks)) {
                         useStream = true;
@@ -1882,6 +1884,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 for (int i = 0; !useStream && i < input_prm->nDataSelectCount; i++) {
                     if ((input_prm->ppDataSelect[i]->trackID == 0 && input_prm->ppDataSelect[i]->encCodec.length() > 0) //特に指定なし = 全指定かどうか
                         || (input_prm->ppDataSelect[i]->trackID == TRACK_SELECT_BY_LANG && isSelectedLangTrack(input_prm->ppDataSelect[i]->lang, srcStream))
+                        || (input_prm->ppDataSelect[i]->trackID == TRACK_SELECT_BY_LANG_EXCLUDE && isNotExcludedLangTrack(input_prm->ppDataSelect[i]->lang, srcStream))
+                        || (input_prm->ppDataSelect[i]->trackID == TRACK_SELECT_BY_TRACK_EXCLUDE
+                            && std::find(input_prm->ppDataSelect[i]->excludeTrackIDs.begin(), input_prm->ppDataSelect[i]->excludeTrackIDs.end(), iTrack - m_Demux.format.audioTracks - m_Demux.format.subtitleTracks + 1) == input_prm->ppDataSelect[i]->excludeTrackIDs.end())
                         || (input_prm->ppDataSelect[i]->trackID == TRACK_SELECT_BY_CODEC && isSelectedCodecTrack(input_prm->ppDataSelect[i]->selectCodec, srcStream))
                         || input_prm->ppDataSelect[i]->trackID - 1 == (iTrack - m_Demux.format.audioTracks - m_Demux.format.subtitleTracks)) {
                         useStream = true;
@@ -1892,6 +1897,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
                     if ((input_prm->ppAudioSelect[i]->trackID == TRACK_SELECT_BY_LANG && isSelectedLangTrack(input_prm->ppAudioSelect[i]->lang, srcStream))
                         || (input_prm->ppAudioSelect[i]->trackID == TRACK_SELECT_BY_LANG_EXCLUDE && isNotExcludedLangTrack(input_prm->ppAudioSelect[i]->lang, srcStream))
+                        || (input_prm->ppAudioSelect[i]->trackID == TRACK_SELECT_BY_TRACK_EXCLUDE
+                            && std::find(input_prm->ppAudioSelect[i]->excludeTrackIDs.begin(), input_prm->ppAudioSelect[i]->excludeTrackIDs.end(), iTrack + 1) == input_prm->ppAudioSelect[i]->excludeTrackIDs.end())
                         || (input_prm->ppAudioSelect[i]->trackID == TRACK_SELECT_BY_CODEC && isSelectedCodecTrack(input_prm->ppAudioSelect[i]->selectCodec, srcStream))
                         || (input_prm->ppAudioSelect[i]->trackID - 1 == (iTrack))) {
                         useStream = true;

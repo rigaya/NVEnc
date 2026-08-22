@@ -449,10 +449,40 @@ int cmd_string_to_bool(bool *b, const tstring &str) {
     }
 }
 
+static void mergeTrackExclusions(std::vector<int>& trackIDs, const std::vector<int>& additionalTrackIDs) {
+    trackIDs.insert(trackIDs.end(), additionalTrackIDs.begin(), additionalTrackIDs.end());
+    std::sort(trackIDs.begin(), trackIDs.end());
+    trackIDs.erase(std::unique(trackIDs.begin(), trackIDs.end()), trackIDs.end());
+}
+
+static bool parseTrackExclusion(const std::string& str, std::vector<int>& trackIDs) {
+    if (str.empty() || str[0] != '!') {
+        return false;
+    }
+    std::vector<int> parsedTrackIDs;
+    for (const auto& token : split(str, ",")) {
+        if (token.size() <= 1 || token[0] != '!') {
+            return false;
+        }
+        try {
+            size_t parsedLength = 0;
+            const auto trackID = std::stoi(token.substr(1), &parsedLength);
+            if (trackID < 1 || parsedLength != token.size() - 1) {
+                return false;
+            }
+            parsedTrackIDs.push_back(trackID);
+        } catch (...) {
+            return false;
+        }
+    }
+    mergeTrackExclusions(trackIDs, parsedTrackIDs);
+    return !trackIDs.empty();
+}
+
 static int getAudioTrackIdx(const RGYParamCommon *common, const int iTrack, const std::string& lang, const std::string& selectCodec) {
-    if (iTrack == TRACK_SELECT_BY_LANG_EXCLUDE) {
+    if (iTrack == TRACK_SELECT_BY_LANG_EXCLUDE || iTrack == TRACK_SELECT_BY_TRACK_EXCLUDE) {
         for (int i = 0; i < common->nAudioSelectCount; i++) {
-            if (common->ppAudioSelectList[i]->trackID == TRACK_SELECT_BY_LANG_EXCLUDE) {
+            if (common->ppAudioSelectList[i]->trackID == iTrack) {
                 return i;
             }
         }
@@ -492,9 +522,9 @@ static int getFreeAudioTrack(const RGYParamCommon *common) {
 }
 
 static int getSubTrackIdx(const RGYParamCommon *common, const int iTrack, const std::string& lang, const std::string& selectCodec) {
-    if (iTrack == TRACK_SELECT_BY_LANG_EXCLUDE) {
+    if (iTrack == TRACK_SELECT_BY_LANG_EXCLUDE || iTrack == TRACK_SELECT_BY_TRACK_EXCLUDE) {
         for (int i = 0; i < common->nSubtitleSelectCount; i++) {
-            if (common->ppSubtitleSelectList[i]->trackID == TRACK_SELECT_BY_LANG_EXCLUDE) {
+            if (common->ppSubtitleSelectList[i]->trackID == iTrack) {
                 return i;
             }
         }
@@ -523,7 +553,13 @@ static int getSubTrackIdx(const RGYParamCommon *common, const int iTrack, const 
 }
 
 static int getDataTrackIdx(const RGYParamCommon *common, const int iTrack, const std::string& lang, const std::string& selectCodec) {
-    if (iTrack == TRACK_SELECT_BY_LANG) {
+    if (iTrack == TRACK_SELECT_BY_LANG_EXCLUDE || iTrack == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+        for (int i = 0; i < common->nDataSelectCount; i++) {
+            if (common->ppDataSelectList[i]->trackID == iTrack) {
+                return i;
+            }
+        }
+    } else if (iTrack == TRACK_SELECT_BY_LANG) {
         if (lang.length() == 0) return -1;
         for (int i = 0; i < common->nDataSelectCount; i++) {
             if (lang == common->ppDataSelectList[i]->lang) {
@@ -10905,6 +10941,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         int trackId = 0;
         std::string lang;
         std::string selectCodec;
+        std::vector<int> excludeTrackIDs;
+        bool invalidTrackSelector = false;
         if (i+1 < nArgNum) {
             int test_val = 0;
             if ((strInput[i+1][0] != _T('-') || (_stscanf_s(strInput[i+1], _T("%d"), &test_val) == 1 && test_val < 0)) && strInput[i+1][0] != _T('\0')) {
@@ -10927,12 +10965,25 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     if (std::all_of(langList.begin(), langList.end(), [](const auto& lang) { return rgy_lang_exist(lang); })) {
                         trackId = excludeLang ? TRACK_SELECT_BY_LANG_EXCLUDE : TRACK_SELECT_BY_LANG;
                         lang = langCode;
+                    } else if (parseTrackExclusion(tempc, excludeTrackIDs)) {
+                        trackId = TRACK_SELECT_BY_TRACK_EXCLUDE;
                     } else if (avcodec_exists_audio(tempc)) {
                         trackId = TRACK_SELECT_BY_CODEC;
                         selectCodec = tempc;
+                    } else if (excludeLang) {
+                        invalidTrackSelector = true;
                     }
                 }
             }
+        }
+        if (invalidTrackSelector) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        if ((trackId == TRACK_SELECT_BY_TRACK_EXCLUDE && getAudioTrackIdx(common, TRACK_SELECT_BY_LANG_EXCLUDE, "", "") >= 0)
+            || (trackId == TRACK_SELECT_BY_LANG_EXCLUDE && getAudioTrackIdx(common, TRACK_SELECT_BY_TRACK_EXCLUDE, "", "") >= 0)) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("language and track exclusions cannot be mixed"));
+            return 1;
         }
         if (ptr == nullptr && !allowNoValue) {
             print_cmd_error_invalid_value(option_name, tstring(), _T("value not specified"));
@@ -10964,6 +11015,9 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         } else {
             pAudioSelect->lang = lang;
         }
+        if (trackId == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+            mergeTrackExclusions(pAudioSelect->excludeTrackIDs, excludeTrackIDs);
+        }
         func_set(pAudioSelect, trackId, ptr);
         if (trackId == 0) {
             for (int itrack = 0; itrack < common->nAudioSelectCount; itrack++) {
@@ -10987,6 +11041,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         int trackId = 0;
         std::string lang;
         std::string selectCodec;
+        std::vector<int> excludeTrackIDs;
+        bool invalidTrackSelector = false;
         if (i+1 < nArgNum) {
             if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
                 i++;
@@ -11008,12 +11064,25 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     if (std::all_of(langList.begin(), langList.end(), [](const auto& lang) { return rgy_lang_exist(lang); })) {
                         trackId = excludeLang ? TRACK_SELECT_BY_LANG_EXCLUDE : TRACK_SELECT_BY_LANG;
                         lang = langCode;
+                    } else if (parseTrackExclusion(tempc, excludeTrackIDs)) {
+                        trackId = TRACK_SELECT_BY_TRACK_EXCLUDE;
                     } else if (avcodec_exists_subtitle(tempc)) {
                         trackId = TRACK_SELECT_BY_CODEC;
                         selectCodec = tempc;
+                    } else if (excludeLang) {
+                        invalidTrackSelector = true;
                     }
                 }
             }
+        }
+        if (invalidTrackSelector) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        if ((trackId == TRACK_SELECT_BY_TRACK_EXCLUDE && getSubTrackIdx(common, TRACK_SELECT_BY_LANG_EXCLUDE, "", "") >= 0)
+            || (trackId == TRACK_SELECT_BY_LANG_EXCLUDE && getSubTrackIdx(common, TRACK_SELECT_BY_TRACK_EXCLUDE, "", "") >= 0)) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("language and track exclusions cannot be mixed"));
+            return 1;
         }
         if (ptr == nullptr && !allowNoValue) {
             print_cmd_error_invalid_value(option_name, tstring(), _T("value not specified"));
@@ -11045,6 +11114,9 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         } else {
             pSubSelect->lang = lang;
         }
+        if (trackId == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+            mergeTrackExclusions(pSubSelect->excludeTrackIDs, excludeTrackIDs);
+        }
         func_set(pSubSelect, trackId, ptr);
         if (trackId == 0) {
             for (int itrack = 0; itrack < common->nSubtitleSelectCount; itrack++) {
@@ -11068,6 +11140,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         int trackId = 0;
         std::string lang;
         std::string selectCodec;
+        std::vector<int> excludeTrackIDs;
+        bool invalidTrackSelector = false;
         if (i + 1 < nArgNum) {
             if (strInput[i + 1][0] != _T('-') && strInput[i + 1][0] != _T('\0')) {
                 i++;
@@ -11080,15 +11154,34 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     trackId = std::stoi(temp);
                 } catch (...) {
                     auto tempc = tchar_to_string(temp);
-                    if (rgy_lang_exist(tempc)) {
-                        trackId = TRACK_SELECT_BY_LANG;
-                        lang = tempc;
+                    const bool excludeLang = !tempc.empty() && tempc[0] == '!';
+                    auto langCode = excludeLang ? tempc.substr(1) : tempc;
+                    if (excludeLang) {
+                        langCode = str_replace(langCode, ",!", ",");
+                    }
+                    const auto langList = split(langCode, ",");
+                    if (std::all_of(langList.begin(), langList.end(), [](const auto& lang) { return rgy_lang_exist(lang); })) {
+                        trackId = excludeLang ? TRACK_SELECT_BY_LANG_EXCLUDE : TRACK_SELECT_BY_LANG;
+                        lang = langCode;
+                    } else if (parseTrackExclusion(tempc, excludeTrackIDs)) {
+                        trackId = TRACK_SELECT_BY_TRACK_EXCLUDE;
                     } else if (avcodec_exists_data(tempc)) {
                         trackId = TRACK_SELECT_BY_CODEC;
                         selectCodec = tempc;
+                    } else if (excludeLang) {
+                        invalidTrackSelector = true;
                     }
                 }
             }
+        }
+        if (invalidTrackSelector) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        if ((trackId == TRACK_SELECT_BY_TRACK_EXCLUDE && getDataTrackIdx(common, TRACK_SELECT_BY_LANG_EXCLUDE, "", "") >= 0)
+            || (trackId == TRACK_SELECT_BY_LANG_EXCLUDE && getDataTrackIdx(common, TRACK_SELECT_BY_TRACK_EXCLUDE, "", "") >= 0)) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("language and track exclusions cannot be mixed"));
+            return 1;
         }
         if (ptr == nullptr && !allowNoValue) {
             print_cmd_error_invalid_value(option_name, tstring(), _T("value not specified"));
@@ -11115,7 +11208,14 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         } else {
             pSelect = common->ppDataSelectList[dataIdx];
         }
-        pSelect->lang = lang;
+        if (trackId == TRACK_SELECT_BY_LANG_EXCLUDE && !pSelect->lang.empty()) {
+            pSelect->lang += "," + lang;
+        } else {
+            pSelect->lang = lang;
+        }
+        if (trackId == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+            mergeTrackExclusions(pSelect->excludeTrackIDs, excludeTrackIDs);
+        }
         func_set(pSelect, trackId, ptr);
         if (trackId == 0) {
             for (int itrack = 0; itrack < common->nDataSelectCount; itrack++) {
@@ -11137,6 +11237,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         using trackID_Lang = std::pair<int, std::string>;
         std::set<trackID_Lang> trackSet; //重複しないよう、setを使う
         std::string excludeLangs;
+        std::vector<int> excludeTrackIDs;
         if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
             auto trackListStr = split(strInput[i], _T(","));
@@ -11152,6 +11253,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                         } else {
                             trackSet.insert(std::make_pair(TRACK_SELECT_BY_LANG, langCode));
                         }
+                    } else if (parseTrackExclusion(strTrack, excludeTrackIDs)) {
                     } else if (avcodec_exists_audio(tchar_to_string(str))) {
                         trackSet.insert(std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str)));
                     } else {
@@ -11168,6 +11270,17 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         if (!excludeLangs.empty()) {
             trackSet.insert(std::make_pair(TRACK_SELECT_BY_LANG_EXCLUDE, excludeLangs));
         }
+        if (!excludeTrackIDs.empty()) {
+            if (!excludeLangs.empty() || getAudioTrackIdx(common, TRACK_SELECT_BY_LANG_EXCLUDE, "", "") >= 0) {
+                print_cmd_error_invalid_value(option_name, strInput[i], _T("language and track exclusions cannot be mixed"));
+                return 1;
+            }
+            trackSet.insert(std::make_pair(TRACK_SELECT_BY_TRACK_EXCLUDE, ""));
+        }
+        if (!excludeLangs.empty() && getAudioTrackIdx(common, TRACK_SELECT_BY_TRACK_EXCLUDE, "", "") >= 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("language and track exclusions cannot be mixed"));
+            return 1;
+        }
 
         for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
             AudioSelect *pAudioSelect = nullptr;
@@ -11179,6 +11292,9 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 pAudioSelect = common->ppAudioSelectList[audioIdx];
             }
             pAudioSelect->lang = it->second;
+            if (it->first == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+                mergeTrackExclusions(pAudioSelect->excludeTrackIDs, excludeTrackIDs);
+            }
             pAudioSelect->encCodec = RGY_AVCODEC_COPY;
 
             if (audioIdx < 0) {
@@ -11464,6 +11580,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         using trackID_Lang = std::pair<int, std::string>;
         std::map<trackID_Lang, SubtitleSelect> trackSet; //重複しないように
         std::string excludeLangs;
+        std::vector<int> excludeTrackIDs;
         if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
             auto trackListStr = split(strInput[i], _T(","));
@@ -11488,6 +11605,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                                 trackSet[track].encCodec = RGY_AVCODEC_COPY;
                                 trackSet[track].lang = langCode;
                             }
+                        } else if (parseTrackExclusion(strTrack, excludeTrackIDs)) {
                         } else if (avcodec_exists(strTrack, AVMEDIA_TYPE_SUBTITLE)) {
                             auto track = std::make_pair(TRACK_SELECT_BY_CODEC, strTrack);
                             trackSet[track].trackID = TRACK_SELECT_BY_CODEC;
@@ -11519,6 +11637,20 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             trackSet[track].encCodec = RGY_AVCODEC_COPY;
             trackSet[track].lang = excludeLangs;
         }
+        if (!excludeTrackIDs.empty()) {
+            if (!excludeLangs.empty() || getSubTrackIdx(common, TRACK_SELECT_BY_LANG_EXCLUDE, "", "") >= 0) {
+                print_cmd_error_invalid_value(option_name, strInput[i], _T("language and track exclusions cannot be mixed"));
+                return 1;
+            }
+            auto track = std::make_pair(TRACK_SELECT_BY_TRACK_EXCLUDE, "");
+            trackSet[track].trackID = TRACK_SELECT_BY_TRACK_EXCLUDE;
+            trackSet[track].encCodec = RGY_AVCODEC_COPY;
+            trackSet[track].excludeTrackIDs = excludeTrackIDs;
+        }
+        if (!excludeLangs.empty() && getSubTrackIdx(common, TRACK_SELECT_BY_TRACK_EXCLUDE, "", "") >= 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("language and track exclusions cannot be mixed"));
+            return 1;
+        }
 
         for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
             auto& track = it->first;
@@ -11529,7 +11661,13 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             } else {
                 pSubtitleSelect = common->ppSubtitleSelectList[subIdx];
             }
-            pSubtitleSelect[0] = it->second;
+            if (track.first == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+                mergeTrackExclusions(pSubtitleSelect->excludeTrackIDs, it->second.excludeTrackIDs);
+                pSubtitleSelect->trackID = track.first;
+                pSubtitleSelect->encCodec = it->second.encCodec;
+            } else {
+                pSubtitleSelect[0] = it->second;
+            }
 
             if (subIdx < 0) {
                 subIdx = common->nSubtitleSelectCount;
@@ -11542,7 +11680,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
     if (IS_OPTION("sub-codec")) {
-        common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
         auto ret = set_sub_prm([](SubtitleSelect *pSubSelect, int trackId, const TCHAR *prmstr) {
             if (trackId != 0 || pSubSelect->encCodec.length() == 0) {
                 if (prmstr == nullptr) {
@@ -11674,21 +11812,31 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
         using trackID_Lang = std::pair<int, std::string>;
         std::map<trackID_Lang, DataSelect> trackSet; //重複しないように
+        std::string excludeLangs;
+        std::vector<int> excludeTrackIDs;
         if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
             auto trackListStr = split(strInput[i], _T(","));
             for (auto str : trackListStr) {
                 int iTrack = 0;
                 if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
-                    if (rgy_lang_exist(tchar_to_string(str))) {
-                        auto track = std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str));
-                        trackSet[track].trackID = TRACK_SELECT_BY_LANG;
-                        trackSet[track].lang = tchar_to_string(str);
-                        trackSet[track].encCodec = RGY_AVCODEC_COPY;
-                    } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_DATA)) {
-                        auto track = std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str));
+                    const auto strTrack = tchar_to_string(str);
+                    const bool excludeLang = !strTrack.empty() && strTrack[0] == '!';
+                    const auto langCode = excludeLang ? strTrack.substr(1) : strTrack;
+                    if (rgy_lang_exist(langCode)) {
+                        if (excludeLang) {
+                            excludeLangs += (excludeLangs.empty() ? "" : ",") + langCode;
+                        } else {
+                            auto track = std::make_pair(TRACK_SELECT_BY_LANG, langCode);
+                            trackSet[track].trackID = TRACK_SELECT_BY_LANG;
+                            trackSet[track].lang = langCode;
+                            trackSet[track].encCodec = RGY_AVCODEC_COPY;
+                        }
+                    } else if (parseTrackExclusion(strTrack, excludeTrackIDs)) {
+                    } else if (avcodec_exists(strTrack, AVMEDIA_TYPE_DATA)) {
+                        auto track = std::make_pair(TRACK_SELECT_BY_CODEC, strTrack);
                         trackSet[track].trackID = TRACK_SELECT_BY_CODEC;
-                        trackSet[track].selectCodec = tchar_to_string(str);
+                        trackSet[track].selectCodec = strTrack;
                         trackSet[track].encCodec = RGY_AVCODEC_COPY;
                     } else {
                         print_cmd_error_invalid_value(option_name, strInput[i], _T("invalid track ID."));
@@ -11704,6 +11852,26 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             auto track = std::make_pair(0, "");
             trackSet[track].trackID = 0;
         }
+        if (!excludeLangs.empty()) {
+            auto track = std::make_pair(TRACK_SELECT_BY_LANG_EXCLUDE, excludeLangs);
+            trackSet[track].trackID = TRACK_SELECT_BY_LANG_EXCLUDE;
+            trackSet[track].lang = excludeLangs;
+            trackSet[track].encCodec = RGY_AVCODEC_COPY;
+        }
+        if (!excludeTrackIDs.empty()) {
+            if (!excludeLangs.empty() || getDataTrackIdx(common, TRACK_SELECT_BY_LANG_EXCLUDE, "", "") >= 0) {
+                print_cmd_error_invalid_value(option_name, strInput[i], _T("language and track exclusions cannot be mixed"));
+                return 1;
+            }
+            auto track = std::make_pair(TRACK_SELECT_BY_TRACK_EXCLUDE, "");
+            trackSet[track].trackID = TRACK_SELECT_BY_TRACK_EXCLUDE;
+            trackSet[track].excludeTrackIDs = excludeTrackIDs;
+            trackSet[track].encCodec = RGY_AVCODEC_COPY;
+        }
+        if (!excludeLangs.empty() && getDataTrackIdx(common, TRACK_SELECT_BY_TRACK_EXCLUDE, "", "") >= 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("language and track exclusions cannot be mixed"));
+            return 1;
+        }
 
         for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
             const auto track = it->first;
@@ -11714,8 +11882,14 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             } else {
                 pDataSelect = common->ppDataSelectList[dataIdx];
             }
-            pDataSelect[0] = it->second;
-            pDataSelect->encCodec = RGY_AVCODEC_COPY;
+            if (track.first == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+                mergeTrackExclusions(pDataSelect->excludeTrackIDs, it->second.excludeTrackIDs);
+                pDataSelect->trackID = track.first;
+                pDataSelect->encCodec = RGY_AVCODEC_COPY;
+            } else {
+                pDataSelect[0] = it->second;
+                pDataSelect->encCodec = RGY_AVCODEC_COPY;
+            }
 
             if (dataIdx < 0) {
                 dataIdx = common->nDataSelectCount;
@@ -13282,7 +13456,18 @@ tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYPa
     return cmd.str();
 }
 
+static tstring printTrackExclusions(const std::vector<int>& trackIDs) {
+    tstring trackList;
+    for (const auto trackID : trackIDs) {
+        trackList += strsprintf(_T(",!%d"), trackID);
+    }
+    return trackList.empty() ? tstring() : trackList.substr(1);
+}
+
 tstring printTrack(const AudioSelect *sel) {
+    if (sel->trackID == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+        return printTrackExclusions(sel->excludeTrackIDs);
+    }
     auto lang = char_to_tstring(sel->lang);
     if (sel->trackID == TRACK_SELECT_BY_LANG_EXCLUDE) {
         lang = str_replace(lang, _T(","), _T(",!"));
@@ -13291,6 +13476,9 @@ tstring printTrack(const AudioSelect *sel) {
     return sel->trackID == TRACK_SELECT_BY_LANG ? lang : std::to_tstring(sel->trackID);
 };
 tstring printTrack(const SubtitleSelect *sel) {
+    if (sel->trackID == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+        return printTrackExclusions(sel->excludeTrackIDs);
+    }
     auto lang = char_to_tstring(sel->lang);
     if (sel->trackID == TRACK_SELECT_BY_LANG_EXCLUDE) {
         lang = str_replace(lang, _T(","), _T(",!"));
@@ -13299,7 +13487,15 @@ tstring printTrack(const SubtitleSelect *sel) {
     return sel->trackID == TRACK_SELECT_BY_LANG ? lang : std::to_tstring(sel->trackID);
 };
 tstring printTrack(const DataSelect *sel) {
-    return sel->trackID == TRACK_SELECT_BY_LANG ? char_to_tstring(sel->lang) : std::to_tstring(sel->trackID);
+    if (sel->trackID == TRACK_SELECT_BY_TRACK_EXCLUDE) {
+        return printTrackExclusions(sel->excludeTrackIDs);
+    }
+    auto lang = char_to_tstring(sel->lang);
+    if (sel->trackID == TRACK_SELECT_BY_LANG_EXCLUDE) {
+        lang = str_replace(lang, _T(","), _T(",!"));
+        return _T("!") + lang;
+    }
+    return sel->trackID == TRACK_SELECT_BY_LANG ? lang : std::to_tstring(sel->trackID);
 };
 
 // "<トラック指定>?" を出力する
@@ -15358,8 +15554,13 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_NUM(_T("--video-ignore-timestamp-error"), videoIgnoreTimestampError);
 
     tmp.str(tstring());
+    bool hasSubCopy = false;
     for (int i = 0; i < param->nSubtitleSelectCount; i++) {
         const SubtitleSelect *pSubSelect = param->ppSubtitleSelectList[i];
+        if (pSubSelect->encCodec != RGY_AVCODEC_COPY) {
+            continue;
+        }
+        hasSubCopy = true;
         // トラックID 0 はトラック指定なしを意味するので、トラック番号としては出力しない
         if (pSubSelect->trackID != 0) {
             tmp << _T(",") << printTrack(pSubSelect);
@@ -15370,10 +15571,34 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             tmp << _T(",asdata");
         }
     }
-    if (param->nSubtitleSelectCount > 0) {
+    if (hasSubCopy) {
         cmd << _T(" --sub-copy");
         if (!tmp.str().empty()) {
             cmd << _T(" ") << tmp.str().substr(1);
+        }
+    }
+    for (int i = 0; i < param->nSubtitleSelectCount; i++) {
+        const SubtitleSelect *pSubSelect = param->ppSubtitleSelectList[i];
+        if (pSubSelect->encCodec.empty() || pSubSelect->encCodec == RGY_AVCODEC_COPY) {
+            continue;
+        }
+        tstring prm;
+        if (pSubSelect->trackID != 0) {
+            prm += printTrack(pSubSelect);
+        }
+        if (pSubSelect->encCodec != RGY_AVCODEC_AUTO) {
+            if (!prm.empty()) prm += _T("?");
+            prm += pSubSelect->encCodec;
+        }
+        if (!pSubSelect->encCodecPrm.empty()) {
+            prm += _T(":") + pSubSelect->encCodecPrm;
+        }
+        if (!pSubSelect->decCodecPrm.empty()) {
+            prm += _T("#") + pSubSelect->decCodecPrm;
+        }
+        cmd << _T(" --sub-codec");
+        if (!prm.empty()) {
+            cmd << _T(" ") << prm;
         }
     }
     for (int i = 0; i < param->nSubtitleSelectCount; i++) {
@@ -15442,7 +15667,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     tmp.str(tstring());
     for (int i = 0; i < param->nDataSelectCount; i++) {
         if (param->ppDataSelectList[i]->trackID != 0) { // トラックID 0 はトラック指定なしなので出力しない
-            tmp << _T(",") << param->ppDataSelectList[i]->trackID;
+            tmp << _T(",") << printTrack(param->ppDataSelectList[i]);
         }
     }
     if (param->nDataSelectCount > 0) {
@@ -15931,6 +16156,7 @@ tstring gen_cmd_help_common() {
         _T("                                 could be only used with\n")
         _T("                                 avhw/avsw reader and avcodec muxer.\n")
         _T("                                 by default copies all audio tracks.\n")
+        _T("                                 prefix track number with ! to exclude it.\n")
         _T("                                 prefix language with ! to exclude it.\n")
         _T("                                 \"--audio-copy 1,2\" will extract\n")
         _T("                                 audio track #1 and #2.\n")
@@ -16017,11 +16243,14 @@ tstring gen_cmd_help_common() {
         _T("   --sub-source <string>        input extra subtitle file.\n")
         _T("   --sub-copy [<int/string>[,...]]\n")
         _T("                                copy subtitle to output file.\n")
+        _T("                                 prefix track number with ! to exclude it.\n")
         _T("                                 prefix language with ! to exclude it.\n")
         _T("                                 these could be only used with\n")
         _T("                                 avhw/avsw reader and avcodec muxer.\n")
         _T("                                 below are optional,\n")
         _T("                                  in [<int>?], specify track number to copy.\n")
+        _T("   --sub-codec [<int/string>?]<string>\n")
+        _T("                                convert subtitle to specified format.\n")
         _T("   --sub-disposition [<int>?]<string>\n")
         _T("                                set disposition for the specified subtitle track.\n")
         _T("                                disposition for the unspecified tracks will be reset.\n")
@@ -16030,7 +16259,9 @@ tstring gen_cmd_help_common() {
         _T("                                 - copy ... copy metadata from input (default)\n")
         _T("                                 - clear ... do not set metadata\n")
         _T("   --sub-bsf [<int>?]<string>   set bitstream filter to subtitle track.\n")
-        _T("   --data-copy [<int>[,...]]       copy data stream to output file.\n")
+        _T("   --data-copy [<int/string>[,...]]\n")
+        _T("                                copy data stream to output file.\n")
+        _T("                                 prefix track number or language with ! to exclude it.\n")
         _T("   --attachment-copy [<int>[,...]] copy attachment stream to output file.\n")
         _T("   --attachment-source <string> add file as attachment stream.\n")
         _T("\n")
