@@ -2040,12 +2040,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             AddMessage((m_inputVideoInfo.type == RGY_INPUT_FMT_AVHW) ? RGY_LOG_WARN : RGY_LOG_INFO, _T("--dhdr10-info copy is only supported with sw deocde in %s, switching to --avsw.\n"), _T(ENCODER_NAME));
             m_inputVideoInfo.type = RGY_INPUT_FMT_AVSW;
         }
-#if ENCODER_NVENC && (defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__) || defined(__ARM_ARCH))
-        //armではhwデコーダを使用すると現状エラー終了するため、--avhwの指定がないときはavswを使用する
-        if (m_inputVideoInfo.type != RGY_INPUT_FMT_AVHW) {
-            m_inputVideoInfo.type = RGY_INPUT_FMT_AVSW;
-        }
-#endif
         m_Demux.video.HWDecodeDeviceId.clear();
         if (input_prm->tcfileIn.length() > 0) {
             if (input_prm->seekSec > 0.0f) {
