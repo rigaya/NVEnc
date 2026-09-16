@@ -76,7 +76,9 @@ __global__ void kernel_tweak_y(uint8_t *__restrict__ pFrame, const int pitch,
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (ix < width && iy < height) {
+    // ixはType4単位。ブロック端の余剰threadが次行へ書き込まないよう、
+    // 画素単位のwidthではなくType4単位の論理幅で判定する。
+    if (ix < ((width + 3) >> 2) && iy < height) {
         Type4 *ptr = (Type4 *)(pFrame + iy * pitch + ix * sizeof(Type4));
         Type4 src = ptr[0];
 
@@ -139,7 +141,9 @@ __global__ void kernel_tweak_uv(uint8_t *__restrict__ pFrameU, uint8_t *__restri
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (ix < width && iy < height) {
+    // ixはType4単位。ブロック端の余剰threadが次行へ書き込まないよう、
+    // 画素単位のwidthではなくType4単位の論理幅で判定する。
+    if (ix < ((width + 3) >> 2) && iy < height) {
         Type4 *ptrU = (Type4 *)(pFrameU + iy * pitch + ix * sizeof(Type4));
         Type4 *ptrV = (Type4 *)(pFrameV + iy * pitch + ix * sizeof(Type4));
 
