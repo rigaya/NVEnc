@@ -1,4 +1,4 @@
-; 这是一段评论
+; 这是一段注释
 ; 该文件包含NVEnc的中文语言信息
 ; 字符集 = UTF-8
 ; \n 功能由新的换行代码替代。
@@ -33,7 +33,7 @@ AUO_ERR_SAVDIR_DO_NOT_EXIST6=  请将导出目录名更改为不含环境依存�
 AUO_ERR_FILE_ALREADY_OPENED1=导出文件已在Aviutl中打开，无法导出。
 AUO_ERR_FILE_ALREADY_OPENED2=请指定为其他文件名并重试。
 AUO_WARN_FAILED_GET_OPENED_FILE_LIST1=无法获取AviUtl已打开的文件列表。
-AUO_WARN_FAILED_GET_OPENED_FILE_LIST2=将跳过检查输出文件是否已被AviUtl打开。
+AUO_WARN_FAILED_GET_OPENED_FILE_LIST2=将跳过检查导出文件是否已被AviUtl打开。
 AUO_WARN_NO_AUO_CHECK_FILEOPEN1= %s 下检测视频导出文件的子进程 %s 不存在。
 AUO_WARN_NO_AUO_CHECK_FILEOPEN2=请再次确认是否已将附带的 %s 文件夹全部复制到了Aviutl文件夹中。
 AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR1=无法在导出目录 "%s" 中创建文件。
