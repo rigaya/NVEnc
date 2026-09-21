@@ -39,6 +39,12 @@
 #include <nvsdk_ngx_defs_vsr.h>
 #include <nvsdk_ngx_helpers_vsr.h>
 
+// "VSR.ModelStrength" is added by the VFX SDK 1.3 nvngx_vsr.dll.
+// The RTX Video SDK header does not define it (yet), so define it here.
+#ifndef NVSDK_NGX_Parameter_VSR_ModelStrength
+#define NVSDK_NGX_Parameter_VSR_ModelStrength "VSR.ModelStrength"
+#endif
+
 #include <cuda.h>
 #include <cuda_runtime.h>
 
@@ -329,6 +335,12 @@ RGY_ERR NVEncNVSDKNGXVSR::procFrame(const NVEncNVSDKNGXRect *rectDst, const NVEn
     evalParams.OutputSubrectSize.Width = rectDst->right - rectDst->left;
     evalParams.OutputSubrectSize.Height = rectDst->bottom - rectDst->top;
     evalParams.QualityLevel = (NVSDK_NGX_VSR_QualityLevel)vsrParam->quality;
+
+    // VFX SDK 1.3 nvngx_vsr.dll extension.
+    // Passed through the NGX parameter block at evaluation time, the same way
+    // QualityLevel is (see NGX_CUDA_EVALUATE_VSR in nvsdk_ngx_helpers_vsr.h).
+    // The 1.2 dll does not know this parameter and simply ignores it.
+    m_ngxParameters->Set(NVSDK_NGX_Parameter_VSR_ModelStrength, vsrParam->modelStrength);
 
     auto err = err_to_rgy(NGX_CUDA_EVALUATE_VSR(m_ngxFeature, m_ngxParameters, &evalParams));
 

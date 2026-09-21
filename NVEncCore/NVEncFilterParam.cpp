@@ -163,11 +163,12 @@ tstring VppNvvfxUpScaler::print() const {
 
 VppNGXVSR::VppNGXVSR() :
     enable(false),
-    quality(FILTER_DEFAULT_NGX_VSR_QUALITY) {
+    quality(FILTER_DEFAULT_NGX_VSR_QUALITY),
+    strength(FILTER_DEFAULT_NGX_VSR_STRENGTH) {
 }
 
 bool VppNGXVSR::operator==(const VppNGXVSR& x) const {
-    return (enable == x.enable && quality == x.quality);
+    return (enable == x.enable && quality == x.quality && strength == x.strength);
 }
 
 bool VppNGXVSR::operator!=(const VppNGXVSR& x) const {
@@ -175,7 +176,7 @@ bool VppNGXVSR::operator!=(const VppNGXVSR& x) const {
 }
 
 tstring VppNGXVSR::print() const {
-    return strsprintf(_T("nvsdk-ngx vsr: quality: %d"), quality);
+    return strsprintf(_T("nvsdk-ngx vsr: quality: %d, strength %.2f"), quality, strength);
 }
 
 VppNGXTrueHDR::VppNGXTrueHDR() :
@@ -336,6 +337,19 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                         vppnv->ngxVSR.quality = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("vsr-strength")) { // requires nvngx_vsr.dll from VFX SDK 1.3 or later
+                    try {
+                        vppnv->ngxVSR.strength = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    if (vppnv->ngxVSR.strength < 0.0f || 1.0f < vppnv->ngxVSR.strength) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("vsr-strength should be 0.0 - 1.0."));
                         return 1;
                     }
                     continue;
@@ -632,6 +646,9 @@ tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZ
         cmd << _T(" --vpp-resize ") << get_chr_from_value(list_vpp_resize, resize_algo);
         if (param->ngxVSR.quality != defaultPrm->ngxVSR.quality) {
             cmd << _T(",vsr-quality=") << param->ngxVSR.quality;
+        }
+        if (param->ngxVSR.strength != defaultPrm->ngxVSR.strength) {
+            cmd << _T(",vsr-strength=") << std::setprecision(3) << param->ngxVSR.strength;
         }
     } else if (resize_algo == RGY_VPP_RESIZE_NVVFX_SUPER_RES) {
         cmd << _T(" --vpp-resize ") << get_chr_from_value(list_vpp_resize, resize_algo);

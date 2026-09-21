@@ -17554,9 +17554,17 @@ tstring gen_cmd_help_vpp() {
 #if ENABLE_NVSDKNGX
             str += strsprintf(_T("\n")
                 _T("      vsr-quality=<int>\n")
-                _T("        quality for ngx-vsr (1 - 4 or 8 - 19, default = 1)\n")
+                _T("        model/mode for ngx-vsr (NVIDIA \"QualityLevel\"; 0, 1 - 4, 8 - 19, 21, 23, default = 1)\n")
+                _T("        0 = bicubic baseline (non-AI, useful as a comparison baseline)\n")
                 _T("        8-11 = denoise, 12-15 = deblur, 16-19 = high-bitrate detail restoration\n")
-                _T("        modes 8-19 require nvngx_vsr.dll from VFX SDK 1.2 or later\n"));
+                _T("        larger values give higher quality within 1-4, 16-19, 21 and 23,\n")
+                _T("        and stronger effects within 8-15\n")
+                _T("        modes 0 and 8-19 require nvngx_vsr.dll from VFX SDK 1.2 or later\n")
+                _T("        21 / 23 = streaming (medium / ultra), require nvngx_vsr.dll from\n")
+                _T("                  VFX SDK 1.3 or later and an Ampere or newer GPU\n")
+                _T("      vsr-strength=<float>\n")
+                _T("        strength for ngx-vsr (0.0 - 1.0, default = 1.0)\n")
+                _T("        requires nvngx_vsr.dll from VFX SDK 1.3 or later\n"));
 #endif
 #if ENCODER_QSV
             str += strsprintf(_T("\n")
