@@ -2864,7 +2864,7 @@ Please download and install [Video Effect models and runtime dependencies](https
       Results stronger effect, suitable for lower bitrate videos.
 
 ### --vpp-nvvfx-framegen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-Video Frame Generation (VFG) filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK), which is supported on  x64 version only.
+Video Frame Generation (VFG) filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA-Maxine/Maxine-VFX-SDK), which is supported on  x64 version only.
 This synthesizes intermediate frames between two consecutive frames, increasing the frame rate of the output video.
 
 This filter is supported on Ada Gen GPU (RTX40xx) or later.

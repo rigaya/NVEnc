@@ -3265,6 +3265,27 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
     }
 
+    //vpp-nvvfx-framegenの制約事項
+    //フレーム数を変更するフィルタなので、同じくフレーム数を変更するフィルタとは併用できない
+    if (inputParam->vppnv.nvvfxFrameGen.enable) {
+        const std::vector<std::pair<bool, const TCHAR *>> frameCountChangingFilters = {
+            { inputParam->vpp.fruc.enable,                                    _T("--vpp-fruc") },
+            { inputParam->vpp.rife_ov.enable,                                 _T("--vpp-rife-ov") },
+            { inputParam->vpp.afs.enable,                                     _T("--vpp-afs") },
+            { inputParam->vpp.selectevery.enable,                             _T("--vpp-select-every") },
+            { inputParam->vpp.decimate.enable,                                _T("--vpp-decimate") },
+            { inputParam->vpp.mpdecimate.enable,                              _T("--vpp-mpdecimate") },
+            // cycle = 0 のivtcはフレーム数を変更しない
+            { inputParam->vpp.ivtc.enable && inputParam->vpp.ivtc.cycle != 0, _T("--vpp-ivtc") },
+        };
+        for (const auto& filter : frameCountChangingFilters) {
+            if (filter.first) {
+                PrintMes(RGY_LOG_ERROR, _T("--vpp-nvvfx-framegen cannot be used with %s, as both change the number of frames.\n"), filter.second);
+                return RGY_ERR_UNSUPPORTED;
+            }
+        }
+    }
+
     std::vector<VppType> filterPipeline = InitFiltersCreateVppList(inputParam, cspConvRequired, cropRequired, resizeRequired);
     //読み込み時のcrop
     const sInputCrop *inputCrop = (cropRequired) ? &inputParam->input.crop : nullptr;

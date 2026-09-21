@@ -2908,7 +2908,7 @@ equirect、flat、cubemap 間の投影変換を行います。
 
 
 ### --vpp-nvvfx-framegen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)によるフレーム補間(Video Frame Generation)フィルタ。
+[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA-Maxine/Maxine-VFX-SDK)によるフレーム補間(Video Frame Generation)フィルタ。
 隣接する2フレームの間に中間フレームを生成し、出力動画のフレームレートを引き上げる。
 
 実行にはx64版の実行ファイルとAda世代(RTX40xx)以降のGPUが必要。

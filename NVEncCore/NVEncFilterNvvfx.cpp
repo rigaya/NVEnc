@@ -1171,7 +1171,13 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::run_filter(const RGYFrameInfo *pInputFr
             return sts;
         }
         m_prevTimestamp = (int64_t)pInputFrame->timestamp;
-        return emitPassthrough((int64_t)pInputFrame->timestamp, (int64_t)pInputFrame->duration);
+        // The first frame cannot be interpolated yet, but it must not keep the whole input
+        // frame duration either: the generated frames that follow share the same input frame
+        // interval, so the first output frame only covers the first output interval.
+        const int64_t firstDuration = useTimestep
+            ? (int64_t)((double)pInputFrame->duration * prm->nvvfxFrameGen.timestep + 0.5)
+            : (int64_t)pInputFrame->duration / multiplier;
+        return emitPassthrough((int64_t)pInputFrame->timestamp, firstDuration);
     }
 
     sts = convertToNvCVImage(pInputFrame, m_srcImg.get(), stream);
