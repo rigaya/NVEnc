@@ -1909,6 +1909,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
 - [--vpp-nvvfx-denoise](#--vpp-nvvfx-denoise-param1value1param2value2)
 - [--vpp-nvvfx-artifact-reduction](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
+- [--vpp-nvvfx-framegen](#--vpp-nvvfx-framegen-param1value1param2value2)
 - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
 - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
 - [--vpp-bm3d](#--vpp-bm3d-param1value1param2value2)
@@ -2905,6 +2906,41 @@ equirect、flat、cubemap 間の投影変換を行います。
     - 1  
       より効果を強くし、圧縮劣化の低減する。もとのファイルが低ビットレートで劣化が激しい場合に適している。
 
+
+### --vpp-nvvfx-framegen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)によるフレーム補間(Video Frame Generation)フィルタ。
+隣接する2フレームの間に中間フレームを生成し、出力動画のフレームレートを引き上げる。
+
+実行にはx64版の実行ファイルとAda世代(RTX40xx)以降のGPUが必要。
+また、あわせて[MAXINE VideoEffects 用のモデルと実行モジュール](https://www.nvidia.com/broadcast-sdk-resources)をダウンロード・インストールしてからお使いください。
+
+- **parameters**
+  - mode=&lt;string&gt;
+    - low  
+      もっとも負荷の低いモデルを選択する。
+
+    - medium (default)  
+      バランスのとれたモデルを選択する。
+
+    - high  
+      もっとも負荷の高いモデルを選択する。
+
+  - multiplier=&lt;int&gt;  (default=2, 0 または 2-8)  
+    入力1フレームあたりの出力フレーム数を指定する。
+    2 - 8 の場合、各入力フレームの間に (multiplier - 1) フレームを生成するため、
+    出力のフレームレートは指定した倍率になる。
+    0 の場合、timestepで指定した位置に1フレームのみ生成する。
+
+  - timestep=&lt;float&gt;  (default=0.5, 0.0 - 1.0)  
+    生成するフレームの時間位置。開区間 (0.0, 1.0) で指定する。
+    multiplier = 0 の場合のみ使用される。
+
+  - autoshotchange=&lt;bool&gt;  (default=true)  
+    ショットチェンジの自動検出を有効にする。ショットチェンジを検出した場合、
+    補間を行わず現在のフレームをそのままコピーする。
+
+なお、このフィルタはフレーム数を変更するため、--vpp-fruc などフレーム数を変更する
+他のフィルタと同時に使用しないでください。
 
 ### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 

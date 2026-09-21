@@ -161,6 +161,37 @@ tstring VppNvvfxUpScaler::print() const {
         strength);
 }
 
+VppNvvfxFrameGen::VppNvvfxFrameGen() :
+    enable(false),
+    mode(FILTER_DEFAULT_NVVFX_FRAMEGEN_MODE),
+    multiplier(FILTER_DEFAULT_NVVFX_FRAMEGEN_MULTIPLIER),
+    timestep(FILTER_DEFAULT_NVVFX_FRAMEGEN_TIMESTEP),
+    autoShotChangeDetection(FILTER_DEFAULT_NVVFX_FRAMEGEN_AUTO_SHOT_CHANGE) {
+
+}
+
+bool VppNvvfxFrameGen::operator==(const VppNvvfxFrameGen &x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && multiplier == x.multiplier
+        && timestep == x.timestep
+        && autoShotChangeDetection == x.autoShotChangeDetection;
+}
+bool VppNvvfxFrameGen::operator!=(const VppNvvfxFrameGen &x) const {
+    return !(*this == x);
+}
+
+tstring VppNvvfxFrameGen::print() const {
+    if (multiplier == 0) {
+        return strsprintf(_T("nvvfx-framegen: mode %s, timestep %.3f, auto shot change detection %s"),
+            get_cx_desc(list_vpp_nvvfx_framegen_mode, mode), timestep,
+            autoShotChangeDetection ? _T("on") : _T("off"));
+    }
+    return strsprintf(_T("nvvfx-framegen: mode %s, multiplier x%d, auto shot change detection %s"),
+        get_cx_desc(list_vpp_nvvfx_framegen_mode, mode), multiplier,
+        autoShotChangeDetection ? _T("on") : _T("off"));
+}
+
 VppNGXVSR::VppNGXVSR() :
     enable(false),
     quality(FILTER_DEFAULT_NGX_VSR_QUALITY) {
@@ -232,6 +263,7 @@ bool VppParam::operator==(const VppParam &x) const {
         && nvvfxArtifactReduction == x.nvvfxArtifactReduction
         && nvvfxSuperRes == x.nvvfxSuperRes
         && nvvfxUpScaler == x.nvvfxUpScaler
+        && nvvfxFrameGen == x.nvvfxFrameGen
         && nvvfxModelDir == x.nvvfxModelDir;
 
 }
@@ -532,6 +564,74 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
         return 0;
     }
 
+    if (IS_OPTION("vpp-nvvfx-framegen") && (ENABLE_NVVFX || FOR_AUO)) {
+        vppnv->nvvfxFrameGen.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "mode", "multiplier", "timestep", "autoshotchange" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vppnv->nvvfxFrameGen.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nvvfx_framegen_mode, param_val.c_str(), &value)) {
+                        vppnv->nvvfxFrameGen.mode = value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nvvfx_framegen_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("multiplier")) {
+                    try {
+                        vppnv->nvvfxFrameGen.multiplier = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("timestep")) {
+                    try {
+                        vppnv->nvvfxFrameGen.timestep = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("autoshotchange")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vppnv->nvvfxFrameGen.autoShotChangeDetection = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     if (IS_OPTION("vpp-ngx-truehdr") && (ENABLE_NVSDKNGX || FOR_AUO)) {
         vppnv->ngxTrueHDR.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -708,6 +808,28 @@ tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZ
     }
 
     OPT_STR_PATH(_T("--vpp-nvvfx-model-dir"), nvvfxModelDir);
+
+    if (param->nvvfxFrameGen != defaultPrm->nvvfxFrameGen) {
+        tmp.str(tstring());
+        if (!param->nvvfxFrameGen.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->nvvfxFrameGen.enable || save_disabled_prm) {
+            ADD_NUM(_T("multiplier"), nvvfxFrameGen.multiplier);
+            if (param->nvvfxFrameGen.mode != defaultPrm->nvvfxFrameGen.mode) {
+                tmp << _T(",mode=") << get_cx_desc(list_vpp_nvvfx_framegen_mode, param->nvvfxFrameGen.mode);
+            }
+            if (param->nvvfxFrameGen.multiplier == 0) {
+                ADD_FLOAT(_T("timestep"), nvvfxFrameGen.timestep, 3);
+            }
+            ADD_BOOL(_T("autoshotchange"), nvvfxFrameGen.autoShotChangeDetection);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-nvvfx-framegen ") << tmp.str().substr(1);
+        } else if (param->nvvfxFrameGen.enable) {
+            cmd << _T(" --vpp-nvvfx-framegen");
+        }
+    }
 
     if (param->ngxTrueHDR != defaultPrm->ngxTrueHDR) {
         tmp.str(tstring());

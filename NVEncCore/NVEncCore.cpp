@@ -725,6 +725,15 @@ RGY_ERR NVEncCore::InitInput(InEncodeVideoParam *inputParam, DeviceCodecCsp& HWD
             PrintMes(RGY_LOG_DEBUG, _T("timebase changed to %d/%d, as vpp-fruc targets %d/%d fps\n"), m_outputTimebase.n(), m_outputTimebase.d(), frucfps.n(), frucfps.d());
         }
     }
+    if (inputParam->vppnv.nvvfxFrameGen.enable) {
+        const int fpsMultiplier = (inputParam->vppnv.nvvfxFrameGen.multiplier >= 2) ? inputParam->vppnv.nvvfxFrameGen.multiplier : 2;
+        const rgy_rational<int> framegenfps = m_inputFps * fpsMultiplier;
+        if (framegenfps.is_valid()) {
+            const auto timbeaselcm = rgy_lcm(m_outputTimebase.d(), framegenfps.n() * 2);
+            m_outputTimebase *= rgy_rational<int>(1, timbeaselcm / m_outputTimebase.d());
+            PrintMes(RGY_LOG_DEBUG, _T("timebase changed to %d/%d, as vpp-nvvfx-framegen targets %d/%d fps\n"), m_outputTimebase.n(), m_outputTimebase.d(), framegenfps.n(), framegenfps.d());
+        }
+    }
 #if !FOR_AUO
     if (inputParam->common.dynamicHdr10plusJson.length() > 0) {
         m_hdr10plus = initDynamicHDR10Plus(inputParam->common.dynamicHdr10plusJson, m_pLog);
@@ -863,6 +872,7 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
         // nvvfx, ngx使用時はGPUメモリ使用量の問題があるため、GPUにつき1スレッドに制限する
         const bool limitOnePerGPU = !inputParam->ctrl.parallelEnc.forceLargeMemoryFilters && (inputParam->vppnv.nvvfxArtifactReduction.enable
             || inputParam->vppnv.nvvfxDenoise.enable
+            || inputParam->vppnv.nvvfxFrameGen.enable
             || inputParam->vppnv.ngxTrueHDR.enable
             || isNvvfxResizeFiter(inputParam->vpp.resize_algo)
             || isNgxResizeFiter(inputParam->vpp.resize_algo));
@@ -961,6 +971,7 @@ bool NVEncCore::useNVVFX(const InEncodeVideoParam *inputParam) const {
         || vppnv.nvvfxDenoise.enable
         || vppnv.nvvfxSuperRes.enable
         || vppnv.nvvfxUpScaler.enable
+        || vppnv.nvvfxFrameGen.enable
         || inputParam->vpp.resize_algo == RGY_VPP_RESIZE_NVVFX_SUPER_RES) {
         return true;
     }
@@ -1149,6 +1160,15 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
             const int nvvfxRequiredCCMajor = 7;
             if ((*gpu)->cc().first < nvvfxRequiredCCMajor) {
                 message += strsprintf(_T("GPU #%d (%s) does not support fruc, CC 7.0 is required but GPU is CC %d.%d.\n"), (*gpu)->id(), (*gpu)->name().c_str(), (*gpu)->cc().first, (*gpu)->cc().second);
+                gpu = gpuList.erase(gpu);
+                continue;
+            }
+        }
+        if (inputParam->vppnv.nvvfxFrameGen.enable) {
+            //nvvfx-framegenにはada以降(CC8.9)が必要
+            if ((*gpu)->cc().first < 8
+                || ((*gpu)->cc().first == 8 && (*gpu)->cc().second < 9)) {
+                message += strsprintf(_T("GPU #%d (%s) does not support nvvfx-framegen, CC 8.9 is required but GPU is CC %d.%d.\n"), (*gpu)->id(), (*gpu)->name().c_str(), (*gpu)->cc().first, (*gpu)->cc().second);
                 gpu = gpuList.erase(gpu);
                 continue;
             }
@@ -3092,6 +3112,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.rife_ov.enable)    filterPipeline.push_back(VppType::CL_RIFE_OV);
     if (inputParam->vpp.anime4k.enable)     filterPipeline.push_back(VppType::CL_ANIME4K);
     if (inputParam->vpp.fruc.enable)     filterPipeline.push_back(VppType::CL_FRUC);
+    if (inputParam->vppnv.nvvfxFrameGen.enable) filterPipeline.push_back(VppType::NVVFX_FRAME_GENERATION);
 
     if (filterPipeline.size() == 0) {
         return filterPipeline;
@@ -4269,6 +4290,33 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //フレーム補間 (nvvfx-framegen)
+    if (vppType == VppType::NVVFX_FRAME_GENERATION) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterNvvfxFrameGeneration());
+        shared_ptr<NVEncFilterParamNvvfxFrameGen> param(new NVEncFilterParamNvvfxFrameGen());
+        param->nvvfxFrameGen = inputParam->vppnv.nvvfxFrameGen;
+        param->compute_capability = m_dev->cc();
+        param->modelDir = inputParam->vppnv.nvvfxModelDir;
+        param->vuiInfo = vuiInfo;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        param->timebase = m_outputTimebase;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
