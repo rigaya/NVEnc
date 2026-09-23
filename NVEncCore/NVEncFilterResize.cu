@@ -1435,6 +1435,13 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         pResizeParam->nvvfxSuperRes.reset();
     }
     if (isNgxResizeFiter(pResizeParam->interp)) {
+        if (pResizeParam->ngxvsr->ngxvsr.quality >= 8 && pResizeParam->ngxvsr->ngxvsr.quality <= 15
+            && (pResizeParam->frameIn.width != pResizeParam->frameOut.width
+                || pResizeParam->frameIn.height != pResizeParam->frameOut.height)) {
+            AddMessage(RGY_LOG_ERROR, _T("ngx-vsr quality 8-15 (denoise/deblur) do not support resizing.\n")
+                _T("Please set --output-res to the same resolution as the input.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
         if (!m_ngxVSR) {
             m_ngxVSR = std::make_unique<NVEncFilterNGXVSR>();
         }

@@ -508,8 +508,25 @@ RGY_ERR NVEncFilterNGXVSR::checkParam(const NVEncFilterParam *param) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->ngxvsr.quality < 1 || 4 < prm->ngxvsr.quality) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid quality value %d, must be in the range of 1 to 4.\n"), prm->ngxvsr.quality);
+    // quality 0:    VSR_Bicubic, non-AI resize / comparison baseline.
+    // quality 1-4:  legacy NGX VSR levels.
+    // quality 8-19: VFX SDK 1.2 nvngx_vsr.dll extension
+    //               (8-11 = denoise, 12-15 = deblur, 16-19 = high-bitrate detail restoration).
+    // quality 21 / 23: VFX SDK 1.3 nvngx_vsr.dll streaming modes
+    //               (STREAMING_MEDIUM / STREAMING_ULTRA, upscale-capable).
+    //               Only meaningful on an Ampere or newer GPU - the dll does not
+    //               enforce that itself (the check lives in the VFX plugin layer),
+    //               so an unsupported GPU surfaces as an error from the dll.
+    // 5-7, 20 and 22 are reserved by NVIDIA and must not be used.
+    const bool reserved = (5 <= prm->ngxvsr.quality && prm->ngxvsr.quality <= 7)
+        || prm->ngxvsr.quality == 20 || prm->ngxvsr.quality == 22;
+    if (prm->ngxvsr.quality < 0 || 23 < prm->ngxvsr.quality || reserved) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid quality value %d, must be 0, 1 to 4, 8 to 19, 21 or 23 (5-7, 20 and 22 are reserved by NVIDIA).\n"), prm->ngxvsr.quality);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    // strength is a VFX SDK 1.3 nvngx_vsr.dll extension, ignored by the 1.2 dll.
+    if (prm->ngxvsr.strength < 0.0f || 1.0f < prm->ngxvsr.strength) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid strength value %f, must be in the range of 0.0 to 1.0.\n"), prm->ngxvsr.strength);
         return RGY_ERR_INVALID_PARAM;
     }
     return RGY_ERR_NONE;
@@ -518,6 +535,7 @@ RGY_ERR NVEncFilterNGXVSR::checkParam(const NVEncFilterParam *param) {
 void NVEncFilterNGXVSR::setNGXParam(const NVEncFilterParam *param) {
     auto prm = dynamic_cast<const NVEncFilterParamNGXVSR*>(param);
     m_paramVSR.quality = prm->ngxvsr.quality;
+    m_paramVSR.modelStrength = prm->ngxvsr.strength;
 
     m_ngxCspIn = RGY_CSP_RGB32;
     m_ngxCspOut = RGY_CSP_RGB32;

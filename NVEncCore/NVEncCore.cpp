@@ -3195,8 +3195,16 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
     }
     RGY_VPP_RESIZE_TYPE resizeRequired = RGY_VPP_RESIZE_TYPE_NONE;
+    // ngx-vsr quality 8-15 (denoise/deblur) from VFX SDK 1.2 nvngx_vsr.dll
+    // run at input=output resolution; the resize filter must be created even
+    // when no resize is requested (requires an explicit --output-res matching
+    // the input resolution). 16-19 (high-bitrate) are upscalers like 1-4 and
+    // follow the normal resize rules.
+    const bool ngxVsrSameRes = inputParam->vpp.resize_algo == RGY_VPP_RESIZE_NGX_VSR
+        && inputParam->vppnv.ngxVSR.quality >= 8
+        && inputParam->vppnv.ngxVSR.quality <= 15;
     if ((resizeWidth > 0 && resizeHeight > 0) &&
-        (croppedWidth != resizeWidth || croppedHeight != resizeHeight)) {
+        (croppedWidth != resizeWidth || croppedHeight != resizeHeight || ngxVsrSameRes)) {
         resizeRequired = getVppResizeType(inputParam->vpp.resize_algo);
         if (resizeRequired == RGY_VPP_RESIZE_TYPE_UNKNOWN) {
             PrintMes(RGY_LOG_ERROR, _T("Unknown resize type.\n"));

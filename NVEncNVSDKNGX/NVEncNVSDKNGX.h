@@ -71,6 +71,7 @@ typedef struct {
 
 typedef struct {
     int quality;
+    float modelStrength;
 } NVEncNVSDKNGXParamVSR;
 
 typedef struct {

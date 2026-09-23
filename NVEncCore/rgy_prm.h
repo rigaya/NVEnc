@@ -1262,7 +1262,7 @@ const CX_DESC list_vpp_resize_help[] = {
 };
 
 static const char *paramsResizeLibPlacebo[] = { "algo", "pl-radius", "pl-clamp", "pl-taper", "pl-blur", "pl-antiring"/*, "pl-cplace"*/ };
-static const char *paramsResizeNVEnc[] = { "superres-mode", "superres-strength", "vsr-quality" };
+static const char *paramsResizeNVEnc[] = { "superres-mode", "superres-strength", "vsr-quality", "vsr-strength" };
 static const char *paramsResizeQSVEnc[] = { "superres-mode", "superres-algo" };
 static const char *paramsResizeFsr1[] = { "sharpness" };
 static const char *paramsResizeNis[]      = { "cascade", "sharpness", "hdr", "opt" };
