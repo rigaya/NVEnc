@@ -3200,9 +3200,13 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     // when no resize is requested (requires an explicit --output-res matching
     // the input resolution). 16-19 (high-bitrate) are upscalers like 1-4 and
     // follow the normal resize rules.
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     const bool ngxVsrSameRes = inputParam->vpp.resize_algo == RGY_VPP_RESIZE_NGX_VSR
         && inputParam->vppnv.ngxVSR.quality >= 8
         && inputParam->vppnv.ngxVSR.quality <= 15;
+#else
+    const bool ngxVsrSameRes = false;
+#endif
     if ((resizeWidth > 0 && resizeHeight > 0) &&
         (croppedWidth != resizeWidth || croppedHeight != resizeHeight || ngxVsrSameRes)) {
         resizeRequired = getVppResizeType(inputParam->vpp.resize_algo);
