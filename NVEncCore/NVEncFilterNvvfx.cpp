@@ -46,7 +46,6 @@ char *g_nvVFXSDKPath = nullptr;
 #define NVVFXVIDEOFRAMEGENERATION_MODE       "Mode"
 #define NVVFXVIDEOFRAMEGENERATION_FRAME_MULTIPLIER "FrameMultiplier"
 #define NVVFXVIDEOFRAMEGENERATION_FRAME_INDEX      "FrameIndex"
-#define NVVFXVIDEOFRAMEGENERATION_TIMESTEP         "Timestep"
 #define NVVFXVIDEOFRAMEGENERATION_SHOT_CHANGE      "ShotChange"
 #define NVVFXVIDEOFRAMEGENERATION_AUTOMATIC_SHOT_CHANGE_DETECTION_ENABLED "AutomaticShotChangeDetectionEnabled"
 #endif // #ifndef NVVFX_FX_VIDEO_FRAME_GENERATION
@@ -772,14 +771,8 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::checkParam(const NVEncFilterParam *para
         AddMessage(RGY_LOG_ERROR, _T("mode should be 0 (low), 1 (medium) or 2 (high).\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->nvvfxFrameGen.multiplier != 0
-        && (prm->nvvfxFrameGen.multiplier < 2 || 8 < prm->nvvfxFrameGen.multiplier)) {
-        AddMessage(RGY_LOG_ERROR, _T("multiplier should be 0 or 2 - 8.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    if (prm->nvvfxFrameGen.multiplier == 0
-        && (prm->nvvfxFrameGen.timestep <= 0.0f || 1.0f <= prm->nvvfxFrameGen.timestep)) {
-        AddMessage(RGY_LOG_ERROR, _T("timestep should be in the range of 0.0 - 1.0 (exclusive).\n"));
+    if (prm->nvvfxFrameGen.multiplier < 2 || 8 < prm->nvvfxFrameGen.multiplier) {
+        AddMessage(RGY_LOG_ERROR, _T("multiplier should be 2 - 8.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     // the model works on 640x360 or larger input
@@ -1010,10 +1003,9 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         pParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
-    // both the multiplier mode and the explicit timestep mode output the input frame itself
-    // plus the generated frame(s), so the frame rate is doubled at the very least.
-    const int fpsMultiplier = (prm->nvvfxFrameGen.multiplier >= 2) ? prm->nvvfxFrameGen.multiplier : 2;
-    m_targetFps = pParam->baseFps * fpsMultiplier;
+    // the multiplier mode outputs the input frame itself plus (multiplier - 1) generated
+    // frame(s), so the frame rate is multiplied by the specified value.
+    m_targetFps = pParam->baseFps * prm->nvvfxFrameGen.multiplier;
     m_prevTimestamp = -1;
     m_inputFrames = 0;
 
@@ -1072,27 +1064,19 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::convertToNvCVImage(const RGYFrameInfo *
 }
 
 RGY_ERR NVEncFilterNvvfxFrameGeneration::genFrame(RGYFrameInfo *outFrame, const RGYFrameInfo *frameProp,
-    int frameIndex, int multiplier, float timestep,
+    int frameIndex, int multiplier,
     int64_t genPts, int64_t genDuration, cudaStream_t stream) {
-    // setting FrameMultiplier resets FrameIndex and Timestep,
+    // setting FrameMultiplier resets FrameIndex,
     // so the per-output selector has to be set after the multiplier every time.
     auto err = err_to_rgy(NvVFX_SetU32(m_effect.get(), NVVFXVIDEOFRAMEGENERATION_FRAME_MULTIPLIER, (uint32_t)multiplier));
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to set parameter %s to %d: %s.\n"), NVVFXVIDEOFRAMEGENERATION_FRAME_MULTIPLIER, multiplier, get_err_mes(err));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (multiplier >= 2) {
-        err = err_to_rgy(NvVFX_SetU32(m_effect.get(), NVVFXVIDEOFRAMEGENERATION_FRAME_INDEX, (uint32_t)frameIndex));
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to set parameter %s to %d: %s.\n"), NVVFXVIDEOFRAMEGENERATION_FRAME_INDEX, frameIndex, get_err_mes(err));
-            return RGY_ERR_INVALID_PARAM;
-        }
-    } else {
-        err = err_to_rgy(NvVFX_SetF32(m_effect.get(), NVVFXVIDEOFRAMEGENERATION_TIMESTEP, timestep));
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to set parameter %s to %.3f: %s.\n"), NVVFXVIDEOFRAMEGENERATION_TIMESTEP, timestep, get_err_mes(err));
-            return RGY_ERR_INVALID_PARAM;
-        }
+    err = err_to_rgy(NvVFX_SetU32(m_effect.get(), NVVFXVIDEOFRAMEGENERATION_FRAME_INDEX, (uint32_t)frameIndex));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to set parameter %s to %d: %s.\n"), NVVFXVIDEOFRAMEGENERATION_FRAME_INDEX, frameIndex, get_err_mes(err));
+        return RGY_ERR_INVALID_PARAM;
     }
     err = err_to_rgy(NvVFX_Run(m_effect.get(), 0));
     if (err != RGY_ERR_NONE) {
@@ -1138,10 +1122,8 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::run_filter(const RGYFrameInfo *pInputFr
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    // multiplier mode (2 - 8) generates (multiplier - 1) intermediate frames per input pair;
-    // explicit timestep mode (multiplier = 0) always generates exactly one frame.
-    const bool useTimestep = (prm->nvvfxFrameGen.multiplier == 0);
-    const int multiplier   = useTimestep ? 2 : prm->nvvfxFrameGen.multiplier;
+    // multiplier mode (2 - 8) generates (multiplier - 1) intermediate frames per input pair.
+    const int multiplier   = prm->nvvfxFrameGen.multiplier;
     const int nGenFrames   = multiplier - 1;
 
     *pOutputFrameNum = 0;
@@ -1174,9 +1156,7 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::run_filter(const RGYFrameInfo *pInputFr
         // The first frame cannot be interpolated yet, but it must not keep the whole input
         // frame duration either: the generated frames that follow share the same input frame
         // interval, so the first output frame only covers the first output interval.
-        const int64_t firstDuration = useTimestep
-            ? (int64_t)((double)pInputFrame->duration * prm->nvvfxFrameGen.timestep + 0.5)
-            : (int64_t)pInputFrame->duration / multiplier;
+        const int64_t firstDuration = (int64_t)pInputFrame->duration / multiplier;
         return emitPassthrough((int64_t)pInputFrame->timestamp, firstDuration);
     }
 
@@ -1192,19 +1172,13 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::run_filter(const RGYFrameInfo *pInputFr
 
     // generate the intermediate frames
     for (int i = 1; i <= nGenFrames; i++) {
-        const int64_t genPts = useTimestep
-            ? prevTs + (int64_t)(tsDiff * prm->nvvfxFrameGen.timestep + 0.5)
-            : prevTs + (tsDiff * i) / multiplier;
+        const int64_t genPts = prevTs + (tsDiff * i) / multiplier;
         auto outFrame = getNextOutFrame(ppOutputFrames, pOutputFrameNum);
         if (!outFrame) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate output frame.\n"));
             return RGY_ERR_MEMORY_ALLOC;
         }
-        // genFrame() takes multiplier == 0 to mean "use the explicit timestep"
-        sts = genFrame(outFrame, pInputFrame,
-            useTimestep ? 0 : i,
-            useTimestep ? 0 : multiplier,
-            prm->nvvfxFrameGen.timestep,
+        sts = genFrame(outFrame, pInputFrame, i, multiplier,
             genPts, genPts - lastPts, stream);
         if (sts != RGY_ERR_NONE) {
             return sts;

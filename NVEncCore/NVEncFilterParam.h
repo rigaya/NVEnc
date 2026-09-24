@@ -62,7 +62,6 @@ static const float FILTER_DEFAULT_NVVFX_UPSCALER_STRENGTH = 0.4f;
 
 static const int   FILTER_DEFAULT_NVVFX_FRAMEGEN_MODE = 1;      // medium
 static const int   FILTER_DEFAULT_NVVFX_FRAMEGEN_MULTIPLIER = 2; // x2 => 1 generated frame per input pair
-static const float FILTER_DEFAULT_NVVFX_FRAMEGEN_TIMESTEP = 0.5f;
 static const bool  FILTER_DEFAULT_NVVFX_FRAMEGEN_AUTO_SHOT_CHANGE = true;
 
 static const int FILTER_DEFAULT_NGX_VSR_QUALITY = 1;
@@ -208,8 +207,7 @@ struct VppNvvfxUpScaler {
 struct VppNvvfxFrameGen {
     bool enable;
     int mode;         // 0: low, 1: medium, 2: high
-    int multiplier;   // 0: use explicit timestep, 2 - 8: generate (multiplier - 1) frames between each input pair
-    float timestep;   // temporal position in (0.0, 1.0), used only when multiplier == 0
+    int multiplier;   // 2 - 8: generate (multiplier - 1) frames between each input pair
     bool autoShotChangeDetection;
 
     VppNvvfxFrameGen();

@@ -2881,15 +2881,10 @@ Please download and install [Video Effect models and runtime dependencies](https
     - high  
       Selects the highest-complexity model.
 
-  - multiplier=&lt;int&gt;  (default=2, 0 or 2-8)  
+  - multiplier=&lt;int&gt;  (default=2, 2-8)  
     Specifies how many frames are output for each input frame.
     2 - 8 generates (multiplier - 1) frames between each input frame pair,
     so the output frame rate is multiplied by the specified value.
-    0 generates a single frame at the temporal position given by timestep.
-
-  - timestep=&lt;float&gt;  (default=0.5, 0.0 - 1.0)  
-    Temporal position of the generated frame, in the open interval (0.0, 1.0).
-    Only used when multiplier = 0.
 
   - autoshotchange=&lt;bool&gt;  (default=true)  
     Enables automatic shot change detection. When a shot change is detected,

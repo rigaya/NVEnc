@@ -165,7 +165,6 @@ VppNvvfxFrameGen::VppNvvfxFrameGen() :
     enable(false),
     mode(FILTER_DEFAULT_NVVFX_FRAMEGEN_MODE),
     multiplier(FILTER_DEFAULT_NVVFX_FRAMEGEN_MULTIPLIER),
-    timestep(FILTER_DEFAULT_NVVFX_FRAMEGEN_TIMESTEP),
     autoShotChangeDetection(FILTER_DEFAULT_NVVFX_FRAMEGEN_AUTO_SHOT_CHANGE) {
 
 }
@@ -174,7 +173,6 @@ bool VppNvvfxFrameGen::operator==(const VppNvvfxFrameGen &x) const {
     return enable == x.enable
         && mode == x.mode
         && multiplier == x.multiplier
-        && timestep == x.timestep
         && autoShotChangeDetection == x.autoShotChangeDetection;
 }
 bool VppNvvfxFrameGen::operator!=(const VppNvvfxFrameGen &x) const {
@@ -182,11 +180,6 @@ bool VppNvvfxFrameGen::operator!=(const VppNvvfxFrameGen &x) const {
 }
 
 tstring VppNvvfxFrameGen::print() const {
-    if (multiplier == 0) {
-        return strsprintf(_T("nvvfx-framegen: mode %s, timestep %.3f, auto shot change detection %s"),
-            get_cx_desc(list_vpp_nvvfx_framegen_mode, mode), timestep,
-            autoShotChangeDetection ? _T("on") : _T("off"));
-    }
     return strsprintf(_T("nvvfx-framegen: mode %s, multiplier x%d, auto shot change detection %s"),
         get_cx_desc(list_vpp_nvvfx_framegen_mode, mode), multiplier,
         autoShotChangeDetection ? _T("on") : _T("off"));
@@ -570,7 +563,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "mode", "multiplier", "timestep", "autoshotchange" };
+        const auto paramList = std::vector<std::string>{ "mode", "multiplier", "autoshotchange" };
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -600,15 +593,6 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 if (param_arg == _T("multiplier")) {
                     try {
                         vppnv->nvvfxFrameGen.multiplier = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("timestep")) {
-                    try {
-                        vppnv->nvvfxFrameGen.timestep = std::stof(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -818,9 +802,6 @@ tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZ
             ADD_NUM(_T("multiplier"), nvvfxFrameGen.multiplier);
             if (param->nvvfxFrameGen.mode != defaultPrm->nvvfxFrameGen.mode) {
                 tmp << _T(",mode=") << get_cx_desc(list_vpp_nvvfx_framegen_mode, param->nvvfxFrameGen.mode);
-            }
-            if (param->nvvfxFrameGen.multiplier == 0) {
-                ADD_FLOAT(_T("timestep"), nvvfxFrameGen.timestep, 3);
             }
             ADD_BOOL(_T("autoshotchange"), nvvfxFrameGen.autoShotChangeDetection);
         }

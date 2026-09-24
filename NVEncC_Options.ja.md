@@ -2925,15 +2925,10 @@ equirect、flat、cubemap 間の投影変換を行います。
     - high  
       もっとも負荷の高いモデルを選択する。
 
-  - multiplier=&lt;int&gt;  (default=2, 0 または 2-8)  
+  - multiplier=&lt;int&gt;  (default=2, 2-8)  
     入力1フレームあたりの出力フレーム数を指定する。
     2 - 8 の場合、各入力フレームの間に (multiplier - 1) フレームを生成するため、
     出力のフレームレートは指定した倍率になる。
-    0 の場合、timestepで指定した位置に1フレームのみ生成する。
-
-  - timestep=&lt;float&gt;  (default=0.5, 0.0 - 1.0)  
-    生成するフレームの時間位置。開区間 (0.0, 1.0) で指定する。
-    multiplier = 0 の場合のみ使用される。
 
   - autoshotchange=&lt;bool&gt;  (default=true)  
     ショットチェンジの自動検出を有効にする。ショットチェンジを検出した場合、

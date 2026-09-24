@@ -176,9 +176,9 @@ protected:
 
     RGYFrameInfo *getNextOutFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
 #if ENABLE_NVVFX
-    // interpolate the frame at frameIndex/multiplier (or at timestep if multiplier == 0) between m_prevImg and m_srcImg
+    // interpolate the frame at frameIndex/multiplier between m_prevImg and m_srcImg
     RGY_ERR genFrame(RGYFrameInfo *outFrame, const RGYFrameInfo *frameProp,
-        int frameIndex, int multiplier, float timestep,
+        int frameIndex, int multiplier,
         int64_t genPts, int64_t genDuration, cudaStream_t stream);
     RGY_ERR convertToNvCVImage(const RGYFrameInfo *src, NvCVImage *dst, cudaStream_t stream);
 
