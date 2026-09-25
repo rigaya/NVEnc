@@ -44,7 +44,6 @@ QSVEnc / NVEnc / VCEEnc / rkmppenc と共通化できる部分は共通ファイ
 
 - `NVEncNVOFFRUC`
 - `NVEncNVSDKNGX`
-- `NVVfxLinker`
   NVEncCoreの拡張モジュール類。
 
 - `NVEncSDK`
@@ -77,7 +76,7 @@ QSVEnc / NVEnc / VCEEnc / rkmppenc と共通化できる部分は共通ファイ
 
 ## ドキュメント
 
-- NVEncC_Options[.md/.ja.md/.cn.md]
+- NVEncC_Options[.md/.ja.md/.zh-cn.md]
 
   コマンドラインオプションについての記載。`rgy_cmd.cpp`のヘルプともに、オプションを追加したら更新すること。
 

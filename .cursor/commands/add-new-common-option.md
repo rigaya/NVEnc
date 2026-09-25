@@ -22,4 +22,4 @@
 
   追記位置は、関連オプションの近くに配置できるよう検討しましょう。
 
-- NVEncC_Options.en.md に NVEncC_Options.ja.md に記載した内容を英語に翻訳してヘルプを記載してください。
+- NVEncC_Options.en.md, NVEncC_Options.zh-cn.md に NVEncC_Options.ja.md に記載した内容を英語に翻訳してヘルプを記載してください。
