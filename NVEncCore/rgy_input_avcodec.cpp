@@ -337,7 +337,7 @@ RGYInputAvcodec::RGYInputAvcodec() :
     m_maxSrcHeight(0),
     m_suppressPulldownDetect(false),
     m_pulldownDetected(false),
-    m_hwaccelActive(false) {
+    m_hwaccelActive(false), m_hwFramePassDisabled(false) {
     m_readerName = _T("av" DECODER_NAME "/avsw");
 }
 
@@ -2569,11 +2569,12 @@ const pixfmtInfo *RGYInputAvcodec::getPixfmtInfo(const AVPixelFormat pix_fmt) {
     return pixfmtData;
 }
 
-RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder, AVBufferRef *hwdevice, AVHWDeviceType hwdeviceType) {
+RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder, AVBufferRef *hwdevice, AVHWDeviceType hwdeviceType, int extraHWFrames) {
     m_inputVideoInfo.codec = RGY_CODEC_UNKNOWN; //hwデコードをオフにする
     const bool disableHWDecode = !m_Demux.video.HWDecodeDeviceId.empty();
     m_Demux.video.HWDecodeDeviceId.clear();
     m_hwaccelActive = false;
+    m_hwFramePassDisabled = false;
     m_Demux.video.hwPixelFormat = AV_PIX_FMT_NONE;
 
     //close bitstreamfilter
@@ -2637,6 +2638,7 @@ RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder, AVBuffer
                     return RGY_ERR_NULL_PTR;
                 }
                 m_Demux.video.codecCtxDecode->get_format = get_hwaccel_format;
+                m_Demux.video.codecCtxDecode->extra_hw_frames = extraHWFrames;
                 m_Demux.video.hwPixelFormat = config->pix_fmt;
                 m_hwaccelActive = true;
                 AddMessage(RGY_LOG_DEBUG, _T("Using FFmpeg hwaccel %s with pixel format %s.\n"),
@@ -3989,6 +3991,7 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
 #pragma warning(push)
 #pragma warning(disable:4100)
 RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
+    auto *hwFrameOutput = dynamic_cast<RGYFrameHWAVFrame *>(pSurface);
     if (m_Demux.video.codecCtxDecode) {
         //動画のデコードを行う
         int got_frame = 0;
@@ -4040,7 +4043,26 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
             }
             got_frame = TRUE;
         }
-        if (m_hwaccelActive && m_Demux.video.frame->format == m_Demux.video.hwPixelFormat) {
+        const auto *decodedFramesCtx = m_Demux.video.frame->hw_frames_ctx
+            ? (const AVHWFramesContext *)m_Demux.video.frame->hw_frames_ctx->data : nullptr;
+        const bool passHWFrame = hwFrameOutput && !m_hwFramePassDisabled && m_hwaccelActive
+            && m_Demux.video.frame->format == m_Demux.video.hwPixelFormat && decodedFramesCtx
+            && csp_avpixfmt_to_rgy(decodedFramesCtx->sw_format) == m_inputVideoInfo.csp
+            && m_Demux.video.frame->width == m_inputVideoInfo.srcWidth
+            && m_Demux.video.frame->height == m_inputVideoInfo.srcHeight;
+        if (hwFrameOutput && (m_Demux.video.frame->width != m_inputVideoInfo.srcWidth
+            || m_Demux.video.frame->height != m_inputVideoInfo.srcHeight)) {
+            // 解像度が変わった後は、常設CspCropによる正規化に画素が必要なのでDLへ切り替える。
+            m_hwFramePassDisabled = true;
+        }
+        if (hwFrameOutput && !passHWFrame) {
+            av_frame_unref(hwFrameOutput->avframe());
+            if (hwFrameOutput->RGYSysFrame::isempty()) {
+                auto frameInfo = hwFrameOutput->frameInfo();
+                if (hwFrameOutput->allocate(frameInfo) != RGY_ERR_NONE) return RGY_ERR_MEMORY_ALLOC;
+            }
+        }
+        if (m_hwaccelActive && m_Demux.video.frame->format == m_Demux.video.hwPixelFormat && !passHWFrame) {
             av_frame_unref(m_Demux.video.frameSW);
             int transferRet = av_hwframe_transfer_data(m_Demux.video.frameSW, m_Demux.video.frame, 0);
             if (transferRet < 0) {
@@ -4136,31 +4158,35 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
             m_inputVideoInfo.srcHeight = newHeight;
         }
 
-        //実際には初期化時と異なるcspの場合があるので、ここで再度チェック
-        m_inputCsp = csp_avpixfmt_to_rgy((AVPixelFormat)m_Demux.video.frame->format);
-        if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, m_Demux.video.simdCsp) == nullptr) {
-            AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
-                RGY_CSP_NAMES[m_inputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
-            return RGY_ERR_INVALID_COLOR_FORMAT;
-        }
+        if (passHWFrame) {
+            if (hwFrameOutput->setAVFrame(m_Demux.video.frame) < 0) return RGY_ERR_NULL_PTR;
+        } else {
+            //実際には初期化時と異なるcspの場合があるので、ここで再度チェック
+            m_inputCsp = csp_avpixfmt_to_rgy((AVPixelFormat)m_Demux.video.frame->format);
+            if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, m_Demux.video.simdCsp) == nullptr) {
+                AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
+                    RGY_CSP_NAMES[m_inputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
+                return RGY_ERR_INVALID_COLOR_FORMAT;
+            }
 
-        //フレームデータをコピー
-        //pSurface->ptrArray()は使えない。pSurfaceは確保時(=初期)解像度のままのことがあり、
-        //その場合planarでは各プレーンの先頭オフセットが確保時解像度基準となり、新解像度でのプレーン配置とずれてしまうため、
-        //新解像度で作り直したdstFrameInfoからプレーンのポインタとpitchを求める。
-        void *dst_array[RGY_MAX_PLANES];
-        auto dstFrameInfo = pSurface->frameInfo();
-        dstFrameInfo.width = m_inputVideoInfo.srcWidth;
-        dstFrameInfo.height = m_inputVideoInfo.srcHeight;
-        for (int i = 0; i < RGY_MAX_PLANES; i++) {
-            dst_array[i] = (void *)getPlane(&dstFrameInfo, (RGY_PLANE)i).ptr[0];
+            //フレームデータをコピー
+            //pSurface->ptrArray()は使えない。pSurfaceは確保時(=初期)解像度のままのことがあり、
+            //その場合planarでは各プレーンの先頭オフセットが確保時解像度基準となり、新解像度でのプレーン配置とずれてしまうため、
+            //新解像度で作り直したdstFrameInfoからプレーンのポインタとpitchを求める。
+            void *dst_array[RGY_MAX_PLANES];
+            auto dstFrameInfo = pSurface->frameInfo();
+            dstFrameInfo.width = m_inputVideoInfo.srcWidth;
+            dstFrameInfo.height = m_inputVideoInfo.srcHeight;
+            for (int i = 0; i < RGY_MAX_PLANES; i++) {
+                dst_array[i] = (void *)getPlane(&dstFrameInfo, (RGY_PLANE)i).ptr[0];
+            }
+            const auto dstPlaneY = getPlane(&dstFrameInfo, RGY_PLANE_Y);
+            const auto dstPlaneC = getPlane(&dstFrameInfo, RGY_PLANE_C);
+            m_convert->run(rgy_avframe_interlaced(m_Demux.video.frame),
+                dst_array, (const void **)m_Demux.video.frame->data,
+                m_Demux.video.frame->width, m_Demux.video.frame->linesize[0], m_Demux.video.frame->linesize[1], dstPlaneY.pitch[0], dstPlaneC.pitch[0],
+                m_Demux.video.frame->height, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
         }
-        const auto dstPlaneY = getPlane(&dstFrameInfo, RGY_PLANE_Y);
-        const auto dstPlaneC = getPlane(&dstFrameInfo, RGY_PLANE_C);
-        m_convert->run(rgy_avframe_interlaced(m_Demux.video.frame),
-            dst_array, (const void **)m_Demux.video.frame->data,
-            m_Demux.video.frame->width, m_Demux.video.frame->linesize[0], m_Demux.video.frame->linesize[1], dstPlaneY.pitch[0], dstPlaneC.pitch[0],
-            m_Demux.video.frame->height, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
         if (got_frame) {
             av_frame_unref(m_Demux.video.frame);
         }

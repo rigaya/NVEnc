@@ -58,6 +58,21 @@ static const int FRAMEPOS_POC_INVALID = -1;
 static const char* HDR10PLUS_METADATA_KEY = "rgy_hdr10plus_metadata";
 static const char* DOVI_RPU_METADATA_KEY = "rgy_dovi_rpu_metadata";
 
+// HWデコード面をCPUへ転送せず、AVFrameの参照とフレーム属性を保持する。
+class RGYFrameHWAVFrame : public RGYSysFrame {
+public:
+    explicit RGYFrameHWAVFrame(const RGYFrameInfo& info) : RGYSysFrame(info), m_hwframe(av_frame_alloc(), RGYAVDeleter<AVFrame>(av_frame_free)) {}
+    bool isempty() const override { return (!m_hwframe || !m_hwframe->buf[0]) && RGYSysFrame::isempty(); }
+    AVFrame *avframe() const { return m_hwframe.get(); }
+    int setAVFrame(const AVFrame *source) {
+        if (!m_hwframe) return AVERROR(ENOMEM);
+        av_frame_unref(m_hwframe.get());
+        return av_frame_ref(m_hwframe.get(), source);
+    }
+private:
+    std::unique_ptr<AVFrame, RGYAVDeleter<AVFrame>> m_hwframe;
+};
+
 enum RGYPtsStatus : uint32_t {
     RGY_PTS_UNKNOWN           = 0x00,
     RGY_PTS_NORMAL            = 0x01,
@@ -987,7 +1002,13 @@ public:
     void setPreferredOutputCsp(RGY_CSP csp) { m_inputVideoInfo.csp = csp; }
 
     //swデコーダの初期化
-    RGY_ERR initSWVideoDecoder(const tstring& avswDecoder, AVBufferRef *hwdevice = nullptr, AVHWDeviceType hwdeviceType = AV_HWDEVICE_TYPE_NONE);
+    RGY_ERR initSWVideoDecoder(const tstring& avswDecoder, AVBufferRef *hwdevice = nullptr, AVHWDeviceType hwdeviceType = AV_HWDEVICE_TYPE_NONE, int extraHWFrames = 0);
+    bool canPassHWFrame(RGY_CSP expectedCsp) const {
+        return m_hwaccelActive && m_Demux.video.hwPixelFormat != AV_PIX_FMT_NONE
+            && m_inputCsp != RGY_CSP_NA && m_inputVideoInfo.csp == expectedCsp
+            && RGY_CSP_BIT_DEPTH[m_inputCsp] == RGY_CSP_BIT_DEPTH[expectedCsp]
+            && RGY_CSP_CHROMA_FORMAT[m_inputCsp] == RGY_CSP_CHROMA_FORMAT[expectedCsp];
+    }
 
     void setInputInfo();
 
@@ -1109,6 +1130,7 @@ protected:
     bool             m_suppressPulldownDetect;     // true: skip avgDuration *= 1.25 after bPulldown is detected. bPulldown itself is still set so log/diagnostic paths see it. Mirrors RGYInputAvcodecPrm::suppressPulldownMutation.
     bool             m_pulldownDetected;           // true when getFirstFramePosAndFrameRate detected soft pulldown.
     bool             m_hwaccelActive;
+    bool             m_hwFramePassDisabled;
 
 public:
     void setSuppressPulldownDetect(bool v) { m_suppressPulldownDetect = v; }
