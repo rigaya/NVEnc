@@ -576,7 +576,6 @@ AuofcgLBVppDenoisePmdThreshold=閾値
 AuofcgLBVppDenoisePmdStrength=強さ
 AuofcgLBVppDenoisePmdApplyCount=回数
 AuofcgLBVppNvvfxDenoiseStrength=強度
-AuofcgLBVppNvvfxArtifactReductionMode=モード
 AuofcggroupBoxVppDeinterlace=インタレ解除
 AuofcgLBVppDeinterlace=解除モード
 AuofcgLBVppAfsThreCMotion=C動き

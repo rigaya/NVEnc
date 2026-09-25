@@ -87,22 +87,6 @@ public:
     virtual tstring print() const override;
 };
 
-class NVEncFilterParamNvvfxArtifactReduction : public NVEncFilterParamNvvfx {
-public:
-    VppNvvfxArtifactReduction nvvfxArtifactReduction;
-    NVEncFilterParamNvvfxArtifactReduction() : nvvfxArtifactReduction() {};
-    virtual ~NVEncFilterParamNvvfxArtifactReduction() {};
-    virtual tstring print() const override;
-};
-
-class NVEncFilterParamNvvfxUpScaler : public NVEncFilterParamNvvfx {
-public:
-    VppNvvfxUpScaler nvvfxUpscaler;
-    NVEncFilterParamNvvfxUpScaler() : nvvfxUpscaler() {};
-    virtual ~NVEncFilterParamNvvfxUpScaler() {};
-    virtual tstring print() const override;
-};
-
 class NVEncFilterParamNvvfxFrameGen : public NVEncFilterParamNvvfx {
 public:
     VppNvvfxFrameGen nvvfxFrameGen;
@@ -116,26 +100,6 @@ class NVEncFilterNvvfxDenoise : public NVEncFilterNvvfxEffect {
 public:
     NVEncFilterNvvfxDenoise();
     virtual ~NVEncFilterNvvfxDenoise();
-protected:
-    virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
-    virtual RGY_ERR setParam(const NVEncFilterParam *param) override;
-    virtual bool compareParam(const NVEncFilterParam *param) const override;
-};
-
-class NVEncFilterNvvfxArtifactReduction : public NVEncFilterNvvfxEffect {
-public:
-    NVEncFilterNvvfxArtifactReduction();
-    virtual ~NVEncFilterNvvfxArtifactReduction();
-protected:
-    virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
-    virtual RGY_ERR setParam(const NVEncFilterParam *param) override;
-    virtual bool compareParam(const NVEncFilterParam *param) const override;
-};
-
-class NVEncFilterNvvfxUpScaler : public NVEncFilterNvvfxEffect {
-public:
-    NVEncFilterNvvfxUpScaler();
-    virtual ~NVEncFilterNvvfxUpScaler();
 protected:
     virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
     virtual RGY_ERR setParam(const NVEncFilterParam *param) override;

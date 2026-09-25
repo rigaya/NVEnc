@@ -870,8 +870,7 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
         // とんでもなく大きい値にする人がいそうなので、適当に制限する
         const int maxParallelCount = std::max(4, encoderCount * 2);
         // nvvfx, ngx使用時はGPUメモリ使用量の問題があるため、GPUにつき1スレッドに制限する
-        const bool limitOnePerGPU = !inputParam->ctrl.parallelEnc.forceLargeMemoryFilters && (inputParam->vppnv.nvvfxArtifactReduction.enable
-            || inputParam->vppnv.nvvfxDenoise.enable
+        const bool limitOnePerGPU = !inputParam->ctrl.parallelEnc.forceLargeMemoryFilters && (inputParam->vppnv.nvvfxDenoise.enable
             || inputParam->vppnv.nvvfxFrameGen.enable
             || inputParam->vppnv.ngxTrueHDR.enable
             || isNgxResizeFiter(inputParam->vpp.resize_algo));
@@ -966,9 +965,7 @@ RGY_ERR NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FOR
 bool NVEncCore::useNVVFX(const InEncodeVideoParam *inputParam) const {
 #if (!defined(_M_IX86))
     const auto& vppnv = inputParam->vppnv;
-    if (   vppnv.nvvfxArtifactReduction.enable
-        || vppnv.nvvfxDenoise.enable
-        || vppnv.nvvfxUpScaler.enable
+    if (   vppnv.nvvfxDenoise.enable
         || vppnv.nvvfxFrameGen.enable) {
         return true;
     }
@@ -1711,7 +1708,6 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             || inputParam->vpp.fft3d.enable
             || inputParam->vpp.msmooth.enable
             || inputParam->vppnv.nvvfxDenoise.enable
-            || inputParam->vppnv.nvvfxArtifactReduction.enable
             || inputParam->vpp.deband.enable
             || inputParam->vpp.libplacebo_deband.enable
             || inputParam->vpp.deflicker.enable
@@ -3054,7 +3050,6 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.v360.enable)           filterPipeline.push_back(VppType::CL_V360);
     if (inputParam->vpp.convolution3d.enable) filterPipeline.push_back(VppType::CL_CONVOLUTION3D);
     if (inputParam->vppnv.nvvfxDenoise.enable) filterPipeline.push_back(VppType::NVVFX_DENOISE);
-    if (inputParam->vppnv.nvvfxArtifactReduction.enable) filterPipeline.push_back(VppType::NVVFX_ARTIFACT_REDUCTION);
     if (inputParam->vpp.smooth.enable)        filterPipeline.push_back(VppType::CL_DENOISE_SMOOTH);
     if (inputParam->vpp.dct.enable)           filterPipeline.push_back(VppType::CL_DENOISE_DCT);
     if (inputParam->vpp.fft3d.enable)         filterPipeline.push_back(VppType::CL_DENOISE_FFT3D);
@@ -4286,32 +4281,6 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         unique_ptr<NVEncFilter> filter(new NVEncFilterNvvfxDenoise());
         shared_ptr<NVEncFilterParamNvvfxDenoise> param(new NVEncFilterParamNvvfxDenoise());
         param->nvvfxDenoise = inputParam->vppnv.nvvfxDenoise;
-        param->compute_capability = m_dev->cc();
-        param->modelDir = inputParam->vppnv.nvvfxModelDir;
-        param->vuiInfo = vuiInfo;
-        param->frameIn = inputFrame;
-        param->frameOut = inputFrame;
-        param->baseFps = m_encFps;
-        param->bOutOverwrite = false;
-        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
-        auto sts = filter->init(param, m_pLog);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-        //フィルタチェーンに追加
-        cufilters.push_back(std::move(filter));
-        //パラメータ情報を更新
-        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
-        //入力フレーム情報を更新
-        inputFrame = param->frameOut;
-        m_encFps = param->baseFps;
-        return RGY_ERR_NONE;
-    }
-    //ノイズ除去 (nvvfx-artifact-reduction)
-    if (vppType == VppType::NVVFX_ARTIFACT_REDUCTION) {
-        unique_ptr<NVEncFilter> filter(new NVEncFilterNvvfxArtifactReduction());
-        shared_ptr<NVEncFilterParamNvvfxArtifactReduction> param(new NVEncFilterParamNvvfxArtifactReduction());
-        param->nvvfxArtifactReduction = inputParam->vppnv.nvvfxArtifactReduction;
         param->compute_capability = m_dev->cc();
         param->modelDir = inputParam->vppnv.nvvfxModelDir;
         param->vuiInfo = vuiInfo;

@@ -199,7 +199,6 @@
     - [--vpp-transform \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-transform-param1value1param2value2)
     - [--vpp-convolution3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-convolution3d-param1value1param2value2)
     - [--vpp-nvvfx-denoise \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-denoise-param1value1param2value2)
-    - [--vpp-nvvfx-artifact-reduction \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
     - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
     - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
     - [--vpp-degrain \[\<param1\>=\<value1\>\]](#--vpp-degrain-param1value1)
@@ -1703,7 +1702,6 @@ vpp过滤器的应用顺序是固定的，与命令行的顺序无关，将按�
 - [--vpp-transform/rotate](#--vpp-rotate-int)
 - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
 - [--vpp-nvvfx-denoise](#--vpp-nvvfx-denoise-param1value1param2value2)
-- [--vpp-nvvfx-artifact-reduction](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
 - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
 - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
 - [--vpp-knn](#--vpp-knn-param1value1param2value2)
@@ -2219,7 +2217,7 @@ RFF（Reflect the Repeat Field）标记。可以解决由于 RFF 引发的 avsyn
 
 支持80p到1080p之间的分辨率。
 
-这一过滤器支持 Turing 架构(RTX20xx)及更新的显卡，如果要使用它，需要下载并安装 [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources)。
+这一过滤器支持 Turing 架构(RTX20xx)及更新的显卡。VFX SDK 1.3 需要 `nvvfxdenoising` 功能包中的 `nvVFXDenoising.dll`。
 
 - **参数**
   - strength=&lt;int&gt;
@@ -2229,18 +2227,7 @@ RFF（Reflect the Repeat Field）标记。可以解决由于 RFF 引发的 avsyn
     - 1  
       较强的效果，更重视去除噪声
 
-### --vpp-nvvfx-artifact-reduction [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)提供的过滤器。在保存原始动画的信息的同时，去除视频编码时产生的压缩劣化效果。
-
-注意，仅支持90p-1080p的分辨率，执行需要x64版的执行文件和 Turing架构(RTX20xx)以后的GPU。要使用该过滤器，请下载并安装[Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources)
-
-- **参数**
-  - mode=&lt;int&gt;
-    - 0 (默认)  
-      去除较少的压缩劣化，保留更多的信息。适用于原始文件有较高码率的情况。
-
-    - 1  
-      更强的效果，适用于原始文件码率较低的情况
+原有的 `--vpp-nvvfx-artifact-reduction` 已被移除，因为 NVIDIA VFX SDK 1.1 及更高版本不再提供此功能。此选项不会映射到其他滤镜。
 
 ### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 

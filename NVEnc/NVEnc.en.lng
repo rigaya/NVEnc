@@ -578,7 +578,6 @@ AuofcgLBVppDenoisePmdThreshold=Threshold
 AuofcgLBVppDenoisePmdStrength=Strength
 AuofcgLBVppDenoisePmdApplyCount=Apply Count
 AuofcgLBVppNvvfxDenoiseStrength=Strength
-AuofcgLBVppNvvfxArtifactReductionMode=Mode
 AuofcggroupBoxVppDeinterlace=Deinterlace
 AuofcgLBVppDeinterlace=Mode
 AuofcgLBVppAfsThreCMotion=C Motion

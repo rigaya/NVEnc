@@ -143,8 +143,10 @@ RGY_ERR NVEncFilterNvvfxEffect::initEffect(const tstring& modelDir) {
                         nvEffectsDLLHandle = nullptr;
                     }
                 }
+            } else if (err == RGY_ERR_NVCV_UNIMPLEMENTED && m_effectName == NVVFX_FX_DENOISING) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create nvvfx-denoise effect. VFX SDK 1.3 requires nvVFXDenoising.dll: %s.\n"), get_err_mes(err));
             } else {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to create effect %s: %s.\n"), m_effectName.c_str(), get_err_mes(err));
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create effect %s: %s.\n"), char_to_tstring(m_effectName).c_str(), get_err_mes(err));
             }
             return RGY_ERR_INVALID_PARAM;
         }
@@ -183,8 +185,8 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->compute_capability.first < 7) {
-        AddMessage(RGY_LOG_ERROR, _T("NVVFX filters require Turing GPUs (CC:7.0) or later: current CC %d.%d.\n"), prm->compute_capability.first, prm->compute_capability.second);
+    if (prm->compute_capability < std::make_pair(7, 5)) {
+        AddMessage(RGY_LOG_ERROR, _T("NVVFX filters require Turing GPUs (CC:7.5) or later: current CC %d.%d.\n"), prm->compute_capability.first, prm->compute_capability.second);
         return RGY_ERR_UNSUPPORTED;
     }
     AddMessage(RGY_LOG_DEBUG, _T("GPU CC: %d.%d.\n"),
@@ -548,119 +550,6 @@ bool NVEncFilterNvvfxDenoise::compareParam(const NVEncFilterParam *param) const 
     auto target = dynamic_cast<const NVEncFilterParamNvvfxDenoise *>(param);
     if (!target) return true;
     return prm->nvvfxDenoise != target->nvvfxDenoise;
-};
-
-tstring NVEncFilterParamNvvfxArtifactReduction::print() const {
-    return nvvfxArtifactReduction.print();
-}
-
-NVEncFilterNvvfxArtifactReduction::NVEncFilterNvvfxArtifactReduction() {
-    m_name = _T("nvvfx-artifact-reduction");
-    m_maxHeight = 1080;
-#if ENABLE_NVVFX
-    m_effectName = NVVFX_FX_ARTIFACT_REDUCTION;
-#endif
-}
-
-NVEncFilterNvvfxArtifactReduction::~NVEncFilterNvvfxArtifactReduction() {
-    close();
-}
-
-RGY_ERR NVEncFilterNvvfxArtifactReduction::checkParam(const NVEncFilterParam *param) {
-    auto prm = dynamic_cast<const NVEncFilterParamNvvfxArtifactReduction*>(param);
-    if (!prm) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    if (prm->nvvfxArtifactReduction.mode != 0 && prm->nvvfxArtifactReduction.mode != 1) {
-        AddMessage(RGY_LOG_ERROR, _T("mode should be 0 or 1.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    return RGY_ERR_NONE;
-}
-
-RGY_ERR NVEncFilterNvvfxArtifactReduction::setParam(const NVEncFilterParam *param) {
-#if !ENABLE_NVVFX
-    AddMessage(RGY_LOG_ERROR, _T("nvvfx filters is not supported on x86 exec file, please use x64 exec file.\n"));
-    return RGY_ERR_UNSUPPORTED;
-#else
-    auto prm = dynamic_cast<const NVEncFilterParamNvvfxArtifactReduction*>(param);
-    if (!prm) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    auto err = err_to_rgy(NvVFX_SetU32(m_effect.get(), NVVFX_MODE, prm->nvvfxArtifactReduction.mode));
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to set parameter %s to %d: %s.\n"), NVVFX_MODE, prm->nvvfxArtifactReduction.mode, get_err_mes(err));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    return RGY_ERR_NONE;
-#endif
-}
-
-bool NVEncFilterNvvfxArtifactReduction::compareParam(const NVEncFilterParam *param) const {
-    if (!m_param) return true;
-    auto prm = dynamic_cast<const NVEncFilterParamNvvfxArtifactReduction *>(m_param.get());
-    if (!prm) return true;
-    auto target = dynamic_cast<const NVEncFilterParamNvvfxArtifactReduction *>(param);
-    if (!target) return true;
-    return prm->nvvfxArtifactReduction != target->nvvfxArtifactReduction;
-};
-
-tstring NVEncFilterParamNvvfxUpScaler::print() const {
-    return nvvfxUpscaler.print();
-}
-
-NVEncFilterNvvfxUpScaler::NVEncFilterNvvfxUpScaler() {
-    m_name = _T("nvvfx-upscaler");
-#if ENABLE_NVVFX
-    m_effectName = NVVFX_FX_SR_UPSCALE;
-#endif
-}
-
-NVEncFilterNvvfxUpScaler::~NVEncFilterNvvfxUpScaler() {
-    close();
-}
-
-RGY_ERR NVEncFilterNvvfxUpScaler::checkParam(const NVEncFilterParam *param) {
-    auto prm = dynamic_cast<const NVEncFilterParamNvvfxUpScaler*>(param);
-    if (!prm) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    if (prm->nvvfxUpscaler.strength < 0.0f || 1.0f < prm->nvvfxUpscaler.strength) {
-        AddMessage(RGY_LOG_ERROR, _T("strength should be 0.0 - 1.0.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    return RGY_ERR_NONE;
-}
-
-RGY_ERR NVEncFilterNvvfxUpScaler::setParam(const NVEncFilterParam *param) {
-#if !ENABLE_NVVFX
-    AddMessage(RGY_LOG_ERROR, _T("nvvfx filters is not supported on x86 exec file, please use x64 exec file.\n"));
-    return RGY_ERR_UNSUPPORTED;
-#else
-    auto prm = dynamic_cast<const NVEncFilterParamNvvfxUpScaler*>(param);
-    if (!prm) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    auto err = err_to_rgy(NvVFX_SetF32(m_effect.get(), NVVFX_STRENGTH, prm->nvvfxUpscaler.strength));
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to set parameter %s to %.2f: %s.\n"), NVVFX_STRENGTH, prm->nvvfxUpscaler.strength, get_err_mes(err));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    return RGY_ERR_NONE;
-#endif
-}
-
-bool NVEncFilterNvvfxUpScaler::compareParam(const NVEncFilterParam *param) const {
-    if (!m_param) return true;
-    auto prm = dynamic_cast<const NVEncFilterParamNvvfxUpScaler *>(m_param.get());
-    if (!prm) return true;
-    auto target = dynamic_cast<const NVEncFilterParamNvvfxUpScaler *>(param);
-    if (!target) return true;
-    return prm->nvvfxUpscaler != target->nvvfxUpscaler;
 };
 
 tstring NVEncFilterParamNvvfxFrameGen::print() const {

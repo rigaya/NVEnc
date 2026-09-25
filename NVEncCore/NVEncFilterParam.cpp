@@ -102,44 +102,6 @@ tstring VppNvvfxDenoise::print() const {
         strength);
 }
 
-VppNvvfxArtifactReduction::VppNvvfxArtifactReduction() :
-    enable(false),
-    mode(FILTER_DEFAULT_NVVFX_ARTIFACT_REDUCTION_MODE) {
-
-}
-
-bool VppNvvfxArtifactReduction::operator==(const VppNvvfxArtifactReduction &x) const {
-    return enable == x.enable
-        && mode == x.mode;
-}
-bool VppNvvfxArtifactReduction::operator!=(const VppNvvfxArtifactReduction &x) const {
-    return !(*this == x);
-}
-
-tstring VppNvvfxArtifactReduction::print() const {
-    return strsprintf(_T("nvvfx-artifact-reduction: mode %d (%s)"),
-        mode, get_cx_desc(list_vpp_nvvfx_mode, mode));
-}
-
-VppNvvfxUpScaler::VppNvvfxUpScaler() :
-    enable(false),
-    strength(FILTER_DEFAULT_NVVFX_UPSCALER_STRENGTH) {
-
-}
-
-bool VppNvvfxUpScaler::operator==(const VppNvvfxUpScaler &x) const {
-    return enable == x.enable
-        && strength == x.strength;
-}
-bool VppNvvfxUpScaler::operator!=(const VppNvvfxUpScaler &x) const {
-    return !(*this == x);
-}
-
-tstring VppNvvfxUpScaler::print() const {
-    return strsprintf(_T("nvvfx-upscaler: strength %.2f"),
-        strength);
-}
-
 VppNvvfxFrameGen::VppNvvfxFrameGen() :
     enable(false),
     mode(FILTER_DEFAULT_NVVFX_FRAMEGEN_MODE),
@@ -217,8 +179,7 @@ VppParam::VppParam() :
     gaussMaskSize((NppiMaskSize)0),
 #endif //#if ENCODER_NVENC
     nvvfxDenoise(),
-    nvvfxArtifactReduction(),
-    nvvfxUpScaler(),
+    nvvfxFrameGen(),
     nvvfxModelDir(),
     ngxVSR(),
     ngxTrueHDR() {
@@ -232,8 +193,6 @@ bool VppParam::operator==(const VppParam &x) const {
            gaussMaskSize == x.gaussMaskSize &&
 #endif //#if ENCODER_NVENC
            nvvfxDenoise == x.nvvfxDenoise
-        && nvvfxArtifactReduction == x.nvvfxArtifactReduction
-        && nvvfxUpScaler == x.nvvfxUpScaler
         && nvvfxFrameGen == x.nvvfxFrameGen
         && nvvfxModelDir == x.nvvfxModelDir;
 
@@ -506,82 +465,14 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
         return 0;
     }
 
-    if (IS_OPTION("vpp-nvvfx-artifact-reduction") && (ENABLE_NVVFX || FOR_AUO)) {
-        vppnv->nvvfxArtifactReduction.enable = true;
-        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
-            return 0;
-        }
-        i++;
-        const auto paramList = std::vector<std::string>{ "mode" };
-        for (const auto& param : split(strInput[i], _T(","))) {
-            auto pos = param.find_first_of(_T("="));
-            if (pos != std::string::npos) {
-                auto param_arg = param.substr(0, pos);
-                auto param_val = param.substr(pos + 1);
-                param_arg = tolowercase(param_arg);
-                if (param_arg == _T("enable")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vppnv->nvvfxArtifactReduction.enable = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("mode")) {
-                    try {
-                        vppnv->nvvfxArtifactReduction.mode = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
-                return 1;
-            }
-        }
-        return 0;
+    if (IS_OPTION("vpp-nvvfx-artifact-reduction")) {
+        _ftprintf(stderr, _T("Error: --vpp-nvvfx-artifact-reduction has been removed because it is no longer provided by NVIDIA VFX SDK.\n"));
+        return 1;
     }
 
-    if (IS_OPTION("vpp-nvvfx-upscaler") && (ENABLE_NVVFX || FOR_AUO)) {
-        vppnv->nvvfxUpScaler.enable = true;
-        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
-            return 0;
-        }
-        i++;
-        const auto paramList = std::vector<std::string>{ "strength" };
-        for (const auto& param : split(strInput[i], _T(","))) {
-            auto pos = param.find_first_of(_T("="));
-            if (pos != std::string::npos) {
-                auto param_arg = param.substr(0, pos);
-                auto param_val = param.substr(pos + 1);
-                param_arg = tolowercase(param_arg);
-                if (param_arg == _T("enable")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vppnv->nvvfxUpScaler.enable = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("strength")) {
-                    try {
-                        vppnv->nvvfxUpScaler.strength = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
-                return 1;
-            }
-        }
-        return 0;
+    if (IS_OPTION("vpp-nvvfx-upscaler")) {
+        _ftprintf(stderr, _T("Error: --vpp-nvvfx-upscaler has been removed.\n"));
+        return 1;
     }
 
     if (IS_OPTION("vpp-nvvfx-framegen") && (ENABLE_NVVFX || FOR_AUO)) {
@@ -763,39 +654,6 @@ tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZ
             cmd << _T(" --vpp-nvvfx-denoise ") << tmp.str().substr(1);
         } else if (param->nvvfxDenoise.enable) {
             cmd << _T(" --vpp-nvvfx-denoise");
-        }
-    }
-
-    if (param->nvvfxArtifactReduction != defaultPrm->nvvfxArtifactReduction) {
-        tmp.str(tstring());
-        if (!param->nvvfxArtifactReduction.enable && save_disabled_prm) {
-            tmp << _T(",enable=false");
-        }
-        if (param->nvvfxArtifactReduction.enable || save_disabled_prm) {
-            ADD_NUM(_T("mode"), nvvfxArtifactReduction.mode);
-        }
-        if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-nvvfx-artifact-reduction ") << tmp.str().substr(1);
-        } else if (param->nvvfxArtifactReduction.enable) {
-            cmd << _T(" --vpp-nvvfx-artifact-reduction");
-        }
-    }
-
-#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
-#endif
-
-    if (param->nvvfxUpScaler != defaultPrm->nvvfxUpScaler) {
-        tmp.str(tstring());
-        if (!param->nvvfxUpScaler.enable && save_disabled_prm) {
-            tmp << _T(",enable=false");
-        }
-        if (param->nvvfxUpScaler.enable || save_disabled_prm) {
-            ADD_FLOAT(_T("strength"), nvvfxUpScaler.strength, 3);
-        }
-        if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-nvvfx-upscaler ") << tmp.str().substr(1);
-        } else if (param->nvvfxUpScaler.enable) {
-            cmd << _T(" --vpp-nvvfx-upscaler");
         }
     }
 

@@ -576,7 +576,6 @@ AuofcgLBVppDenoisePmdThreshold=阈值
 AuofcgLBVppDenoisePmdStrength=强度
 AuofcgLBVppDenoisePmdApplyCount=次数
 AuofcgLBVppNvvfxDenoiseStrength=强度
-AuofcgLBVppNvvfxArtifactReductionMode=强度
 AuofcggroupBoxVppDeinterlace=去隔行
 AuofcgLBVppDeinterlace=去除摸式
 AuofcgLBVppAfsThreCMotion=C运动

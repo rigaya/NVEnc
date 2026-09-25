@@ -92,7 +92,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
   |:--|:--|
   | Deinterlace | deinterlace (CUVID), afs, bwdif, yadif, nnedi, rtgmc, kfm, decomb, onnx-deint |
   | Inverse Telecine / Decimation | rff, ivtc, decimate, mpdecimate, select-every |
-  | Noise Reduction | knn, pmd, nlmeans, hqdn3d, smooth, denoise-dct, fft3d, msmooth, degrain, convolution3d, gauss, nvvfx-denoise, nvvfx-artifact-reduction |
+  | Noise Reduction | knn, pmd, nlmeans, hqdn3d, smooth, denoise-dct, fft3d, msmooth, degrain, convolution3d, gauss, nvvfx-denoise |
   | Resize | resize (various algorithms, [npp](https://developer.nvidia.com/npp), [nvvfx](https://github.com/NVIDIA/MAXINE-VFX-SDK), [ngx-vsr](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html), [libplacebo](https://code.videolan.org/videolan/libplacebo)), descale |
   | Edge / Detail Enhancement | unsharp, edgelevel, warpsharp, maa, cas, msharpen, detailsharpen |
   | Dehalo / Deringing | dehalo, finedehalo, hqdering, vinverse |

@@ -67,7 +67,6 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
 #endif //#if ENCODER_QSV
 #if ENCODER_NVENC || CLFILTERS_AUF
     std::make_pair(VppType::NVVFX_DENOISE,            _T("nvvfx_denoise")),
-    std::make_pair(VppType::NVVFX_ARTIFACT_REDUCTION, _T("nvvfx_artifact_reduction")),
     std::make_pair(VppType::NVVFX_FRAME_GENERATION,   _T("nvvfx_framegen")),
 #endif
 #if ENCODER_NVENC || CLFILTERS_AUF

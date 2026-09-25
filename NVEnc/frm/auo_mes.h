@@ -711,7 +711,6 @@ enum AuoMes {
         AuofcgLBVppDenoisePmdStrength,
         AuofcgLBVppDenoisePmdApplyCount,
         AuofcgLBVppNvvfxDenoiseStrength,
-        AuofcgLBVppNvvfxArtifactReductionMode,
         AuofcggroupBoxVppDeinterlace,
         AuofcgLBVppDeinterlace,
         AuofcgLBVppAfsThreCMotion,

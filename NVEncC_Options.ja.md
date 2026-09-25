@@ -226,7 +226,6 @@
   - [--vpp-transform \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-transform-param1value1param2value2)
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-nvvfx-denoise \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-denoise-param1value1param2value2)
-  - [--vpp-nvvfx-artifact-reduction \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
   - [--vpp-msmooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
@@ -1908,7 +1907,6 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-transform/rotate](#--vpp-rotate-int)
 - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
 - [--vpp-nvvfx-denoise](#--vpp-nvvfx-denoise-param1value1param2value2)
-- [--vpp-nvvfx-artifact-reduction](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
 - [--vpp-nvvfx-framegen](#--vpp-nvvfx-framegen-param1value1param2value2)
 - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
 - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
@@ -2879,7 +2877,7 @@ equirect、flat、cubemap 間の投影変換を行います。
 主にウェブカメラによるノイズの除去を主眼とする。
 
 80p - 1080p までの入力解像度に対応しており、実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要。
-また、あわせて[MAXINE VideoEffects 用のモデルと実行モジュール](https://www.nvidia.com/broadcast-sdk-resources)をダウンロード・インストールしてからお使いください。
+VFX SDK 1.3では、`nvvfxdenoising` 機能パッケージに含まれる `nvVFXDenoising.dll` が必要。
 
 - **パラメータ**
   - strength=&lt;int&gt;
@@ -2891,20 +2889,7 @@ equirect、flat、cubemap 間の投影変換を行います。
 
 
 
-### --vpp-nvvfx-artifact-reduction [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)による映像の圧縮劣化を低減するフィルタ。
-オリジナルの動画の情報を保存しながら、入力ファイルのエンコード時の圧縮劣化を低減する。
-
-90p - 1080p までの入力解像度に対応しており、実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要。
-また、あわせて[MAXINE VideoEffects 用のモデルと実行モジュール](https://www.nvidia.com/broadcast-sdk-resources)をダウンロード・インストールしてからお使いください。
-
-- **parameters**
-  - mode=&lt;int&gt;
-    - 0 (default)  
-      弱めの効果で副作用を抑える。もとのファイルが比較的高ビットレートの場合に適している。
-
-    - 1  
-      より効果を強くし、圧縮劣化の低減する。もとのファイルが低ビットレートで劣化が激しい場合に適している。
+従来の `--vpp-nvvfx-artifact-reduction` は、NVIDIA VFX SDK 1.1以降で機能自体が削除されたため廃止されました。代替フィルタへのマッピングはありません。
 
 
 ### --vpp-nvvfx-framegen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

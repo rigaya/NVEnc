@@ -871,7 +871,6 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppIvtcPost,       list_vpp_ivtc_post_gui);
     setComboBox(fcgCXVppBwdifMode,      list_vpp_bwdif_mode_gui);
     setComboBox(fcgCXVppNvvfxDenoiseStrength, list_vpp_nvvfx_mode);
-    setComboBox(fcgCXVppNvvfxArtifactReductionMode, list_vpp_nvvfx_mode);
     setComboBox(fcgCXVppAfsAnalyze,     list_vpp_afs_analyze);
     setComboBox(fcgCXVppNnediNsize,     list_vpp_nnedi_nsize);
     setComboBox(fcgCXVppNnediNns,       list_vpp_nnedi_nns);
@@ -1010,7 +1009,6 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppDenoiseConv3D->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("convolution3d")));
     fcgPNVppDenoiseMSmooth->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("msmooth")));
     fcgPNVppNvvfxDenoise->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nvvfx-denoise")));
-    fcgPNVppNvvfxArtifactReduction->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nvvfx-artifact-reduction")));
     fcgPNVppDenoiseDegrain->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("degrain")));
     fcgPNVppUnsharp->Visible    = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
     fcgPNVppEdgelevel->Visible  = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
@@ -1563,8 +1561,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("msmooth"));
         } else if (encPrm.vppnv.nvvfxDenoise.enable) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("nvvfx-denoise"));
-        } else if (encPrm.vppnv.nvvfxArtifactReduction.enable) {
-            denoise_idx = get_cx_index(list_vpp_denoise, _T("nvvfx-artifact-reduction"));
         }
         SetCXIndex(fcgCXVppDenoiseMethod, denoise_idx);
 
@@ -1650,7 +1646,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppDenoiseMSmoothThreshold,      encPrm.vpp.msmooth.threshold);
         fcgCBVppDenoiseMSmoothHighq->Checked = encPrm.vpp.msmooth.highq;
         SetCXIndex(fcgCXVppNvvfxDenoiseStrength,         get_cx_index(list_vpp_nvvfx_mode, (int)(encPrm.vppnv.nvvfxDenoise.strength + 0.5f)));
-        SetCXIndex(fcgCXVppNvvfxArtifactReductionMode,   get_cx_index(list_vpp_nvvfx_mode, encPrm.vppnv.nvvfxArtifactReduction.mode));
         SetNUValue(fcgNUVppDebandRange,          encPrm.vpp.deband.range);
         SetNUValue(fcgNUVppDebandThreY,          encPrm.vpp.deband.threY);
         SetNUValue(fcgNUVppDebandThreCb,         encPrm.vpp.deband.threCb);
@@ -1991,9 +1986,6 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     encPrm.vppnv.nvvfxDenoise.enable   = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nvvfx-denoise"));
     encPrm.vppnv.nvvfxDenoise.strength = (float)list_vpp_nvvfx_mode[fcgCXVppNvvfxDenoiseStrength->SelectedIndex].value;
-
-    encPrm.vppnv.nvvfxArtifactReduction.enable = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nvvfx-artifact-reduction"));
-    encPrm.vppnv.nvvfxArtifactReduction.mode   = (int)list_vpp_nvvfx_mode[fcgCXVppNvvfxArtifactReductionMode->SelectedIndex].value;
 
     encPrm.vpp.unsharp.enable         = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
     encPrm.vpp.unsharp.radius         = (int)fcgNUVppUnsharpRadius->Value;

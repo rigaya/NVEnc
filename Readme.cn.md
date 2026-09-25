@@ -165,7 +165,6 @@ check-features的结果，驱动程序返回的功能列表。可能取决于驱
       - pmd (modified pmd method)
       - gauss ([npp](https://developer.nvidia.com/npp) library, x64 version only)
       - convolution3d
-      - nvvfx-artifact-reduction
       - nvvfx-denoise
     - edge / detail enhancement
       - unsharp

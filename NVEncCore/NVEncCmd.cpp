@@ -344,12 +344,6 @@ tstring encoder_help() {
             _T("      strength=<int>        0 ... conservative (default)\n")
             _T("                            1 ... aggressive \n"));
         str += strsprintf(_T("\n")
-            _T("   --vpp-nvvfx-artifact-reduction [<param1>=<value>][,<param2>=<value>][...]\n")
-            _T("     enable nvvfx artifact reduction filter.\n")
-            _T("    params\n")
-            _T("      mode=<int>            0 ... conservative (default)\n")
-            _T("                            1 ... aggressive \n"));
-        str += strsprintf(_T("\n")
             _T("   --vpp-nvvfx-framegen [<param1>=<value>][,<param2>=<value>][...]\n")
             _T("     enable nvvfx video frame generation (VFG) filter.\n")
             _T("     requires Ada GPUs (CC:8.9) or later.\n")

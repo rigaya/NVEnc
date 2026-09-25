@@ -148,7 +148,6 @@ enum class VppType : int {
     MFX_MAX,
 #if ENCODER_NVENC || CLFILTERS_AUF
     NVVFX_DENOISE,
-    NVVFX_ARTIFACT_REDUCTION,
     NVVFX_FRAME_GENERATION,
 #endif
     NVVFX_MAX,
@@ -820,7 +819,6 @@ const CX_DESC list_vpp_denoise[] = {
 #endif
 #if ENCODER_NVENC
     { _T("nvvfx-denoise"), 6 },
-    { _T("nvvfx-artifact-reduction"), 7 },
 #endif
     { NULL, 0 }
 };

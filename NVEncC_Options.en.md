@@ -230,7 +230,6 @@
   - [--vpp-transform \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-transform-param1value1param2value2)
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-nvvfx-denoise \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-denoise-param1value1param2value2)
-  - [--vpp-nvvfx-artifact-reduction \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
   - [--vpp-msmooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
@@ -1912,7 +1911,6 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-transform/rotate](#--vpp-rotate-int)
 - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
 - [--vpp-nvvfx-denoise](#--vpp-nvvfx-denoise-param1value1param2value2)
-- [--vpp-nvvfx-artifact-reduction](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
 - [--vpp-nvvfx-framegen](#--vpp-nvvfx-framegen-param1value1param2value2)
 - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
 - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
@@ -2836,8 +2834,8 @@ Webcam denoise filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/N
 This will removes low-light camera noise from a webcam video while preserving the texture details,
 supporting resolutions between 80p to 1080p.
 
-This fitler is supported on Turing Gen GPU (RTX20xx) or later. 
-Please download and install [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources) to use this filter.
+This filter is supported on Turing Gen GPU (RTX20xx) or later.
+VFX SDK 1.3 requires the `nvvfxdenoising` feature package and its `nvVFXDenoising.dll`.
 
 - **parameters**
   - strength=&lt;int&gt;
@@ -2847,21 +2845,7 @@ Please download and install [Video Effect models and runtime dependencies](https
     - 1  
       Stronger effect, which places a higher emphasis on noise removal. 
 
-### --vpp-nvvfx-artifact-reduction [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-Artifact reduction filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK), which is supported on  x64 version only.
-This will reduce encoder artifacts, while preserving the details of orginal video,
-supporting resolutions between 90p to 1080p.
-
-This fitler is supported on Turing Gen GPU (RTX20xx) or later. 
-Please download and install [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources) to use this filter.
-
-- **parameters**
-  - mode=&lt;int&gt;
-    - 0 (default)  
-      Removes lesser artifacts, preserves low gradient information better, and is suited for higher bitrate videos.
-
-    - 1  
-      Results stronger effect, suitable for lower bitrate videos.
+The former `--vpp-nvvfx-artifact-reduction` filter has been removed because NVIDIA VFX SDK 1.1 and later no longer provide this feature. There is no replacement mapping.
 
 ### --vpp-nvvfx-framegen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Video Frame Generation (VFG) filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA-Maxine/Maxine-VFX-SDK), which is supported on  x64 version only.

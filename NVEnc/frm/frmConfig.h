@@ -1594,9 +1594,6 @@ private: System::Windows::Forms::Panel^  fcgPNVppNvvfxDenoise;
 private: System::Windows::Forms::Label^  fcgLBVppNvvfxDenoiseStrength;
 
 
-private: System::Windows::Forms::Panel^  fcgPNVppNvvfxArtifactReduction;
-private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxArtifactReductionMode;
-private: System::Windows::Forms::Label^  fcgLBVppNvvfxArtifactReductionMode;
 private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
 private: System::Windows::Forms::Panel^  fcgPNVppDenoiseDct;
 private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseDctStep;
@@ -2353,9 +2350,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgLBVppDenoiseDctSigma = (gcnew System::Windows::Forms::Label());
             this->fcgCXVppDenoiseDctStep = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBVppDenoiseDctStep = (gcnew System::Windows::Forms::Label());
-            this->fcgPNVppNvvfxArtifactReduction = (gcnew System::Windows::Forms::Panel());
-            this->fcgCXVppNvvfxArtifactReductionMode = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgLBVppNvvfxArtifactReductionMode = (gcnew System::Windows::Forms::Label());
             this->fcgCXVppDenoiseMethod = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPNVppDenoiseDegrain = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppDenoiseDegrainPreset = (gcnew System::Windows::Forms::Label());
@@ -2618,7 +2612,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainBlksize))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainThsad))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainThsadc))->BeginInit();
-            this->fcgPNVppNvvfxArtifactReduction->SuspendLayout();
             this->fcgPNVppDenoiseSmooth->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQP))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQuality))->BeginInit();
@@ -7073,7 +7066,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseNLMeans);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseDct);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseDegrain);
-            this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppNvvfxArtifactReduction);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgCXVppDenoiseMethod);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseSmooth);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseKnn);
@@ -7397,34 +7389,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgLBVppDenoiseDctStep->Size = System::Drawing::Size(37, 14);
             this->fcgLBVppDenoiseDctStep->TabIndex = 2;
             this->fcgLBVppDenoiseDctStep->Text = L"ステップ";
-            // 
-            // fcgPNVppNvvfxArtifactReduction
-            // 
-            this->fcgPNVppNvvfxArtifactReduction->Controls->Add(this->fcgCXVppNvvfxArtifactReductionMode);
-            this->fcgPNVppNvvfxArtifactReduction->Controls->Add(this->fcgLBVppNvvfxArtifactReductionMode);
-            this->fcgPNVppNvvfxArtifactReduction->Location = System::Drawing::Point(3, 42);
-            this->fcgPNVppNvvfxArtifactReduction->Name = L"fcgPNVppNvvfxArtifactReduction";
-            this->fcgPNVppNvvfxArtifactReduction->Size = System::Drawing::Size(310, 92);
-            this->fcgPNVppNvvfxArtifactReduction->TabIndex = 68;
-            // 
-            // fcgCXVppNvvfxArtifactReductionMode
-            // 
-            this->fcgCXVppNvvfxArtifactReductionMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXVppNvvfxArtifactReductionMode->FormattingEnabled = true;
-            this->fcgCXVppNvvfxArtifactReductionMode->Location = System::Drawing::Point(95, 9);
-            this->fcgCXVppNvvfxArtifactReductionMode->Name = L"fcgCXVppNvvfxArtifactReductionMode";
-            this->fcgCXVppNvvfxArtifactReductionMode->Size = System::Drawing::Size(156, 22);
-            this->fcgCXVppNvvfxArtifactReductionMode->TabIndex = 16;
-            this->fcgCXVppNvvfxArtifactReductionMode->Tag = L"reCmd";
-            // 
-            // fcgLBVppNvvfxArtifactReductionMode
-            // 
-            this->fcgLBVppNvvfxArtifactReductionMode->AutoSize = true;
-            this->fcgLBVppNvvfxArtifactReductionMode->Location = System::Drawing::Point(50, 12);
-            this->fcgLBVppNvvfxArtifactReductionMode->Name = L"fcgLBVppNvvfxArtifactReductionMode";
-            this->fcgLBVppNvvfxArtifactReductionMode->Size = System::Drawing::Size(32, 14);
-            this->fcgLBVppNvvfxArtifactReductionMode->TabIndex = 2;
-            this->fcgLBVppNvvfxArtifactReductionMode->Text = L"モード";
             // 
             // fcgCXVppDenoiseMethod
             // 
@@ -8943,8 +8907,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainBlksize))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainThsad))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainThsadc))->EndInit();
-            this->fcgPNVppNvvfxArtifactReduction->ResumeLayout(false);
-            this->fcgPNVppNvvfxArtifactReduction->PerformLayout();
             this->fcgPNVppDenoiseSmooth->ResumeLayout(false);
             this->fcgPNVppDenoiseSmooth->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQP))->EndInit();
