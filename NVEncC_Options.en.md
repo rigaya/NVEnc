@@ -156,7 +156,7 @@
   - [--video-tag \<string\>](#--video-tag-string)
   - [--video-metadata \<string\> or \<string\>=\<string\>](#--video-metadata-string-or-stringstring)
   - [--avcodec-prms \<string\>](#--avcodec-prms-string)
-  - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
+  - [--audio-copy \[\<int/string\>\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
   - [--audio-encode-other-codec-only](#--audio-encode-other-codec-only)
   - [--audio-bitrate \[\<int/string\>?\]\<int\> or \[\<int/string\>?\]\<string\>:\<int\>\[,\<string\>:\<int\>\]\[,...\]](#--audio-bitrate-intstringint-or-intstringstringintstringint)
@@ -179,7 +179,7 @@
   - [--key-on-chapter](#--key-on-chapter)
   - [--keyfile \<string\>](#--keyfile-string)
   - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>...\]/\[\]...\]](#--sub-source-stringintparam1value1)
-  - [--sub-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
+  - [--sub-copy \[\<int/string\>\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
   - [--sub-codec \[\[\<int/string\>?\]\<string\>\]](#--sub-codec-intstringstring)
   - [--sub-disposition \[\<int/string\>?\]\<string\>](#--sub-disposition-intstringstring)
   - [--sub-metadata \[\<int/string\>?\]\<string\> or \[\<int/string\>?\]\<string\>=\<string\>](#--sub-metadata-intstringstring-or-intstringstringstring)
@@ -228,8 +228,11 @@
   - [--vpp-select-every \<int\>\[,\<param1\>=\<int\>\]](#--vpp-select-every-intparam1int)
   - [--vpp-rotate \<int\>](#--vpp-rotate-int)
   - [--vpp-transform \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-transform-param1value1param2value2)
+  - [--vpp-lenscorrection \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-lenscorrection-param1value1param2value2)
+  - [--vpp-v360 \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-v360-param1value1param2value2)
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-nvvfx-denoise \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-denoise-param1value1param2value2)
+  - [--vpp-nvvfx-framegen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-framegen-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
   - [--vpp-msmooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
@@ -285,7 +288,7 @@
   - [--cuda-stream \<int\>](#--cuda-stream-int)
   - [--cuda-mt \<int\>](#--cuda-mt-int)
   - [--disable-nvml \<int\>](#--disable-nvml-int)
-  - [--disable-nvml](#--disable-nvml)
+  - [--disable-dx11](#--disable-dx11)
   - [--output-buf \<int\>](#--output-buf-int)
   - [--output-thread \<int\>](#--output-thread-int)
   - [--log \<string\>](#--log-string)
@@ -523,7 +526,7 @@ Read VapourSynth script file using vpy reader.
 Read input file using avformat + libavcodec's sw decoder. The optional parameter will set decoder name to be used, otherwise decoder will be selected automatically.
 
 ### --avhw
-Read input file using avformat + QSV hw decoder. Using this mode will provide maximum performance,
+Read input file using avformat + NVDEC/CUVID hw decoder. Using this mode will provide maximum performance,
 since entire transcode process will be run on the GPU.
 
 **Codecs supported by avhw reader**  
@@ -1286,7 +1289,7 @@ This option is only available when avcodec encoder is enabled by specifying `-c 
   -c av_libvpx-vp9 --avcodec-prms crf=30,b=0,cpu-used=2
   ```
 
-### --audio-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
+### --audio-copy [&lt;int/string&gt;[,&lt;int/string&gt;]...]
 Copy audio track into output file. Available only when avhw / avsw reader is used.
 
 If it does not work well, try encoding with [--audio-codec](#--audio-codec-intstring), which is more stable.
@@ -1699,7 +1702,7 @@ Read subtitle from the specified file and mux into the output file.
   Example2: --sub-source "<sub_file>:disposition=default,forced;metadata=language=jpn"
   ```
 
-### --sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
+### --sub-copy [&lt;int/string&gt;[,&lt;int/string&gt;]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
 It is also possible to specify subtitle tracks (1, 2, ...) to extract with [&lt;int&gt;], or select subtitle tracks to copy by language with [&lt;string&gt;].
 Prefix a track number with `!` to exclude that track (for example, `!1,!3`).
@@ -1952,7 +1955,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-padding](#--vpp-pad-intintintint)
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
-- [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
+- [--vpp-fruc](#--vpp-fruc-param1value1param2value2)
 - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 - [--vpp-onnx-deint](#--vpp-onnx-deint-param1value1param2value2)
@@ -2153,7 +2156,7 @@ Performs tone mapping using [libplacebo](https://code.videolan.org/videolan/libp
 
     - exposure=&lt;float&gt;   (0.0 - 10.0, default: 1.0)  
       Linear exposure/gain applied.
-  - metadata=&lt;int&gt;  
+  - metadata=&lt;string&gt;  
     Data source to use for tone mapping.
     ```
     any, none, hdr10, hdr10plus, cie_y
@@ -2770,6 +2773,7 @@ Correct radial lens distortion using Brown-Conrady coefficients.
 
 - k1=&lt;float&gt;, k2=&lt;float&gt;: radial distortion coefficients.
 - cx=&lt;float&gt;, cy=&lt;float&gt;: correction centre in normalized image coordinates (default: 0.5).
+- vignette=&lt;float&gt;: corner brightness, gain at the corner is 1+vignette. Positive removes a falloff, negative adds one (default: 0.0, -1.0 - 4.0).
 
 ```
 --vpp-lenscorrection k1=-0.20,k2=0.04
@@ -4168,6 +4172,9 @@ Overlay image on top of base video.
   
   - lumakey_softness=&lt;float&gt; (default: 0.0 (0.0 - 1.0))  
     set the range of softness for lumakey.
+  
+  - loop=&lt;bool&gt; (default=false)  
+    loop the overlay file if it is a video shorter than the base video.
 
 - Example:
   ```
@@ -4574,6 +4581,8 @@ RIFE v4.x frame interpolation filter using ONNX Runtime CUDA/TensorRT. Input mus
     Registered RIFE v4.x model name or path to an ONNX model (required). When `--vpp-onnx-model-dir` is specified, a name from `rife_ov_models.json` such as `rife_v4_6` can be used. Values containing `/`, `\\`, or `.` are treated as direct paths for compatibility.
   - multi=&lt;int&gt; (default: 2, minimum: 2)  
     Frame-rate multiplier.
+  - fps=&lt;int&gt; or &lt;num&gt;/&lt;den&gt;  
+    Target frame rate as a ratio or a decimal number. Overrides multi when both are specified.
   - device=&lt;string&gt; (default: GPU.0)  
     Accepted for cross-encoder compatibility; NVEnc uses its selected CUDA device.
   - colormatrix=&lt;string&gt; (default: auto)  
@@ -4690,7 +4699,7 @@ Disable NVML GPU monitoring。
   - 2
     Always disable NVML.
 
-### --disable-nvml
+### --disable-dx11
 Skip DX11 initilization. NGX and libplacebo filters cannot be used with this option.
 
 ### --output-buf &lt;int&gt;

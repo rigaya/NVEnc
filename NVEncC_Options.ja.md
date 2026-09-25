@@ -88,6 +88,7 @@
   - [--bref-mode \<string\>](#--bref-mode-string)
   - [--temporal-layers \<int\>](#--temporal-layers-int)
   - [--direct \<string\> \[H.264\]](#--direct-string-h264)
+  - [--(no-)adapt-transform \[H.264\]](#--no-adapt-transform-h264)
   - [--hierarchial-p \[H.264\]](#--hierarchial-p-h264)
   - [--hierarchial-b \[H.264\]](#--hierarchial-b-h264)
   - [--mv-precision \<string\>](#--mv-precision-string)
@@ -152,7 +153,7 @@
   - [--video-tag \<string\>](#--video-tag-string)
   - [--video-metadata \[\<int\>?\]\<string\> or \[\<int\>?\]\<string\>=\<string\>](#--video-metadata-intstring-or-intstringstring)
   - [--avcodec-prms \<string\>](#--avcodec-prms-string)
-  - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
+  - [--audio-copy \[\<int/string\>\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
   - [--audio-encode-other-codec-only](#--audio-encode-other-codec-only)
   - [--audio-bitrate \[\<int/string\>?\]\<int\> or \[\<int/string\>?\]\<string\>:\<int\>\[,\<string\>:\<int\>\]\[,...\]](#--audio-bitrate-intstringint-or-intstringstringintstringint)
@@ -175,7 +176,7 @@
   - [--key-on-chapter](#--key-on-chapter)
   - [--keyfile \<string\>](#--keyfile-string)
   - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--sub-source-stringintparam1value1)
-  - [--sub-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
+  - [--sub-copy \[\<int/string\>\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
   - [--sub-codec \[\[\<int/string\>?\]\<string\>\]](#--sub-codec-intstringstring)
   - [--sub-disposition \[\<int/string\>?\]\<string\>\[,\<string\>\]\[\]...](#--sub-disposition-intstringstringstring)
   - [--sub-metadata \[\<int/string\>?\]\<string\> or \[\<int/string\>?\]\<string\>=\<string\>](#--sub-metadata-intstringstring-or-intstringstringstring)
@@ -207,13 +208,13 @@
   - [--vpp-rff](#--vpp-rff)
   - [--vpp-afs \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nnedi-param1value1param2value2)
-  - [--vpp-rtgmc [\<param1\>=\<value1\>]](#--vpp-rtgmc-param1value1)
-  - [--vpp-rtgmc-bob [\<param1\>=\<value1\>]](#--vpp-rtgmc-bob-param1value1)
-  - [--vpp-rtgmc-search-prefilter [\<param1\>=\<value1\>]](#--vpp-rtgmc-search-prefilter-param1value1)
-  - [--vpp-rtgmc-edi [\<param1\>=\<value1\>]](#--vpp-rtgmc-edi-param1value1)
-  - [--vpp-rtgmc-retouch [\<param1\>=\<value1\>]](#--vpp-rtgmc-retouch-param1value1)
-  - [--vpp-rtgmc-shimmer-repair [\<param1\>=\<value1\>]](#--vpp-rtgmc-shimmer-repair-param1value1)
-  - [--vpp-rtgmc-primitive [\<param1\>=\<value1\>]](#--vpp-rtgmc-primitive-param1value1)
+  - [--vpp-rtgmc \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-param1value1)
+  - [--vpp-rtgmc-bob \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-bob-param1value1)
+  - [--vpp-rtgmc-search-prefilter \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-search-prefilter-param1value1)
+  - [--vpp-rtgmc-edi \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-edi-param1value1)
+  - [--vpp-rtgmc-retouch \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-retouch-param1value1)
+  - [--vpp-rtgmc-shimmer-repair \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-shimmer-repair-param1value1)
+  - [--vpp-rtgmc-primitive \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-primitive-param1value1)
   - [--vpp-kfm \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-kfm-param1value1param2value2)
   - [--vpp-yadif \[\<param1\>=\<value1\>\]](#--vpp-yadif-param1value1)
   - [--vpp-bwdif \[\<param1\>=\<value1\>\]](#--vpp-bwdif-param1value1)
@@ -224,8 +225,11 @@
   - [--vpp-select-every \<int\>\[,\<param1\>=\<int\>\]](#--vpp-select-every-intparam1int)
   - [--vpp-rotate \<int\>](#--vpp-rotate-int)
   - [--vpp-transform \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-transform-param1value1param2value2)
+  - [--vpp-lenscorrection \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-lenscorrection-param1value1param2value2)
+  - [--vpp-v360 \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-v360-param1value1param2value2)
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-nvvfx-denoise \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-denoise-param1value1param2value2)
+  - [--vpp-nvvfx-framegen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-framegen-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
   - [--vpp-msmooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
@@ -851,6 +855,9 @@ H.264のBDirect modeを指定する。
 - spatial
 - temporal
 
+### --(no-)adapt-transform [H.264]
+H.264のadaptive transform modeを有効(無効)にする。
+
 ### --hierarchial-p [H.264]
 H.264のhierarchial Pフレームを有効にする。
 
@@ -1274,7 +1281,7 @@ y4m出力の各FRAME行に、ストリーム先頭を0秒とする表示時刻�
   --video-metadata 1?clear
   
   例3: 指定のmetadataを設定する
-  --video-metadata 1?title="音声の タイトル" --video-metadata 1?language=jpn
+  --video-metadata 1?title="映像の タイトル" --video-metadata 1?language=jpn
   ```
 
 ### --avcodec-prms &lt;string&gt;
@@ -1293,7 +1300,7 @@ avcodec映像エンコーダのパラメータをkey=value形式でカンマ区�
   -c av_libvpx-vp9 --avcodec-prms crf=30,b=0,cpu-used=2
   ```
 
-### --audio-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
+### --audio-copy [&lt;int/string&gt;[,&lt;int/string&gt;]...]
 音声をそのままコピーしながら映像とともに出力する。avhw/avswリーダー使用時のみ有効。
 
 tsなどでエラーが出るなどしてうまく動作しない場合は、[--audio-codec](#--audio-codec-intstring)で一度エンコードしたほうが安定動作するかもしれない。
@@ -1694,7 +1701,7 @@ nero形式、apple形式、matroska形式に対応する。--chapter-copyとは�
   例2: --sub-source "<sub_file>:disposition=default,forced;metadata=language=jpn"
   ```
 
-### --sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
+### --sub-copy [&lt;int/string&gt;[,&lt;int/string&gt;]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。
 
 [&lt;int&gt;[,&lt;int&gt;]...]で、抽出する字幕トラック(1,2,...)を指定したり、[&lt;string&gt;[,&lt;string&gt;]...]で指定した言語の字幕トラックをコピーすることもできる。
@@ -1711,7 +1718,7 @@ nero形式、apple形式、matroska形式に対応する。--chapter-copyとは�
   例: 字幕トラック #1と#2をコピー
   --sub-copy 1,2
   
-  例: 日本語と英語の音声トラックを抽出
+  例: 日本語と英語の字幕トラックをコピー
   --sub-copy jpn,eng
 
   例: 字幕トラック#1を除外してコピー
@@ -1911,6 +1918,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
 - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
 - [--vpp-bm3d](#--vpp-bm3d-param1value1param2value2)
+- [--vpp-fft3d](#--vpp-fft3d-param1value1param2value2)
 - [--vpp-knn](#--vpp-knn-param1value1param2value2)
 - [--vpp-nlmeans](#--vpp-nlmeans-param1value1param2value2)
 - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
@@ -1947,7 +1955,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-padding](#--vpp-pad-intintintint)
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
-- [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
+- [--vpp-fruc](#--vpp-fruc-param1value1param2value2)
 - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 - [--vpp-onnx-deint](#--vpp-onnx-deint-param1value1param2value2)
@@ -2148,7 +2156,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 
     - exposure=&lt;float&gt;   (0.0 - 10.0, デフォルト: 1.0)  
       適用される線形露出/ゲイン。
-  - metadata=&lt;int&gt;  
+  - metadata=&lt;string&gt;  
     トーンマッピングに使用するデータソース。
     ```
     any, none, hdr10, hdr10plus, cie_y
@@ -2814,6 +2822,7 @@ Brown-Conrady の放射歪み係数でレンズ歪みを補正します。
 
 - k1=&lt;float&gt;, k2=&lt;float&gt;: 放射歪み係数。
 - cx=&lt;float&gt;, cy=&lt;float&gt;: 補正中心を画像幅・高さに対する 0.0 - 1.0 で指定します (デフォルト: 0.5)。
+- vignette=&lt;float&gt;: 隅の明るさ補正。隅のゲインは 1+vignette になる。正の値は減衰を除去し、負の値は減衰を追加します (デフォルト: 0.0、範囲: -1.0 - 4.0)。
 
 ```
 --vpp-lenscorrection k1=-0.20,k2=0.04
@@ -4631,6 +4640,8 @@ ONNX Runtime CUDA/TensorRTでRIFE v4.x ONNXモデルを実行するフレーム�
     登録済みRIFE v4.xモデル名、またはONNXモデルのパス (必須)。`--vpp-onnx-model-dir` 指定時は、`rife_ov_models.json` の `rife_v4_6` のようなモデル名を使用できる。互換性のため、`/`、`\\`、`.` を含む値は直接パスとして扱う。
   - multi=&lt;int&gt; (デフォルト: 2、範囲: 2以上)  
     フレームレート倍率。
+  - fps=&lt;int&gt; または &lt;num&gt;/&lt;den&gt;  
+    目標フレームレートを比率または小数で指定する。multi と同時に指定された場合は fps が優先される。
   - device=&lt;string&gt; (デフォルト: GPU.0)  
     エンコーダ間の互換性のため受け付ける。NVEncでは選択済みのCUDAデバイスを使用する。
   - colormatrix=&lt;string&gt; (デフォルト: auto)  
