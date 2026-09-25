@@ -2253,8 +2253,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
 
         if (m_inputVideoInfo.frames > 0) {
             // avsw/avhwでは、--framesは--trimに置き換えて実現する
+            if (input_prm->nTrimCount > 0 && input_prm->pTrimList == nullptr) {
+                AddMessage(RGY_LOG_ERROR, _T("trim list is not initialized.\n"));
+                return RGY_ERR_INVALID_PARAM;
+            }
             for (int itrim = 0; itrim < input_prm->nTrimCount; itrim++) {
-                const auto& t = m_trimParam.list[itrim];
+                const auto& t = input_prm->pTrimList[itrim];
                 if (t.start < m_inputVideoInfo.frames) {
                     m_trimParam.list.push_back({ t.start, std::min(t.fin, m_inputVideoInfo.frames - 1) });
                 }
