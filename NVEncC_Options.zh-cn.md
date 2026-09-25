@@ -2218,6 +2218,7 @@ RFF（Reflect the Repeat Field）标记。可以解决由于 RFF 引发的 avsyn
 支持80p到1080p之间的分辨率。
 
 这一过滤器支持 Turing 架构(RTX20xx)及更新的显卡。VFX SDK 1.3 需要 `nvvfxdenoising` 功能包中的 `nvVFXDenoising.dll`。
+如果可执行文件旁边存在 `models` 目录，将自动加载适用于当前 GPU 架构的模型。
 
 - **参数**
   - strength=&lt;int&gt;

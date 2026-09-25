@@ -2836,6 +2836,7 @@ supporting resolutions between 80p to 1080p.
 
 This filter is supported on Turing Gen GPU (RTX20xx) or later.
 VFX SDK 1.3 requires the `nvvfxdenoising` feature package and its `nvVFXDenoising.dll`.
+When a `models` directory exists next to the executable, model files for the current GPU architecture are loaded from it automatically.
 
 - **parameters**
   - strength=&lt;int&gt;

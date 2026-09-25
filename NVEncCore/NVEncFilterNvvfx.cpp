@@ -197,6 +197,15 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         return RGY_ERR_UNSUPPORTED;
     }
 
+    // 同梱モデルを優先し、GPU世代を含むモデル名はSDK側に選択させる。
+    if (m_effectName == NVVFX_FX_DENOISING && prm->modelDir.empty()) {
+        const auto localModelDir = PathCombineS(getExeDir(), _T("models"));
+        if (rgy_directory_exists(localModelDir)) {
+            prm->modelDir = localModelDir;
+            AddMessage(RGY_LOG_DEBUG, _T("Use bundled nvvfx model directory \"%s\".\n"), prm->modelDir.c_str());
+        }
+    }
+
     auto err = initEffect(prm->modelDir);
     if (err != RGY_ERR_NONE) {
         return err;

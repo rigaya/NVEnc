@@ -2878,6 +2878,7 @@ equirect、flat、cubemap 間の投影変換を行います。
 
 80p - 1080p までの入力解像度に対応しており、実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要。
 VFX SDK 1.3では、`nvvfxdenoising` 機能パッケージに含まれる `nvVFXDenoising.dll` が必要。
+実行ファイルと同じ場所に `models` ディレクトリがある場合、現在のGPUアーキテクチャに対応するモデルを自動的に読み込む。
 
 - **パラメータ**
   - strength=&lt;int&gt;
