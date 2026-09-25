@@ -2440,20 +2440,11 @@ npp dll可以在[这里](https://github.com/rigaya/NVEnc/releases/tag/7.00) (npp
     | cubic         | 4x4 立方插值 | ○ |
     | super         | NPP 库提供的所谓的 "super sampling"  | ○ |
     | lanczos       | Lanczos 插值                    | ○ |
-    | nvvfx-superres | 基于nvvfx库的超分辨率(仅适用于放大) |   |
-
-  - superres-mode=&lt;int&gt;  
-    选择nvvfx-superres的模式
-    - 0 ... 保守
-    - 1 ... 激进 (default)
-  - superres-strength=&lt;float&gt;  
-    nvvfx-superres的强度(0.0 - 1.0, default = 0.4)
 
 - 注意事项
   - 标记为"○"的算法需要[NPP library](https://developer.nvidia.com/npp)，仅在 x64 版本支持。要使用这些算法，需要另外下载 nppc64_10.dll, nppif64_10.dll, nppig64_10.dll并把它和 NVEncC64.exe 放置在同一目录。
     这些npp dll可以在[这里](https://github.com/rigaya/NVEnc/releases/tag/7.00) (npp64_10_dll_7zip.7z)下载。
-  - ```nvvfx-superres``` 是来自[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)的超分辨率过滤器, 仅在x64版本支持。
-    这一模式支持 Turing 架构(RTX20xx)及更新的显卡，如果要使用这一模式，需要下载并安装 [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources).
+  - 原有的 `nvvfx-superres` 已被移除。为保持兼容，指定该名称时会显示警告，并映射到 `ngx-vsr`。
 
 
 ```
@@ -2463,8 +2454,6 @@ npp dll可以在[这里](https://github.com/rigaya/NVEnc/releases/tag/7.00) (npp
 例子: 使用 spline64
 --vpp-resize algo=spline64 
 
-例子: 使用 nvvfx-superres, 模式为激进
---vpp-resize algo=nvvfx-superres,superres-mode=1
   ```
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 反锐化滤镜，用于边缘和细节增强。

@@ -874,7 +874,6 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
             || inputParam->vppnv.nvvfxDenoise.enable
             || inputParam->vppnv.nvvfxFrameGen.enable
             || inputParam->vppnv.ngxTrueHDR.enable
-            || isNvvfxResizeFiter(inputParam->vpp.resize_algo)
             || isNgxResizeFiter(inputParam->vpp.resize_algo));
         if (inputParam->ctrl.parallelEnc.parallelCount < 0) {
             inputParam->ctrl.parallelEnc.parallelCount = (limitOnePerGPU) ? (int)gpuList.size() : encoderCount;
@@ -969,10 +968,8 @@ bool NVEncCore::useNVVFX(const InEncodeVideoParam *inputParam) const {
     const auto& vppnv = inputParam->vppnv;
     if (   vppnv.nvvfxArtifactReduction.enable
         || vppnv.nvvfxDenoise.enable
-        || vppnv.nvvfxSuperRes.enable
         || vppnv.nvvfxUpScaler.enable
-        || vppnv.nvvfxFrameGen.enable
-        || inputParam->vpp.resize_algo == RGY_VPP_RESIZE_NVVFX_SUPER_RES) {
+        || vppnv.nvvfxFrameGen.enable) {
         return true;
     }
 #endif
@@ -3477,10 +3474,9 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         //autoは拡大/縮小の比率から実際のアルゴリズムを決めるが、ここでは比率が事前に決まらないのでbicubic固定とする
         m_normalizeResizeParam->interp = RGY_VPP_RESIZE_BICUBIC;
         PrintMes(RGY_LOG_DEBUG, _T("resolution change: normalization resize uses bicubic for auto resize mode.\n"));
-    //nvvfx/ngx/libplaceboのresizeは初期化時の解像度に固定された外部ライブラリのモデル/コンテキストを持つため、
+    //ngx/libplaceboのresizeは初期化時の解像度に固定された外部ライブラリのモデル/コンテキストを持つため、
     //解像度が動的に変わる正規化resizeには使えない。bicubicへフォールバックする(警告を出してユーザーに知らせる)。
-    } else if (isNvvfxResizeFiter(inputParam->vpp.resize_algo)
-        || isNgxResizeFiter(inputParam->vpp.resize_algo)
+    } else if (isNgxResizeFiter(inputParam->vpp.resize_algo)
         || isLibplaceboResizeFiter(inputParam->vpp.resize_algo)) {
         m_normalizeResizeParam->interp = RGY_VPP_RESIZE_BICUBIC;
         PrintMes(RGY_LOG_WARN, _T("resolution change: normalization resize falls back from %s to bicubic.\n"),
@@ -4742,13 +4738,7 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         param->dpid = inputParam->vpp.resize_dpid;
         param->nis = inputParam->vpp.resize_nis;
         param->bicubic = inputParam->vpp.resize_bicubic;
-        if (isNvvfxResizeFiter(inputParam->vpp.resize_algo)) {
-            param->nvvfxSuperRes = std::make_shared<NVEncFilterParamNvvfxSuperRes>();
-            param->nvvfxSuperRes->nvvfxSuperRes = inputParam->vppnv.nvvfxSuperRes;
-            param->nvvfxSuperRes->compute_capability = m_dev->cc();
-            param->nvvfxSuperRes->modelDir = inputParam->vppnv.nvvfxModelDir;
-            param->nvvfxSuperRes->vuiInfo = vuiInfo;
-        } else if (isNgxResizeFiter(inputParam->vpp.resize_algo)) {
+        if (isNgxResizeFiter(inputParam->vpp.resize_algo)) {
             param->ngxvsr = std::make_shared<NVEncFilterParamNGXVSR>();
             param->ngxvsr->ngxvsr = inputParam->vppnv.ngxVSR;
             param->ngxvsr->compute_capability = m_dev->cc();

@@ -2924,12 +2924,10 @@ equirect、flat、cubemap 間の投影変換を行います。
 
     - high  
       もっとも負荷の高いモデルを選択する。
-
   - multiplier=&lt;int&gt;  (default=2, 2-8)  
     入力1フレームあたりの出力フレーム数を指定する。
     2 - 8 の場合、各入力フレームの間に (multiplier - 1) フレームを生成するため、
     出力のフレームレートは指定した倍率になる。
-
   - autoshotchange=&lt;bool&gt;  (default=true)  
     ショットチェンジの自動検出を有効にする。ショットチェンジを検出した場合、
     補間を行わず現在のフレームをそのままコピーする。
@@ -3467,25 +3465,6 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
 
       必要なdllは[こちらのリンク](https://github.com/rigaya/NVEnc/releases/tag/8.01)からダウンロードできます。 (npp64_11_dll.7z) または、CUDA 11をインストールし、```<CUDAインストール先>\bin``` から取得することもできます。
 
-    - [nvvfx](https://github.com/NVIDIA/MAXINE-VFX-SDK)ライブラリのリサイズフィルタ
-
-      | 名前 | 説明 |
-      |:---|:---|
-      | nvvfx-superres | NVIDIA Video EffectsによるSuper Resolution (拡大のみ)  |  |
-
-      このモードは、[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)によるAIによって拡大処理を行うので、実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要。また、あわせて[MAXINE VideoEffects 用のモデルと実行モジュール](https://www.nvidia.com/broadcast-sdk-resources)をダウンロード・インストールしてからお使いください。
-
-      2160p までの入力解像度に対応している。
-      
-      - 追加パラメータ
-        - superres-mode=&lt;int&gt;  
-          nvvfx-superres のモードの選択。
-          - 0 ... 弱め
-          - 1 ... 強め (default)
-      
-        - superres-strength=&lt;float&gt;  
-          nvvfx-superresの強さの指定。 (0.0 - 1.0, デフォルト = 0.4)
-
     - [NGX](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html)ライブラリのリサイズフィルタ
   
       実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPU、そして550.58以降のドライバが必要。
@@ -3493,6 +3472,8 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
       | 名前 | 説明 |
       |:---|:---|
       | ngx-vsr       | NVIDIA VSR (Video Super Resolution)  |  |
+
+      従来の `nvvfx-superres` は廃止されました。互換性のため、指定された場合は警告を表示し、`ngx-vsr` にマッピングされます。
 
       - 追加パラメータ
         - vsr-quality=&lt;int&gt;  
@@ -3571,9 +3552,6 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
 
   例: spline64を使用する
   --vpp-resize algo=spline64 
-
-  例: nvvfx-superresを効果強めで使用する
-  --vpp-resize algo=nvvfx-superres,superres-mode=1
 
   例: ngx-vsrを最高品質で使用する
   --vpp-resize algo=ngx-vsr,vsr-quality=4

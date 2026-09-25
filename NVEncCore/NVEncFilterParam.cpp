@@ -121,27 +121,6 @@ tstring VppNvvfxArtifactReduction::print() const {
         mode, get_cx_desc(list_vpp_nvvfx_mode, mode));
 }
 
-VppNvvfxSuperRes::VppNvvfxSuperRes() :
-    enable(false),
-    mode(FILTER_DEFAULT_NVVFX_SUPER_RES_MODE),
-    strength(FILTER_DEFAULT_NVVFX_SUPER_RES_STRENGTH) {
-
-}
-
-bool VppNvvfxSuperRes::operator==(const VppNvvfxSuperRes &x) const {
-    return enable == x.enable
-        && mode == x.mode
-        && strength == x.strength;
-}
-bool VppNvvfxSuperRes::operator!=(const VppNvvfxSuperRes &x) const {
-    return !(*this == x);
-}
-
-tstring VppNvvfxSuperRes::print() const {
-    return strsprintf(_T("nvvfx-superres: mode: %d (%s), strength %.2f"),
-        mode, get_cx_desc(list_vpp_nvvfx_mode, mode), strength);
-}
-
 VppNvvfxUpScaler::VppNvvfxUpScaler() :
     enable(false),
     strength(FILTER_DEFAULT_NVVFX_UPSCALER_STRENGTH) {
@@ -239,7 +218,6 @@ VppParam::VppParam() :
 #endif //#if ENCODER_NVENC
     nvvfxDenoise(),
     nvvfxArtifactReduction(),
-    nvvfxSuperRes(),
     nvvfxUpScaler(),
     nvvfxModelDir(),
     ngxVSR(),
@@ -255,7 +233,6 @@ bool VppParam::operator==(const VppParam &x) const {
 #endif //#if ENCODER_NVENC
            nvvfxDenoise == x.nvvfxDenoise
         && nvvfxArtifactReduction == x.nvvfxArtifactReduction
-        && nvvfxSuperRes == x.nvvfxSuperRes
         && nvvfxUpScaler == x.nvvfxUpScaler
         && nvvfxFrameGen == x.nvvfxFrameGen
         && nvvfxModelDir == x.nvvfxModelDir;
@@ -301,6 +278,13 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
         }
         i++;
         int ret = 0;
+        bool legacyNvvfxSuperRes = false;
+        bool legacyModeSet = false;
+        bool legacyStrengthSet = false;
+        bool vsrQualitySet = false;
+        bool vsrStrengthSet = false;
+        int legacyMode = FILTER_DEFAULT_NVVFX_SUPER_RES_MODE;
+        float legacyStrength = FILTER_DEFAULT_NVVFX_SUPER_RES_STRENGTH;
         ///////////////////////////////////////////////////////////////////////////////////////
         // パラメータを追加したら、paramsResizeNVEncにも追加する！！
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -319,18 +303,14 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos + 1);
                 param_arg = tolowercase(param_arg);
-                if (param_arg == _T("enable")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vppnv->nvvfxSuperRes.enable = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
                 if (param_arg == _T("algo")) {
                     int value = 0;
+#if ENABLE_NVSDKNGX
+                    if (param_val == _T("nvvfx-superres")) {
+                        legacyNvvfxSuperRes = true;
+                        resize_algo = RGY_VPP_RESIZE_NGX_VSR;
+                    } else
+#endif
                     if (get_list_value(list_vpp_resize, param_val.c_str(), &value)) {
                         resize_algo = (RGY_VPP_RESIZE_ALGO)value;
                     } else {
@@ -341,7 +321,8 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 }
                 if (param_arg == _T("superres-mode")) {
                     try {
-                        vppnv->nvvfxSuperRes.mode = std::stoi(param_val);
+                        legacyMode = std::stoi(param_val);
+                        legacyModeSet = true;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -350,7 +331,8 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 }
                 if (param_arg == _T("superres-strength")) {
                     try {
-                        vppnv->nvvfxSuperRes.strength = std::stof(param_val);
+                        legacyStrength = std::stof(param_val);
+                        legacyStrengthSet = true;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -360,6 +342,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 if (param_arg == _T("vsr-quality")) {
                     try {
                         vppnv->ngxVSR.quality = std::stoi(param_val);
+                        vsrQualitySet = true;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -369,6 +352,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 if (param_arg == _T("vsr-strength")) { // requires nvngx_vsr.dll from VFX SDK 1.3 or later
                     try {
                         vppnv->ngxVSR.strength = std::stof(param_val);
+                        vsrStrengthSet = true;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -443,6 +427,12 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
             } else {
 
                 int value = 0;
+#if ENABLE_NVSDKNGX
+                if (param == _T("nvvfx-superres")) {
+                    legacyNvvfxSuperRes = true;
+                    resize_algo = RGY_VPP_RESIZE_NGX_VSR;
+                } else
+#endif
                 if (get_list_value(list_vpp_resize, param.c_str(), &value)) {
                     resize_algo = (RGY_VPP_RESIZE_ALGO)value;
                 } else {
@@ -451,6 +441,29 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 }
             }
         }
+#if ENABLE_NVSDKNGX
+        if (legacyNvvfxSuperRes) {
+            if (legacyMode != 0 && legacyMode != 1) {
+                print_cmd_error_invalid_value(tstring(option_name) + _T(" superres-mode="), strsprintf(_T("%d"), legacyMode), _T("superres-mode should be 0 or 1."));
+                return 1;
+            }
+            if (legacyStrength < 0.0f || 1.0f < legacyStrength) {
+                print_cmd_error_invalid_value(tstring(option_name) + _T(" superres-strength="), strsprintf(_T("%f"), legacyStrength), _T("superres-strength should be 0.0 - 1.0."));
+                return 1;
+            }
+            if (!vsrQualitySet) {
+                vppnv->ngxVSR.quality = (legacyMode == 0) ? 1 : 4;
+            }
+            if (!vsrStrengthSet) {
+                vppnv->ngxVSR.strength = legacyStrength;
+            }
+            _ftprintf(stderr, _T("Warning: nvvfx-superres is deprecated and has been mapped to ngx-vsr (vsr-quality=%d, vsr-strength=%.3f).\n"),
+                vppnv->ngxVSR.quality, vppnv->ngxVSR.strength);
+        } else if (legacyModeSet || legacyStrengthSet) {
+            print_cmd_error_invalid_value(tstring(option_name), strInput[i], _T("superres-mode and superres-strength can only be used with the deprecated nvvfx-superres alias."));
+            return 1;
+        }
+#endif
         i += ret;
         return ret;
     }
@@ -734,14 +747,6 @@ tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZ
         if (param->ngxVSR.strength != defaultPrm->ngxVSR.strength) {
             cmd << _T(",vsr-strength=") << std::setprecision(3) << param->ngxVSR.strength;
         }
-    } else if (resize_algo == RGY_VPP_RESIZE_NVVFX_SUPER_RES) {
-        cmd << _T(" --vpp-resize ") << get_chr_from_value(list_vpp_resize, resize_algo);
-        if (param->nvvfxSuperRes.mode != defaultPrm->nvvfxSuperRes.mode) {
-            cmd << _T(",superres-mode=") << param->nvvfxSuperRes.mode;
-        }
-        if (param->nvvfxSuperRes.strength != defaultPrm->nvvfxSuperRes.strength) {
-            cmd << _T(",superres-strength=") << param->nvvfxSuperRes.strength;
-        }
     }
 #endif
 
@@ -777,20 +782,6 @@ tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZ
     }
 
 #if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
-    if (param->nvvfxSuperRes != defaultPrm->nvvfxSuperRes && resize_algo == RGY_VPP_RESIZE_NVVFX_SUPER_RES) {
-        tmp.str(tstring());
-        //if (!param->nvvfxSuperRes.enable && save_disabled_prm) {
-        //    tmp << _T(",enable=false");
-        //}
-        //if (param->nvvfxSuperRes.enable || save_disabled_prm) {
-            ADD_NUM(_T("superres-mode"), nvvfxSuperRes.mode);
-            ADD_FLOAT(_T("superres-strength"), nvvfxSuperRes.strength, 3);
-        //}
-        cmd << _T(" --vpp-resize algo=nvvfx-superres");
-        if (!tmp.str().empty()) {
-            cmd << tmp.str();
-        }
-    }
 #endif
 
     if (param->nvvfxUpScaler != defaultPrm->nvvfxUpScaler) {

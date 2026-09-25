@@ -13988,7 +13988,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         cmd << _T(" --vpp-deint-csp output");
     }
 
-    if (!isNvvfxResizeFiter(param->resize_algo) && !isNgxResizeFiter(param->resize_algo) && !isQSVMFXResizeFiter(param->resize_algo)) {
+    if (!isNgxResizeFiter(param->resize_algo) && !isQSVMFXResizeFiter(param->resize_algo)) {
         if (isLibplaceboResizeFiter(param->resize_algo)) {
             OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
             if (param->resize_libplacebo.radius != defaultPrm->resize_libplacebo.radius) {
@@ -17571,14 +17571,6 @@ tstring gen_cmd_help_vpp() {
                _T("      c=<float>                 for bicubic: Mitchell-Netravali C parameter (default=%.2f)\n")
                _T("                                 aliases: mitchell, catmull-rom, hermite\n"),
             FILTER_DEFAULT_RESIZE_BICUBIC_B, FILTER_DEFAULT_RESIZE_BICUBIC_C);
-#if ENABLE_NVVFX
-            str += strsprintf(_T("\n")
-                _T("      superres-mode=<int>\n")
-                _T("        mode for nvvfx-superres     0 ... conservative\n")
-                _T("                                    1 ... aggressive (default)\n")
-                _T("      superres-strength=<float>\n")
-                _T("        strength for nvvfx-superres (0.0 - 1.0, default = 0.4)\n"));
-#endif
 #if ENABLE_NVSDKNGX
             str += strsprintf(_T("\n")
                 _T("      vsr-quality=<int>\n")

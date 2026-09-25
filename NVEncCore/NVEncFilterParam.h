@@ -184,17 +184,6 @@ struct VppNvvfxArtifactReduction {
     tstring print() const;
 };
 
-struct VppNvvfxSuperRes {
-    bool enable;
-    int mode; // 0: conservative, 1: aggressive
-    float strength;
-
-    VppNvvfxSuperRes();
-    bool operator==(const VppNvvfxSuperRes &x) const;
-    bool operator!=(const VppNvvfxSuperRes &x) const;
-    tstring print() const;
-};
-
 struct VppNvvfxUpScaler {
     bool enable;
     float strength;
@@ -248,7 +237,6 @@ struct VppParam {
 #endif //#if ENCODER_NVENC
     VppNvvfxDenoise           nvvfxDenoise;
     VppNvvfxArtifactReduction nvvfxArtifactReduction;
-    VppNvvfxSuperRes          nvvfxSuperRes;
     VppNvvfxUpScaler          nvvfxUpScaler;
     VppNvvfxFrameGen          nvvfxFrameGen;
     tstring                   nvvfxModelDir;

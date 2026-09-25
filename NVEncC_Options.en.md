@@ -2880,12 +2880,10 @@ Please download and install [Video Effect models and runtime dependencies](https
 
     - high  
       Selects the highest-complexity model.
-
   - multiplier=&lt;int&gt;  (default=2, 2-8)  
     Specifies how many frames are output for each input frame.
     2 - 8 generates (multiplier - 1) frames between each input frame pair,
     so the output frame rate is multiplied by the specified value.
-
   - autoshotchange=&lt;bool&gt;  (default=true)  
     Enables automatic shot change detection. When a shot change is detected,
     interpolation is bypassed and the current frame is copied instead.
@@ -3411,29 +3409,13 @@ Specify the resizing algorithm.
        To use those algorithms, you need to download nppc64_11.dll, nppif64_11.dll, nppig64_11.dll separately and place it in the same folder as NVEncC64.exe.
        The npp dlls can be downloaded from [this link](https://github.com/rigaya/NVEnc/releases/tag/8.01) (npp64_11_dll.7z). It can also be found under ```<CUDA Install Path>\bin``` if you install CUDA 11.
 
-    - [nvvfx](https://github.com/NVIDIA/MAXINE-VFX-SDK) library resize filters
-
-      | name | description |
-      |:---|:---|
-      | nvvfx-superres | Super Resolution based on nvvfx library (upscale only)     |
-
-      ```nvvfx-superres``` is super resolution filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK), which is supported on  x64 version only.
-      This mode is supported on Turing Gen GPU (RTX20xx) or later. Please download and install [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources) to use this mode.
-
-      - Additional parameters
-        - superres-mode=&lt;int&gt;  
-          select mode for nvvfx-superres
-          - 0 ... conservative
-          - 1 ... aggressive (default)
-      
-        - superres-strength=&lt;float&gt;  
-          strength for nvvfx-superres (0.0 - 1.0, default = 0.4)
-
     - [NGX](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html) library resize filters
 
       | name | description |
       |:---|:---|
       | ngx-vsr        | NVIDIA VSR (Video Super Resolution)     |   |
+
+      The former `nvvfx-superres` filter has been removed. For compatibility, specifying it displays a warning and maps it to `ngx-vsr`.
 
       Requires Turing GPUs or later, and requires driver version 550.58 or higher. Supported on Windows system only.
 
@@ -3514,9 +3496,6 @@ Specify the resizing algorithm.
 
   Examples: Use spline64
   --vpp-resize algo=spline64 
-
-  Examples: Use nvvfx-superres in mode 1
-  --vpp-resize algo=nvvfx-superres,superres-mode=1
 
   Examples: Use ngx-vsr in best quality
   --vpp-resize algo=ngx-vsr,vsr-quality=4
