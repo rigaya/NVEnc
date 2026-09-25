@@ -167,6 +167,7 @@ public:
     NVEncFilterNvvfxFrameGeneration();
     virtual ~NVEncFilterNvvfxFrameGeneration();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual int requiredOutputFrames() const override;
 protected:
     virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
     virtual RGY_ERR setParam(const NVEncFilterParam *param) override;

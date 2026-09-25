@@ -753,6 +753,11 @@ NVEncFilterNvvfxFrameGeneration::~NVEncFilterNvvfxFrameGeneration() {
     close();
 }
 
+int NVEncFilterNvvfxFrameGeneration::requiredOutputFrames() const {
+    auto prm = dynamic_cast<const NVEncFilterParamNvvfxFrameGen *>(m_param.get());
+    return (prm) ? prm->nvvfxFrameGen.multiplier : 0;
+}
+
 void NVEncFilterNvvfxFrameGeneration::close() {
     m_outFrameBuf.clear();
 #if ENABLE_NVVFX
