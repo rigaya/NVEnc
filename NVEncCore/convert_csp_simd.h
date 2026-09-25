@@ -946,8 +946,6 @@ static void convert_yv12_to_p010_simd(void **dst, const void **src, int width, i
                 x1 = _mm_loadu_si128((const __m128i *)src_ptr);
                 x0 = _mm_unpacklo_epi8(_mm_setzero_si128(), x1);
                 x1 = _mm_unpackhi_epi8(_mm_setzero_si128(), x1);
-                x0 = _mm_add_epi16(x0, _mm_set1_epi16(2 << 6));
-                x1 = _mm_add_epi16(x1, _mm_set1_epi16(2 << 6));
                 _mm_storeu_si128((__m128i *)(dst_ptr + 0), x0);
                 _mm_storeu_si128((__m128i *)(dst_ptr + 8), x1);
             }
@@ -973,13 +971,9 @@ static void convert_yv12_to_p010_simd(void **dst, const void **src, int width, i
 
             x0 = _mm_unpacklo_epi8(_mm_setzero_si128(), x1);
             x1 = _mm_unpackhi_epi8(_mm_setzero_si128(), x1);
-            x0 = _mm_add_epi16(x0, _mm_set1_epi16(2 << 6));
-            x1 = _mm_add_epi16(x1, _mm_set1_epi16(2 << 6));
 
             x2 = _mm_unpacklo_epi8(_mm_setzero_si128(), x3);
             x3 = _mm_unpackhi_epi8(_mm_setzero_si128(), x3);
-            x2 = _mm_add_epi16(x2, _mm_set1_epi16(2 << 6));
-            x3 = _mm_add_epi16(x3, _mm_set1_epi16(2 << 6));
 
             _mm_storeu_si128((__m128i *)(dst_ptr +  0), x0);
             _mm_storeu_si128((__m128i *)(dst_ptr +  8), x1);

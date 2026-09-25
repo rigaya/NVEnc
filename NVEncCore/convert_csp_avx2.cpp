@@ -559,8 +559,6 @@ static void convert_yv12_to_p010_avx2_base(void **dst, const void **src, int wid
                 y1 = _mm256_cvtepu8_epi16(_mm_loadu_si128((const __m128i *)(src_ptr + 16)));
                 y0 = _mm256_slli_epi16(y0, 8);
                 y1 = _mm256_slli_epi16(y1, 8);
-                y0 = _mm256_add_epi16(y0, _mm256_set1_epi16(2 << 6));
-                y1 = _mm256_add_epi16(y1, _mm256_set1_epi16(2 << 6));
                 _mm256_storeu_si256((__m256i *)(dst_ptr +  0), y0);
                 _mm256_storeu_si256((__m256i *)(dst_ptr + 16), y1);
             }
@@ -591,13 +589,9 @@ static void convert_yv12_to_p010_avx2_base(void **dst, const void **src, int wid
 
             y0 = _mm256_unpacklo_epi8(_mm256_setzero_si256(), y1);  //   7-4 |  3- 0
             y1 = _mm256_unpackhi_epi8(_mm256_setzero_si256(), y1);  // 15-12 | 11- 8
-            y0 = _mm256_add_epi16(y0, _mm256_set1_epi16(2 << 6));
-            y1 = _mm256_add_epi16(y1, _mm256_set1_epi16(2 << 6));
 
             y2 = _mm256_unpacklo_epi8(_mm256_setzero_si256(), y3);  // 23-20 | 19-16
             y3 = _mm256_unpackhi_epi8(_mm256_setzero_si256(), y3);  // 31-28 | 27-24
-            y2 = _mm256_add_epi16(y2, _mm256_set1_epi16(2 << 6));
-            y3 = _mm256_add_epi16(y3, _mm256_set1_epi16(2 << 6));
 
             _mm256_storeu_si256((__m256i *)(dst_ptr +  0), y0);
             _mm256_storeu_si256((__m256i *)(dst_ptr + 16), y1);

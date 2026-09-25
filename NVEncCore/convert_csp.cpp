@@ -2199,7 +2199,7 @@ static void convert_yv12_to_p010_c(void **dst, const void **src, int width, int 
         for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
             uint16_t *dst_ptr = (uint16_t *)dstLine;
             for (int x = 0; x < y_width; x++) {
-                dst_ptr[x] = (uint16_t)((((uint32_t)srcYLine[x]) << 8) + (2 << 6));
+                dst_ptr[x] = (uint16_t)((((uint32_t)srcYLine[x]) << 8));
             }
         }
     }
@@ -2214,8 +2214,8 @@ static void convert_yv12_to_p010_c(void **dst, const void **src, int width, int 
         uint8_t *src_v_ptr = srcVLine;
         uint16_t *dst_ptr = (uint16_t *)dstLine;
         for (int x = crop_left; x < x_fin; x += 2, src_u_ptr++, src_v_ptr++, dst_ptr += 2) {
-            dst_ptr[0] = (uint16_t)((((uint32_t)src_u_ptr[0]) << 8) + (2<<6));
-            dst_ptr[1] = (uint16_t)((((uint32_t)src_v_ptr[0]) << 8) + (2<<6));
+            dst_ptr[0] = (uint16_t)((((uint32_t)src_u_ptr[0]) << 8));
+            dst_ptr[1] = (uint16_t)((((uint32_t)src_v_ptr[0]) << 8));
         }
     }
 }
