@@ -251,6 +251,11 @@ RGY_ERR RGYOutput::InitVideoBsf(const VideoInfo *videoOutputInfo) {
         }
         AVDictionary *bsfPrm = nullptr;
         std::unique_ptr<AVDictionary*, decltype(&av_dict_free)> bsfPrmDictDeleter(&bsfPrm, av_dict_free);
+        if (ENCODER_VCEENC && videoOutputInfo->codec == RGY_CODEC_HEVC && videoOutputInfo->hevcConformanceWindow) {
+            // VA-APIが符号化ブロック境界まで拡張したSPSを、出力解像度に合わせてconformance windowで切り詰める。
+            av_dict_set_int(&bsfPrm, "width", videoOutputInfo->dstWidth, 0);
+            av_dict_set_int(&bsfPrm, "height", videoOutputInfo->dstHeight, 0);
+        }
         if (ENCODER_MPP) {
             const auto level_str = get_cx_desc(get_level_list(videoOutputInfo->codec), videoOutputInfo->codecLevel);
             av_dict_set(&bsfPrm, "level", tchar_to_string(level_str).c_str(), 0);

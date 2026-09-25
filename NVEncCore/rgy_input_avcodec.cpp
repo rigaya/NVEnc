@@ -47,6 +47,36 @@
 
 #if ENABLE_AVSW_READER
 
+static AVPixelFormat get_hwaccel_format(AVCodecContext *codecCtx, const AVPixelFormat *formats) {
+    if (codecCtx->hw_device_ctx == nullptr || formats == nullptr) {
+        return formats ? formats[0] : AV_PIX_FMT_NONE;
+    }
+    const auto *deviceCtx = (const AVHWDeviceContext *)codecCtx->hw_device_ctx->data;
+    for (int i = 0; ; i++) {
+        const auto *config = avcodec_get_hw_config(codecCtx->codec, i);
+        if (config == nullptr) {
+            break;
+        }
+        if (config->device_type == deviceCtx->type
+            && (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX)) {
+            for (const auto *format = formats; *format != AV_PIX_FMT_NONE; format++) {
+                if (*format == config->pix_fmt) {
+                    return *format;
+                }
+            }
+            break;
+        }
+    }
+    // get_formatの候補に含まれるソフトウェア形式を選び、HW形式が使えない場合は復帰する。
+    for (const auto *format = formats; *format != AV_PIX_FMT_NONE; format++) {
+        const auto *desc = av_pix_fmt_desc_get(*format);
+        if (desc == nullptr || !(desc->flags & AV_PIX_FMT_FLAG_HWACCEL)) {
+            return *format;
+        }
+    }
+    return formats[0];
+}
+
 struct pixfmtInfo {
     AVPixelFormat pix_fmt;
     int bit_depth;
@@ -128,6 +158,8 @@ AVDemuxVideo::AVDemuxVideo() :
     codecDecode(nullptr),
     codecCtxDecode(nullptr),
     frame(nullptr),
+    frameSW(nullptr),
+    hwPixelFormat(AV_PIX_FMT_NONE),
     index(-1),
     pmtTrackPos(-1),
     pmtNoSuccessorWarned(false),
@@ -204,6 +236,12 @@ void AVDemuxVideo::close(RGYLog *log) {
         av_frame_free(&frame);
         CLOSE_LOG_DEBUG(_T("Freed video frame.\n"));
         frame = nullptr;
+    }
+    if (frameSW) {
+        CLOSE_LOG_DEBUG(_T("Free software video frame...\n"));
+        av_frame_free(&frameSW);
+        CLOSE_LOG_DEBUG(_T("Freed software video frame.\n"));
+        frameSW = nullptr;
     }
     if (firstPkt) {
         CLOSE_LOG_DEBUG(_T("Free first video packet...\n"));
@@ -298,7 +336,8 @@ RGYInputAvcodec::RGYInputAvcodec() :
     m_maxSrcWidth(0),
     m_maxSrcHeight(0),
     m_suppressPulldownDetect(false),
-    m_pulldownDetected(false) {
+    m_pulldownDetected(false),
+    m_hwaccelActive(false) {
     m_readerName = _T("av" DECODER_NAME "/avsw");
 }
 
@@ -2530,10 +2569,12 @@ const pixfmtInfo *RGYInputAvcodec::getPixfmtInfo(const AVPixelFormat pix_fmt) {
     return pixfmtData;
 }
 
-RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder) {
+RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder, AVBufferRef *hwdevice, AVHWDeviceType hwdeviceType) {
     m_inputVideoInfo.codec = RGY_CODEC_UNKNOWN; //hwデコードをオフにする
     const bool disableHWDecode = !m_Demux.video.HWDecodeDeviceId.empty();
     m_Demux.video.HWDecodeDeviceId.clear();
+    m_hwaccelActive = false;
+    m_Demux.video.hwPixelFormat = AV_PIX_FMT_NONE;
 
     //close bitstreamfilter
     //if (m_Demux.video.bsfcCtx) {
@@ -2582,8 +2623,31 @@ RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder) {
         AddMessage(RGY_LOG_ERROR, _T("failed to set codec param to context for decoder: %s.\n"), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
+    if (hwdevice != nullptr && hwdeviceType != AV_HWDEVICE_TYPE_NONE) {
+        for (int i = 0; ; i++) {
+            const auto *config = avcodec_get_hw_config(m_Demux.video.codecDecode, i);
+            if (config == nullptr) {
+                break;
+            }
+            if (config->device_type == hwdeviceType
+                && (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX)) {
+                m_Demux.video.codecCtxDecode->hw_device_ctx = av_buffer_ref(hwdevice);
+                if (m_Demux.video.codecCtxDecode->hw_device_ctx == nullptr) {
+                    AddMessage(RGY_LOG_ERROR, _T("Failed to reference hardware decode device.\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
+                m_Demux.video.codecCtxDecode->get_format = get_hwaccel_format;
+                m_Demux.video.hwPixelFormat = config->pix_fmt;
+                m_hwaccelActive = true;
+                AddMessage(RGY_LOG_DEBUG, _T("Using FFmpeg hwaccel %s with pixel format %s.\n"),
+                    char_to_tstring(av_hwdevice_get_type_name(hwdeviceType)).c_str(),
+                    char_to_tstring(av_get_pix_fmt_name(config->pix_fmt)).c_str());
+                break;
+            }
+        }
+    }
     cpu_info_t cpu_info;
-    if (get_cpu_info(&cpu_info)) {
+    if (get_cpu_info(&cpu_info) && !m_hwaccelActive) {
         AVDictionary *pDict = nullptr;
         av_dict_set_int(&pDict, "threads", std::min(cpu_info.logical_cores, 16), 0);
         if (0 > (ret = av_opt_set_dict(m_Demux.video.codecCtxDecode, &pDict))) {
@@ -2612,7 +2676,17 @@ RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNSUPPORTED;
     }
-    const auto pixCspConv = csp_avpixfmt_to_rgy(m_Demux.video.codecCtxDecode->pix_fmt);
+    auto decoderOutputFormat = m_Demux.video.codecCtxDecode->pix_fmt;
+    if (m_hwaccelActive) {
+        if (m_Demux.video.codecCtxDecode->hw_frames_ctx != nullptr) {
+            const auto *framesCtx = (const AVHWFramesContext *)m_Demux.video.codecCtxDecode->hw_frames_ctx->data;
+            decoderOutputFormat = framesCtx->sw_format;
+        } else if (m_Demux.video.stream->codecpar->format != AV_PIX_FMT_NONE
+            && m_Demux.video.stream->codecpar->format != m_Demux.video.hwPixelFormat) {
+            decoderOutputFormat = (AVPixelFormat)m_Demux.video.stream->codecpar->format;
+        }
+    }
+    const auto pixCspConv = csp_avpixfmt_to_rgy(decoderOutputFormat);
     if (pixCspConv == RGY_CSP_NA) {
         AddMessage(RGY_LOG_ERROR, _T("invalid color format: %s\n"),
             char_to_tstring(av_get_pix_fmt_name(m_Demux.video.codecCtxDecode->pix_fmt)).c_str());
@@ -2659,7 +2733,19 @@ RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
         return RGY_ERR_NULL_PTR;
     }
+    if (m_hwaccelActive && nullptr == (m_Demux.video.frameSW = av_frame_alloc())) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate software frame for hardware decoder output.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
     m_readerName = _T("avsw");
+    if (m_hwaccelActive) {
+        if (hwdeviceType == AV_HWDEVICE_TYPE_VAAPI) {
+            m_readerName = _T("avhw (VA-API)");
+        } else {
+            const auto *typeName = av_hwdevice_get_type_name(hwdeviceType);
+            m_readerName = strsprintf(_T("avhw (%s)"), char_to_tstring(typeName ? typeName : "hwaccel").c_str());
+        }
+    }
     if (disableHWDecode) {
         setInputInfo(); // 表示を切り替え
     }
@@ -3953,6 +4039,21 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
             got_frame = TRUE;
+        }
+        if (m_hwaccelActive && m_Demux.video.frame->format == m_Demux.video.hwPixelFormat) {
+            av_frame_unref(m_Demux.video.frameSW);
+            int transferRet = av_hwframe_transfer_data(m_Demux.video.frameSW, m_Demux.video.frame, 0);
+            if (transferRet < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to transfer hardware decoded frame to system memory: %s.\n"), qsv_av_err2str(transferRet).c_str());
+                return RGY_ERR_UNSUPPORTED;
+            }
+            transferRet = av_frame_copy_props(m_Demux.video.frameSW, m_Demux.video.frame);
+            if (transferRet < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to copy hardware decoded frame properties: %s.\n"), qsv_av_err2str(transferRet).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            av_frame_unref(m_Demux.video.frame);
+            av_frame_move_ref(m_Demux.video.frame, m_Demux.video.frameSW);
         }
         auto flags = RGY_FRAME_FLAG_NONE;
         const auto findPos = m_Demux.frames.findpts(m_Demux.video.frame->pts, &m_Demux.video.findPosLastIdx);

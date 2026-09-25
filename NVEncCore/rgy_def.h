@@ -829,6 +829,9 @@ struct VideoInfo {
     //[      ] 入力コーデックの遅延
     int videoDelay;
 
+    //[      ] HEVC SPSに出力解像度のconformance windowを設定する
+    bool hevcConformanceWindow;
+
     //[      ] 入力コーデックのVUI情報
     VideoVUIInfo vui;
 
@@ -854,6 +857,7 @@ struct VideoInfo {
         codecLevel(0),
         codecProfile(0),
         videoDelay(0),
+        hevcConformanceWindow(false),
         vui() {};
     ~VideoInfo(){};
 };

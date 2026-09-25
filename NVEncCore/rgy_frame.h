@@ -262,6 +262,7 @@ public:
     virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const override { return frame.dataList; }
     virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() override { return frame.dataList; }
     virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { frame.dataList = dataList; }
+    void setResolution(const int width, const int height) { frame.width = width; frame.height = height; }
 protected:
     RGYSysFrame(const RGYSysFrame &) = delete;
     void operator =(const RGYSysFrame &) = delete;
