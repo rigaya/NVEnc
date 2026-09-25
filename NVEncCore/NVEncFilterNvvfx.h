@@ -111,6 +111,15 @@ public:
     virtual tstring print() const override;
 };
 
+class NVEncFilterParamNvvfxFrameGen : public NVEncFilterParamNvvfx {
+public:
+    VppNvvfxFrameGen nvvfxFrameGen;
+    rgy_rational<int> timebase;
+    NVEncFilterParamNvvfxFrameGen() : nvvfxFrameGen(), timebase() {};
+    virtual ~NVEncFilterParamNvvfxFrameGen() {};
+    virtual tstring print() const override;
+};
+
 class NVEncFilterNvvfxDenoise : public NVEncFilterNvvfxEffect {
 public:
     NVEncFilterNvvfxDenoise();
@@ -149,4 +158,35 @@ protected:
     virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
     virtual RGY_ERR setParam(const NVEncFilterParam *param) override;
     virtual bool compareParam(const NVEncFilterParam *param) const override;
+};
+
+// VFG (Video Frame Generation) is a 1-in / N-out temporal interpolation filter,
+// so it overrides init() and run_filter() instead of reusing the 1-in / 1-out base implementation.
+class NVEncFilterNvvfxFrameGeneration : public NVEncFilterNvvfxEffect {
+public:
+    NVEncFilterNvvfxFrameGeneration();
+    virtual ~NVEncFilterNvvfxFrameGeneration();
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+protected:
+    virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
+    virtual RGY_ERR setParam(const NVEncFilterParam *param) override;
+    virtual bool compareParam(const NVEncFilterParam *param) const override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    virtual void close() override;
+
+    RGYFrameInfo *getNextOutFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
+#if ENABLE_NVVFX
+    // interpolate the frame at frameIndex/multiplier between m_prevImg and m_srcImg
+    RGY_ERR genFrame(RGYFrameInfo *outFrame, const RGYFrameInfo *frameProp,
+        int frameIndex, int multiplier,
+        int64_t genPts, int64_t genDuration, cudaStream_t stream);
+    RGY_ERR convertToNvCVImage(const RGYFrameInfo *src, NvCVImage *dst, cudaStream_t stream);
+
+    // previous frame input; m_srcImg and m_dstImg are provided by the base class
+    std::unique_ptr<NvCVImage> m_prevImg;
+#endif
+    std::vector<std::unique_ptr<CUFrameBuf>> m_outFrameBuf;
+    rgy_rational<int> m_targetFps;
+    int64_t m_prevTimestamp;
+    int m_inputFrames;
 };

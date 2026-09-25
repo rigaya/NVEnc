@@ -28,6 +28,7 @@
 
 #include <array>
 #include <numeric>
+#include <algorithm>
 #include "convert_csp.h"
 #include "NVEncFilter.h"
 #include "NVEncFilterNvvfx.h"
@@ -35,6 +36,26 @@
 #include "rgy_filesystem.h"
 
 char *g_nvVFXSDKPath = nullptr;
+
+#if ENABLE_NVVFX
+// Video Frame Generation (VFG) interface.
+// Not every nvVideoEffects.h shipped with the SDK carries these definitions,
+// so fall back to the documented names when the header does not provide them.
+#ifndef NVVFX_FX_VIDEO_FRAME_GENERATION
+#define NVVFX_FX_VIDEO_FRAME_GENERATION "VideoFrameGeneration"
+#define NVVFXVIDEOFRAMEGENERATION_MODE       "Mode"
+#define NVVFXVIDEOFRAMEGENERATION_FRAME_MULTIPLIER "FrameMultiplier"
+#define NVVFXVIDEOFRAMEGENERATION_FRAME_INDEX      "FrameIndex"
+#define NVVFXVIDEOFRAMEGENERATION_SHOT_CHANGE      "ShotChange"
+#define NVVFXVIDEOFRAMEGENERATION_AUTOMATIC_SHOT_CHANGE_DETECTION_ENABLED "AutomaticShotChangeDetectionEnabled"
+#endif // #ifndef NVVFX_FX_VIDEO_FRAME_GENERATION
+#ifndef NVVFX_INPUT_WIDTH
+#define NVVFX_INPUT_WIDTH  "InputWidth"
+#endif
+#ifndef NVVFX_INPUT_HEIGHT
+#define NVVFX_INPUT_HEIGHT "InputHeight"
+#endif
+#endif // #if ENABLE_NVVFX
 
 NVEncFilterNvvfxEffect::NVEncFilterNvvfxEffect() :
 #if ENABLE_NVVFX
@@ -707,3 +728,479 @@ bool NVEncFilterNvvfxUpScaler::compareParam(const NVEncFilterParam *param) const
     if (!target) return true;
     return prm->nvvfxUpscaler != target->nvvfxUpscaler;
 };
+
+tstring NVEncFilterParamNvvfxFrameGen::print() const {
+    return nvvfxFrameGen.print();
+}
+
+NVEncFilterNvvfxFrameGeneration::NVEncFilterNvvfxFrameGeneration() :
+#if ENABLE_NVVFX
+    m_prevImg(),
+#endif
+    m_outFrameBuf(),
+    m_targetFps(),
+    m_prevTimestamp(-1),
+    m_inputFrames(0) {
+    m_name = _T("nvvfx-framegen");
+    // No m_maxHeight here on purpose: this filter overrides init(), so it never reaches the base
+    // class check that reads m_maxHeight. VFG's real input limit depends on available GPU memory.
+#if ENABLE_NVVFX
+    m_effectName = NVVFX_FX_VIDEO_FRAME_GENERATION;
+#endif
+}
+
+NVEncFilterNvvfxFrameGeneration::~NVEncFilterNvvfxFrameGeneration() {
+    close();
+}
+
+void NVEncFilterNvvfxFrameGeneration::close() {
+    m_outFrameBuf.clear();
+#if ENABLE_NVVFX
+    m_prevImg.reset();
+#endif
+    NVEncFilterNvvfxEffect::close();
+}
+
+RGY_ERR NVEncFilterNvvfxFrameGeneration::checkParam(const NVEncFilterParam *param) {
+    auto prm = dynamic_cast<const NVEncFilterParamNvvfxFrameGen*>(param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->nvvfxFrameGen.mode < 0 || 2 < prm->nvvfxFrameGen.mode) {
+        AddMessage(RGY_LOG_ERROR, _T("mode should be 0 (low), 1 (medium) or 2 (high).\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->nvvfxFrameGen.multiplier < 2 || 8 < prm->nvvfxFrameGen.multiplier) {
+        AddMessage(RGY_LOG_ERROR, _T("multiplier should be 2 - 8.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    // the model works on 640x360 or larger input
+    const int shortSide = std::min(prm->frameIn.width, prm->frameIn.height);
+    const int longSide  = std::max(prm->frameIn.width, prm->frameIn.height);
+    if (longSide < 640 || shortSide < 360) {
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen requires at least 640x360 input, but input is %dx%d.\n"),
+            prm->frameIn.width, prm->frameIn.height);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    // VFG is only available on Ada (and later) GPUs on Windows.
+    if (prm->compute_capability.first < 8
+        || (prm->compute_capability.first == 8 && prm->compute_capability.second < 9)) {
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen requires Ada GPUs (CC:8.9) or later: current CC %d.%d.\n"),
+            prm->compute_capability.first, prm->compute_capability.second);
+        return RGY_ERR_UNSUPPORTED;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterNvvfxFrameGeneration::setParam(const NVEncFilterParam *param) {
+#if !ENABLE_NVVFX
+    AddMessage(RGY_LOG_ERROR, _T("nvvfx filters is not supported on x86 exec file, please use x64 exec file.\n"));
+    return RGY_ERR_UNSUPPORTED;
+#else
+    auto prm = dynamic_cast<const NVEncFilterParamNvvfxFrameGen*>(param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    // the model mode has to be set before loading the effect
+    auto err = err_to_rgy(NvVFX_SetU32(m_effect.get(), NVVFXVIDEOFRAMEGENERATION_MODE, prm->nvvfxFrameGen.mode));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to set parameter %s to %d: %s.\n"), NVVFXVIDEOFRAMEGENERATION_MODE, prm->nvvfxFrameGen.mode, get_err_mes(err));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    // the feature is enabled by default, so only touch it when it has to be turned off
+    if (!prm->nvvfxFrameGen.autoShotChangeDetection) {
+        err = err_to_rgy(NvVFX_SetU32(m_effect.get(), NVVFXVIDEOFRAMEGENERATION_AUTOMATIC_SHOT_CHANGE_DETECTION_ENABLED, 0));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to set parameter %s to 0: %s.\n"), NVVFXVIDEOFRAMEGENERATION_AUTOMATIC_SHOT_CHANGE_DETECTION_ENABLED, get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    return RGY_ERR_NONE;
+#endif
+}
+
+bool NVEncFilterNvvfxFrameGeneration::compareParam(const NVEncFilterParam *param) const {
+    if (!m_param) return true;
+    auto prm = dynamic_cast<const NVEncFilterParamNvvfxFrameGen *>(m_param.get());
+    if (!prm) return true;
+    auto target = dynamic_cast<const NVEncFilterParamNvvfxFrameGen *>(param);
+    if (!target) return true;
+    return prm->nvvfxFrameGen != target->nvvfxFrameGen;
+};
+
+RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
+    m_pLog = pPrintMes;
+#if !ENABLE_NVVFX
+    AddMessage(RGY_LOG_ERROR, _T("nvvfx filters are not supported on x86 exec file, please use x64 exec file.\n"));
+    return RGY_ERR_UNSUPPORTED;
+#else
+    auto prm = dynamic_cast<NVEncFilterParamNvvfxFrameGen*>(pParam.get());
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (rgy_csp_has_alpha(pParam->frameIn.csp)) {
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen does not support alpha channel.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (interlaced(pParam->frameIn)) {
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen does not support interlaced input.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (pParam->frameIn.width != pParam->frameOut.width
+        || pParam->frameIn.height != pParam->frameOut.height) {
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen does not change the resolution.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if ((sts = checkParam(pParam.get())) != RGY_ERR_NONE) {
+        return sts;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("GPU CC: %d.%d.\n"),
+        prm->compute_capability.first, prm->compute_capability.second);
+
+    auto err = initEffect(prm->modelDir);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    // the mode (and the shot change detection flag) has to be set before loading the effect
+    err = setParam(pParam.get());
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+
+    // VFG takes RGBA8 interleaved images. The base class provides m_srcImg and m_dstImg,
+    // m_prevImg is added here for the second (previous frame) input.
+    if (!m_prevImg || (int)m_prevImg->width != pParam->frameIn.width || (int)m_prevImg->height != pParam->frameIn.height) {
+        AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx previous frame image %dx%d.\n"), pParam->frameIn.width, pParam->frameIn.height);
+        m_prevImg = std::make_unique<NvCVImage>();
+        err = err_to_rgy(NvCVImage_Alloc(m_prevImg.get(), pParam->frameIn.width, pParam->frameIn.height,
+            NVCV_RGBA, NVCV_U8, NVCV_CHUNKY, NVCV_GPU, 1));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx previous frame image %dx%d: %s.\n"),
+                pParam->frameIn.width, pParam->frameIn.height, get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        err = err_to_rgy(NvVFX_SetImage(m_effect.get(), NVVFX_INPUT_IMAGE_0, m_prevImg.get()));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to set previous frame image: %s.\n"), get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    if (!m_srcImg || (int)m_srcImg->width != pParam->frameIn.width || (int)m_srcImg->height != pParam->frameIn.height) {
+        AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx input image %dx%d.\n"), pParam->frameIn.width, pParam->frameIn.height);
+        m_srcImg = std::make_unique<NvCVImage>();
+        err = err_to_rgy(NvCVImage_Alloc(m_srcImg.get(), pParam->frameIn.width, pParam->frameIn.height,
+            NVCV_RGBA, NVCV_U8, NVCV_CHUNKY, NVCV_GPU, 1));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx input image %dx%d: %s.\n"),
+                pParam->frameIn.width, pParam->frameIn.height, get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        err = err_to_rgy(NvVFX_SetImage(m_effect.get(), NVVFX_INPUT_IMAGE_1, m_srcImg.get()));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to set input image: %s.\n"), get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    if (!m_dstImg || (int)m_dstImg->width != pParam->frameIn.width || (int)m_dstImg->height != pParam->frameIn.height) {
+        AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx output image %dx%d.\n"), pParam->frameIn.width, pParam->frameIn.height);
+        m_dstImg = std::make_unique<NvCVImage>();
+        err = err_to_rgy(NvCVImage_Alloc(m_dstImg.get(), pParam->frameIn.width, pParam->frameIn.height,
+            NVCV_RGBA, NVCV_U8, NVCV_CHUNKY, NVCV_GPU, 1));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx output image %dx%d: %s.\n"),
+                pParam->frameIn.width, pParam->frameIn.height, get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        err = err_to_rgy(NvVFX_SetImage(m_effect.get(), NVVFX_OUTPUT_IMAGE, m_dstImg.get()));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to set output image %s.\n"), get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+
+    err = err_to_rgy(NvVFX_SetU32(m_effect.get(), NVVFX_INPUT_WIDTH, (uint32_t)pParam->frameIn.width));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to set input width: %s.\n"), get_err_mes(err));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    err = err_to_rgy(NvVFX_SetU32(m_effect.get(), NVVFX_INPUT_HEIGHT, (uint32_t)pParam->frameIn.height));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to set input height: %s.\n"), get_err_mes(err));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    err = err_to_rgy(NvVFX_SetU32(m_effect.get(), NVVFX_BATCH_SIZE, 1));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to set batch size: %s.\n"), get_err_mes(err));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    if (prm->vuiInfo.matrix == RGY_MATRIX_UNSPECIFIED) {
+        prm->vuiInfo.matrix = (CspMatrix)COLOR_VALUE_AUTO_RESOLUTION;
+    }
+    prm->vuiInfo.apply_auto(prm->vuiInfo, pParam->frameIn.height);
+    if (!m_srcCrop
+        || m_srcCrop->GetFilterParam()->frameIn.width  != pParam->frameIn.width
+        || m_srcCrop->GetFilterParam()->frameIn.height != pParam->frameIn.height) {
+        AddMessage(RGY_LOG_DEBUG, _T("Create input csp conversion filter.\n"));
+        unique_ptr<NVEncFilterCspCrop> filter(new NVEncFilterCspCrop());
+        shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
+        paramCrop->frameIn = pParam->frameIn;
+        paramCrop->frameOut = paramCrop->frameIn;
+        paramCrop->frameOut.csp = RGY_CSP_RGB32;
+        paramCrop->matrix = prm->vuiInfo.matrix;
+        paramCrop->baseFps = pParam->baseFps;
+        paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+        paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
+        paramCrop->bOutOverwrite = false;
+        sts = filter->init(paramCrop, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_srcCrop = std::move(filter);
+        AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_srcCrop->GetInputMessage().c_str());
+    }
+    if (!m_dstCrop
+        || m_dstCrop->GetFilterParam()->frameOut.width  != pParam->frameOut.width
+        || m_dstCrop->GetFilterParam()->frameOut.height != pParam->frameOut.height) {
+        AddMessage(RGY_LOG_DEBUG, _T("Create output csp conversion filter.\n"));
+        unique_ptr<NVEncFilterCspCrop> filter(new NVEncFilterCspCrop());
+        shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
+        paramCrop->frameIn = pParam->frameOut;
+        paramCrop->frameIn.csp = RGY_CSP_RGB32;
+        paramCrop->matrix = prm->vuiInfo.matrix;
+        paramCrop->frameOut = pParam->frameOut;
+        paramCrop->baseFps = pParam->baseFps;
+        paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+        paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
+        paramCrop->bOutOverwrite = false;
+        sts = filter->init(paramCrop, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_dstCrop = std::move(filter);
+        AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_dstCrop->GetInputMessage().c_str());
+    }
+
+    if (compareModelDir(prm->modelDir) || compareParam(pParam.get())) {
+        AddMessage(RGY_LOG_DEBUG, _T("Loading effect...\n"));
+        err = err_to_rgy(NvVFX_Load(m_effect.get()));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to load effect: %s.\n"), get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+
+    sts = AllocFrameBuf(pParam->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
+    }
+
+    // the multiplier mode outputs the input frame itself plus (multiplier - 1) generated
+    // frame(s), so the frame rate is multiplied by the specified value.
+    m_targetFps = pParam->baseFps * prm->nvvfxFrameGen.multiplier;
+    m_prevTimestamp = -1;
+    m_inputFrames = 0;
+
+    tstring info = m_name + _T(": ");
+    if (m_srcCrop) {
+        info += m_srcCrop->GetInputMessage() + _T("\n");
+    }
+    tstring nameBlank(m_name.length() + _tcslen(_T(": ")), _T(' '));
+    info += tstring(INFO_INDENT) + nameBlank + pParam->print();
+    if (m_dstCrop) {
+        info += tstring(_T("\n")) + tstring(INFO_INDENT) + nameBlank + m_dstCrop->GetInputMessage();
+    }
+    setFilterInfo(info);
+    pParam->baseFps = m_targetFps;
+    m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
+    m_param = pParam;
+    return sts;
+#endif
+}
+
+RGYFrameInfo *NVEncFilterNvvfxFrameGeneration::getNextOutFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    if (*pOutputFrameNum >= (int)m_outFrameBuf.size()) {
+        auto uptr = std::make_unique<CUFrameBuf>(m_param->frameOut.width, m_param->frameOut.height, m_param->frameOut.csp);
+        if (uptr->alloc() != RGY_ERR_NONE) {
+            m_outFrameBuf.clear();
+            return nullptr;
+        }
+        m_outFrameBuf.push_back(std::move(uptr));
+    }
+    const int outFrameIdx = (*pOutputFrameNum)++;
+    auto ptr = &m_outFrameBuf[outFrameIdx]->frame;
+    ppOutputFrames[outFrameIdx] = ptr;
+    return ptr;
+}
+
+#if ENABLE_NVVFX
+RGY_ERR NVEncFilterNvvfxFrameGeneration::convertToNvCVImage(const RGYFrameInfo *src, NvCVImage *dst, cudaStream_t stream) {
+    RGYFrameInfo srcImgInfo = m_srcCrop->GetFilterParam()->frameOut;
+    srcImgInfo.singleAlloc = true;
+    srcImgInfo.ptr[0] = (uint8_t *)dst->pixels;
+    srcImgInfo.pitch[0] = dst->pitch;
+
+    int cropFilterOutputNum = 0;
+    RGYFrameInfo *outInfo[1] = { &srcImgInfo };
+    RGYFrameInfo cropInput = *src;
+    auto sts_filter = m_srcCrop->filter(&cropInput, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, stream);
+    if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
+        AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_srcCrop->name().c_str());
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
+        AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_srcCrop->name().c_str());
+        return sts_filter;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterNvvfxFrameGeneration::genFrame(RGYFrameInfo *outFrame, const RGYFrameInfo *frameProp,
+    int frameIndex, int multiplier,
+    int64_t genPts, int64_t genDuration, cudaStream_t stream) {
+    // setting FrameMultiplier resets FrameIndex,
+    // so the per-output selector has to be set after the multiplier every time.
+    auto err = err_to_rgy(NvVFX_SetU32(m_effect.get(), NVVFXVIDEOFRAMEGENERATION_FRAME_MULTIPLIER, (uint32_t)multiplier));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to set parameter %s to %d: %s.\n"), NVVFXVIDEOFRAMEGENERATION_FRAME_MULTIPLIER, multiplier, get_err_mes(err));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    err = err_to_rgy(NvVFX_SetU32(m_effect.get(), NVVFXVIDEOFRAMEGENERATION_FRAME_INDEX, (uint32_t)frameIndex));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to set parameter %s to %d: %s.\n"), NVVFXVIDEOFRAMEGENERATION_FRAME_INDEX, frameIndex, get_err_mes(err));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    err = err_to_rgy(NvVFX_Run(m_effect.get(), 0));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to run filter: %s.\n"), get_err_mes(err));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    {
+        RGYFrameInfo dstImgInfo = m_dstCrop->GetFilterParam()->frameIn;
+        dstImgInfo.singleAlloc = true;
+        dstImgInfo.ptr[0] = (uint8_t *)m_dstImg->pixels;
+        dstImgInfo.pitch[0] = m_dstImg->pitch;
+        RGYFrameInfo *outInfo[1] = { outFrame };
+        int outFrameNum = 1;
+        auto sts_filter = m_dstCrop->filter(&dstImgInfo, outInfo, &outFrameNum, stream);
+        if (outInfo[0] == nullptr || outFrameNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_dstCrop->name().c_str());
+            return sts_filter;
+        }
+        if (sts_filter != RGY_ERR_NONE || outFrameNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_dstCrop->name().c_str());
+            return sts_filter;
+        }
+    }
+    copyFramePropWithoutRes(outFrame, frameProp);
+    outFrame->timestamp = genPts;
+    outFrame->duration  = genDuration;
+    return RGY_ERR_NONE;
+}
+#endif // #if ENABLE_NVVFX
+
+RGY_ERR NVEncFilterNvvfxFrameGeneration::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+    RGY_ERR sts = RGY_ERR_NONE;
+#if !ENABLE_NVVFX
+    AddMessage(RGY_LOG_ERROR, _T("nvvfx filters is not supported on x86 exec file, please use x64 exec file.\n"));
+    return RGY_ERR_UNSUPPORTED;
+#else
+    if (pInputFrame->ptr[0] == nullptr) {
+        return sts;
+    }
+    auto prm = dynamic_cast<NVEncFilterParamNvvfxFrameGen*>(m_param.get());
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    // multiplier mode (2 - 8) generates (multiplier - 1) intermediate frames per input pair.
+    const int multiplier   = prm->nvvfxFrameGen.multiplier;
+    const int nGenFrames   = multiplier - 1;
+
+    *pOutputFrameNum = 0;
+
+    // Pass the input frame through unchanged. Used for the very first frame (which cannot be
+    // interpolated yet) and for the current frame of each interpolated pair.
+    auto emitPassthrough = [&](int64_t timestamp, int64_t duration) -> RGY_ERR {
+        auto outFrame = getNextOutFrame(ppOutputFrames, pOutputFrameNum);
+        if (!outFrame) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate output frame.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        auto stsCopy = copyFrameAsync(outFrame, pInputFrame, stream);
+        if (stsCopy != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame: %s.\n"), get_err_mes(stsCopy));
+            return stsCopy;
+        }
+        copyFramePropWithoutRes(outFrame, pInputFrame);
+        outFrame->timestamp = timestamp;
+        outFrame->duration  = duration;
+        return RGY_ERR_NONE;
+    };
+
+    if (m_inputFrames++ == 0) {
+        sts = convertToNvCVImage(pInputFrame, m_prevImg.get(), stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_prevTimestamp = (int64_t)pInputFrame->timestamp;
+        // The first frame cannot be interpolated yet, but it must not keep the whole input
+        // frame duration either: the generated frames that follow share the same input frame
+        // interval, so the first output frame only covers the first output interval.
+        const int64_t firstDuration = (int64_t)pInputFrame->duration / multiplier;
+        return emitPassthrough((int64_t)pInputFrame->timestamp, firstDuration);
+    }
+
+    sts = convertToNvCVImage(pInputFrame, m_srcImg.get(), stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    const int64_t prevTs = m_prevTimestamp;
+    const int64_t currTs = (int64_t)pInputFrame->timestamp;
+    const int64_t tsDiff = currTs - prevTs;
+    int64_t lastPts = prevTs;
+
+    // generate the intermediate frames
+    for (int i = 1; i <= nGenFrames; i++) {
+        const int64_t genPts = prevTs + (tsDiff * i) / multiplier;
+        auto outFrame = getNextOutFrame(ppOutputFrames, pOutputFrameNum);
+        if (!outFrame) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate output frame.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        sts = genFrame(outFrame, pInputFrame, i, multiplier,
+            genPts, genPts - lastPts, stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        lastPts = genPts;
+    }
+
+    // then the current frame itself
+    sts = emitPassthrough(currTs, currTs - lastPts);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    // Keep the current frame as the previous frame of the next iteration. This converts the same
+    // input a second time rather than swapping m_srcImg/m_prevImg, because both images are bound
+    // to the effect through NvVFX_SetImage() and re-binding them after NvVFX_Load() is not a
+    // documented operation.
+    sts = convertToNvCVImage(pInputFrame, m_prevImg.get(), stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    m_prevTimestamp = currTs;
+    return RGY_ERR_NONE;
+#endif
+}

@@ -1913,6 +1913,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
 - [--vpp-nvvfx-denoise](#--vpp-nvvfx-denoise-param1value1param2value2)
 - [--vpp-nvvfx-artifact-reduction](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
+- [--vpp-nvvfx-framegen](#--vpp-nvvfx-framegen-param1value1param2value2)
 - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
 - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
 - [--vpp-bm3d](#--vpp-bm3d-param1value1param2value2)
@@ -2861,6 +2862,36 @@ Please download and install [Video Effect models and runtime dependencies](https
 
     - 1  
       Results stronger effect, suitable for lower bitrate videos.
+
+### --vpp-nvvfx-framegen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Video Frame Generation (VFG) filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA-Maxine/Maxine-VFX-SDK), which is supported on  x64 version only.
+This synthesizes intermediate frames between two consecutive frames, increasing the frame rate of the output video.
+
+This filter is supported on Ada Gen GPU (RTX40xx) or later.
+Please download and install [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources) to use this filter.
+
+- **parameters**
+  - mode=&lt;string&gt;
+    - low  
+      Selects the lowest-complexity model.
+
+    - medium (default)  
+      Selects the balanced model.
+
+    - high  
+      Selects the highest-complexity model.
+
+  - multiplier=&lt;int&gt;  (default=2, 2-8)  
+    Specifies how many frames are output for each input frame.
+    2 - 8 generates (multiplier - 1) frames between each input frame pair,
+    so the output frame rate is multiplied by the specified value.
+
+  - autoshotchange=&lt;bool&gt;  (default=true)  
+    Enables automatic shot change detection. When a shot change is detected,
+    interpolation is bypassed and the current frame is copied instead.
+
+Note that this filter changes the number of frames, so it should not be combined
+with other filters which also change the number of frames, such as --vpp-fruc.
 
 ### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 

@@ -350,6 +350,16 @@ tstring encoder_help() {
             _T("      mode=<int>            0 ... conservative (default)\n")
             _T("                            1 ... aggressive \n"));
         str += strsprintf(_T("\n")
+            _T("   --vpp-nvvfx-framegen [<param1>=<value>][,<param2>=<value>][...]\n")
+            _T("     enable nvvfx video frame generation (VFG) filter.\n")
+            _T("     requires Ada GPUs (CC:8.9) or later.\n")
+            _T("    params\n")
+            _T("      mode=<string>         low, medium (default), high\n")
+            _T("      multiplier=<int>      2 - 8 (default = 2)\n")
+            _T("                            generates (multiplier - 1) frames\n")
+            _T("                            between each input frame pair.\n")
+            _T("      autoshotchange=<bool> enable automatic shot change detection (default = true).\n"));
+        str += strsprintf(_T("\n")
             _T("   --vpp-nvvfx-model-dir <string> set directory which has nxxmfx models.\n"));
     }
     if (ENABLE_NVSDKNGX) {
