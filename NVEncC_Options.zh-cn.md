@@ -158,7 +158,7 @@
     - [--video-tag  \<string\>](#--video-tag--string)
     - [--video-metadata \<string\> or \<string\>=\<string\>](#--video-metadata-string-or-stringstring)
     - [--avcodec-prms \<string\>](#--avcodec-prms-string)
-    - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
+    - [--audio-copy \[\<int/string\>\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
     - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
     - [--audio-encode-other-codec-only](#--audio-encode-other-codec-only)
     - [--audio-bitrate \[\<int/string\>?\]\<int\> or \[\<int/string\>?\]\<string\>:\<int\>\[,\<string\>:\<int\>\]\[,...\]](#--audio-bitrate-intstringint-or-intstringstringintstringint)
@@ -181,7 +181,7 @@
     - [--key-on-chapter](#--key-on-chapter)
     - [--keyfile \<string\>](#--keyfile-string)
     - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>...\]/\[\]...\]](#--sub-source-stringintparam1value1)
-    - [--sub-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
+    - [--sub-copy \[\<int/string\>\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
     - [--sub-codec \[\[\<int/string\>?\]\<string\>\]](#--sub-codec-intstringstring)
     - [--sub-disposition \[\<int/string\>?\]\<string\>](#--sub-disposition-intstringstring)
     - [--sub-metadata \[\<int/string\>?\]\<string\> or \[\<int/string\>?\]\<string\>=\<string\>](#--sub-metadata-intstringstring-or-intstringstringstring)
@@ -1345,7 +1345,7 @@ avhw 读取器的限制：该选项使用时间戳将帧从解码顺序重排为
   -c av_libvpx-vp9 --avcodec-prms crf=30,b=0,cpu-used=2
   ```
 
-### --audio-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
+### --audio-copy [&lt;int/string&gt;[,&lt;int/string&gt;]...]
 
 将音频轨复制到输出文件。仅当使用 avhw / avsw 读取器时有效。
 
@@ -1766,7 +1766,7 @@ matroska格式 (utf-8)
 例2: --sub-source "<sub_file>:disposition=default,forced;metadata=language=chs"
   ```
 
-### --sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
+### --sub-copy [&lt;int/string&gt;[,&lt;int/string&gt;]...]
 
 从输入文件复制字幕轨。仅当使用 avhw / avsw 读取器时有效。
 
@@ -2215,7 +2215,7 @@ vpp过滤器的应用顺序是固定的，与命令行的顺序无关，将按�
 
     - exposure=&lt;float&gt;   (0.0 - 10.0, 默认: 1.0)  
       应用的线性曝光/增益。
-  - metadata=&lt;int&gt;  
+  - metadata=&lt;string&gt;  
     色调映射所使用的数据来源。
     ```
     any, none, hdr10, hdr10plus, cie_y
@@ -2696,7 +2696,7 @@ Bwdif 反交错滤镜。
     - bff
       按下场优先处理。
   - deint=&lt;all|interlaced&gt;  
-    要反交错的帧。默认：all。`interlaced` 会直接透传未标记为交错语的帧。
+    要反交错的帧。默认：all。`interlaced` 会直接透传未标记为交错的帧。
   - thr=&lt;float&gt;  
     运动检测阈值。默认 0.0（0.0 - 100.0）。
 
@@ -2854,6 +2854,7 @@ Decomb 反交错滤镜。
 
 - k1=&lt;float&gt;、k2=&lt;float&gt;：径向畸变系数。
 - cx=&lt;float&gt;、cy=&lt;float&gt;：以归一化图像坐标表示的校正中心（默认：0.5）。
+- vignette=&lt;float&gt;：角落亮度，角落处的增益为 1+vignette。正值消除暗角衰减，负值增加暗角衰减（默认：0.0，范围 -1.0 - 4.0）。
 
 ```
 --vpp-lenscorrection k1=-0.20,k2=0.04
@@ -4661,6 +4662,8 @@ NVEnc 和 HWEnc-onnx-models 的发布压缩包中均不包含 ST-DeInt 或 DDD �
     已注册的 RIFE v4.x 模型名或 ONNX 模型路径（必需）。指定 `--vpp-onnx-model-dir` 时，可使用 `rife_ov_models.json` 中的名称，如 `rife_v4_6`。为兼容性，包含 `/`、`\\` 或 `.` 的值按直接路径处理。
   - multi=&lt;int&gt; （默认：2，最小值：2）  
     帧率倍率。
+  - fps=&lt;int&gt; 或 &lt;num&gt;/&lt;den&gt;  
+    以比率或小数指定目标帧率。与 multi 同时指定时，fps 优先。
   - device=&lt;string&gt; （默认：GPU.0）  
     为跨编码器兼容性而接受；NVEnc 使用自己选定的 CUDA 设备。
   - colormatrix=&lt;string&gt; （默认：auto）  

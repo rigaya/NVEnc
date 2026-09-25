@@ -153,7 +153,7 @@
   - [--video-tag \<string\>](#--video-tag-string)
   - [--video-metadata \[\<int\>?\]\<string\> or \[\<int\>?\]\<string\>=\<string\>](#--video-metadata-intstring-or-intstringstring)
   - [--avcodec-prms \<string\>](#--avcodec-prms-string)
-  - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
+  - [--audio-copy \[\<int/string\>\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
   - [--audio-encode-other-codec-only](#--audio-encode-other-codec-only)
   - [--audio-bitrate \[\<int/string\>?\]\<int\> or \[\<int/string\>?\]\<string\>:\<int\>\[,\<string\>:\<int\>\]\[,...\]](#--audio-bitrate-intstringint-or-intstringstringintstringint)
@@ -176,7 +176,7 @@
   - [--key-on-chapter](#--key-on-chapter)
   - [--keyfile \<string\>](#--keyfile-string)
   - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--sub-source-stringintparam1value1)
-  - [--sub-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
+  - [--sub-copy \[\<int/string\>\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
   - [--sub-codec \[\[\<int/string\>?\]\<string\>\]](#--sub-codec-intstringstring)
   - [--sub-disposition \[\<int/string\>?\]\<string\>\[,\<string\>\]\[\]...](#--sub-disposition-intstringstringstring)
   - [--sub-metadata \[\<int/string\>?\]\<string\> or \[\<int/string\>?\]\<string\>=\<string\>](#--sub-metadata-intstringstring-or-intstringstringstring)
@@ -1300,7 +1300,7 @@ avcodec映像エンコーダのパラメータをkey=value形式でカンマ区�
   -c av_libvpx-vp9 --avcodec-prms crf=30,b=0,cpu-used=2
   ```
 
-### --audio-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
+### --audio-copy [&lt;int/string&gt;[,&lt;int/string&gt;]...]
 音声をそのままコピーしながら映像とともに出力する。avhw/avswリーダー使用時のみ有効。
 
 tsなどでエラーが出るなどしてうまく動作しない場合は、[--audio-codec](#--audio-codec-intstring)で一度エンコードしたほうが安定動作するかもしれない。
@@ -1701,7 +1701,7 @@ nero形式、apple形式、matroska形式に対応する。--chapter-copyとは�
   例2: --sub-source "<sub_file>:disposition=default,forced;metadata=language=jpn"
   ```
 
-### --sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
+### --sub-copy [&lt;int/string&gt;[,&lt;int/string&gt;]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。
 
 [&lt;int&gt;[,&lt;int&gt;]...]で、抽出する字幕トラック(1,2,...)を指定したり、[&lt;string&gt;[,&lt;string&gt;]...]で指定した言語の字幕トラックをコピーすることもできる。
@@ -2156,7 +2156,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 
     - exposure=&lt;float&gt;   (0.0 - 10.0, デフォルト: 1.0)  
       適用される線形露出/ゲイン。
-  - metadata=&lt;int&gt;  
+  - metadata=&lt;string&gt;  
     トーンマッピングに使用するデータソース。
     ```
     any, none, hdr10, hdr10plus, cie_y
@@ -2822,6 +2822,7 @@ Brown-Conrady の放射歪み係数でレンズ歪みを補正します。
 
 - k1=&lt;float&gt;, k2=&lt;float&gt;: 放射歪み係数。
 - cx=&lt;float&gt;, cy=&lt;float&gt;: 補正中心を画像幅・高さに対する 0.0 - 1.0 で指定します (デフォルト: 0.5)。
+- vignette=&lt;float&gt;: 隅の明るさ補正。隅のゲインは 1+vignette になる。正の値は減衰を除去し、負の値は減衰を追加します (デフォルト: 0.0、範囲: -1.0 - 4.0)。
 
 ```
 --vpp-lenscorrection k1=-0.20,k2=0.04
@@ -4639,6 +4640,8 @@ ONNX Runtime CUDA/TensorRTでRIFE v4.x ONNXモデルを実行するフレーム�
     登録済みRIFE v4.xモデル名、またはONNXモデルのパス (必須)。`--vpp-onnx-model-dir` 指定時は、`rife_ov_models.json` の `rife_v4_6` のようなモデル名を使用できる。互換性のため、`/`、`\\`、`.` を含む値は直接パスとして扱う。
   - multi=&lt;int&gt; (デフォルト: 2、範囲: 2以上)  
     フレームレート倍率。
+  - fps=&lt;int&gt; または &lt;num&gt;/&lt;den&gt;  
+    目標フレームレートを比率または小数で指定する。multi と同時に指定された場合は fps が優先される。
   - device=&lt;string&gt; (デフォルト: GPU.0)  
     エンコーダ間の互換性のため受け付ける。NVEncでは選択済みのCUDAデバイスを使用する。
   - colormatrix=&lt;string&gt; (デフォルト: auto)  
