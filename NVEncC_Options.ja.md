@@ -88,6 +88,7 @@
   - [--bref-mode \<string\>](#--bref-mode-string)
   - [--temporal-layers \<int\>](#--temporal-layers-int)
   - [--direct \<string\> \[H.264\]](#--direct-string-h264)
+  - [--(no-)adapt-transform \[H.264\]](#--no-adapt-transform-h264)
   - [--hierarchial-p \[H.264\]](#--hierarchial-p-h264)
   - [--hierarchial-b \[H.264\]](#--hierarchial-b-h264)
   - [--mv-precision \<string\>](#--mv-precision-string)
@@ -207,13 +208,13 @@
   - [--vpp-rff](#--vpp-rff)
   - [--vpp-afs \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nnedi-param1value1param2value2)
-  - [--vpp-rtgmc [\<param1\>=\<value1\>]](#--vpp-rtgmc-param1value1)
-  - [--vpp-rtgmc-bob [\<param1\>=\<value1\>]](#--vpp-rtgmc-bob-param1value1)
-  - [--vpp-rtgmc-search-prefilter [\<param1\>=\<value1\>]](#--vpp-rtgmc-search-prefilter-param1value1)
-  - [--vpp-rtgmc-edi [\<param1\>=\<value1\>]](#--vpp-rtgmc-edi-param1value1)
-  - [--vpp-rtgmc-retouch [\<param1\>=\<value1\>]](#--vpp-rtgmc-retouch-param1value1)
-  - [--vpp-rtgmc-shimmer-repair [\<param1\>=\<value1\>]](#--vpp-rtgmc-shimmer-repair-param1value1)
-  - [--vpp-rtgmc-primitive [\<param1\>=\<value1\>]](#--vpp-rtgmc-primitive-param1value1)
+  - [--vpp-rtgmc \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-param1value1)
+  - [--vpp-rtgmc-bob \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-bob-param1value1)
+  - [--vpp-rtgmc-search-prefilter \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-search-prefilter-param1value1)
+  - [--vpp-rtgmc-edi \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-edi-param1value1)
+  - [--vpp-rtgmc-retouch \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-retouch-param1value1)
+  - [--vpp-rtgmc-shimmer-repair \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-shimmer-repair-param1value1)
+  - [--vpp-rtgmc-primitive \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-primitive-param1value1)
   - [--vpp-kfm \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-kfm-param1value1param2value2)
   - [--vpp-yadif \[\<param1\>=\<value1\>\]](#--vpp-yadif-param1value1)
   - [--vpp-bwdif \[\<param1\>=\<value1\>\]](#--vpp-bwdif-param1value1)
@@ -224,8 +225,11 @@
   - [--vpp-select-every \<int\>\[,\<param1\>=\<int\>\]](#--vpp-select-every-intparam1int)
   - [--vpp-rotate \<int\>](#--vpp-rotate-int)
   - [--vpp-transform \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-transform-param1value1param2value2)
+  - [--vpp-lenscorrection \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-lenscorrection-param1value1param2value2)
+  - [--vpp-v360 \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-v360-param1value1param2value2)
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-nvvfx-denoise \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-denoise-param1value1param2value2)
+  - [--vpp-nvvfx-framegen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-framegen-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
   - [--vpp-msmooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
@@ -851,6 +855,9 @@ H.264のBDirect modeを指定する。
 - spatial
 - temporal
 
+### --(no-)adapt-transform [H.264]
+H.264のadaptive transform modeを有効(無効)にする。
+
 ### --hierarchial-p [H.264]
 H.264のhierarchial Pフレームを有効にする。
 
@@ -1274,7 +1281,7 @@ y4m出力の各FRAME行に、ストリーム先頭を0秒とする表示時刻�
   --video-metadata 1?clear
   
   例3: 指定のmetadataを設定する
-  --video-metadata 1?title="音声の タイトル" --video-metadata 1?language=jpn
+  --video-metadata 1?title="映像の タイトル" --video-metadata 1?language=jpn
   ```
 
 ### --avcodec-prms &lt;string&gt;
@@ -1711,7 +1718,7 @@ nero形式、apple形式、matroska形式に対応する。--chapter-copyとは�
   例: 字幕トラック #1と#2をコピー
   --sub-copy 1,2
   
-  例: 日本語と英語の音声トラックを抽出
+  例: 日本語と英語の字幕トラックをコピー
   --sub-copy jpn,eng
 
   例: 字幕トラック#1を除外してコピー
@@ -1911,6 +1918,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
 - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
 - [--vpp-bm3d](#--vpp-bm3d-param1value1param2value2)
+- [--vpp-fft3d](#--vpp-fft3d-param1value1param2value2)
 - [--vpp-knn](#--vpp-knn-param1value1param2value2)
 - [--vpp-nlmeans](#--vpp-nlmeans-param1value1param2value2)
 - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
@@ -1947,7 +1955,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-padding](#--vpp-pad-intintintint)
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
-- [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
+- [--vpp-fruc](#--vpp-fruc-param1value1param2value2)
 - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 - [--vpp-onnx-deint](#--vpp-onnx-deint-param1value1param2value2)

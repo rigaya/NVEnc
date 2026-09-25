@@ -1002,7 +1002,6 @@ av1 :  auto, main, high
 设置编码器 tier。
 ```
 hevc:  main, high
-av1 :  0, 1
 ```
 
 ### --sar &lt;int&gt;:&lt;int&gt;

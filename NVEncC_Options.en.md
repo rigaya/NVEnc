@@ -228,8 +228,11 @@
   - [--vpp-select-every \<int\>\[,\<param1\>=\<int\>\]](#--vpp-select-every-intparam1int)
   - [--vpp-rotate \<int\>](#--vpp-rotate-int)
   - [--vpp-transform \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-transform-param1value1param2value2)
+  - [--vpp-lenscorrection \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-lenscorrection-param1value1param2value2)
+  - [--vpp-v360 \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-v360-param1value1param2value2)
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-nvvfx-denoise \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-denoise-param1value1param2value2)
+  - [--vpp-nvvfx-framegen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-framegen-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
   - [--vpp-msmooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
@@ -285,7 +288,7 @@
   - [--cuda-stream \<int\>](#--cuda-stream-int)
   - [--cuda-mt \<int\>](#--cuda-mt-int)
   - [--disable-nvml \<int\>](#--disable-nvml-int)
-  - [--disable-nvml](#--disable-nvml)
+  - [--disable-dx11](#--disable-dx11)
   - [--output-buf \<int\>](#--output-buf-int)
   - [--output-thread \<int\>](#--output-thread-int)
   - [--log \<string\>](#--log-string)
@@ -523,7 +526,7 @@ Read VapourSynth script file using vpy reader.
 Read input file using avformat + libavcodec's sw decoder. The optional parameter will set decoder name to be used, otherwise decoder will be selected automatically.
 
 ### --avhw
-Read input file using avformat + QSV hw decoder. Using this mode will provide maximum performance,
+Read input file using avformat + NVDEC/CUVID hw decoder. Using this mode will provide maximum performance,
 since entire transcode process will be run on the GPU.
 
 **Codecs supported by avhw reader**  
@@ -1952,7 +1955,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-padding](#--vpp-pad-intintintint)
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
-- [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
+- [--vpp-fruc](#--vpp-fruc-param1value1param2value2)
 - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 - [--vpp-onnx-deint](#--vpp-onnx-deint-param1value1param2value2)
@@ -4168,6 +4171,9 @@ Overlay image on top of base video.
   
   - lumakey_softness=&lt;float&gt; (default: 0.0 (0.0 - 1.0))  
     set the range of softness for lumakey.
+  
+  - loop=&lt;bool&gt; (default=false)  
+    loop the overlay file if it is a video shorter than the base video.
 
 - Example:
   ```
@@ -4690,7 +4696,7 @@ Disable NVML GPU monitoring。
   - 2
     Always disable NVML.
 
-### --disable-nvml
+### --disable-dx11
 Skip DX11 initilization. NGX and libplacebo filters cannot be used with this option.
 
 ### --output-buf &lt;int&gt;
