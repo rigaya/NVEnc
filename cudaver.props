@@ -71,12 +71,13 @@
     <NVRTC_BUILTIN_DLL_NAME>nvrtc-builtins64_102.dll</NVRTC_BUILTIN_DLL_NAME>
     <NPPI_DLL_NAME>nppc64_10.dll</NPPI_DLL_NAME>
   </PropertyGroup>
+  <!-- CUDA 11系ではKepler向けSASSも埋め込み、R470が扱えない新しいPTXのJITを回避する。 -->
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_0)'" >
     <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>0</CUDA_MINOR_VER>
     <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
-    <CUDA_CODE_GEN>compute_35,compute_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75</CUDA_CODE_GEN>
+    <CUDA_CODE_GEN>compute_35,compute_35;compute_35,sm_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_110_0.dll</NVRTC_DLL_NAME>
     <NVRTC_BUILTIN_DLL_NAME>nvrtc-builtins64_110.dll</NVRTC_BUILTIN_DLL_NAME>
     <NPPI_DLL_NAME>nppc64_11.dll</NPPI_DLL_NAME>
@@ -86,7 +87,7 @@
     <CUDA_MINOR_VER>1</CUDA_MINOR_VER>
     <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
-    <CUDA_CODE_GEN>compute_35,compute_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+    <CUDA_CODE_GEN>compute_35,compute_35;compute_35,sm_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_111_0.dll</NVRTC_DLL_NAME>
     <NVRTC_BUILTIN_DLL_NAME>nvrtc-builtins64_111.dll</NVRTC_BUILTIN_DLL_NAME>
     <NPPI_DLL_NAME>nppc64_11.dll</NPPI_DLL_NAME>
@@ -96,7 +97,7 @@
     <CUDA_MINOR_VER>2</CUDA_MINOR_VER>
     <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
-    <CUDA_CODE_GEN>compute_35,compute_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+    <CUDA_CODE_GEN>compute_35,compute_35;compute_35,sm_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
     <NVRTC_BUILTIN_DLL_NAME>nvrtc-builtins64_112.dll</NVRTC_BUILTIN_DLL_NAME>
     <NPPI_DLL_NAME>nppc64_11.dll</NPPI_DLL_NAME>
@@ -106,7 +107,7 @@
     <CUDA_MINOR_VER>3</CUDA_MINOR_VER>
     <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
-    <CUDA_CODE_GEN>compute_35,compute_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+    <CUDA_CODE_GEN>compute_35,compute_35;compute_35,sm_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
     <NVRTC_BUILTIN_DLL_NAME>nvrtc-builtins64_113.dll</NVRTC_BUILTIN_DLL_NAME>
     <NPPI_DLL_NAME>nppc64_11.dll</NPPI_DLL_NAME>
@@ -116,7 +117,7 @@
     <CUDA_MINOR_VER>4</CUDA_MINOR_VER>
     <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
-    <CUDA_CODE_GEN>compute_35,compute_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+    <CUDA_CODE_GEN>compute_35,compute_35;compute_35,sm_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
     <NVRTC_BUILTIN_DLL_NAME>nvrtc-builtins64_114.dll</NVRTC_BUILTIN_DLL_NAME>
     <NPPI_DLL_NAME>nppc64_11.dll</NPPI_DLL_NAME>
@@ -126,7 +127,7 @@
     <CUDA_MINOR_VER>5</CUDA_MINOR_VER>
     <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
-    <CUDA_CODE_GEN>compute_35,compute_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+    <CUDA_CODE_GEN>compute_35,compute_35;compute_35,sm_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
     <NVRTC_BUILTIN_DLL_NAME>nvrtc-builtins64_115.dll</NVRTC_BUILTIN_DLL_NAME>
     <NPPI_DLL_NAME>nppc64_11.dll</NPPI_DLL_NAME>
@@ -136,7 +137,7 @@
     <CUDA_MINOR_VER>6</CUDA_MINOR_VER>
     <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
-    <CUDA_CODE_GEN>compute_35,compute_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+    <CUDA_CODE_GEN>compute_35,compute_35;compute_35,sm_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
     <NVRTC_BUILTIN_DLL_NAME>nvrtc-builtins64_116.dll</NVRTC_BUILTIN_DLL_NAME>
     <NPPI_DLL_NAME>nppc64_11.dll</NPPI_DLL_NAME>
@@ -146,7 +147,7 @@
     <CUDA_MINOR_VER>7</CUDA_MINOR_VER>
     <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
-    <CUDA_CODE_GEN>compute_35,compute_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+    <CUDA_CODE_GEN>compute_35,compute_35;compute_35,sm_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
     <NVRTC_BUILTIN_DLL_NAME>nvrtc-builtins64_117.dll</NVRTC_BUILTIN_DLL_NAME>
     <NPPI_DLL_NAME>nppc64_11.dll</NPPI_DLL_NAME>
@@ -156,7 +157,7 @@
     <CUDA_MINOR_VER>8</CUDA_MINOR_VER>
     <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
-    <CUDA_CODE_GEN>compute_35,compute_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+    <CUDA_CODE_GEN>compute_35,compute_35;compute_35,sm_35;compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
     <NVRTC_BUILTIN_DLL_NAME>nvrtc-builtins64_118.dll</NVRTC_BUILTIN_DLL_NAME>
     <NPPI_DLL_NAME>nppc64_11.dll</NPPI_DLL_NAME>

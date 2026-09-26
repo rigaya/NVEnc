@@ -112,6 +112,12 @@ else
     gpu_code_gen += ['--generate-code', 'arch=compute_30,code=[compute_30,sm_30]']
   endif
 
+  # Keplerの最終ドライバR470では新しいPTXをJITできないため、SASSも埋め込む。
+  # CUDA 12以降ではKepler向けコード生成が削除されている。
+  if cuda_ver_major <= 11
+    gpu_code_gen += ['--generate-code', 'arch=compute_35,code=[compute_35,sm_35]']
+  endif
+
   # CUDA 12以下: compute_50, compute_61追加
   if cuda_ver_major <= 12
     gpu_code_gen += ['--generate-code', 'arch=compute_50,code=[compute_50,sm_50]']
