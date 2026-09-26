@@ -373,12 +373,15 @@ __global__ void kernel_afs_analyze_12(
     ptr_dst += (imgy-4) * si_pitch_int + imgx;
 
     //前の4ライン分、計算しておく
-    //sharedの SHARED_Y-4 ～ SHARED_Y-1 を埋める
-    if (ly < 4) {
-        //正方向に4行先読みする
-        ptr_shared[shared_int_idx(0, ly, 0)] = CALL_ANALYZE_Y(src_p0y, src_p1y, 0);
-        ptr_shared[shared_int_idx(0, ly, 1)] = CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, 0);
-        ptr_shared[shared_int_idx(0, ly, 2)] = CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, 0);
+    //sharedの SHARED_Y-4 ～ SHARED_Y-1 (ブロック直前の4行) と、0 ～ 3 (ブロック先頭の4行) を埋める
+    //generate_flags(ly) は ly-3 ～ ly を参照するため、ブロック直前の4行が未設定だと、
+    //未初期化のsharedメモリを読んでブロック境界 (128行ごと) の判定が不定になる
+    for (int iy = ly; iy < 8; iy += BLOCK_Y) {
+        const int y_offset = iy - ly - 4; //ブロック先頭からの相対位置 -4 ～ 3
+        const bool in_frame = imgy + y_offset >= 0; //フレーム上端より上は判定なし(0)とする
+        ptr_shared[shared_int_idx(0, iy-4, 0)] = (in_frame) ? CALL_ANALYZE_Y(src_p0y, src_p1y, y_offset) : 0;
+        ptr_shared[shared_int_idx(0, iy-4, 1)] = (in_frame) ? CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, y_offset) : 0;
+        ptr_shared[shared_int_idx(0, iy-4, 2)] = (in_frame) ? CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, y_offset) : 0;
     }
 
     for (int iloop = 0; iloop <= BLOCK_LOOP_Y; iloop++,
