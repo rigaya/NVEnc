@@ -1764,7 +1764,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
         if (input_prm->ppAudioSelect[i]->encCodec.length() > 0
             && !avcodecIsCopy(input_prm->ppAudioSelect[i]->encCodec)) {
-            audioLog += strsprintf(_T("bitrate %d"), encbitrate_to_string(input_prm->ppAudioSelect[i]->encBitrate).c_str());
+            audioLog += strsprintf(_T("bitrate %s"), encbitrate_to_string(input_prm->ppAudioSelect[i]->encBitrate).c_str());
         }
         if (input_prm->ppAudioSelect[i]->extractFilename.length() > 0) {
             audioLog += tstring(_T("filename \"")) + input_prm->ppAudioSelect[i]->extractFilename + tstring(_T("\""));
