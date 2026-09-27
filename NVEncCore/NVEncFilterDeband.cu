@@ -485,7 +485,10 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         pDebandParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
-    bool resChanged = cmpFrameInfoCspResolution(&m_RandUV.frame, &pDebandParam->frameOut);
+    //乱数バッファはY/UVとも1画素あたり4byte(RGB32)で確保する (kernel_gen_randは4byte/画素で書き込む)
+    RGYFrameInfo randBufFrame = pDebandParam->frameOut;
+    randBufFrame.csp = RGY_CSP_RGB32;
+    bool resChanged = cmpFrameInfoCspResolution(&m_RandUV.frame, &randBufFrame);
     if (resChanged) {
         m_RandY.frame.width = pDebandParam->frameOut.width;
         m_RandY.frame.height = pDebandParam->frameOut.height;
@@ -509,7 +512,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
         m_RandUV.frame.picstruct = pDebandParam->frameOut.picstruct;
         m_RandUV.frame.mem_type = pDebandParam->frameOut.mem_type;
-        m_RandUV.frame.csp = pDebandParam->frameOut.csp;
+        m_RandUV.frame.csp = RGY_CSP_RGB32;
         m_RandUV.clear();
         sts = m_RandUV.alloc();
         if (sts != RGY_ERR_NONE) {
