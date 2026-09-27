@@ -1,5 +1,24 @@
 # NVEnc Release Notes
 
+## 9.36
+
+- Update to VFX SDK 1.3, and rearrange NVVFX / NGX related filters.
+  - Extend `ngx-vsr` in [--vpp-resize](./NVEncC_Options.en.md#--vpp-resize-string-or-param1value1param2value2). ( #796 ) by @cyj98
+    - Add VFX SDK 1.2 quality modes 8-19.
+    - Add VFX SDK 1.3 streaming modes 21/23 and `vsr-strength`.
+    - Map the former `nvvfx-superres` to `ngx-vsr`.
+  - Add frame interpolation filter [--vpp-nvvfx-framegen](./NVEncC_Options.en.md#--vpp-nvvfx-framegen-param1value1param2value2). ( #801 ) by @cyj98
+  - Remove `--vpp-nvvfx-artifact-reduction`, which is removed from VFX SDK.
+  - Update [--vpp-nvvfx-denoise](./NVEncC_Options.en.md#--vpp-nvvfx-denoise-param1value1param2value2) to VFX SDK 1.3, new additional modules and models are required.
+    - As the module and model size is quite large, they are in seperate archive [NVEncNVVFXDenoise_20260925_x64.7z](https://github.com/rigaya/NVEnc/releases/download/9.35/NVEncNVVFXDenoise_20260925_x64.7z).
+  - Update the bundled NGX DLL to the VFX SDK 1.3 build.
+- Fix [--frames](./NVEncC_Options.en.md#--frames-int) with [--trim](./NVEncC_Options.en.md#--trim-intintintintintint) reading an empty trim list just after initialization.
+- Fix out-of-bounds write at the row end in [--vpp-tweak](./NVEncC_Options.en.md#--vpp-tweak-param1value1param2value2).
+- Fix non-determinism in [--vpp-afs](./NVEncC_Options.en.md#--vpp-afs-param1value1param2value2).
+- Embed Kepler SASS as well, avoiding JIT of newer PTX that R470 cannot handle.
+- Fix pixel format conversion.
+- Update zh-cn.md docs and fix incorrect ja/en.md docs. ( #803 ) by @cyj98
+
 ## 9.35
 
 - Add RFF support to [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) `mode=24/60`.

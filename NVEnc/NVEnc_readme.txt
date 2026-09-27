@@ -214,6 +214,25 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2026.09.26 (9.36)
+- VFX SDK 1.3 に更新し、NGX/NVVFX系フィルタを整理。
+  - --vpp-resizeのngx-vsrを拡張。 ( #796 )
+    - VFX SDK 1.2のqualityモード8-19に対応。
+    - VFX SDK 1.3のstreamingモード21/23とvsr-strengthに対応。
+    - 旧nvvfx-superresをngx-vsrへ移行。
+  - フレーム補間フィルタを追加。(--vpp-nvvfx-framegen) ( #801 )
+  - VFX SDKから削除された--vpp-nvvfx-artifact-reductionを廃止。
+  - --vpp-nvvfx-denoiseもVFX SDK 1.3に更新。
+    - モジュールとモデルサイズが大きいので、別途下記追加パッケージが必要。
+      https://github.com/rigaya/NVEnc/releases/download/9.35/NVEncNVVFXDenoise_20260925_x64.7z
+- 同梱のNGX DLLをVFX SDK 1.3対応版に更新。
+- --framesと--trimを同時に指定したときに、初期化直後の空のtrimリストを参照していた問題を修正。
+- --vpp-tweakの行末越境書き込みを修正。
+- --vpp-afsの非決定性を修正。
+- 画素フォーマット変換の不具合を修正。
+- Kepler向けSASSも埋め込み、R470が扱えない新しいPTXのJITを回避。
+- 中国語のドキュメントの更新と日本語/英語ドキュメントの問題点を修正。( #803 )
+
 2026.09.11 (9.35)
 - --vpp-kfmのmode=24/60のRFF対応。
 - NVMLのバージョン付きAPIを優先してロードし、ロード対象を.so.1にも拡大。( #795 )
