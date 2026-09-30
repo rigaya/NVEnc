@@ -1252,10 +1252,10 @@ static void RGY_FORCEINLINE copy_yuv444_to_ayuv444(void **dst, const void **src,
             __m128i pixAY1 = _mm_unpackhi_epi8(pixY, _mm_setzero_si128());
             __m128i pixUV0 = _mm_unpacklo_epi8(pixV, pixU);
             __m128i pixUV1 = _mm_unpackhi_epi8(pixV, pixU);
-            __m128i pixVUYA0 = _mm_unpacklo_epi16(pixAY0, pixUV0);
-            __m128i pixVUYA1 = _mm_unpackhi_epi16(pixAY0, pixUV0);
-            __m128i pixVUYA2 = _mm_unpacklo_epi16(pixAY1, pixUV1);
-            __m128i pixVUYA3 = _mm_unpackhi_epi16(pixAY1, pixUV1);
+            __m128i pixVUYA0 = _mm_unpacklo_epi16(pixUV0, pixAY0);
+            __m128i pixVUYA1 = _mm_unpackhi_epi16(pixUV0, pixAY0);
+            __m128i pixVUYA2 = _mm_unpacklo_epi16(pixUV1, pixAY1);
+            __m128i pixVUYA3 = _mm_unpackhi_epi16(pixUV1, pixAY1);
 
             _mm_storeu_si128((__m128i *)(dst_ptr +  0), pixVUYA0);
             _mm_storeu_si128((__m128i *)(dst_ptr + 16), pixVUYA1);
@@ -1312,10 +1312,10 @@ static void RGY_FORCEINLINE copy_yuv444_high_to_ayuv444(void **dst, const void *
             __m128i pixAY1 = _mm_unpackhi_epi8(pixY, _mm_setzero_si128());
             __m128i pixUV0 = _mm_unpacklo_epi8(pixV, pixU);
             __m128i pixUV1 = _mm_unpackhi_epi8(pixV, pixU);
-            __m128i pixVUYA0 = _mm_unpacklo_epi16(pixAY0, pixUV0);
-            __m128i pixVUYA1 = _mm_unpackhi_epi16(pixAY0, pixUV0);
-            __m128i pixVUYA2 = _mm_unpacklo_epi16(pixAY1, pixUV1);
-            __m128i pixVUYA3 = _mm_unpackhi_epi16(pixAY1, pixUV1);
+            __m128i pixVUYA0 = _mm_unpacklo_epi16(pixUV0, pixAY0);
+            __m128i pixVUYA1 = _mm_unpackhi_epi16(pixUV0, pixAY0);
+            __m128i pixVUYA2 = _mm_unpacklo_epi16(pixUV1, pixAY1);
+            __m128i pixVUYA3 = _mm_unpackhi_epi16(pixUV1, pixAY1);
 
             _mm_storeu_si128((__m128i *)(dst_ptr + 0), pixVUYA0);
             _mm_storeu_si128((__m128i *)(dst_ptr + 16), pixVUYA1);
