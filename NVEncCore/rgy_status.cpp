@@ -459,11 +459,8 @@ void EncodeStatus::WriteResults() {
     WriteFrameTypeResult(_T("frame type B   "), m_sData.frameOutB, maxCount, m_sData.frameOutBSize, maxFrameSize, (m_sData.frameOutB && m_sData.frameOutBQPSum) ? m_sData.frameOutBQPSum / (double)m_sData.frameOutB : -1);
 }
 int64_t EncodeStatus::getStartTimeMicroSec() {
-#if defined(_WIN32) || defined(_WIN64)
+    // PROCESS_TIME::creation は Windows(FILETIME) / Linux(CLOCK_MONOTONIC) とも 100ns 単位に揃えている
     return m_sStartTime->creation / 10;
-#else
-    return (int)(m_sStartTime->creation * (double)(1e6 / CLOCKS_PER_SEC) + 0.5);
-#endif
 }
 bool EncodeStatus::getEncStarted() {
     return m_bEncStarted;

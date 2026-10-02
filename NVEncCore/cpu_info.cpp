@@ -946,13 +946,22 @@ BOOL GetProcessTime(HANDLE hProcess, PROCESS_TIME *time) {
         && GetProcessTimes(hProcess, (FILETIME *)&time->creation, (FILETIME *)&time->exit, (FILETIME *)&time->kernel, (FILETIME *)&time->user)
         && (WAIT_OBJECT_0 == WaitForSingleObject(hProcess, 0) || SystemTimeToFileTime(&systime, (FILETIME *)&time->exit)));
 #else //#if defined(_WIN32) || defined(_WIN64)
-    struct tms tm;
-    times(&tm);
-    time->exit = time->creation;
-    time->creation = clock();
-    time->kernel = tm.tms_stime;
-    time->user = tm.tms_utime;
-    return 0;
+    // hProcess は Windows 用の引数。Linux では自プロセス分しか取得できないため使わない。
+    (void)hProcess;
+    struct rusage usage = { 0 };
+    struct timespec wall = { 0 };
+    if (getrusage(RUSAGE_SELF, &usage) != 0
+        || clock_gettime(CLOCK_MONOTONIC, &wall) != 0) {
+        return FALSE;
+    }
+    // Windows の FILETIME と同じ 100ns 単位に揃える。
+    // 意味も Windows の GetProcessTimes と揃え、creation/exit は実時間、kernel/user はプロセスCPU時間(全スレッド合計)とする。
+    // 従来は clock() (＝プロセスCPU時間) を実時間代わりに使っており、経過実時間にならず CPU 使用率が算出できなかった。
+    // CLOCK_MONOTONIC は起点が異なる絶対時刻ではないが、差分(経過実時間)と開始時刻にしか使わないため問題にならない。
+    time->exit = time->creation = (uint64_t)wall.tv_sec * 10000000ull + (uint64_t)wall.tv_nsec / 100ull;
+    time->user = ((uint64_t)usage.ru_utime.tv_sec * 1000000ull + usage.ru_utime.tv_usec) * 10ull;
+    time->kernel = ((uint64_t)usage.ru_stime.tv_sec * 1000000ull + usage.ru_stime.tv_usec) * 10ull;
+    return TRUE;
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
@@ -968,12 +977,22 @@ double GetProcessAvgCPUUsage(HANDLE hProcess, PROCESS_TIME *start) {
     PROCESS_TIME current = { 0 };
     cpu_info_t cpu_info;
     double result = 0;
-    if (NULL != hProcess
+#if defined(_WIN32) || defined(_WIN64)
+    const BOOL hProcessValid = (NULL != hProcess);
+#else
+    // Linux 版 GetProcessTime は hProcess を使わないため NULL でも自プロセスを取得できる
+    const BOOL hProcessValid = TRUE;
+#endif
+    if (hProcessValid
         && get_cpu_info(&cpu_info)
         && GetProcessTime(hProcess, &current)) {
         uint64_t current_total_time = current.kernel + current.user;
         uint64_t start_total_time = (nullptr == start) ? 0 : start->kernel + start->user;
-        result = (current_total_time - start_total_time) * 100.0 / (double)(cpu_info.logical_cores * (current.exit - ((nullptr == start) ? current.creation : start->exit)));
+        uint64_t elapsed_time = current.exit - ((nullptr == start) ? current.creation : start->exit);
+        // Linux では start 無しでは経過実時間を出せないため 0 除算を避けて 0 を返す
+        if (elapsed_time > 0 && cpu_info.logical_cores > 0) {
+            result = (current_total_time - start_total_time) * 100.0 / (double)(cpu_info.logical_cores * elapsed_time);
+        }
     }
     return result;
 }

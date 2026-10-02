@@ -665,7 +665,15 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_luid = prm->luid;
     m_pid = GetCurrentProcessId();
 
+#if defined(_WIN32) || defined(_WIN64)
     m_nCreateTime100ns = (int64_t)(clock() * (1e7 / CLOCKS_PER_SEC) + 0.5);
+#else
+    // 実時間基準として CLOCK_MONOTONIC を 100ns 単位で保持する。
+    // 従来は clock() (＝プロセスCPU時間) を使っており、CPU使用率・fps_avg・IO速度が実時間基準になっていなかった。
+    struct timespec ts_create = { 0 };
+    clock_gettime(CLOCK_MONOTONIC, &ts_create);
+    m_nCreateTime100ns = (int64_t)ts_create.tv_sec * 10000000ll + (int64_t)ts_create.tv_nsec / 100ll;
+#endif
     m_sMonitorFilename = filename;
     m_nInterval = interval;
     m_nSelectOutputPlot = nSelectOutputPlot;
@@ -927,7 +935,9 @@ void CPerfMonitor::check() {
     getrusage(RUSAGE_SELF, &usage);
 
     //現在時間
-    uint64_t current_time = clock() * (1e7 / CLOCKS_PER_SEC);
+    struct timespec ts_now = { 0 };
+    clock_gettime(CLOCK_MONOTONIC, &ts_now);
+    uint64_t current_time = (uint64_t)ts_now.tv_sec * 10000000ull + (uint64_t)ts_now.tv_nsec / 100ull;
 
     std::string proc_dir = strsprintf("/proc/%d/", (int)getpid());
     //メモリ情報
