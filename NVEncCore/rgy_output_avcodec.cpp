@@ -255,6 +255,7 @@ AVMuxAudio::AVMuxAudio() :
     outputSampleOffset(0),
     outputSamples(0),
     lastPtsIn(0),
+    lastPtsAnchor(AV_NOPTS_VALUE),
     lastPtsOut(0),
     fpTsLogFile() {
 
@@ -3802,13 +3803,14 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
     const AVRational samplerate = { 1, (muxAudio->outCodecEncodeCtx) ? muxAudio->outCodecEncodeCtx->sample_rate : muxAudio->streamIn->codecpar->sample_rate };
     const bool ptsInvalid = pkt->pts == AV_NOPTS_VALUE;
     bool ptsEstimated = false;
+    //2020年のTrueHD対応(#177)と同様に、基準PTSからの累積サンプル数を一度だけ丸める。
+    //推定PTSを次の基準にすると、40/48000秒が毎回1msに丸められて音声が伸びる(#805)。
+    //2026年6月の対応で必要になった前パケットPTSの更新は、単調性確認用に別途維持する。
     const auto estimateAudioPts = [&]() {
-        if (muxAudio->lastPtsOut == AV_NOPTS_VALUE) {
-            muxAudio->outputSampleOffset = 0;
+        if (muxAudio->lastPtsAnchor == AV_NOPTS_VALUE) {
             return (int64_t)0;
         }
-        muxAudio->outputSampleOffset += samples;
-        return muxAudio->lastPtsOut + av_rescale_q(muxAudio->outputSampleOffset, samplerate, muxAudio->streamOut->time_base);
+        return muxAudio->lastPtsAnchor + av_rescale_q(muxAudio->outputSampleOffset, samplerate, muxAudio->streamOut->time_base);
     };
     if (!muxAudio->outCodecEncodeCtx) {
         if (samples > 0) {
@@ -3831,7 +3833,8 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
             pkt->pts = av_rescale_q(pkt->pts, muxAudio->outCodecEncodeCtx->time_base, muxAudio->streamOut->time_base);
         }
     }
-    if (m_Mux.video.streamOut && m_Mux.video.inputFirstKeyPts != 0 && !m_Mux.format.timestampPassThrough) {
+    //推定PTSは出力時刻なので、映像開始位置の補正を重ねない。
+    if (!ptsEstimated && m_Mux.video.streamOut && m_Mux.video.inputFirstKeyPts != 0 && !m_Mux.format.timestampPassThrough) {
         pkt->pts -= av_rescale_q(m_Mux.video.inputFirstKeyPts, m_Mux.video.inputStreamTimebase, muxAudio->streamOut->time_base);
     }
     if (muxAudio->lastPtsOut != AV_NOPTS_VALUE) {
@@ -3860,8 +3863,16 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
         pkt->duration = (int)(pkt->pts - muxAudio->lastPtsOut);
     }
     if (!ptsInvalid || ptsEstimated) {
+        if (!ptsInvalid || muxAudio->lastPtsAnchor == AV_NOPTS_VALUE) {
+            //実PTSが来たときだけ基準と累積値を更新し、推定中は基準を動かさない。
+            //ただし先頭からPTSが欠ける場合は、2026年6月対応の0開始を維持するため
+            //最初の推定PTSを仮の基準にする。以降は真のPTSが来るまで累積して進める。
+            muxAudio->lastPtsAnchor = pkt->pts;
+            muxAudio->outputSampleOffset = 0;
+        }
+        //次のパケットの開始時刻には、今回のパケットのサンプル数を加える。
+        muxAudio->outputSampleOffset += samples;
         muxAudio->lastPtsOut = pkt->pts;
-        muxAudio->outputSampleOffset = 0;
     }
     *writtenDts = av_rescale_q(pkt->dts, muxAudio->streamOut->time_base, QUEUE_DTS_TIMEBASE);
     if (*writtenDts != AV_NOPTS_VALUE) {

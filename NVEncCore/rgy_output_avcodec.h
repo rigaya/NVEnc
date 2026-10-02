@@ -225,6 +225,7 @@ struct AVMuxAudio {
     int64_t               outputSampleOffset;   //出力音声のptsがAV_NOPTS_VALUEの補正用
     int64_t               outputSamples;        //出力音声の出力済みsample数
     int64_t               lastPtsIn;            //入力音声の前パケットのpts (input stream timebase)
+    int64_t               lastPtsAnchor;        //欠損PTSの推定基準となる出力時刻
     int64_t               lastPtsOut;           //出力音声の前パケットのpts
 
     std::unique_ptr<FILE, fp_deleter> fpTsLogFile; //mux timestampログファイル
