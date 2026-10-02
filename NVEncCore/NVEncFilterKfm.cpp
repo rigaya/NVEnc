@@ -704,7 +704,13 @@ RGY_ERR NVEncFilterKfm::KfmRtgmcLane::cacheFrame(const RGYFrameInfo *frame, cuda
     }
 
     if (m_owner && (m_rtgmc == m_owner->m_before60Rtgmc.get() || m_rtgmc == m_owner->m_after60Rtgmc.get()) && frame->inputFrameId >= 0) {
-        const int frameN60Base = frame->inputFrameId * 2;
+        // trim後の入力番号は内部のsourceIndexと異なり、複数区間では途中でも飛ぶ。
+        const auto *source = m_owner->findSourceByFrame(frame);
+        if (!source) {
+            m_owner->AddMessage(RGY_LOG_ERROR, _T("KFM UCFの元フレームが見つかりません: inputFrameId=%d。\n"), frame->inputFrameId);
+            return RGY_ERR_INVALID_CALL;
+        }
+        const int frameN60Base = source->sourceIndex * 2;
         if (m_submittedFrames < frameN60Base || m_submittedFrames > frameN60Base + 1) {
             m_submittedFrames = frameN60Base;
         }
@@ -2725,27 +2731,32 @@ RGY_ERR NVEncFilterKfm::drainDeint60Branch(cudaStream_t stream, int *cachedFrame
     return m_deint60Lane.drain(stream, maxDrainIterations, cachedFrames);
 }
 
-const RGYFrameInfo *NVEncFilterKfm::findSourceFrame(const RGYFrameInfo *frame, std::vector<RGYCudaEvent> *wait_events) {
+const NVEncFilterKfm::KfmCachedSource *NVEncFilterKfm::findSourceByFrame(const RGYFrameInfo *frame) const {
     if (!frame) {
         return nullptr;
     }
     for (auto it = m_sourceCache.rbegin(); it != m_sourceCache.rend(); ++it) {
         if (it->inputFrameId == frame->inputFrameId && it->timestamp == frame->timestamp) {
-            if (wait_events && it->event() != nullptr) {
-                wait_events->push_back(it->event);
-            }
-            return &it->frame->frame;
+            return &(*it);
         }
     }
     for (auto it = m_sourceCache.rbegin(); it != m_sourceCache.rend(); ++it) {
         if (it->inputFrameId == frame->inputFrameId) {
-            if (wait_events && it->event() != nullptr) {
-                wait_events->push_back(it->event);
-            }
-            return &it->frame->frame;
+            return &(*it);
         }
     }
     return nullptr;
+}
+
+const RGYFrameInfo *NVEncFilterKfm::findSourceFrame(const RGYFrameInfo *frame, std::vector<RGYCudaEvent> *wait_events) {
+    const auto *source = findSourceByFrame(frame);
+    if (!source) {
+        return nullptr;
+    }
+    if (wait_events && source->event() != nullptr) {
+        wait_events->push_back(source->event);
+    }
+    return &source->frame->frame;
 }
 
 const NVEncFilterKfm::KfmCachedSource *NVEncFilterKfm::findSourceByIndex(int sourceIndex) const {
@@ -5654,21 +5665,7 @@ RGY_ERR NVEncFilterKfm::processMainRtgmcOutputs(const NVEncFilterParamKfm& prm, 
         mergeWaitEvents.push_back(staticEvent);
     }
     for (int i = 0; i < rtgmcOutNum; i++) {
-        const KfmCachedSource *sourceEntry = nullptr;
-        for (auto it = m_sourceCache.rbegin(); it != m_sourceCache.rend(); ++it) {
-            if (it->inputFrameId == rtgmcOutFrames[i]->inputFrameId && it->timestamp == rtgmcOutFrames[i]->timestamp) {
-                sourceEntry = &(*it);
-                break;
-            }
-        }
-        if (!sourceEntry) {
-            for (auto it = m_sourceCache.rbegin(); it != m_sourceCache.rend(); ++it) {
-                if (it->inputFrameId == rtgmcOutFrames[i]->inputFrameId) {
-                    sourceEntry = &(*it);
-                    break;
-                }
-            }
-        }
+        const auto *sourceEntry = findSourceByFrame(rtgmcOutFrames[i]);
         if (!sourceEntry || !sourceEntry->frame || !sourceEntry->frame->frame.ptr[0]) {
             AddMessage(RGY_LOG_ERROR, _T("KFM source frame is missing for output inputFrameId=%d.\n"), rtgmcOutFrames[i]->inputFrameId);
             return RGY_ERR_INVALID_CALL;
