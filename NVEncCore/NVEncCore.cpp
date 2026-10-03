@@ -1407,6 +1407,12 @@ NVENCSTATUS NVEncCore::FlushEncoder() {
 }
 
 RGY_ERR NVEncCore::Deinitialize() {
+    //下流の解放キューが生存している間にデコーダを停止し、サーフェスの所有者は逆順解放まで保持する
+    for (auto& task : m_pipelineTasks) {
+        if (task->taskType() == PipelineTaskType::NVDEC) {
+            static_cast<PipelineTaskNVDecode *>(task.get())->closeThread();
+        }
+    }
     m_pipelineTasks.clear();
     m_videoQualityMetric.reset();
     m_dovirpu.reset();
@@ -6586,6 +6592,12 @@ RGY_ERR NVEncCore::Encode() {
 
     //この中でフレームの解放がなされる
     PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks and allocated frames...\n"));
+    //下流の解放キューが生存している間にデコーダを停止し、サーフェスの所有者は逆順解放まで保持する
+    for (auto& task : m_pipelineTasks) {
+        if (task->taskType() == PipelineTaskType::NVDEC) {
+            static_cast<PipelineTaskNVDecode *>(task.get())->closeThread();
+        }
+    }
     // 依存関係があるため、m_pipelineTasksを後ろから解放する
     for (auto it = m_pipelineTasks.rbegin(); it != m_pipelineTasks.rend(); ++it) {
         it->reset();
