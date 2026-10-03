@@ -479,6 +479,10 @@ void EncodeStatus::addChildStatus(const std::pair<double, RGYParallelEncodeStatu
     m_childStatus.push_back(encStatus);
 }
 
+void EncodeStatus::clearChildStatus() {
+    m_childStatus.clear();
+}
+
 void EncodeStatus::WriteResultLine(const TCHAR *mes) {
     if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE_RESULT) > RGY_LOG_INFO) {
         return;

@@ -658,6 +658,8 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_r
         if (m_encProcess.size() > 0) {
             m_encProcess.back()->sendEndPts(-1);
         }
+        //子処理の破棄前に、親の進捗表示からの参照を解除する
+        encStatus->clearChildStatus();
         m_encProcess.clear();
         prm->ctrl.parallelEnc.parallelCount = 0;
         prm->ctrl.parallelEnc.parallelId = -1;

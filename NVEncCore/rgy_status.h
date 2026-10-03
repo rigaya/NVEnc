@@ -112,6 +112,7 @@ public:
     bool getEncStarted();
     virtual void SetPrivData(void *pPrivateData);
     void addChildStatus(const std::pair<double, RGYParallelEncodeStatusData*>& encStatus);  // 親側で子エンコーダの担当割合と進捗表示共有クラスへのポインタ (実体はRGYParallelEncProcess::m_sendData::encStatus)を追加
+    void clearChildStatus(); //並列初期化失敗時に子の進捗情報への参照を解除する
     EncodeStatusData GetEncodeData();
     EncodeStatusData m_sData;
 protected:
