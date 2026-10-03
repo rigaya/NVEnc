@@ -1,5 +1,15 @@
 # NVEnc Release Notes
 
+## 9.37
+
+- Fix accumulated rounding error in TrueHD [--audio-copy](./NVEncC_Options.en.md#--audio-copy-intstringintstring) that caused audio desync. ( #805 )
+- Fix a race when reinitializing [--audio-filter](./NVEncC_Options.en.md#--audio-filter-intstringstring).
+- Fix non-deterministic results in [--vpp-deband](./NVEncC_Options.en.md#--vpp-deband-param1value1param2value2).
+- Fix a crash when [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) `ucf=on` is used with [--trim](./NVEncC_Options.en.md#--trim-intintintintintint).
+- Improve CPU usage acquisition on Linux.
+- Fix a possible crash at the end of encode.
+- Fix a possible crash when [--parallel](./NVEncC_Options.en.md#--parallel-int-or-string) initialization fails.
+
 ## 9.36
 
 - Update to VFX SDK 1.3, and rearrange NVVFX / NGX related filters.
