@@ -1468,6 +1468,9 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, co
 
             //filterをclose
             avfilter_graph_free(&muxAudio->filterGraph);
+            //グラフごと解放されるので、ダングリングポインタを残さない
+            muxAudio->filterBufferSrcCtx = nullptr;
+            muxAudio->filterBufferSinkCtx = nullptr;
         }
         muxAudio->filterInChannels      = channels;
         muxAudio->filterInChannelLayout = std::move(channel_layout_next);
@@ -4028,6 +4031,9 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
         AVMuxAudio *muxAudio = pktData.muxAudio;
         if (pktData.muxAudio->filterGraph == nullptr) {
             //フィルタリングなし
+            if (pktData.frame) {
+                pktData.frame->time_base = av_make_q(1, pktData.frame->sample_rate);
+            }
             outputFrames.push_back(pktData);
         } else {
             const bool flush = pktData.frame == nullptr;
@@ -4068,6 +4074,8 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
                 }
                 AVPktMuxData pktFiltered = pktData;
                 pktFiltered.samples = filteredFrame->nb_samples;
+                //再初期化前のフレームも固有のtimebaseを保持し、エンコード側からグラフを参照しない
+                filteredFrame->time_base = av_buffersink_get_time_base(muxAudio->filterBufferSinkCtx);
                 pktFiltered.frame = filteredFrame.release();
                 outputFrames.push_back(pktFiltered);
             }
@@ -4096,10 +4104,12 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioEncodeFrame(AVMuxAudio *muxAudio, AV
 
     if (frame) {
         //エンコーダのtimebaseに変換
-        const auto timebase_filter = (muxAudio->filterGraph)
-            ? av_buffersink_get_time_base(muxAudio->filterBufferSinkCtx)
-            : av_make_q(1, muxAudio->outCodecDecodeCtx->sample_rate);
+        //処理スレッドがフレームに設定したtimebaseを使い、共有フィルタグラフへのアクセスを避ける
+        const auto timebase_filter = (frame->time_base.num > 0 && frame->time_base.den > 0)
+            ? frame->time_base
+            : av_make_q(1, frame->sample_rate);
         frame->pts = av_rescale_q(frame->pts, timebase_filter, muxAudio->outCodecEncodeCtx->time_base);
+        frame->time_base = muxAudio->outCodecEncodeCtx->time_base;
     }
     int ret = avcodec_send_frame(muxAudio->outCodecEncodeCtx, frame);
     if (ret == AVERROR_EOF) {
