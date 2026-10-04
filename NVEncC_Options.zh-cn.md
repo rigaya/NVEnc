@@ -3453,6 +3453,7 @@ npp dll可以在[这里](https://github.com/rigaya/NVEnc/releases/tag/8.01) (npp
       | jinc256        | EWA Jinc 插值 (radius=8)                             |
       | nis            | NVIDIA Image Scaling 1.0.3                                 |
       | fsr1           | AMD FidelityFX Super Resolution 1.0 (EASU + RCAS)          |
+      | dpid           | 保留细节的缩小算法                                         |
 
       - fsr1 的追加参数
 
@@ -3469,6 +3470,11 @@ npp dll可以在[这里](https://github.com/rigaya/NVEnc/releases/tag/8.01) (npp
           NIS 的锐化频带: auto、sdr、pq。
         - b=&lt;float&gt;, c=&lt;float&gt;  
           bicubic 的 Mitchell-Netravali B/C 系数。(default B=0.0, C=0.6)
+
+      - dpid 的追加参数
+
+        - dpid_lambda=&lt;float&gt; (默认=1.0, 0.0 - 4.0)  
+          控制保留与 footprint 平均值不同的像素的强度。数值越大，越倾向保留突出的细节；0.0 与 area 缩小等效。dpid 适用于缩小；若某个轴被放大，结果可能接近最近邻。
 
     - [npp](https://developer.nvidia.com/npp) 库的缩放过滤器
 
@@ -3586,6 +3592,9 @@ npp dll可以在[这里](https://github.com/rigaya/NVEnc/releases/tag/8.01) (npp
 
   例: 使用 jinc144
   --vpp-resize algo=jinc144
+
+  示例：缩小时保留细节
+  --vpp-resize algo=dpid,dpid_lambda=1.5
   ```
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

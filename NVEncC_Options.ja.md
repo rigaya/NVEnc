@@ -3430,6 +3430,7 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
       | jinc256       | EWA Jinc補間 (radius=8)                     |
       | nis           | NVIDIA Image Scaling 1.0.3                  |
       | fsr1          | AMD FidelityFX Super Resolution 1.0 (EASU + RCAS) |
+      | dpid          | ディテールを保持する縮小フィルタ                       |
 
       - fsr1 の追加パラメータ
 
@@ -3446,6 +3447,11 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
           nis のシャープ化帯域。auto, sdr, pq。
         - b=&lt;float&gt;, c=&lt;float&gt;  
           bicubic の Mitchell-Netravali B/C 係数。(デフォルト B=0.0, C=0.6)
+
+      - dpid の追加パラメータ
+
+        - dpid_lambda=&lt;float&gt; (デフォルト=1.0, 0.0 - 4.0)  
+          フットプリント平均と異なる画素をどの程度強く残すかを指定する。値が大きいほど周囲と異なる細部を強く保持し、0.0 は area 縮小と同等。dpid は縮小向けで、拡大する軸ではニアレストネイバーに近い結果になる場合がある。
 
     - nppライブラリのリサイズフィルタ
  
@@ -3563,6 +3569,9 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
 
   例: jinc144を使用する
   --vpp-resize algo=jinc144
+
+  例: 縮小時に細部を保持する
+  --vpp-resize algo=dpid,dpid_lambda=1.5
   ```
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
