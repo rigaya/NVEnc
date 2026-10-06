@@ -941,7 +941,7 @@ void CPerfMonitor::check() {
 
     std::string proc_dir = strsprintf("/proc/%d/", (int)getpid());
     //メモリ情報
-    FILE *fp_mem = popen((std::string("cat ") + proc_dir + std::string("status")).c_str(), "r");
+    FILE *fp_mem = fopen((proc_dir + "status").c_str(), "r");
     if (fp_mem) {
         char buffer[2048] = { 0 };
         while (NULL != fgets(buffer, _countof(buffer), fp_mem)) {
@@ -957,10 +957,10 @@ void CPerfMonitor::check() {
                 }
             }
         }
-        pclose(fp_mem);
+        fclose(fp_mem);
     }
-    //IO情報
-    FILE *fp_io = popen((std::string("cat ") + proc_dir + std::string("io")).c_str(), "r");
+    //IO情報。カーネル設定などにより存在しない場合は、前回の値を維持する。
+    FILE *fp_io = fopen((proc_dir + "io").c_str(), "r");
     if (fp_io) {
         char buffer[2048] = { 0 };
         while (NULL != fgets(buffer, _countof(buffer), fp_io)) {
@@ -976,7 +976,7 @@ void CPerfMonitor::check() {
                 }
             }
         }
-        pclose(fp_io);
+        fclose(fp_io);
     }
 
     //CPU情報
