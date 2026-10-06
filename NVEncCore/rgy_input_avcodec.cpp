@@ -1737,7 +1737,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     } else {
         m_readerName = _T("avsw");
     }
-    m_seek = std::pair<float, float>(0.0f, 0.0f);
+    m_seek = std::pair<float, double>(0.0f, 0.0);
     m_Demux.video.readVideo = input_prm->readVideo;
     m_Demux.video.hevcbsf = input_prm->hevcbsf;
     m_Demux.thread.queueInfo = input_prm->queueInfo;
@@ -2821,11 +2821,12 @@ bool RGYInputAvcodec::checkTimeSeekTo(int64_t pts, rgy_rational<int> timebase, f
     const AVRational vid_pkt_timebase = (m_Demux.video.stream) ? m_Demux.video.stream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
     // seektoは動画の先頭(最初のキーフレーム)からの時刻、--seekしていない場合はstreamFirstKeyPtsが先頭
     const int64_t vid_first_pts = (m_seek.first > 0.0f) ? m_Demux.video.beforeSeekStreamFirstKeyPts : m_Demux.video.streamFirstKeyPts;
-    // floatで比較すると、seektoちょうどのフレームが誤差で範囲内と判定されることがあるので、整数で比較する
-    const int64_t seekto_pts = vid_first_pts
-        + av_rescale_q(1, av_d2q(m_seek.second, 1<<24), vid_pkt_timebase)
-        + av_rescale_q(1, av_d2q(marginSec, 1<<24), vid_pkt_timebase);
-    return av_compare_ts(pts, AVRational{ timebase.n(), timebase.d() }, seekto_pts, vid_pkt_timebase) < 0;
+    // 映像の粗いtimebaseへ丸めると、25fpsのAVIではseekto=0.09が0.08秒になり、終端前のフレームまで落ちる。
+    // 終了時刻はdoubleで保持し、終端ちょうどのフレームを含めないよう各時刻をマイクロ秒の整数に揃える。
+    const int64_t seekto_pts = av_rescale_q(vid_first_pts, vid_pkt_timebase, AV_TIME_BASE_Q)
+        + av_rescale_q(1, av_d2q(m_seek.second, 1<<24), AV_TIME_BASE_Q)
+        + av_rescale_q(1, av_d2q(marginSec, 1<<24), AV_TIME_BASE_Q);
+    return av_rescale_q(pts, AVRational{ timebase.n(), timebase.d() }, AV_TIME_BASE_Q) < seekto_pts;
 }
 
 bool RGYInputAvcodec::checkTimeSeekTo(int64_t pts, AVRational timebase, float marginSec) {

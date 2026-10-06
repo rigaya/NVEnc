@@ -11197,10 +11197,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         i++;
         int ret = 0;
         int hh = 0, mm = 0;
-        float sec = 0.0f;
-        if (   3 != (ret = _stscanf_s(strInput[i], _T("%d:%d:%f"),    &hh, &mm, &sec))
-            && 2 != (ret = _stscanf_s(strInput[i],    _T("%d:%f"),         &mm, &sec))
-            && 1 != (ret = _stscanf_s(strInput[i],       _T("%f"),              &sec))) {
+        double sec = 0.0;
+        if (   3 != (ret = _stscanf_s(strInput[i], _T("%d:%d:%lf"),    &hh, &mm, &sec))
+            && 2 != (ret = _stscanf_s(strInput[i],    _T("%d:%lf"),         &mm, &sec))
+            && 1 != (ret = _stscanf_s(strInput[i],       _T("%lf"),              &sec))) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
@@ -11226,7 +11226,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         if (seekTo) {
             common->seekToSec = sec + mm * 60;
         } else {
-            common->seekSec = sec + mm * 60;
+            common->seekSec = (float)sec + mm * 60;
         }
         return 0;
     }

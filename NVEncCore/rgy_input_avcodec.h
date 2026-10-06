@@ -870,7 +870,7 @@ public:
     int            procSpeedLimit;          //プリデコードする場合の処理速度制限 (0で制限なし)
     float          seekRatio;               //指定された割合に頭出しする
     float          seekSec;                 //指定された秒数分先頭を飛ばす
-    float          seekToSec;               //終了時刻(秒)
+    double         seekToSec;               //終了時刻(秒)
     tstring        logFramePosList;         //FramePosListの内容を入力終了時に出力する (デバッグ用)
     tstring        logCopyFrameData;        //frame情報copy関数のログ出力先 (デバッグ用)
     tstring        logPackets;              //読み込んだパケットの情報を出力する

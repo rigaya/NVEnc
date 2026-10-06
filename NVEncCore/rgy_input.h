@@ -352,7 +352,7 @@ protected:
     tstring m_inputInfo;
     tstring m_readerName;    //読み込みの名前
 
-    std::pair<float, float> m_seek;
+    std::pair<float, double> m_seek;
     sTrimParam m_trimParam;
     RGYPoolAVPacket *m_poolPkt; //AVPacketのpool
     RGYPoolAVFrame *m_poolFrame; //AVFrameのpool
