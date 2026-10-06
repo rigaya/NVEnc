@@ -1543,6 +1543,10 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+
+    // 実フレームだけでなく、後段フィルタと出力ヘッダへ渡す情報もプログレッシブにする。
+    prm->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
+
     if (prm->kfm.ucf) {
         AddMessage(RGY_LOG_INFO, _T("--vpp-kfm ucf=true enables the UCF debug field/crop noise pre-stage.\n"));
     }
