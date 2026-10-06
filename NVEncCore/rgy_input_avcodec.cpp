@@ -2330,6 +2330,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         //キーフレームに到達するまでQSVではフレームが出てこない
         //そのぶんのずれを記録しておき、Trim値などに補正をかける
         if (m_trimParam.offset) {
+            const bool trimSpecified = m_trimParam.list.size() > 0;
             for (int i = (int)m_trimParam.list.size() - 1; i >= 0; i--) {
                 if (m_trimParam.list[i].fin - m_trimParam.offset < 0) {
                     m_trimParam.list.erase(m_trimParam.list.begin() + i);
@@ -2339,6 +2340,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                         m_trimParam.list[i].fin = (std::max)(0, m_trimParam.list[i].fin - m_trimParam.offset);
                     }
                 }
+            }
+            //指定された範囲がすべてデコードできないフレーム(最初のキーフレームより前)だった場合、
+            //下のダミーの全域指定で全フレームをエンコードしてしまわないよう、エラーとする
+            if (trimSpecified && m_trimParam.list.size() == 0) {
+                AddMessage(RGY_LOG_ERROR, _T("all frames in the trim range are before the first keyframe and cannot be decoded (offset %d).\n"), m_trimParam.offset);
+                return RGY_ERR_INVALID_PARAM;
             }
             //ずれが存在し、範囲指定がない場合はダミーの全域指定を追加する
             //これにより、自動的に音声側との同期がとれるようになる
