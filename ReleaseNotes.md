@@ -1,5 +1,13 @@
 # NVEnc Release Notes
 
+## 9.38
+
+- Improve [--seek](./NVEncC_Options.en.md#--seek-intintintint) / [--seekto](./NVEncC_Options.en.md#--seekto-intintintint) accuracy on mpegts/mp4 input.
+- Fix [--ssim](./NVEncC_Options.en.md#--ssim) exceeding 1.0 on frame sizes with a remainder.
+- Fix frames being lost when an error occurs during pipeline flush.
+- Fix error logging when IO statistics are unavailable on Linux. ( #807 )
+- Document dpid parameters for [--vpp-resize](./NVEncC_Options.en.md#--vpp-resize-string-or-param1value1param2value2). ( #806 ) by @dajiaohuang
+
 ## 9.37
 
 - Fix accumulated rounding error in TrueHD [--audio-copy](./NVEncC_Options.en.md#--audio-copy-intstringintstring) that caused audio desync. ( #805 )
