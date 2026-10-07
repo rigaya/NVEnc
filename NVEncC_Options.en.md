@@ -3368,6 +3368,7 @@ Specify the resizing algorithm.
       | jinc256        | EWA Jinc resampling (radius=8)                             |
       | nis            | NVIDIA Image Scaling 1.0.3                                 |
       | fsr1           | AMD FidelityFX Super Resolution 1.0 (EASU + RCAS)          |
+      | dpid           | detail-preserving downscaling                             |
 
       - Additional parameters for fsr1
 
@@ -3384,6 +3385,11 @@ Specify the resizing algorithm.
           NIS sharpening band: auto, sdr, pq.
         - b=&lt;float&gt;, c=&lt;float&gt;  
           Mitchell-Netravali B/C coefficients for bicubic. (default B=0.0, C=0.6)
+
+      - Additional parameter for dpid
+
+        - dpid_lambda=&lt;float&gt; (default=1.0, 0.0 - 4.0)  
+          Controls how strongly pixels that differ from the footprint average are retained. Higher values preserve more distinct details; 0.0 is equivalent to area downscaling. DPID is intended for downscaling; an upscaled axis may look nearest-neighbor-like.
 
     - [npp](https://developer.nvidia.com/npp) library resize filters
 
@@ -3501,6 +3507,9 @@ Specify the resizing algorithm.
 
   Examples: Use jinc144
   --vpp-resize algo=jinc144
+
+  Example: preserve detail while downscaling
+  --vpp-resize algo=dpid,dpid_lambda=1.5
   ```
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
