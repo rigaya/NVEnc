@@ -256,6 +256,10 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
             paramList.push_back(paramsResizeNVEnc[ielem]);
         }
 
+        for (const auto* param : paramsResizeDpid) {
+            paramList.push_back(param);
+        }
+
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -373,6 +377,13 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
+                    continue;
+                }
+                // DPIDのパラメータは共通パーサーへ渡し、値の検証と設定を一元化する。
+                if (std::any_of(std::begin(paramsResizeDpid), std::end(paramsResizeDpid), [param_arg](const char* str) {
+                    return param_arg == char_to_tstring(str);
+                    })) {
+                    ret = -1;
                     continue;
                 }
                 if (ENABLE_LIBPLACEBO && std::find_if(paramListResizeLibPlacebo.begin(), paramListResizeLibPlacebo.end(), [param_arg](const std::string& str) {
