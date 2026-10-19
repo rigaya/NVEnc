@@ -91,20 +91,6 @@ static bool rtgmcInputTypeBlendEnabled(const VppRtgmc &rtgmc) {
     return (rtgmc.inputType == 2 || rtgmc.inputType == 3) && rtgmc.progSADMask > 0.0f;
 }
 
-static void eraseRtgmcInvalidSourceTwinFrameData(RGYFrameInfo *frame) {
-    if (!frame) {
-        return;
-    }
-    // SourceTwinは直後のANALYZEのzero-copyキャッシュでだけ使う（sourcePtr0一致時）。
-    // 以降もdataListの継承で残り、EDIやKFMの中間履歴経由でprefilterのcacheプールを保持し続ける（test1で254枚）。
-    // ptrが一致しない無効なものだけを外し、Analyze内部キャッシュの所有は維持する。
-    const auto sourcePtr0 = frame->ptr[0];
-    frame->dataList.erase(std::remove_if(frame->dataList.begin(), frame->dataList.end(), [sourcePtr0](const std::shared_ptr<RGYFrameData> &data) {
-        const auto twin = std::dynamic_pointer_cast<RGYFrameDataRtgmcSourceTwin>(data);
-        return twin && twin->sourcePtr0() != sourcePtr0;
-    }), frame->dataList.end());
-}
-
 static void eraseRtgmcUnusedSearchLumaFrameData(RGYFrameInfo *frame, const int sourceMatch,
     const std::array<const NVEncFilter *, 4>& consumers) {
     // source_match有効時は、別半径の入れ子解析がfallbackで探索画像を読む場合があるため残す。
@@ -2358,7 +2344,7 @@ RGY_ERR NVEncFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInput
 }
 
 void NVEncFilterRtgmc::eraseAnalyzeOutputUnusedFrameData(RGYFrameInfo *frame) {
-    eraseRtgmcInvalidSourceTwinFrameData(frame);
+    // CUDA探索前処理はSourceTwinを生成しないため、SearchLumaだけを判定する。
     const auto prm = std::dynamic_pointer_cast<NVEncFilterParamRtgmc>(m_param);
     if (prm) {
         eraseRtgmcUnusedSearchLumaFrameData(frame, prm->rtgmc.sourceMatch,
