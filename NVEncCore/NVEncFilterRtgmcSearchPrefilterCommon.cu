@@ -82,15 +82,9 @@ RGY_ERR launchRtgmcSearchPrefilterStabilizedSearchU16(
     return launchRtgmcSearchPrefilterStabilizedSearchTyped<uint16_t>(motionGuide, fieldGuide, spatialGuide, dst, fullRangeMode, stream);
 }
 
-RGY_ERR launchRtgmcSearchPrefilterRangeConvertU8(
-    const RGYFrameInfo &dst, const int fullRangeMode, cudaStream_t stream) {
-    return launchRtgmcSearchPrefilterRangeConvertTyped<uint8_t>(dst, fullRangeMode, stream);
-}
 
-RGY_ERR launchRtgmcSearchPrefilterRangeConvertU16(
-    const RGYFrameInfo &dst, const int fullRangeMode, cudaStream_t stream) {
-    return launchRtgmcSearchPrefilterRangeConvertTyped<uint16_t>(dst, fullRangeMode, stream);
-}
+
+
 
 // 4方向を各256スレッドで集約し、部分和をCPUへ読み戻さずに判定する。
 __global__ void kernel_rtgmc_search_prefilter_scenechange_reduce_cuda(
@@ -127,6 +121,12 @@ RGY_ERR launchRtgmcSearchPrefilterScenechangeReduce(uint32_t *state, const int g
 
 
 
+
+
+
+
+
+
 RGY_ERR launchRtgmcSearchPrefilterRepairTemporal(const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2, const RGYFrameInfo &tc, const RGYFrameInfo &delta, int tr0, const uint32_t *sceneFlags, cudaStream_t stream) {
     return (RGY_CSP_BIT_DEPTH[cur.csp] > 8)
         ? launchRtgmcSearchPrefilterRepairTemporalTyped<uint16_t>(prev2, prev, cur, next, next2, tc, delta, tr0, sceneFlags, stream)
@@ -143,4 +143,22 @@ RGY_ERR launchRtgmcSearchPrefilterRepairApply(const RGYFrameInfo &tc, const RGYF
     return (RGY_CSP_BIT_DEPTH[tc.csp] > 8)
         ? launchRtgmcSearchPrefilterRepairApplyTyped<uint16_t>(tc, delta, gatePos, gateNeg, gateHx, gateHy, dst, dstHx, dstHy, width, height, repairProfile, stream)
         : launchRtgmcSearchPrefilterRepairApplyTyped<uint8_t>(tc, delta, gatePos, gateNeg, gateHx, gateHy, dst, dstHx, dstHy, width, height, repairProfile, stream);
+}
+
+RGY_ERR launchRtgmcSearchPrefilterRepairCopy(const RGYFrameInfo &src, int srcHx, int srcHy, const RGYFrameInfo &dst, int fullRangeMode, int constantValue, cudaStream_t stream) {
+    return (RGY_CSP_BIT_DEPTH[dst.csp] > 8)
+        ? launchRtgmcSearchPrefilterRepairCopyTyped<uint16_t>(src, srcHx, srcHy, dst, fullRangeMode, constantValue, stream)
+        : launchRtgmcSearchPrefilterRepairCopyTyped<uint8_t>(src, srcHx, srcHy, dst, fullRangeMode, constantValue, stream);
+}
+
+RGY_ERR launchRtgmcSearchPrefilterRepairHalfSearch(bool smoothed, const RGYFrameInfo &fc, int fcHx, int fcHy, const RGYFrameInfo &dst, cudaStream_t stream) {
+    return (RGY_CSP_BIT_DEPTH[fc.csp] > 8)
+        ? launchRtgmcSearchPrefilterRepairHalfSearchTyped<uint16_t>(smoothed, fc, fcHx, fcHy, dst, stream)
+        : launchRtgmcSearchPrefilterRepairHalfSearchTyped<uint8_t>(smoothed, fc, fcHx, fcHy, dst, stream);
+}
+
+RGY_ERR launchRtgmcSearchPrefilterRepairLuma(const RGYFrameInfo &fc, int fcHx, int fcHy, const RGYFrameInfo &cur, const RGYFrameInfo &dst, int searchRefine, int fullRangeMode, cudaStream_t stream) {
+    return (RGY_CSP_BIT_DEPTH[cur.csp] > 8)
+        ? launchRtgmcSearchPrefilterRepairLumaTyped<uint16_t>(fc, fcHx, fcHy, cur, dst, searchRefine, fullRangeMode, stream)
+        : launchRtgmcSearchPrefilterRepairLumaTyped<uint8_t>(fc, fcHx, fcHy, cur, dst, searchRefine, fullRangeMode, stream);
 }

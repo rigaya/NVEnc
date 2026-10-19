@@ -211,6 +211,9 @@ protected:
     struct RepairPlaneResources {
         std::unique_ptr<CUFrameBuf> temporal;
         std::unique_ptr<CUFrameBuf> delta;
+        std::unique_ptr<CUFrameBuf> corrected;
+        int fcHx = 0;
+        int fcHy = 0;
         std::array<RepairPlane, 6> stages;
         int stageCount = 0;
         std::shared_ptr<cudaEvent_t> lastEvent;
@@ -220,6 +223,7 @@ protected:
             stageCount = 0;
             temporal.reset();
             delta.reset();
+            corrected.reset();
             for (auto &stage : stages) {
                 for (auto &frame : stage.polarity) frame.reset();
             }
@@ -279,7 +283,12 @@ protected:
         const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2, const RGYFrameInfo &dst,
         const NVEncFilterParamRtgmcSearchPrefilter &prm, const uint32_t *sceneFlags, cudaStream_t stream);
     RGY_ERR recordRepairUse(int planeIndex, RGY_ERR status, cudaStream_t stream);
-    bool useRepairMultipass(const NVEncFilterParamRtgmcSearchPrefilter &prm) const;
+    RGY_ERR emitRepairFC(int planeIndex, const RGYFrameInfo &prev2, const RGYFrameInfo &prev,
+        const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
+        const NVEncFilterParamRtgmcSearchPrefilter &prm, const uint32_t *sceneFlags, cudaStream_t stream);
+    RGY_ERR emitLumaSearch(int planeIndex, const RGYFrameInfo &prev2, const RGYFrameInfo &prev,
+        const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2, const RGYFrameInfo &dst,
+        const NVEncFilterParamRtgmcSearchPrefilter &prm, int fullRangeMode, const uint32_t *sceneFlags, cudaStream_t stream);
     RGY_ERR allocCacheFrames(const RGYFrameInfo &frameInfo);
     RGY_ERR setupSearchRefine1Resources(const RGYFrameInfo &frameInfo, bool processChroma);
     RGY_ERR setupSearchRefine2Resources(const RGYFrameInfo &frameInfo, bool processChroma);
@@ -322,7 +331,6 @@ protected:
     std::shared_ptr<SharedFramePool> m_cacheFramePool;
     std::shared_ptr<SharedFramePool> m_searchLumaPool;
     std::array<RepairPlaneResources, 2> m_repairPlaneResources;
-    bool m_repairLegacy = false;
     std::string m_buildOptions;
     std::ofstream m_searchLumaDump;
     std::string m_searchLumaDumpPath;
