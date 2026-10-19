@@ -538,6 +538,121 @@ __device__ int rtgmc_retouch_temporal_detail_guard_value(
     return clamp(srcPix, max(0, lower), min(maxVal, upper));
 }
 
+// 前後方向でブロック位置・重み・範囲判定を共有し、方向ごとの積算順序と丸めを維持する。
+template<typename TypePixel>
+__device__ __forceinline__ int2 rtgmcRetouchCompensateOverlapPixelValuePair(
+    const uint8_t *cur,
+    const int cur_pitch,
+    const uint8_t *refBack,
+    const uint8_t *refForw,
+    const int refDirectionBack,
+    const int refDirectionForw,
+    const int width,
+    const int height,
+    const RGYDegrainMV *mv,
+    const RGYDegrainSAD *sad,
+    const int blocksX,
+    const int blocksY,
+    const int blockSize,
+    const int overlap,
+    const int step,
+    const int coveredWidth,
+    const int coveredHeight,
+    const int planeScaleX,
+    const int planeScaleY,
+    const uint32_t thsad,
+    const uint32_t disableMask,
+    const float *windowRamp,
+    const int x,
+    const int y,
+    const int refs,
+    const int pel,
+    const int subpelInterp) {
+    const int fallback = degrainPixelLoad<TypePixel>(cur, cur_pitch, width, height, x, y);
+    const int scaleX = degrainPlaneScaleX(planeScaleX);
+    const int scaleY = degrainPlaneScaleY(planeScaleY);
+    const int renderBlockSize = degrainRenderConstBlockSize(blockSize);
+    const int renderOverlap = degrainRenderConstOverlap(overlap);
+    const int renderStep = degrainRenderConstStep(step);
+    const int renderBlocksX = degrainRenderConstBlocksX(blocksX);
+    const int renderBlocksY = degrainRenderConstBlocksY(blocksY);
+    const int renderCoveredWidth = degrainRenderConstCoveredWidth(coveredWidth, scaleX);
+    const int renderCoveredHeight = degrainRenderConstCoveredHeight(coveredHeight, scaleY);
+    if (!degrainIsCoveredPixel(x, y, renderCoveredWidth, renderCoveredHeight)) {
+        return make_int2(fallback, fallback);
+    }
+
+    const int planeBlockSizeX = max(degrainRenderScaleFloor(renderBlockSize, scaleX), 1);
+    const int planeBlockSizeY = max(degrainRenderScaleFloor(renderBlockSize, scaleY), 1);
+    const int planeOverlapX = max(degrainRenderScaleFloor(renderOverlap, scaleX), 0);
+    const int planeOverlapY = max(degrainRenderScaleFloor(renderOverlap, scaleY), 0);
+    const int planeStepX = max(degrainRenderScaleFloor(renderStep, scaleX), 1);
+    const int planeStepY = max(degrainRenderScaleFloor(renderStep, scaleY), 1);
+    const int primaryBlockX = min(x / planeStepX, renderBlocksX - 1);
+    const int primaryBlockY = min(y / planeStepY, renderBlocksY - 1);
+    const int primaryBaseX = degrainBlockOrigin(primaryBlockX, planeStepX);
+    const int primaryBaseY = degrainBlockOrigin(primaryBlockY, planeStepY);
+    const int primaryLocalX = x - primaryBaseX;
+    const int primaryLocalY = y - primaryBaseY;
+    const int primaryBlock = primaryBlockY * renderBlocksX + primaryBlockX;
+    const int usePrevBlockX = planeOverlapX > 0 && primaryBlockX > 0 && primaryLocalX < planeOverlapX;
+    const int usePrevBlockY = planeOverlapY > 0 && primaryBlockY > 0 && primaryLocalY < planeOverlapY;
+    const float wxPrev = usePrevBlockX ? windowRamp[primaryLocalX] : 0.0f;
+    const float wyPrev = usePrevBlockY ? windowRamp[planeOverlapX + primaryLocalY] : 0.0f;
+    const float wx[2] = { 1.0f - wxPrev, wxPrev };
+    const float wy[2] = { 1.0f - wyPrev, wyPrev };
+
+    const int blockXs[2] = { primaryBlockX, primaryBlockX - 1 };
+    const int blockYs[2] = { primaryBlockY, primaryBlockY - 1 };
+    const int localXs[2] = { primaryLocalX, primaryLocalX + planeStepX };
+    const int localYs[2] = { primaryLocalY, primaryLocalY + planeStepY };
+    const int blockRows[2] = { primaryBlock, primaryBlock - renderBlocksX };
+    const int blockCountX = usePrevBlockX ? 2 : 1;
+    const int blockCountY = usePrevBlockY ? 2 : 1;
+    const int directionDisabledBack = degrainRefDirectionDisabled(disableMask, refDirectionBack);
+    const int directionDisabledForw = degrainRefDirectionDisabled(disableMask, refDirectionForw);
+
+    float sampleSumBack = 0.0f, weightSumBack = 0.0f;
+    float sampleSumForw = 0.0f, weightSumForw = 0.0f;
+    for (int byIndex = 0; byIndex < blockCountY; byIndex++) {
+        const int blockY = blockYs[byIndex];
+        const int localY = localYs[byIndex];
+        const int blockRow = blockRows[byIndex];
+        for (int bxIndex = 0; bxIndex < blockCountX; bxIndex++) {
+            const int blockX = blockXs[bxIndex];
+            const int localX = localXs[bxIndex];
+            if (localX < 0 || localX >= planeBlockSizeX || localY < 0 || localY >= planeBlockSizeY
+                || blockX < 0 || blockX >= renderBlocksX || blockY < 0 || blockY >= renderBlocksY) {
+                continue;
+            }
+            const int block = blockRow - bxIndex;
+            const float weight = wx[bxIndex] * wy[byIndex];
+            const int sampleBack = degrainCompensateBlockSample<TypePixel>(
+                cur, refBack, cur_pitch,
+                width, height,
+                mv, sad,
+                block, refDirectionBack, thsad, directionDisabledBack,
+                planeScaleX, planeScaleY,
+                x, y,
+                refs, pel, subpelInterp);
+            const int sampleForw = degrainCompensateBlockSample<TypePixel>(
+                cur, refForw, cur_pitch,
+                width, height,
+                mv, sad,
+                block, refDirectionForw, thsad, directionDisabledForw,
+                planeScaleX, planeScaleY,
+                x, y,
+                refs, pel, subpelInterp);
+            degrainAccumulateWeightedSampleFp32(&sampleSumBack, &weightSumBack, sampleBack, weight);
+            degrainAccumulateWeightedSampleFp32(&sampleSumForw, &weightSumForw, sampleForw, weight);
+        }
+    }
+
+    return make_int2(
+        degrainFinalizeWeightedSampleFp32(sampleSumBack, weightSumBack, fallback),
+        degrainFinalizeWeightedSampleFp32(sampleSumForw, weightSumForw, fallback));
+}
+
 template<typename Type>
 __device__ int rtgmc_retouch_temporal_detail_guard_value_inline_comp(
     const int srcPix,
@@ -549,10 +664,10 @@ __device__ int rtgmc_retouch_temporal_detail_guard_value_inline_comp(
     const int sovs, const int maxVal
 ) {
     const int refPix = rtgmc_retouch_read_pix<Type>(ref, x, y, refPitch, width, height);
-    const int motionBackPix = degrainCompensateOverlapPixelValue<Type>(
+    const int2 motionPix = rtgmcRetouchCompensateOverlapPixelValuePair<Type>(
         compParams.cur, compParams.cur_pitch,
-        compParams.cur, compParams.refBack,
-        compParams.refDirBack,
+        compParams.refBack, compParams.refForw,
+        compParams.refDirBack, compParams.refDirForw,
         compParams.width, compParams.height,
         compParams.mv, compParams.sad,
         compParams.blocksX, compParams.blocksY,
@@ -563,20 +678,8 @@ __device__ int rtgmc_retouch_temporal_detail_guard_value_inline_comp(
         compParams.windowRamp,
         x, y,
         compParams.refs, compParams.pel, compParams.subpelInterp);
-    const int motionForwPix = degrainCompensateOverlapPixelValue<Type>(
-        compParams.cur, compParams.cur_pitch,
-        compParams.cur, compParams.refForw,
-        compParams.refDirForw,
-        compParams.width, compParams.height,
-        compParams.mv, compParams.sad,
-        compParams.blocksX, compParams.blocksY,
-        compParams.blockSize, compParams.overlap, compParams.step,
-        compParams.coveredWidth, compParams.coveredHeight,
-        compParams.planeScaleX, compParams.planeScaleY,
-        compParams.thsad, compParams.disableMask,
-        compParams.windowRamp,
-        x, y,
-        compParams.refs, compParams.pel, compParams.subpelInterp);
+    const int motionBackPix = motionPix.x;
+    const int motionForwPix = motionPix.y;
     const int lower = min(refPix, min(motionBackPix, motionForwPix)) - sovs;
     const int upper = max(refPix, max(motionBackPix, motionForwPix)) + sovs;
     return clamp(srcPix, max(0, lower), min(maxVal, upper));
@@ -743,6 +846,55 @@ __global__ void kernel_rtgmc_retouch_detail_boost_fused(
         : rtgmc_retouch_removegrain12_value<Type>(src, ix, iy, srcPitch, width, height);
     const float value = (float)srcPix + (float)(srcPix - blurPix) * detailGain;
     rtgmc_retouch_write_pix<Type>(dst, ix, iy, dstPitch, rtgmc_retouch_round_clamp(value, maxVal), maxVal);
+}
+
+// 縦3画素から作るdetail_refをhalo込みで一度だけ求め、3x3二項平均で共有する。
+#define RTGMC_RETOUCH_TILE_W 64
+#define RTGMC_RETOUCH_TILE_H 16
+#define RTGMC_RETOUCH_TILE_LOCAL_Y 4
+template<typename Type, bool PRECISE>
+__global__ void kernel_rtgmc_retouch_detail_boost_ref_blur_tile(
+    uint8_t *__restrict__ dst, const int dstPitch,
+    const uint8_t *__restrict__ src, const int srcPitch,
+    const int width, const int height,
+    const float detailGain, const int maxVal
+) {
+    __shared__ int detailRef[RTGMC_RETOUCH_TILE_H + 2][RTGMC_RETOUCH_TILE_W + 2];
+    const int lx = threadIdx.x;
+    const int ly = threadIdx.y;
+    const int x0 = blockIdx.x * RTGMC_RETOUCH_TILE_W;
+    const int y0 = blockIdx.y * RTGMC_RETOUCH_TILE_H;
+    const uint8_t *srcPtr = (const uint8_t *)src;
+    // detailRef[iy][ix] = detail_ref (x0-1+ix, y0-1+iy)。座標のclampは関数内で行う。
+    for (int iy = ly; iy < RTGMC_RETOUCH_TILE_H + 2; iy += RTGMC_RETOUCH_TILE_LOCAL_Y) {
+        for (int ix = lx; ix < RTGMC_RETOUCH_TILE_W + 2; ix += RTGMC_RETOUCH_TILE_W) {
+            detailRef[iy][ix] = rtgmc_retouch_detail_ref_value<Type>(srcPtr, x0 - 1 + ix, y0 - 1 + iy, srcPitch, width, height, PRECISE, maxVal);
+        }
+    }
+    __syncthreads();
+    const int x = x0 + lx;
+    if (x >= width) {
+        return;
+    }
+    for (int iy = ly; iy < RTGMC_RETOUCH_TILE_H; iy += RTGMC_RETOUCH_TILE_LOCAL_Y) {
+        const int y = y0 + iy;
+        if (y >= height) {
+            break;
+        }
+        const int srcPix = rtgmc_retouch_read_pix<Type>(srcPtr, x, y, srcPitch, width, height);
+        int blurPix;
+        if (x <= 0 || y <= 0 || x >= width - 1 || y >= height - 1) {
+            blurPix = detailRef[iy + 1][lx + 1];
+        } else {
+            const int sum =
+                detailRef[iy][lx] + 2 * detailRef[iy][lx + 1] + detailRef[iy][lx + 2] +
+                2 * detailRef[iy + 1][lx] + 4 * detailRef[iy + 1][lx + 1] + 2 * detailRef[iy + 1][lx + 2] +
+                detailRef[iy + 2][lx] + 2 * detailRef[iy + 2][lx + 1] + detailRef[iy + 2][lx + 2];
+            blurPix = (sum + 8) >> 4;
+        }
+        const float value = (float)srcPix + (float)(srcPix - blurPix) * detailGain;
+        rtgmc_retouch_write_pix<Type>((uint8_t *)dst, x, y, dstPitch, rtgmc_retouch_round_clamp(value, maxVal), maxVal);
+    }
 }
 
 template<typename Type>
@@ -1795,6 +1947,44 @@ RGY_ERR NVEncFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const 
         if (err != RGY_ERR_NONE) return err;
         const auto dstPlane = getPlane(dstFrame, (RGY_PLANE)iplane);
         const auto srcPlane = getPlane(srcFrame, (RGY_PLANE)iplane);
+        static const bool tileEnabled = []() {
+            const auto value = std::getenv("NVENC_RTGMC_RETOUCH_DETAIL_TILE");
+            return !(value && value[0] == '0' && value[1] == '\0');
+        }();
+        if (prm.rtgmc_retouch.smode == 2 && tileEnabled) {
+            kernelName = "kernel_rtgmc_retouch_detail_boost_ref_blur_tile";
+            const dim3 tileBlock(RTGMC_RETOUCH_TILE_W, RTGMC_RETOUCH_TILE_LOCAL_Y);
+            const dim3 tileGrid(divCeil(dstPlane.width, RTGMC_RETOUCH_TILE_W), divCeil(dstPlane.height, RTGMC_RETOUCH_TILE_H));
+            if (bitdepth <= 8) {
+                if (prm.rtgmc_retouch.precise) {
+                    kernel_rtgmc_retouch_detail_boost_ref_blur_tile<uint8_t, true><<<tileGrid, tileBlock, 0, stream>>>(
+                        (uint8_t *)dstPlane.ptr[0], dstPlane.pitch[0],
+                        (const uint8_t *)srcPlane.ptr[0], srcPlane.pitch[0],
+                        dstPlane.width, dstPlane.height, detailGain, maxVal);
+                }
+                else {
+                    kernel_rtgmc_retouch_detail_boost_ref_blur_tile<uint8_t, false><<<tileGrid, tileBlock, 0, stream>>>(
+                        (uint8_t *)dstPlane.ptr[0], dstPlane.pitch[0],
+                        (const uint8_t *)srcPlane.ptr[0], srcPlane.pitch[0],
+                        dstPlane.width, dstPlane.height, detailGain, maxVal);
+                }
+            }
+            else {
+                if (prm.rtgmc_retouch.precise) {
+                    kernel_rtgmc_retouch_detail_boost_ref_blur_tile<uint16_t, true><<<tileGrid, tileBlock, 0, stream>>>(
+                        (uint8_t *)dstPlane.ptr[0], dstPlane.pitch[0],
+                        (const uint8_t *)srcPlane.ptr[0], srcPlane.pitch[0],
+                        dstPlane.width, dstPlane.height, detailGain, maxVal);
+                }
+                else {
+                    kernel_rtgmc_retouch_detail_boost_ref_blur_tile<uint16_t, false><<<tileGrid, tileBlock, 0, stream>>>(
+                        (uint8_t *)dstPlane.ptr[0], dstPlane.pitch[0],
+                        (const uint8_t *)srcPlane.ptr[0], srcPlane.pitch[0],
+                        dstPlane.width, dstPlane.height, detailGain, maxVal);
+                }
+            }
+            return checkLaunch(kernelName, iplane);
+        }
         const dim3 blockSize(RTGMC_RETOUCH_BLOCK_X, RTGMC_RETOUCH_BLOCK_Y);
         const dim3 gridSize(divCeil(dstPlane.width, blockSize.x), divCeil(dstPlane.height, blockSize.y));
         LAUNCH_RETOUCH_TYPED(kernel_rtgmc_retouch_detail_boost_fused, gridSize, blockSize,
