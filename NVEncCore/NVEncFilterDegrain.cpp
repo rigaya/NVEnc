@@ -97,6 +97,9 @@ RGY_ERR launchNVEncDegrainMotionSearchSpatialRefine(
 RGY_ERR launchNVEncDegrainBuildTemporalMixPlan(
     CUMemBuf &temporalMixPlan, const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
     int blockCount, uint32_t thsad, uint32_t disableMask, int refs, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainBuildMixPlanExact(
+    CUMemBuf &temporalMixPlan, const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
+    int blockCount, uint32_t thsad, uint32_t disableMask, int refs, cudaStream_t stream);
 RGY_ERR launchNVEncDegrainSceneChangeMask(
     CUMemBuf &sceneChangeCounts, CUMemBuf &disableMaskBuf, const CUMemBuf &sad,
     const RGYDegrainBlockLayout &layout, uint32_t thscd1, uint32_t baseDisableMask, uint64_t thscd2, cudaStream_t stream);
@@ -172,7 +175,7 @@ RGY_ERR launchNVEncDegrainDegrainOverlapPlaneRamp(
     const RGYDegrainBlockLayout &layout,
     int coveredWidth, int coveredHeight,
     int planeScaleX, int planeScaleY,
-    const CUMemBuf &windowRamp,
+    const CUMemBuf &windowRamp, const CUMemBuf *mixPlan,
     uint32_t thsad, uint32_t disableMask,
     int refs, int pel, int subpelInterp, cudaStream_t stream);
 RGY_ERR launchNVEncDegrainPixelTrace(
@@ -484,6 +487,15 @@ bool degrainSubpelPlanesEnabledFromEnv() {
     static const bool enabled = []() {
         const auto value = std::getenv("NVENC_DEGRAIN_SUBPEL_PLANES");
         return value == nullptr || value[0] != '0';
+    }();
+    return enabled;
+}
+
+// NVENC_DEGRAIN_MIX_PLAN=0で従来の画素ごとの重み計算へ戻す。
+bool degrainMixPlanEnabled() {
+    static const bool enabled = []() {
+        const char *value = std::getenv("NVENC_DEGRAIN_MIX_PLAN");
+        return !(value && value[0] == '0' && value[1] == '\0');
     }();
     return enabled;
 }
@@ -2307,6 +2319,29 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &fra
                 }
             }
         }
+        CUMemBuf *mixPlan = nullptr;
+        if (windowRamp && degrainMixPlanEnabled()) {
+            auto &planState = (plane == RGY_PLANE_Y) ? m_analysis.temporalMixPlanY : m_analysis.temporalMixPlanC;
+            const size_t planBytes = degrainTemporalMixPlanBytes(analysisLayout());
+            if (!planState.plan || planState.bytes != planBytes) {
+                planState.plan = std::make_unique<CUMemBuf>(planBytes, "degrain mix plan");
+                const auto allocErr = planState.plan->alloc();
+                if (allocErr != RGY_ERR_NONE) {
+                    planState.reset();
+                    return allocErr;
+                }
+                planState.bytes = planBytes;
+            }
+            // 同じstream上で前計算を完了してから描画する。色差のU/Vも順次再利用する。
+            const auto planErr = launchNVEncDegrainBuildMixPlanExact(
+                *planState.plan, *mv, *sad, *m_analysis.temporalMixPrior,
+                (int)analysisLayout().blockCount(), scaledThSad, disableMask,
+                analysisLayout().temporalDirections, stream);
+            if (planErr != RGY_ERR_NONE) {
+                return planErr;
+            }
+            mixPlan = planState.plan.get();
+        }
         if (windowRamp) {
             return launchNVEncDegrainDegrainOverlapPlaneRamp(
                 planeDst.ptr[0], planeDst.pitch[0], pixelBytes,
@@ -2328,7 +2363,7 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &fra
                 degrainScaleCovered(analysisLayout().coveredHeight, planeScaleY),
                 planeScaleX,
                 planeScaleY,
-                *windowRamp,
+                *windowRamp, mixPlan,
                 scaledThSad,
                 disableMask,
                 analysisLayout().temporalDirections, prm->degrain.pel, prm->degrain.subpelInterp, stream);

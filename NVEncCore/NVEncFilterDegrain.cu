@@ -188,6 +188,12 @@ RGY_ERR launchNVEncDegrainBuildTemporalMixPlan(
     return launchNVEncDegrainBuildTemporalMixPlanImpl(temporalMixPlan, mv, sad, temporalMixPrior, blockCount, thsad, disableMask, refs, stream);
 }
 
+RGY_ERR launchNVEncDegrainBuildMixPlanExact(
+    CUMemBuf &temporalMixPlan, const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
+    const int blockCount, const uint32_t thsad, const uint32_t disableMask, const int refs, cudaStream_t stream) {
+    return launchNVEncDegrainBuildMixPlanExactImpl(temporalMixPlan, mv, sad, temporalMixPrior, blockCount, thsad, disableMask, refs, stream);
+}
+
 static __global__ void kernel_degrain_scene_change_count_cuda(
     uint32_t *sceneChangeCounts, const RGYDegrainSAD *sad,
     const int blockCount, const int temporalDirections, const uint32_t thscd1, const uint32_t baseDisableMask) {
@@ -342,13 +348,13 @@ RGY_ERR launchNVEncDegrainDegrainOverlapPlaneRamp(
     const RGYDegrainBlockLayout &layout,
     const int coveredWidth, const int coveredHeight,
     const int planeScaleX, const int planeScaleY,
-    const CUMemBuf &windowRamp,
+    const CUMemBuf &windowRamp, const CUMemBuf *mixPlan,
     const uint32_t thsad, const uint32_t disableMask,
     const int refs, const int pel, const int subpelInterp, cudaStream_t stream) {
     return launchNVEncDegrainDegrainOverlapPlaneRampImpl(dst, dstPitch, pixelBytes, cur, curPitch,
         refBackward1, refForward1, refBackward2, refForward2, refBackward3, refForward3,
         refBackward4, refForward4, refBackward5, refForward5, width, height, mv, sad, temporalMixPrior,
-        layout, coveredWidth, coveredHeight, planeScaleX, planeScaleY, windowRamp,
+        layout, coveredWidth, coveredHeight, planeScaleX, planeScaleY, windowRamp, mixPlan,
         thsad, disableMask, refs, pel, subpelInterp, stream);
 }
 
