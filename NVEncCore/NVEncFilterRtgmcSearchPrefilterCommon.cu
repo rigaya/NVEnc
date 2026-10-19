@@ -91,3 +91,32 @@ RGY_ERR launchRtgmcSearchPrefilterRangeConvertU16(
     const RGYFrameInfo &dst, const int fullRangeMode, cudaStream_t stream) {
     return launchRtgmcSearchPrefilterRangeConvertTyped<uint16_t>(dst, fullRangeMode, stream);
 }
+
+// 4方向を各256スレッドで集約し、部分和をCPUへ読み戻さずに判定する。
+__global__ void kernel_rtgmc_search_prefilter_scenechange_reduce_cuda(
+    uint32_t *state, const int groupCount, const uint64_t sceneThreshold, const int smoothRadius) {
+    const int lid = threadIdx.x;
+    const int direction = blockIdx.x;
+    __shared__ uint64_t sums[256];
+    uint64_t sum = 0;
+    if (smoothRadius >= 1 && (direction < 2 || smoothRadius >= 2)) {
+        for (int i = lid; i < groupCount; i += 256) {
+            sum += (uint64_t)state[4 + direction * groupCount + i];
+        }
+    }
+    sums[lid] = sum;
+    __syncthreads();
+    for (int stride = 128; stride > 0; stride >>= 1) {
+        if (lid < stride) sums[lid] += sums[lid + stride];
+        __syncthreads();
+    }
+    if (lid == 0) {
+        state[direction] = (smoothRadius >= 1 && (direction < 2 || smoothRadius >= 2) && sums[0] >= sceneThreshold) ? 1u : 0u;
+    }
+}
+
+RGY_ERR launchRtgmcSearchPrefilterScenechangeReduce(uint32_t *state, const int groupCount,
+    const uint64_t sceneThreshold, const int smoothRadius, cudaStream_t stream) {
+    kernel_rtgmc_search_prefilter_scenechange_reduce_cuda<<<4, 256, 0, stream>>>(state, groupCount, sceneThreshold, smoothRadius);
+    return err_to_rgy(cudaGetLastError());
+}
