@@ -338,6 +338,7 @@ protected:
         RGY_ERR drainTo(int n60end, cudaStream_t stream);
         RGY_ERR ensureRange(int n60begin, int n60end, cudaStream_t stream);
         RGY_ERR feedHot(cudaStream_t stream);
+        RGY_ERR feedIntermediatesOnly(int sourceBegin, int sourceEnd, cudaStream_t stream);
         RGY_ERR cacheFrame(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
         const KfmCachedDeint60 *find(int n60, std::vector<RGYCudaEvent> *wait_events) const;
         void trim(int n60floor, size_t cacheLimit);

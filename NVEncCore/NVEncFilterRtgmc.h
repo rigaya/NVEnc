@@ -191,6 +191,10 @@ public:
     const std::vector<RtgmcCapturedIntermediate>& getCapturedIntermediates() const;
     void clearCapturedIntermediates();
     void pushIntermediateInput(const RtgmcCapturedIntermediate &input);
+    // 有効にすると、中間データ(INPUTTYPE_BLEND出力)のキャプチャまでで止め、TR1以降を実行しない。
+    // kfm UCFのbefore60/after60に中間データだけを供給したい区間で、deint60の不要な最終段を省くために使う。
+    // TR1以降の時間方向の状態は不連続になるため、解除後に出力を得るにはresetTemporalStateから作り直すこと。
+    void setAnalysisOnly(bool enable);
 
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
@@ -201,6 +205,7 @@ protected:
 public:
     virtual void resetTemporalState() override;
     int requiredPrimingSourceFrames() const;
+    int requiredAnalysisPrimingSourceFrames() const;
 protected:
 
     RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamRtgmc> &prm);
@@ -287,6 +292,7 @@ protected:
     bool m_sharedAnalysisMode;
     RtgmcSharedAnalysisData m_sharedData;
     bool m_captureIntermediate;
+    bool m_analysisOnly;
     std::vector<RtgmcCapturedIntermediate> m_capturedIntermediates;
     std::deque<RtgmcCapturedIntermediate> m_pendingIntermediateInputs;
 };

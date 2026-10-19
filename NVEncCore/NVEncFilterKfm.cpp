@@ -658,6 +658,41 @@ RGY_ERR NVEncFilterKfm::KfmRtgmcLane::ensureRange(int n60begin, int n60end, cuda
     return RGY_ERR_NONE;
 }
 
+// UCFのbefore60/after60に渡す中間データだけを、deint60で[sourceBegin, sourceEnd)について作る。
+// 解析段のみを実行し(NVEncFilterRtgmc::setAnalysisOnly)、捨てるだけのdeint60の最終段(TR1以降)を省く。
+// 必要なsourceがそろわない場合は何もせずに戻り、呼び出し元の従来経路(ensureDeint60IntermediateForSource)に任せる。
+RGY_ERR NVEncFilterKfm::KfmRtgmcLane::feedIntermediatesOnly(int sourceBegin, int sourceEnd, cudaStream_t stream) {
+    if (!m_rtgmc || !m_owner || sourceBegin >= sourceEnd) {
+        return RGY_ERR_NONE;
+    }
+    const int primeStart = std::max(0, sourceBegin - m_rtgmc->requiredAnalysisPrimingSourceFrames());
+    for (int sourceIndex = primeStart; sourceIndex < sourceEnd; sourceIndex++) {
+        const auto *source = m_owner->findSourceByIndexExact(sourceIndex);
+        if (!source || !source->frame || !source->frame->frame.ptr[0]) {
+            return RGY_ERR_NONE;
+        }
+    }
+    m_rtgmc->resetTemporalState();
+    m_rtgmc->setAnalysisOnly(true);
+    auto sts = RGY_ERR_NONE;
+    for (int sourceIndex = primeStart; sourceIndex < sourceEnd && sts == RGY_ERR_NONE; sourceIndex++) {
+        const auto *source = m_owner->findSourceByIndexExact(sourceIndex);
+        std::vector<RGYCudaEvent> waitEvents;
+        if (source->event() != nullptr) {
+            waitEvents.push_back(source->event);
+        }
+        sts = feed(&source->frame->frame, stream, waitEvents);
+        if (sts == RGY_ERR_NONE) {
+            m_owner->captureDeint60Intermediates(sourceIndex);
+        }
+    }
+    m_rtgmc->setAnalysisOnly(false);
+    // TR1以降の時間方向の状態が不連続になったので、次にdeint60の出力が必要になったらcoldから作り直させる。
+    m_nextFeedSourceIndex = -1;
+    m_hotUntilSourceIndex = -1;
+    return sts;
+}
+
 RGY_ERR NVEncFilterKfm::KfmRtgmcLane::feedHot(cudaStream_t stream) {
     if (!m_rtgmc || !m_owner || m_nextFeedSourceIndex < 0 || m_nextFeedSourceIndex > m_hotUntilSourceIndex) {
         return RGY_ERR_NONE;
@@ -1941,6 +1976,16 @@ RGY_ERR NVEncFilterKfm::ensureUcfRtgmcRange(KfmUcfLaneType laneType, int n60begi
         return RGY_ERR_MORE_DATA;
     }
     for (int sourceIndex = primeStart; sourceIndex < sourceEnd; sourceIndex++) {
+        if (!hasDeint60Intermediate(sourceIndex)) {
+            // 足りない中間データは、まず解析段だけのdeint60でまとめて作る (できなければ下の従来経路)。
+            auto sts = m_deint60Lane.feedIntermediatesOnly(sourceIndex, sourceEnd, stream);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            break;
+        }
+    }
+    for (int sourceIndex = primeStart; sourceIndex < sourceEnd; sourceIndex++) {
         if (hasDeint60Intermediate(sourceIndex)) {
             continue;
         }
@@ -1975,10 +2020,10 @@ void NVEncFilterKfm::captureDeint60Intermediates(int sourceIndex) {
     if (!captured.empty()) {
         for (auto& group : m_deint60IntermediateQueue) {
             if (group.sourceIndex == sourceIndex) {
-                group.generation++;
-                group.intermediates = captured;
-                m_before60Lane.rewindIfIntermediateChanged(sourceIndex, group.generation);
-                m_after60Lane.rewindIfIntermediateChanged(sourceIndex, group.generation);
+                // 同じsourceの中間データは、十分なprimingのもとでは何度作っても同じ内容になる。
+                // 差し替えると世代が進み、それを使ったUCFレーンが巻き戻されて作り直しになるため、既存のものを使い続ける。
+                // (deint60のreset後の再feedやfeedIntermediatesOnlyで、同じsourceが再キャプチャされることがある)
+                // 作り直しが必要な場合は、purgeDeint60Intermediatesで消してから作る。
                 m_deint60Rtgmc->clearCapturedIntermediates();
                 return;
             }

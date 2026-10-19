@@ -337,6 +337,7 @@ NVEncFilterRtgmc::NVEncFilterRtgmc() :
     m_sharedAnalysisMode(false),
     m_sharedData(),
     m_captureIntermediate(false),
+    m_analysisOnly(false),
     m_capturedIntermediates(),
     m_pendingIntermediateInputs(),
     m_debugResetAtFrame(0),
@@ -366,6 +367,10 @@ NVEncFilterRtgmc::RtgmcSharedAnalysisData NVEncFilterRtgmc::getSharedAnalysisDat
 
 void NVEncFilterRtgmc::enableIntermediateCapture(bool enable) {
     m_captureIntermediate = enable;
+}
+
+void NVEncFilterRtgmc::setAnalysisOnly(bool enable) {
+    m_analysisOnly = enable;
 }
 
 const std::vector<NVEncFilterRtgmc::RtgmcCapturedIntermediate>& NVEncFilterRtgmc::getCapturedIntermediates() const {
@@ -2415,6 +2420,9 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
                         m_capturedIntermediates.push_back({buf, frameInfo, captureEvent});
                     }
                 }
+                if (m_analysisOnly && filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND) {
+                    continue; // UCFレーンへの中間データの供給だけで止める。
+                }
                 sts = runThrough(filterIdx + 1, smOutFrames[j], ppOutputFrames, pOutputFrameNum, stream, smWaitEvents, event, storePending);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
@@ -2432,6 +2440,9 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
                     frameInfo.dataList.push_back(std::make_shared<RGYFrameDataRtgmcFrameRef>(buf));
                     m_capturedIntermediates.push_back({buf, frameInfo, captureEvent});
                 }
+            }
+            if (m_analysisOnly && filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND) {
+                continue; // UCFレーンへの中間データの供給だけで止める。
             }
             sts = runThrough(filterIdx + 1, childOutFrames[i], ppOutputFrames, pOutputFrameNum, stream, nextWaitEvents, event, storePending);
             if (sts != RGY_ERR_NONE) {
@@ -2712,6 +2723,13 @@ int NVEncFilterRtgmc::requiredPrimingSourceFrames() const {
     const int dependFields = (m_sharedAnalysisMode ? 0 : analysisFields) + postFields;
     // 1 sourceは2フィールド。境界での丸めの余裕として1 source足す。
     return (dependFields + 1) / 2 + 1;
+}
+
+int NVEncFilterRtgmc::requiredAnalysisPrimingSourceFrames() const {
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamRtgmc>(m_param);
+    if (!prm) return 8;
+    const int analysisFields = std::max(0, prm->rtgmc.searchPrefilter.tr0) + std::max(0, prm->rtgmc.analyze.delta);
+    return (analysisFields + 1) / 2 + 1;
 }
 
 void NVEncFilterRtgmc::resetTemporalState() {
