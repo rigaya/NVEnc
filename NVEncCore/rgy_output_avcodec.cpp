@@ -3501,6 +3501,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
         if (m_Mux.thread.thRawVideo) {
             auto pktFrame = pktMuxData((AVFrame *)nullptr);
             m_Mux.thread.thRawVideo->qPackets.push(pktFrame);
+            SetEvent(m_Mux.thread.thRawVideo->heEventPktAdded);
             return RGY_ERR_NONE;
         } else {
             return VideoEncodeRawFrame(nullptr);
@@ -3556,6 +3557,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
     if (m_Mux.thread.thRawVideo) {
         auto pktFrame = pktMuxData(avframe.release());
         m_Mux.thread.thRawVideo->qPackets.push(pktFrame);
+        SetEvent(m_Mux.thread.thRawVideo->heEventPktAdded);
     } else {
         return VideoEncodeRawFrame(avframe.get());
     }
@@ -4852,6 +4854,15 @@ RGY_ERR RGYOutputAvcodec::ThreadFuncAudThread(const AVMuxAudio *const muxAudio, 
 RGY_ERR RGYOutputAvcodec::WriteThreadFuncRawVideo(RGYParamThread threadParam) {
     threadParam.apply(GetCurrentThread());
     while (!m_Mux.thread.thRawVideo->thAbort) {
+        WaitForSingleObject(m_Mux.thread.thRawVideo->heEventPktAdded, 16);
+        // 通知を先に戻してからキューを消化する。消化中の新規投入通知を消さない。
+        ResetEvent(m_Mux.thread.thRawVideo->heEventPktAdded);
+        AVPktMuxData pktData = { 0 };
+        while (m_Mux.thread.thRawVideo->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr)) {
+            VideoEncodeRawFrame(pktData.frame);
+        }
+    }
+    {   // 停止通知より前に投入されたフレームとEOFを、完了通知前にすべて消化する。
         AVPktMuxData pktData = { 0 };
         while (m_Mux.thread.thRawVideo->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr)) {
             VideoEncodeRawFrame(pktData.frame);
