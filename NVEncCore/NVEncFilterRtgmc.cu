@@ -2691,17 +2691,27 @@ int NVEncFilterRtgmc::requiredPrimingSourceFrames() const {
         return 8;
     }
     const auto& rtgmc = prm->rtgmc;
-    const int temporalRadius = std::max({
-        std::max(0, rtgmc.searchPrefilter.tr0),
-        std::max(0, rtgmc.analyze.delta),
+    // reset後に連続処理と同等の時間方向の状態を作るため、出力1フィールドが過去方向に依存する
+    // 範囲(bob後のフィールド単位)を段ごとに積み上げて求める。
+    // - 解析段: search prefilter(tr0) の出力を analyze(delta) が参照するので、両者の半径を足す。
+    // - TR1以降: TR1/TR2 degrain と retouch(補償参照)、source match はいずれも解析段の出力
+    //   (中間データ)を並列に参照するので、最大値を取る。
+    // 共有解析モード(kfm UCFのbefore60/after60)は解析段を持たず中間データを受け取るため、TR1以降の分だけでよい。
+    // 以前は max(8, 半径の最大値 + 4) としていたが、kfmのlazy reset/UCF置換のたびに必要以上のprimingが走り、
+    // 1フレームの置換に十数source分のRTGMC処理を払って大きく低速化していた。
+    const int analysisFields = std::max(0, rtgmc.searchPrefilter.tr0) + std::max(0, rtgmc.analyze.delta);
+    const int sourceMatchMargin = std::max(0, rtgmc.sourceMatch) * std::max({ 1, std::max(0, rtgmc.matchTR1), std::max(0, rtgmc.matchTR2) });
+    const int postFields = std::max({
         std::max(0, rtgmc.tr1.delta),
         std::max(0, rtgmc.tr2.delta),
+        std::max(0, rtgmc.retouch.tr1),
+        std::max(0, rtgmc.retouch.tr2),
         std::max(0, rtgmc.matchTR1),
         std::max(0, rtgmc.matchTR2)
-    });
-    const int sourceMatchMargin = std::max(0, rtgmc.sourceMatch) * std::max({ 1, std::max(0, rtgmc.matchTR1), std::max(0, rtgmc.matchTR2) });
-    // primingの下限だけを撤去し、固定長sourceキャッシュの容量は維持する。
-    return temporalRadius + sourceMatchMargin + 4;
+    }) + sourceMatchMargin;
+    const int dependFields = (m_sharedAnalysisMode ? 0 : analysisFields) + postFields;
+    // 1 sourceは2フィールド。境界での丸めの余裕として1 source足す。
+    return (dependFields + 1) / 2 + 1;
 }
 
 void NVEncFilterRtgmc::resetTemporalState() {
