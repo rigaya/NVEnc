@@ -5552,9 +5552,12 @@ RGY_ERR NVEncFilterKfm::runNrFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **pp
 }
 
 RGY_ERR NVEncFilterKfm::emitOutputFrame(RGYFrameInfo *pFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-    cudaStream_t stream, const RGYCudaEvent &frameEvent, RGYCudaEvent *event) {
+    cudaStream_t stream, const RGYCudaEvent &frameEvent, RGYCudaEvent *event, RGYFrameInfo *reservedOutputFrame) {
     if (!pFrame || !ppOutputFrames || !pOutputFrameNum) {
         return RGY_ERR_INVALID_PARAM;
+    }
+    if (reservedOutputFrame && (m_nrFilter || reservedOutputFrame != pFrame)) {
+        return RGY_ERR_INVALID_CALL;
     }
     RGYFrameInfo *emitFrame = pFrame;
     RGYCudaEvent nrEvent;
@@ -5574,7 +5577,7 @@ RGY_ERR NVEncFilterKfm::emitOutputFrame(RGYFrameInfo *pFrame, RGYFrameInfo **ppO
             return RGY_ERR_NONE;
         }
     }
-    auto outputFrame = nextOutputFrame();
+    auto outputFrame = reservedOutputFrame ? reservedOutputFrame : nextOutputFrame();
     if (!outputFrame || !outputFrame->ptr[0]) {
         return RGY_ERR_INVALID_CALL;
     }
@@ -5621,9 +5624,38 @@ RGY_ERR NVEncFilterKfm::queueVfrOutputFrame(const RGYFrameInfo *pFrame, cudaStre
         return RGY_ERR_INVALID_CALL;
     }
     KfmPendingVfrOutput pending;
-    pending.frame = acquireKfmFrame(*pFrame, _T("VFR delayed output"));
-    if (!pending.frame) {
-        return RGY_ERR_MEMORY_ALLOC;
+    RGYFrameInfo *pendingFrame = nullptr;
+    if (m_nrFilter) {
+        pending.frame = acquireKfmFrame(*pFrame, _T("VFR delayed output"));
+        if (!pending.frame) {
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        pendingFrame = &pending.frame->frame;
+    } else {
+        pending.outputFrameIndex = m_outputBufferIndex;
+        const auto duplicate = std::find_if(m_pendingVfrOutputs.begin(), m_pendingVfrOutputs.end(), [&pending](const KfmPendingVfrOutput& queued) {
+            return queued.outputFrameIndex == pending.outputFrameIndex;
+        });
+        if (duplicate != m_pendingVfrOutputs.end()) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM VFR出力バッファ枠%dは予約済みです。\n"), pending.outputFrameIndex);
+            return RGY_ERR_INVALID_CALL;
+        }
+        // 完成画像を持つwork枠と予約済みoutput枠の所有権を交換する。
+        // pending中は出力枠に画像を保持し、完了イベントもコピーせず引き継ぐ。
+        const auto work = std::find_if(m_workFrameBuf.begin(), m_workFrameBuf.end(), [pFrame](const auto& frame) {
+            return frame && &frame->frame == pFrame;
+        });
+        if (work != m_workFrameBuf.end()) {
+            std::swap(*work, m_frameBuf[pending.outputFrameIndex]);
+            pendingFrame = nextOutputFrame();
+            pending.event = frameEvent;
+            m_pendingVfrOutputs.push_back(std::move(pending));
+            return RGY_ERR_NONE;
+        }
+        pendingFrame = nextOutputFrame();
+        if (!pendingFrame || !pendingFrame->ptr[0]) {
+            return RGY_ERR_INVALID_CALL;
+        }
     }
     std::vector<RGYCudaEvent> copyWaitEvents;
     if (frameEvent() != nullptr) {
@@ -5633,7 +5665,7 @@ RGY_ERR NVEncFilterKfm::queueVfrOutputFrame(const RGYFrameInfo *pFrame, cudaStre
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    sts = copyFrameAsync(&pending.frame->frame, pFrame, stream);
+    sts = copyFrameAsync(pendingFrame, pFrame, stream);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM VFR delayed output frame: %s.\n"), get_err_mes(sts));
         return sts;
@@ -5642,7 +5674,7 @@ RGY_ERR NVEncFilterKfm::queueVfrOutputFrame(const RGYFrameInfo *pFrame, cudaStre
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    copyFramePropWithoutRes(&pending.frame->frame, pFrame);
+    copyFramePropWithoutRes(pendingFrame, pFrame);
     m_pendingVfrOutputs.push_back(std::move(pending));
     return RGY_ERR_NONE;
 }
@@ -5654,6 +5686,13 @@ RGY_ERR NVEncFilterKfm::emitPendingVfrOutput(RGYFrameInfo **ppOutputFrames, int 
     }
     auto pending = std::move(m_pendingVfrOutputs.front());
     m_pendingVfrOutputs.pop_front();
+    if (pending.outputFrameIndex >= 0) {
+        if (pending.outputFrameIndex >= (int)m_frameBuf.size() || !m_frameBuf[pending.outputFrameIndex]) {
+            return RGY_ERR_INVALID_CALL;
+        }
+        auto outputFrame = &m_frameBuf[pending.outputFrameIndex]->frame;
+        return emitOutputFrame(outputFrame, ppOutputFrames, pOutputFrameNum, stream, pending.event, event, outputFrame);
+    }
     if (!pending.frame || !pending.frame->frame.ptr[0]) {
         return RGY_ERR_INVALID_CALL;
     }
@@ -6971,8 +7010,10 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             : std::min(m_cachedSourceFrames * 2, static_cast<int>(m_analyzerOutputResults.size()) * 10);
         const int vfrTailHold60 = switchSingleFrameDurationEnabled() ? 8 : 4;
         const int availableN60 = drain ? rawAvailableN60 : std::max(0, rawAvailableN60 - vfrTailHold60);
-        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), KFM_MAX_OUTPUT_FRAMES);
         const int vfrOutputDelay = switchSingleFrameDurationEnabled() ? 1 : 0;
+        // NR無効時はpendingも出力枠を使う。同じ呼出しで返す画像を周回して上書きしないよう、その分を残す。
+        const int reservedOutputFrames = m_nrFilter ? 0 : vfrOutputDelay;
+        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size() - reservedOutputFrames, KFM_MAX_OUTPUT_FRAMES);
         auto emitReadyPending = [&](int keepFrames) -> RGY_ERR {
             KfmProfileScope profile(m_kfmProfile, m_kfmProfile.emitPending, (int)m_pendingVfrOutputs.size());
             return emitPendingVfrOutputs(ppOutputFrames, pOutputFrameNum, stream, nullptr, keepFrames);

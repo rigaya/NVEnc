@@ -493,7 +493,7 @@ protected:
     RGY_ERR drainMainRtgmcBranch(const NVEncFilterParamKfm& prm, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream, RGYCudaEvent *event);
     RGY_ERR emitOutputFrame(RGYFrameInfo *pFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-        cudaStream_t stream, const RGYCudaEvent &frameEvent, RGYCudaEvent *event);
+        cudaStream_t stream, const RGYCudaEvent &frameEvent, RGYCudaEvent *event, RGYFrameInfo *reservedOutputFrame = nullptr);
     RGY_ERR queueVfrOutputFrame(const RGYFrameInfo *pFrame, cudaStream_t stream, const RGYCudaEvent &frameEvent);
     RGY_ERR emitPendingVfrOutput(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream, RGYCudaEvent *event);
@@ -621,8 +621,9 @@ protected:
     struct KfmPendingVfrOutput {
         std::shared_ptr<CUFrameBuf> frame;
         RGYCudaEvent event;
+        int outputFrameIndex;
 
-        KfmPendingVfrOutput() : frame(), event() {};
+        KfmPendingVfrOutput() : frame(), event(), outputFrameIndex(-1) {};
     };
 
     struct KfmCleanSuperCacheKey {
