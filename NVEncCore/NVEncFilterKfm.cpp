@@ -2532,30 +2532,12 @@ RGY_ERR NVEncFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGau
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        sts = run_kfm_ucf_field_crop_gaussresize_v_plane(&tmp, &src, srcXOffset, srcYOffset, srcYStep,
-            (const int *)progV.offset->ptr, (const float *)progV.coeff->ptr, progV.filterSize, stream);
+        if (progV.filterSize != 9 || progH.filterSize != 9) return RGY_ERR_UNSUPPORTED;
+        sts = run_kfm_ucf_preprocess(&dst, &src, srcXOffset, srcYOffset, srcYStep, interleavedUVPlane ? 2 : 1,
+            (const int *)progV.offset->ptr, (const float *)progV.coeff->ptr, (const int *)progH.offset->ptr, (const float *)progH.coeff->ptr,
+            KFM_UCF_NOISE_LIMIT_NMIN, KFM_UCF_NOISE_LIMIT_RANGE, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_ucf_field_crop_gaussresize_v (plane %d): %s.\n"), iplane, get_err_mes(sts));
-            return sts;
-        }
-        RGYCudaEvent evV;
-        sts = kfmRecordEvent(stream, &evV);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-        sts = kfmWaitEvents(stream, { evV });
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-        if (interleavedUVPlane) {
-            sts = run_kfm_ucf_gaussresize_h_uv_interleaved_plane(&dst, &tmp, dstWidthForGauss,
-                (const int *)progH.offset->ptr, (const float *)progH.coeff->ptr, progH.filterSize, stream);
-        } else {
-            sts = run_kfm_ucf_gaussresize_h_plane(&dst, &tmp,
-                (const int *)progH.offset->ptr, (const float *)progH.coeff->ptr, progH.filterSize, stream);
-        }
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at KFM UCF fused gauss h (plane %d): %s.\n"), iplane, get_err_mes(sts));
             return sts;
         }
         sts = kfmRecordEvent(stream, &prevEvent);
@@ -2632,8 +2614,7 @@ RGY_ERR NVEncFilterKfm::runUcfNoiseLimitStageFromSource(const NVEncFilterParamKf
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        sts = run_kfm_ucf_source_crop_noise_limit_plane(&dst, &src, &noise,
-            srcXOffset, srcYOffset, srcYStep, KFM_UCF_NOISE_LIMIT_NMIN, KFM_UCF_NOISE_LIMIT_RANGE, stream);
+        sts = run_kfm_ucf_copy_plane(&dst, &noise, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_ucf_source_crop_noise_limit (plane %d): %s.\n"), iplane, get_err_mes(sts));
             return sts;
@@ -5858,6 +5839,49 @@ RGY_ERR NVEncFilterKfm::submitUcfNoiseResult(const KfmCachedUcfNoise& noise0, co
     pending.meta.noiseUVw = noiseUV.ptr[0] ? (kfmCspHasInterleavedUV(noise0.frame->frame.csp) ? (noiseUV.width >> 1) : noiseUV.width) : 0;
     pending.meta.noiseUVh = noiseUV.ptr[0] ? noiseUV.height : 0;
 
+    if (kfmUseFusedUcfPreprocess() && !stageDumpRequested(noise0.fieldIndex)) {
+        const int planes = RGY_CSP_PLANES[noise0.frame->frame.csp];
+        int capacity = 0;
+        for (int i = 0; i < planes; i++) {
+            const auto n = getPlane(&noise0.frame->frame, (RGY_PLANE)i);
+            const auto d = getPlane(&source0.paddedFrame->frame, (RGY_PLANE)i);
+            capacity += divCeil(std::max(n.width, d.width) >> 2, 32) * divCeil(std::max(n.height, d.height), 8);
+        }
+        pending.partialBuf = acquireUcfNoiseResultBuf(sizeof(RGYKFM::NoiseResult) * capacity);
+        pending.resultBuf = acquireUcfNoiseResultBuf(sizeof(RGYKFM::NoiseResult) * 2);
+        if (!pending.partialBuf || !pending.resultBuf) return RGY_ERR_MEMORY_ALLOC;
+        auto sts = kfmWaitEvents(stream, { noise0.event, noise1.event, noise2.event, source0.paddedEvent, source1.paddedEvent });
+        if (sts != RGY_ERR_NONE) return sts;
+        int offset = 0, lumaCount = 0;
+        for (int i = 0; i < planes; i++) {
+            const auto plane = (RGY_PLANE)i;
+            const auto n0 = getPlane(&noise0.frame->frame, plane);
+            const auto n1 = getPlane(&noise1.frame->frame, plane);
+            const auto n2 = getPlane(&noise2.frame->frame, plane);
+            const auto d0 = getPlane(&source0.paddedFrame->frame, plane);
+            const auto d1 = getPlane(&source1.paddedFrame->frame, plane);
+            const int vpad = KFM_SOURCE_VPAD >> ((i != 0 && RGY_CSP_CHROMA_FORMAT[d0.csp] == RGY_CHROMAFMT_YUV420) ? 1 : 0);
+            const int height = d0.height - 2 * vpad;
+            const int nw4 = (n0.width & 3) ? 0 : n0.width >> 2;
+            const int dw4 = (d0.width & 3) ? 0 : d0.width >> 2;
+            if (std::max(nw4, dw4) <= 0 || std::max(n0.height, height) <= 0) continue;
+            sts = run_kfm_ucf_analyze_fused((RGYKFM::NoiseResult *)pending.partialBuf->ptrDevice, offset, &n0, &n1, &n2, &d0, &d1, nw4, dw4, height, vpad, stream);
+            if (sts != RGY_ERR_NONE) return sts;
+            offset += divCeil(std::max(nw4, dw4), 32) * divCeil(std::max(n0.height, height), 8);
+            if (i == 0) lumaCount = offset;
+        }
+        sts = run_kfm_ucf_reduce((RGYKFM::NoiseResult *)pending.resultBuf->ptrDevice, (const RGYKFM::NoiseResult *)pending.partialBuf->ptrDevice, lumaCount, offset - lumaCount, stream);
+        if (sts != RGY_ERR_NONE) return sts;
+        pending.segments.push_back({0, 1, 0});
+        pending.segments.push_back({1, 1, 1});
+        sts = err_to_rgy(cudaMemcpyAsync(pending.resultBuf->ptrHost, pending.resultBuf->ptrDevice, sizeof(RGYKFM::NoiseResult) * 2, cudaMemcpyDeviceToHost, stream));
+        if (sts != RGY_ERR_NONE) return sts;
+        sts = kfmRecordEvent(stream, &pending.event);
+        if (sts != RGY_ERR_NONE) return sts;
+        m_pendingUcfNoiseResults.push_back(std::move(pending));
+        return RGY_ERR_NONE;
+    }
+
     std::vector<RGYCudaEvent> events;
     int partialCount = 0;
     const int localX = 32;
@@ -6045,6 +6069,7 @@ RGY_ERR NVEncFilterKfm::resolveUcfNoiseResult(KfmPendingUcfNoiseResult& pending,
         }
     }
     pushUcfNoiseResultDump(pending.sourceIndex, results, pending.meta);
+    releaseUcfNoiseResultBuf(std::move(pending.partialBuf));
     releaseUcfNoiseResultBuf(std::move(pending.resultBuf));
     return RGY_ERR_NONE;
 }
@@ -6093,7 +6118,7 @@ void NVEncFilterKfm::releaseUcfNoiseResultBuf(std::unique_ptr<CUMemBufPair>&& bu
     if (!buf) {
         return;
     }
-    static constexpr size_t KFM_UCF_NOISE_RESULT_BUF_POOL_MAX = 8;
+    static constexpr size_t KFM_UCF_NOISE_RESULT_BUF_POOL_MAX = 16;
     m_ucfNoiseResultBufPool.push_back(std::move(buf));
     while (m_ucfNoiseResultBufPool.size() > KFM_UCF_NOISE_RESULT_BUF_POOL_MAX) {
         m_ucfNoiseResultBufPool.pop_front();

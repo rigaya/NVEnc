@@ -43,6 +43,13 @@
 
 class NVEncFilterDegrain;
 
+
+RGY_ERR run_kfm_ucf_preprocess(RGYFrameInfo *dst, const RGYFrameInfo *src, int srcXOffset, int srcYOffset, int srcYStep, int channels,
+    const int *offsetV, const float *coeffV, const int *offsetH, const float *coeffH, int nmin, int range, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_analyze_fused(RGYKFM::NoiseResult *dst, int offset, const RGYFrameInfo *n0, const RGYFrameInfo *n1, const RGYFrameInfo *n2,
+    const RGYFrameInfo *d0, const RGYFrameInfo *d1, int nw4, int dw4, int dh, int vpad, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_reduce(RGYKFM::NoiseResult *dst, const RGYKFM::NoiseResult *src, int lumaCount, int chromaCount, cudaStream_t stream);
+
 class NVEncFilterParamKfm : public NVEncFilterParam {
 public:
     VppKfm kfm;
@@ -580,6 +587,7 @@ protected:
         };
         int sourceIndex;
         std::unique_ptr<CUMemBufPair> resultBuf;
+        std::unique_ptr<CUMemBufPair> partialBuf;
         std::vector<Segment> segments;
         RGYCudaEvent event;
         RGYKFM::UCFNoiseMeta meta;
