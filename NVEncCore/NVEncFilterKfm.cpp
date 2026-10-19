@@ -2017,10 +2017,8 @@ void NVEncFilterKfm::captureDeint60Intermediates() {
     for (const auto& captured : m_deint60Rtgmc->getCapturedIntermediates()) {
         const auto& info = captured.frameInfo;
         const auto source = std::find_if(m_sourceCache.begin(), m_sourceCache.end(), [&info](const KfmCachedSource& entry) {
-            if (info.inputFrameId >= 0) {
-                return entry.inputFrameId == info.inputFrameId;
-            }
-            return entry.frame && entry.timestamp <= info.timestamp
+            return (info.inputFrameId < 0 || entry.inputFrameId == info.inputFrameId)
+                && entry.frame && entry.timestamp <= info.timestamp
                 && info.timestamp < entry.timestamp + std::max<int64_t>(1, entry.frame->frame.duration);
         });
         if (source == m_sourceCache.end()) {
