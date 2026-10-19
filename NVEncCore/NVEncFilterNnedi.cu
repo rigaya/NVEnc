@@ -1106,10 +1106,19 @@ RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
     }
     for (int i = 0; i < outputFrames; i++) {
         if (!doubleHeight) {
-            err = copyFrameAsync(&m_frameBuf[i]->frame, pInputFrame, stream);
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to initialize NNEDI output frame %d: %s.\n"), i, get_err_mes(err));
-                return err;
+            // 処理するplaneの残すフィールドはprepareFieldReferenceでコピーする。
+            // 生成側は全画素が書かれるため、ここでは処理しないplaneだけを初期化する。
+            for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
+                if (nnediPlaneEnabled(prm->nnedi, iplane)) {
+                    continue;
+                }
+                auto dstPlane = getPlane(&m_frameBuf[i]->frame, (RGY_PLANE)iplane);
+                const auto srcPlane = getPlane(pInputFrame, (RGY_PLANE)iplane);
+                err = copyPlaneAsync(&dstPlane, &srcPlane, stream);
+                if (err != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to initialize NNEDI output frame %d plane %d: %s.\n"), i, iplane, get_err_mes(err));
+                    return err;
+                }
             }
         }
         RGYNnediFrameMap frameMap;
