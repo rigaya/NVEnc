@@ -142,6 +142,7 @@ enum class RGYThreadType {
     AUDIO,
     PERF_MONITOR,
     VIDEO_QUALITY,
+    CL_TASK,
 
     END
 };
@@ -158,7 +159,8 @@ static const std::array<std::pair<RGYThreadType, const TCHAR *>, (int)RGYThreadT
     std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::OUTPUT,        _T("output")},
     std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::AUDIO,         _T("audio")},
     std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::PERF_MONITOR,  _T("perfmonitor")},
-    std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::VIDEO_QUALITY, _T("videoquality")}
+    std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::VIDEO_QUALITY, _T("videoquality")},
+    std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::CL_TASK,       _T("cltask")}
 };
 
 const TCHAR *rgy_thread_type_to_str(RGYThreadType type);
@@ -197,6 +199,7 @@ struct RGYParamThreads {
     RGYParamThread audio;
     RGYParamThread perfmonitor;
     RGYParamThread videoquality;
+    RGYParamThread cltask;
 
     RGYParamThreads();
     RGYParamThread& get(RGYThreadType type);

@@ -298,7 +298,9 @@ RGYParamThreads::RGYParamThreads() :
     output(),
     audio(),
     perfmonitor(),
-    videoquality() {
+    videoquality(),
+    cltask() {
+    cltask.throttling = RGYThreadPowerThrottlingMode::Enabled;
     perfmonitor.priority = RGYThreadPriority::BackgroundBeign;
     perfmonitor.throttling = RGYThreadPowerThrottlingMode::Enabled;
     // そのほかはAutoにする
@@ -310,7 +312,8 @@ RGYParamThreads::RGYParamThreads() :
             && targetType != RGYThreadType::FILTER
             && targetType != RGYThreadType::OUTPUT
             && targetType != RGYThreadType::VIDEO_QUALITY
-            && targetType != RGYThreadType::PERF_MONITOR) {
+            && targetType != RGYThreadType::PERF_MONITOR
+            && targetType != RGYThreadType::CL_TASK) {
             get(targetType).throttling = RGYThreadPowerThrottlingMode::Auto;
         }
     }
@@ -335,6 +338,7 @@ RGYParamThread& RGYParamThreads::get(RGYThreadType type) {
     case RGYThreadType::AUDIO: return audio;
     case RGYThreadType::PERF_MONITOR: return perfmonitor;
     case RGYThreadType::VIDEO_QUALITY: return videoquality;
+    case RGYThreadType::CL_TASK: return cltask;
     case RGYThreadType::PROCESS: return process;
     case RGYThreadType::ALL:
     default: return process;
@@ -353,6 +357,7 @@ const RGYParamThread& RGYParamThreads::get(RGYThreadType type) const {
     case RGYThreadType::AUDIO: return audio;
     case RGYThreadType::PERF_MONITOR: return perfmonitor;
     case RGYThreadType::VIDEO_QUALITY: return videoquality;
+    case RGYThreadType::CL_TASK: return cltask;
     case RGYThreadType::PROCESS: return process;
     case RGYThreadType::ALL:
     default: return process;
@@ -402,6 +407,7 @@ tstring RGYParamThreads::to_string(RGYParamThreadType type) const {
     RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::AUDIO, audio);
     RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::PERF_MONITOR, perfmonitor);
     RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::VIDEO_QUALITY, videoquality);
+    RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::CL_TASK, cltask);
 #undef LOG_LEVEL_ADD_TYPE
     return tmp.str().substr(1);
 }
@@ -417,7 +423,8 @@ bool RGYParamThreads::operator==(const RGYParamThreads&x) const {
         && output == x.output
         && audio == x.audio
         && perfmonitor == x.perfmonitor
-        && videoquality == x.videoquality;
+        && videoquality == x.videoquality
+        && cltask == x.cltask;
 }
 bool RGYParamThreads::operator!=(const RGYParamThreads&x) const {
     return !(*this == x);
