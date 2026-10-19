@@ -120,3 +120,21 @@ RGY_ERR launchRtgmcSearchPrefilterScenechangeReduce(uint32_t *state, const int g
     kernel_rtgmc_search_prefilter_scenechange_reduce_cuda<<<4, 256, 0, stream>>>(state, groupCount, sceneThreshold, smoothRadius);
     return err_to_rgy(cudaGetLastError());
 }
+
+RGY_ERR launchRtgmcSearchPrefilterRepairTemporal(const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2, const RGYFrameInfo &tc, const RGYFrameInfo &delta, int tr0, const uint32_t *sceneFlags, cudaStream_t stream) {
+    return (RGY_CSP_BIT_DEPTH[cur.csp] > 8)
+        ? launchRtgmcSearchPrefilterRepairTemporalTyped<uint16_t>(prev2, prev, cur, next, next2, tc, delta, tr0, sceneFlags, stream)
+        : launchRtgmcSearchPrefilterRepairTemporalTyped<uint8_t>(prev2, prev, cur, next, next2, tc, delta, tr0, sceneFlags, stream);
+}
+
+RGY_ERR launchRtgmcSearchPrefilterRepairStage(const RGYFrameInfo &srcPos, const RGYFrameInfo &srcNeg, int srcHx, int srcHy, const RGYFrameInfo &dstPos, const RGYFrameInfo &dstNeg, int dstHx, int dstHy, int width, int height, uint32_t repairProfile, int stage, cudaStream_t stream) {
+    return (RGY_CSP_BIT_DEPTH[srcPos.csp] > 8)
+        ? launchRtgmcSearchPrefilterRepairStageTyped<uint16_t>(srcPos, srcNeg, srcHx, srcHy, dstPos, dstNeg, dstHx, dstHy, width, height, repairProfile, stage, stream)
+        : launchRtgmcSearchPrefilterRepairStageTyped<uint8_t>(srcPos, srcNeg, srcHx, srcHy, dstPos, dstNeg, dstHx, dstHy, width, height, repairProfile, stage, stream);
+}
+
+RGY_ERR launchRtgmcSearchPrefilterRepairApply(const RGYFrameInfo &tc, const RGYFrameInfo &delta, const RGYFrameInfo &gatePos, const RGYFrameInfo &gateNeg, int gateHx, int gateHy, const RGYFrameInfo &dst, int dstHx, int dstHy, int width, int height, uint32_t repairProfile, cudaStream_t stream) {
+    return (RGY_CSP_BIT_DEPTH[tc.csp] > 8)
+        ? launchRtgmcSearchPrefilterRepairApplyTyped<uint16_t>(tc, delta, gatePos, gateNeg, gateHx, gateHy, dst, dstHx, dstHy, width, height, repairProfile, stream)
+        : launchRtgmcSearchPrefilterRepairApplyTyped<uint8_t>(tc, delta, gatePos, gateNeg, gateHx, gateHy, dst, dstHx, dstHy, width, height, repairProfile, stream);
+}
