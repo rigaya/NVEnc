@@ -91,6 +91,20 @@ static bool rtgmcInputTypeBlendEnabled(const VppRtgmc &rtgmc) {
     return (rtgmc.inputType == 2 || rtgmc.inputType == 3) && rtgmc.progSADMask > 0.0f;
 }
 
+static void eraseRtgmcInvalidSourceTwinFrameData(RGYFrameInfo *frame) {
+    if (!frame) {
+        return;
+    }
+    // SourceTwinは直後のANALYZEのzero-copyキャッシュでだけ使う（sourcePtr0一致時）。
+    // 以降もdataListの継承で残り、EDIやKFMの中間履歴経由でprefilterのcacheプールを保持し続ける（test1で254枚）。
+    // ptrが一致しない無効なものだけを外し、Analyze内部キャッシュの所有は維持する。
+    const auto sourcePtr0 = frame->ptr[0];
+    frame->dataList.erase(std::remove_if(frame->dataList.begin(), frame->dataList.end(), [sourcePtr0](const std::shared_ptr<RGYFrameData> &data) {
+        const auto twin = std::dynamic_pointer_cast<RGYFrameDataRtgmcSourceTwin>(data);
+        return twin && twin->sourcePtr0() != sourcePtr0;
+    }), frame->dataList.end());
+}
+
 static void eraseRtgmcInternalFrameData(RGYFrameInfo *frame) {
     if (!frame) {
         return;
@@ -2359,6 +2373,9 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
     auto childWaitEvents = rtgmcPropagateWaitEvents(wait_events, childEvent);
     for (int i = 0; i < childOutFrameNum; i++) {
         propagateRtgmcInternalFrameData(childOutFrames[i], pInputFrame);
+        if (filterIdx == RTGMC_FILTER_ANALYZE) {
+            eraseRtgmcInvalidSourceTwinFrameData(childOutFrames[i]);
+        }
         auto nextWaitEvents = childWaitEvents;
         attachStoredEdiReference(childOutFrames[i], &nextWaitEvents);
         if (filterIdx == RTGMC_FILTER_NOISE) {
@@ -2471,6 +2488,9 @@ RGY_ERR NVEncFilterRtgmc::drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFra
         auto sts = RGY_ERR_NONE;
         for (int i = 0; i < childOutFrameNum; i++) {
             propagateRtgmcInternalFrameData(childOutFrames[i], drainFrame);
+            if (currentFilterIdx == RTGMC_FILTER_ANALYZE) {
+                eraseRtgmcInvalidSourceTwinFrameData(childOutFrames[i]);
+            }
             auto nextWaitEvents = childWaitEvents;
             attachStoredEdiReference(childOutFrames[i], &nextWaitEvents);
             if (currentFilterIdx == RTGMC_FILTER_NOISE) {
