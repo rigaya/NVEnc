@@ -7678,14 +7678,17 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             return sts;
         }
         if (prm->kfm.ucf) {
-            if (m_deint60Rtgmc) {
+            if (!lazyDeint60 && m_deint60Rtgmc) {
                 for (auto &captured : m_deint60Rtgmc->getCapturedIntermediates()) {
                     if (m_before60Rtgmc) m_before60Rtgmc->pushIntermediateInput(captured);
                     if (m_after60Rtgmc) m_after60Rtgmc->pushIntermediateInput(captured);
                 }
                 m_deint60Rtgmc->clearCapturedIntermediates();
             }
-            sts = runUcfRtgmcBranches(pInputFrame, stream, {});
+            // lazy時のレーンへの供給はensureUcfRtgmcRangeに任せ、古いsourceの終端出力を防ぐ。
+            sts = lazyDeint60
+                ? runUcfNoiseAnalysisFromSource(pInputFrame, stream, {})
+                : runUcfRtgmcBranches(pInputFrame, stream, {});
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
