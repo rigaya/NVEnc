@@ -493,6 +493,11 @@ RGY_ERR NVEncFilterKfm::KfmRtgmcLane::feed(const RGYFrameInfo *frame, cudaStream
         return sts;
     }
 
+    // 通常投入・解析のみ・drainのいずれでも、遅れて出た中間データを元のsourceへ登録する。
+    if (m_owner && m_rtgmc == m_owner->m_deint60Rtgmc.get()) {
+        m_owner->captureDeint60Intermediates();
+    }
+
     std::vector<RGYCudaEvent> cacheWaitEvents;
     if (rtgmcEvent() != nullptr) {
         cacheWaitEvents.push_back(rtgmcEvent);
@@ -648,9 +653,6 @@ RGY_ERR NVEncFilterKfm::KfmRtgmcLane::ensureRange(int n60begin, int n60end, cuda
         if (sharedDeint60AnalysisLane()) {
             markIntermediateGeneration(source->sourceIndex, intermediateGeneration);
         }
-        if (m_owner && m_rtgmc == m_owner->m_deint60Rtgmc.get()) {
-            m_owner->captureDeint60Intermediates(source->sourceIndex);
-        }
         m_nextFeedSourceIndex++;
         m_nextOutputN60 = m_submittedFrames;
     }
@@ -682,9 +684,6 @@ RGY_ERR NVEncFilterKfm::KfmRtgmcLane::feedIntermediatesOnly(int sourceBegin, int
             waitEvents.push_back(source->event);
         }
         sts = feed(&source->frame->frame, stream, waitEvents);
-        if (sts == RGY_ERR_NONE) {
-            m_owner->captureDeint60Intermediates(sourceIndex);
-        }
     }
     m_rtgmc->setAnalysisOnly(false);
     // TR1以降の時間方向の状態が不連続になったので、次にdeint60の出力が必要になったらcoldから作り直させる。
@@ -723,9 +722,6 @@ RGY_ERR NVEncFilterKfm::KfmRtgmcLane::feedHot(cudaStream_t stream) {
     }
     if (sharedDeint60AnalysisLane()) {
         markIntermediateGeneration(source->sourceIndex, intermediateGeneration);
-    }
-    if (m_owner && m_rtgmc == m_owner->m_deint60Rtgmc.get()) {
-        m_owner->captureDeint60Intermediates(source->sourceIndex);
     }
     m_nextFeedSourceIndex++;
     m_nextOutputN60 = m_submittedFrames;
@@ -2012,30 +2008,47 @@ RGY_ERR NVEncFilterKfm::ensureUcfRtgmcRange(KfmUcfLaneType laneType, int n60begi
     return RGY_ERR_NONE;
 }
 
-void NVEncFilterKfm::captureDeint60Intermediates(int sourceIndex) {
-    if (!m_deint60Rtgmc || sourceIndex < 0) {
+void NVEncFilterKfm::captureDeint60Intermediates() {
+    if (!m_deint60Rtgmc) {
         return;
     }
-    const auto& captured = m_deint60Rtgmc->getCapturedIntermediates();
-    if (!captured.empty()) {
-        for (auto& group : m_deint60IntermediateQueue) {
-            if (group.sourceIndex == sourceIndex) {
-                // 同じsourceの中間データは、十分なprimingのもとでは何度作っても同じ内容になる。
-                // 差し替えると世代が進み、それを使ったUCFレーンが巻き戻されて作り直しになるため、既存のものを使い続ける。
-                // (deint60のreset後の再feedやfeedIntermediatesOnlyで、同じsourceが再キャプチャされることがある)
-                // 作り直しが必要な場合は、purgeDeint60Intermediatesで消してから作る。
-                m_deint60Rtgmc->clearCapturedIntermediates();
-                return;
+    // 解析段の遅延があるため、今feedしたsource番号と出力された中間データの番号は一致しない。
+    // bobが保持する入力identityから元のsourceを特定し、別のfeedで出る2フィールドも同じ組へ追加する。
+    for (const auto& captured : m_deint60Rtgmc->getCapturedIntermediates()) {
+        const auto& info = captured.frameInfo;
+        const auto source = std::find_if(m_sourceCache.begin(), m_sourceCache.end(), [&info](const KfmCachedSource& entry) {
+            if (info.inputFrameId >= 0) {
+                return entry.inputFrameId == info.inputFrameId;
             }
+            return entry.frame && entry.timestamp <= info.timestamp
+                && info.timestamp < entry.timestamp + std::max<int64_t>(1, entry.frame->frame.duration);
+        });
+        if (source == m_sourceCache.end()) {
+            continue;
         }
-        KfmMainIntermediateGroup group;
-        group.sourceIndex = sourceIndex;
-        group.generation = 1;
-        group.intermediates = captured;
-        m_deint60IntermediateQueue.push_back(std::move(group));
-        trimDeint60Intermediates();
+        auto group = std::find_if(m_deint60IntermediateQueue.begin(), m_deint60IntermediateQueue.end(), [&source](const KfmMainIntermediateGroup& entry) {
+            return entry.sourceIndex == source->sourceIndex;
+        });
+        if (group == m_deint60IntermediateQueue.end()) {
+            KfmMainIntermediateGroup entry;
+            entry.sourceIndex = source->sourceIndex;
+            entry.generation = 1;
+            m_deint60IntermediateQueue.push_back(std::move(entry));
+            group = std::prev(m_deint60IntermediateQueue.end());
+        }
+        // 再解析で同じフィールドが出た場合は、既存データと世代を維持して不要な巻き戻しを防ぐ。
+        const auto duplicate = std::find_if(group->intermediates.begin(), group->intermediates.end(), [&info](const NVEncFilterRtgmc::RtgmcCapturedIntermediate& entry) {
+            return entry.frameInfo.inputFrameId == info.inputFrameId && entry.frameInfo.timestamp == info.timestamp;
+        });
+        if (duplicate == group->intermediates.end()) {
+            group->intermediates.push_back(captured);
+            std::sort(group->intermediates.begin(), group->intermediates.end(), [](const NVEncFilterRtgmc::RtgmcCapturedIntermediate& a, const NVEncFilterRtgmc::RtgmcCapturedIntermediate& b) {
+                return a.frameInfo.timestamp < b.frameInfo.timestamp;
+            });
+        }
     }
     m_deint60Rtgmc->clearCapturedIntermediates();
+    trimDeint60Intermediates();
 }
 
 bool NVEncFilterKfm::hasDeint60Intermediate(int sourceIndex, uint64_t *generation) const {
@@ -2046,7 +2059,7 @@ bool NVEncFilterKfm::hasDeint60Intermediate(int sourceIndex, uint64_t *generatio
         return false;
     }
     const auto it = std::find_if(m_deint60IntermediateQueue.begin(), m_deint60IntermediateQueue.end(), [sourceIndex](const KfmMainIntermediateGroup& group) {
-        return group.sourceIndex == sourceIndex && !group.intermediates.empty();
+        return group.sourceIndex == sourceIndex && group.intermediates.size() >= 2;
     });
     if (it == m_deint60IntermediateQueue.end()) {
         return false;

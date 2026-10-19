@@ -221,6 +221,8 @@ protected:
     RGY_ERR runSourceMatchCorrectionPass(int stage, RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     void eraseAnalyzeOutputUnusedFrameData(RGYFrameInfo *frame);
+    RGY_ERR captureIntermediateFrame(const RGYFrameInfo *frame, cudaStream_t stream,
+        const std::vector<RGYCudaEvent>& waitEvents);
     RGY_ERR runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, bool storePending);
     RGY_ERR drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,

@@ -2353,6 +2353,21 @@ void NVEncFilterRtgmc::eraseAnalyzeOutputUnusedFrameData(RGYFrameInfo *frame) {
     }
 }
 
+RGY_ERR NVEncFilterRtgmc::captureIntermediateFrame(const RGYFrameInfo *frame, cudaStream_t stream,
+    const std::vector<RGYCudaEvent>& waitEvents) {
+    if (!m_captureIntermediate || !frame || !frame->ptr[0]) return RGY_ERR_NONE;
+    auto buf = getSharedFrameBuffer(frame);
+    if (!buf) return RGY_ERR_MEMORY_ALLOC;
+    RGYCudaEvent captured;
+    const auto sts = rtgmcCopyFrameWithEvent(&buf->frame, frame, stream, waitEvents, &captured);
+    if (sts != RGY_ERR_NONE) return sts;
+    copyFramePropWithoutRes(&buf->frame, frame);
+    auto info = buf->frame;
+    info.dataList.push_back(std::make_shared<RGYFrameDataRtgmcFrameRef>(buf));
+    m_capturedIntermediates.push_back({ buf, info, captured });
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, bool storePending) {
     if (filterIdx >= m_filters.size()) {
@@ -2458,17 +2473,9 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
             auto smWaitEvents = rtgmcPropagateWaitEvents(nextWaitEvents, smEvent);
             for (int j = 0; j < smOutNum; j++) {
                 enqueueSourceMatchFrameProp(smOutFrames[j]);
-                if (filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND && m_captureIntermediate) {
-                    auto buf = getSharedFrameBuffer(smOutFrames[j]);
-                    if (buf) {
-                        copyFrameAsync(&buf->frame, smOutFrames[j], stream);
-                        copyFramePropWithoutRes(&buf->frame, smOutFrames[j]);
-                        RGYCudaEvent captureEvent;
-                        rtgmcRecordEvent(stream, &captureEvent);
-                        auto frameInfo = buf->frame;
-                        frameInfo.dataList.push_back(std::make_shared<RGYFrameDataRtgmcFrameRef>(buf));
-                        m_capturedIntermediates.push_back({buf, frameInfo, captureEvent});
-                    }
+                if (filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND) {
+                    sts = captureIntermediateFrame(smOutFrames[j], stream, smWaitEvents);
+                    if (sts != RGY_ERR_NONE) return sts;
                 }
                 if (m_analysisOnly && filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND) {
                     continue; // UCFレーンへの中間データの供給だけで止める。
@@ -2479,17 +2486,9 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
                 }
             }
         } else {
-            if (filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND && m_captureIntermediate) {
-                auto buf = getSharedFrameBuffer(childOutFrames[i]);
-                if (buf) {
-                    copyFrameAsync(&buf->frame, childOutFrames[i], stream);
-                    copyFramePropWithoutRes(&buf->frame, childOutFrames[i]);
-                    RGYCudaEvent captureEvent;
-                    rtgmcRecordEvent(stream, &captureEvent);
-                    auto frameInfo = buf->frame;
-                    frameInfo.dataList.push_back(std::make_shared<RGYFrameDataRtgmcFrameRef>(buf));
-                    m_capturedIntermediates.push_back({buf, frameInfo, captureEvent});
-                }
+            if (filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND) {
+                sts = captureIntermediateFrame(childOutFrames[i], stream, nextWaitEvents);
+                if (sts != RGY_ERR_NONE) return sts;
             }
             if (m_analysisOnly && filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND) {
                 continue; // UCFレーンへの中間データの供給だけで止める。
@@ -2566,12 +2565,22 @@ RGY_ERR NVEncFilterRtgmc::drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFra
                 auto smWaitEvents = rtgmcPropagateWaitEvents(nextWaitEvents, smEvent);
                 for (int j = 0; j < smOutNum; j++) {
                     enqueueSourceMatchFrameProp(smOutFrames[j]);
+                    if (currentFilterIdx == RTGMC_FILTER_INPUTTYPE_BLEND) {
+                        sts = captureIntermediateFrame(smOutFrames[j], stream, smWaitEvents);
+                        if (sts != RGY_ERR_NONE) return sts;
+                        if (m_analysisOnly) continue;
+                    }
                     sts = runThrough(currentFilterIdx + 1, smOutFrames[j], ppOutputFrames, pOutputFrameNum, stream, smWaitEvents, event, true);
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
                 }
             } else {
+                if (currentFilterIdx == RTGMC_FILTER_INPUTTYPE_BLEND) {
+                    sts = captureIntermediateFrame(childOutFrames[i], stream, nextWaitEvents);
+                    if (sts != RGY_ERR_NONE) return sts;
+                    if (m_analysisOnly) continue;
+                }
                 sts = runThrough(currentFilterIdx + 1, childOutFrames[i], ppOutputFrames, pOutputFrameNum, stream, nextWaitEvents, event, true);
                 if (sts != RGY_ERR_NONE) {
                     return sts;

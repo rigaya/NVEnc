@@ -392,7 +392,7 @@ protected:
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR drainUcfRtgmcBranch(KfmRtgmcLane& lane, cudaStream_t stream);
     RGY_ERR ensureUcfRtgmcRange(KfmUcfLaneType laneType, int n60begin, int n60end, cudaStream_t stream);
-    void captureDeint60Intermediates(int sourceIndex);
+    void captureDeint60Intermediates();
     bool hasDeint60Intermediate(int sourceIndex, uint64_t *generation = nullptr) const;
     bool hasDeint60Intermediates(int sourceBegin, int sourceEnd) const;
     RGY_ERR ensureDeint60IntermediateForSource(int sourceIndex, cudaStream_t stream);
