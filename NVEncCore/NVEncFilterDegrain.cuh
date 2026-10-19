@@ -31,6 +31,7 @@
 #include "NVEncFilterDegrain.h"
 
 #include <cstdint>
+#include <cstdlib>
 
 #include "rgy_cuda_util.h"
 #include "rgy_err.h"
@@ -1830,6 +1831,278 @@ __device__ __forceinline__ void degrainMotionSearchSearchOneBlock(
     if (localThreadId == 0) {
         vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)] =
             degrainMotionSearchCandidateCostToSavedVector(finalizedBest);
+    }
+}
+
+// 1warpで1映像ブロックを処理し、CUDAブロック内のwarp間では同期しない。
+static constexpr int DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE = 64;
+
+template<typename T>
+__device__ __forceinline__ T degrainMotionSearchWarpReduceAdd(T value) {
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        value += __shfl_down_sync(0xffffffffu, value, offset);
+    }
+    return __shfl_sync(0xffffffffu, value, 0);
+}
+
+template<typename TypePixel, int blockSize, int pel, int subpelInterp>
+__device__ __forceinline__ uint32_t degrainMotionSearchSgblockSad(
+    const TypePixel *sourceBlockPixels,
+    const uint8_t *referencePlane, const uint8_t *subpelPlanes, const int subpelPlaneStride,
+    const int pitch, const int width, const int height,
+    const int blockGridX, const int blockGridY, const int step,
+    const int motionOffsetX, const int motionOffsetY, const int lane, const int subgroupSize) {
+    uint32_t sad = 0u;
+    if constexpr (sizeof(TypePixel) == 1 && blockSize % 16 == 0) {
+        const int referenceX = degrainMotionSearchRefX<pel>(blockGridX, step, motionOffsetX);
+        const int referenceY = degrainMotionSearchRefY<pel>(blockGridY, step, motionOffsetY);
+        const uint8_t *fastReferencePlane = referencePlane;
+        bool readable = degrainMotionSearchRefIsIntegerPel<pel>(motionOffsetX, motionOffsetY);
+        if constexpr (pel == 2) {
+            if (subpelPlaneStride != 0) {
+                const int phase = (motionOffsetX & 1) + ((motionOffsetY & 1) << 1);
+                fastReferencePlane = subpelPlanes + (size_t)phase * (size_t)subpelPlaneStride;
+                readable = true;
+            }
+        }
+        if (readable && referenceX >= 0 && referenceY >= 0
+            && referenceX + blockSize <= width && referenceY + blockSize <= height) {
+            constexpr int loadsPerRow = blockSize / 16;
+            const int x = (lane % loadsPerRow) * 16;
+            for (int y = lane / loadsPerRow; y < blockSize; y += subgroupSize / loadsPerRow) {
+                const uint8_t *ref = fastReferencePlane + (referenceY + y) * pitch + referenceX + x;
+                const uint32_t *src = reinterpret_cast<const uint32_t *>(sourceBlockPixels + y * blockSize + x);
+                // 参照MVは非整列になり得るので、16画素を4画素ずつ安全に読み出す。
+                #pragma unroll
+                for (int q = 0; q < 4; q++) {
+                    const uint8_t *r = ref + q * 4;
+                    const uint32_t packed = (uint32_t)r[0] | ((uint32_t)r[1] << 8)
+                        | ((uint32_t)r[2] << 16) | ((uint32_t)r[3] << 24);
+                    sad += __vsadu4(src[q], packed);
+                }
+            }
+            return degrainMotionSearchWarpReduceAdd(sad);
+        }
+    }
+    for (int sadLane = lane; sadLane < blockSize; sadLane += subgroupSize) {
+        sad += degrainMotionSearchAccumulateLumaSadLane<TypePixel, blockSize, pel, subpelInterp>(
+            sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, pitch, width, height,
+            blockGridX, blockGridY, step, motionOffsetX, motionOffsetY, sadLane);
+    }
+    return degrainMotionSearchWarpReduceAdd(sad);
+}
+
+// candidate_cost_prefersで添字順に最小を選ぶ (select_lowest_candidate_costと同じ結果)。
+__device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSearchSgblockSelectLowest(
+    const RGYDegrainMotionSearchCandidateCost *candidateCosts) {
+    RGYDegrainMotionSearchCandidateCost best = candidateCosts[0];
+    for (int i = 1; i < DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS; i++) {
+        if (degrainMotionSearchCandidateCostPrefers(candidateCosts[i], best)) {
+            best = candidateCosts[i];
+        }
+    }
+    return best;
+}
+
+// wide6 (offsetCount=6) / square8 (offsetCount=8) のrefineを1回行う。
+// refine_prepare_offset_candidate + refine_evaluate_candidates と同じ判定・コスト式。
+template<typename TypePixel, int blockSize, int pel, int subpelInterp, int offsetCount>
+__device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSearchSgblockRefine(
+    const TypePixel *sourceBlockPixels,
+    const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
+    const RGYDegrainMotionSearchContext *context,
+    RGYDegrainMotionSearchCandidateCost best,
+    const int pitch,
+    const int width,
+    const int height,
+    const int blockGridX,
+    const int blockGridY,
+    const int step,
+    const int lane,
+    const int subgroupSize,
+    const int newCandidateCostScale) {
+    RGYDegrainMotionSearchCandidateCost candidateCosts[DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS];
+    const int baseX = best.pos_x;
+    const int baseY = best.pos_y;
+    for (int i = 0; i < DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS; i++) {
+        candidateCosts[i] = degrainMotionSearchMakeCandidateCost(0, 0, 0u, DEGRAIN_MOTION_SEARCH_LARGE_COST);
+        if (i >= offsetCount) {
+            continue;
+        }
+        const int2 offset = (offsetCount == 6) ? degrainMotionSearchRefineWide6Offset(i) : degrainMotionSearchRefineSquareOffset(i);
+        const int motionOffsetX = baseX + offset.x;
+        const int motionOffsetY = baseY + offset.y;
+        const RGYDegrainMotionSearchCandidate candidate = degrainMotionSearchMakeCandidate(motionOffsetX, motionOffsetY, 0u, 0u);
+        const uint32_t motionCost = degrainMotionSearchCalcMotionCost(candidate, baseX, baseY, context);
+        // refine_prepare_offset_candidateと同じ条件で、評価する候補を決める。
+        if (!degrainMotionSearchMotionInsideSearchWindow(motionOffsetX, motionOffsetY, context) || motionCost >= best.score_primary) {
+            continue;
+        }
+        // 候補をまとめて評価する形 (候補ごとの参照ポインタを配列に持つ) も試したが、レジスタが溢れて遅くなったため、1候補ずつ評価する。
+        const uint32_t sad = degrainMotionSearchSgblockSad<TypePixel, blockSize, pel, subpelInterp>(
+            sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, pitch, width, height,
+            blockGridX, blockGridY, step, motionOffsetX, motionOffsetY, lane, subgroupSize);
+        candidateCosts[i].pos_x = (short)motionOffsetX;
+        candidateCosts[i].pos_y = (short)motionOffsetY;
+        candidateCosts[i].sad_metric = sad;
+        candidateCosts[i].score_primary = motionCost + sad
+            + degrainMotionSearchScaledSadPenalty(sad, newCandidateCostScale * DEGRAIN_MOTION_SEARCH_COST_INPUT_SCALE);
+    }
+    const RGYDegrainMotionSearchCandidateCost lowest = degrainMotionSearchSgblockSelectLowest(candidateCosts);
+    return degrainMotionSearchCandidateCostPrefers(lowest, best) ? lowest : best;
+}
+
+// finalize_candidate_cost_parallel と同じ。分散・SADはいずれも整数の総和なので集約順序に依らない。
+template<typename TypePixel, int blockSize, int pel, int subpelInterp>
+__device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSearchSgblockFinalize(
+    const TypePixel *sourceBlockPixels,
+    const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
+    const int pitch,
+    const int width,
+    const int height,
+    const int blockGridX,
+    const int blockGridY,
+    const int step,
+    RGYDegrainMotionSearchCandidateCost best,
+    const int lane,
+    const int subgroupSize) {
+    best.score_primary = best.sad_metric;
+    const int count = blockSize * blockSize;
+    unsigned long long partialSum = 0;
+    unsigned long long partialSumSq = 0;
+    for (int i = lane; i < count; i += subgroupSize) {
+        const unsigned long long value = (unsigned long long)sourceBlockPixels[i];
+        partialSum += value;
+        partialSumSq += value * value;
+    }
+    const int64_t sum = (int64_t)degrainMotionSearchWarpReduceAdd(partialSum);
+    const int64_t sumSq = (int64_t)degrainMotionSearchWarpReduceAdd(partialSumSq);
+    const int64_t mean = sum / count;
+    const int64_t varianceNumer = sumSq - mean * sum;
+    const uint32_t variance = (varianceNumer <= 0) ? 0u : (uint32_t)(varianceNumer / count);
+    const int isFlat = variance == 0u;
+    if (isFlat) {
+        const uint32_t sadZero = degrainMotionSearchSgblockSad<TypePixel, blockSize, pel, subpelInterp>(
+            sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, pitch, width, height,
+            blockGridX, blockGridY, step, 0, 0, lane, subgroupSize);
+        best.pos_x = 0;
+        best.pos_y = 0;
+        best.sad_metric = sadZero;
+        best.score_primary = sadZero;
+    }
+    return best;
+}
+
+// 引数はkernel_degrain_mv_search_parallelと同じ。global sizeは
+// (blockCount / (local size / subgroup幅) の切り上げ) * local size とすること。
+template<typename TypePixel, int blockSize, int pel, int subpelInterp>
+static __global__ void kernel_degrain_mv_search_sgblock_cuda(
+    const uint8_t *sourcePlane,
+    const uint8_t *referencePlane,
+    const uint8_t *subpelPlanes,
+    const int subpelPlaneStride,
+    RGYDegrainMotionSearchVector *vectors,
+    const int pitch,
+    const int width,
+    const int height,
+    const int planeBase,
+    const int blockCount,
+    const int blocksX,
+    const int blocksY,
+    const int step,
+    const int pad,
+    const int motionCostScale,
+    const int lowSadWeightScale,
+    const int zeroCandidateCostScale,
+    const int frameAverageCandidateCostScale,
+    const int newCandidateCostScale,
+    const int searchParam,
+    const int level) {
+    __shared__ __align__(16) TypePixel sourceBlockPixelsAll[DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE / 32][blockSize * blockSize];
+    __shared__ RGYDegrainMotionSearchContext contextAll[DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE / 32];
+
+    const int subgroupId = (int)threadIdx.x / 32;
+    const int lane = (int)threadIdx.x % 32;
+    const int subgroupSize = 32;
+    const int block = (int)blockIdx.x * ((int)blockDim.x / 32) + subgroupId;
+    const int kernelWidth = width;
+    const int kernelHeight = height;
+    const int kernelBlocksX = blocksX;
+    const int kernelBlocksY = blocksY;
+    const int kernelStep = step;
+    // subgroup単位で一様な条件なので、work-groupのbarrierを使わない本カーネルでは早期returnしてよい。
+    if (sourcePlane == 0 || referencePlane == 0 || kernelBlocksX <= 0 || kernelBlocksY <= 0 || block >= blockCount
+        || subgroupId >= DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE / 32) {
+        return;
+    }
+    const int blockGridX = block % kernelBlocksX;
+    const int blockGridY = block / kernelBlocksX;
+    if (blockGridY >= kernelBlocksY) {
+        return;
+    }
+    TypePixel *sourceBlockPixels = sourceBlockPixelsAll[subgroupId];
+    RGYDegrainMotionSearchContext *context = &contextAll[subgroupId];
+
+    const int sourceBaseX = blockGridX * kernelStep;
+    const int sourceBaseY = blockGridY * kernelStep;
+    for (int i = lane; i < blockSize * blockSize; i += subgroupSize) {
+        const int x = i % blockSize;
+        const int y = i / blockSize;
+        sourceBlockPixels[i] = (TypePixel)degrainPixelLoad<TypePixel>(sourcePlane, pitch, kernelWidth, kernelHeight, sourceBaseX + x, sourceBaseY + y);
+    }
+    const RGYDegrainMotionSearchVector initialSeed = vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)];
+    if (lane == 0) {
+        *context = degrainMotionSearchMakeSearchContext(initialSeed, width, height, blockGridX, blockGridY, kernelStep,
+            blockSize, pel, pad, lowSadWeightScale, motionCostScale);
+    }
+    __syncwarp();
+
+    // 初期候補 (zero / frame average / seed)。重複する候補は先に評価した同一位置のSADを使う。
+    RGYDegrainMotionSearchCandidate candidate[DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES];
+    RGYDegrainMotionSearchCandidateCost candidateCosts[DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS];
+    for (int i = 0; i < DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS; i++) {
+        candidateCosts[i] = degrainMotionSearchMakeCandidateCost(0, 0, 0u, DEGRAIN_MOTION_SEARCH_LARGE_COST);
+    }
+    for (int c = 0; c < DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES; c++) {
+        candidate[c] = degrainMotionSearchLoadBaseCandidate(vectors, context, c, planeBase, blockCount, block);
+        int canonical = c;
+        for (int i = 0; i < c; i++) {
+            if (candidate[i].pos_x == candidate[c].pos_x && candidate[i].pos_y == candidate[c].pos_y) {
+                canonical = i;
+                break;
+            }
+        }
+        const uint32_t sad = (canonical == c)
+            ? degrainMotionSearchSgblockSad<TypePixel, blockSize, pel, subpelInterp>(
+                sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, pitch, kernelWidth, kernelHeight,
+                blockGridX, blockGridY, kernelStep, candidate[c].pos_x, candidate[c].pos_y, lane, subgroupSize)
+            : candidateCosts[canonical].sad_metric;
+        candidateCosts[c].pos_x = candidate[c].pos_x;
+        candidateCosts[c].pos_y = candidate[c].pos_y;
+        candidateCosts[c].sad_metric = sad;
+        candidateCosts[c].score_primary = sad + degrainMotionSearchScaledSadPenalty(sad, degrainMotionSearchInitialCostScale(c, level, zeroCandidateCostScale, frameAverageCandidateCostScale, newCandidateCostScale));
+    }
+    RGYDegrainMotionSearchCandidateCost best = degrainMotionSearchSgblockSelectLowest(candidateCosts);
+
+    if (searchParam >= 2) {
+        best = degrainMotionSearchSgblockRefine<TypePixel, blockSize, pel, subpelInterp, 6>(
+            sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, context, best, pitch, kernelWidth, kernelHeight,
+            blockGridX, blockGridY, kernelStep, lane, subgroupSize, newCandidateCostScale);
+    }
+    best = degrainMotionSearchSgblockRefine<TypePixel, blockSize, pel, subpelInterp, 8>(
+        sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, context, best, pitch, kernelWidth, kernelHeight,
+        blockGridX, blockGridY, kernelStep, lane, subgroupSize, newCandidateCostScale);
+
+    best = degrainMotionSearchSgblockFinalize<TypePixel, blockSize, pel, subpelInterp>(
+        sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, pitch, kernelWidth, kernelHeight,
+        blockGridX, blockGridY, kernelStep, best, lane, subgroupSize);
+    if (lane == 0) {
+        vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)] =
+            degrainMotionSearchCandidateCostToSavedVector(best);
     }
 }
 
@@ -4388,6 +4661,21 @@ static RGY_ERR launchNVEncDegrainMotionSearchSearchParallelFixed(
     const int zeroCandidateCostScale, const int frameAverageCandidateCostScale,
     const int newCandidateCostScale, const int searchParam,
     const int level, cudaStream_t stream) {
+    static const bool sgblockEnabled = []() {
+        const char *value = std::getenv("NVENC_DEGRAIN_MOTION_SEARCH_SGBLOCK");
+        return !(value && value[0] == '0' && value[1] == '\0');
+    }();
+    if (sgblockEnabled) {
+        const int block = DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE;
+        const int grid = divCeil(blockCount, block / 32);
+        kernel_degrain_mv_search_sgblock_cuda<TypePixel, blockSize, pel, subpelInterp><<<grid, block, 0, stream>>>(
+            sourcePlane, referencePlane, subpelPlanes, subpelPlaneStride, reinterpret_cast<RGYDegrainMotionSearchVector *>(vectors.ptr),
+            pitch, width, height, planeBase, blockCount, layout.blocksX, layout.blocksY, layout.step,
+            pad, motionCostScale, lowSadWeightScale,
+            zeroCandidateCostScale, frameAverageCandidateCostScale, newCandidateCostScale,
+            searchParam, level);
+        return err_to_rgy(cudaGetLastError());
+    }
     const int block = blockSize * DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS;
     const int grid = blockCount;
     kernel_degrain_mv_search_parallel_cuda<TypePixel, blockSize, pel, subpelInterp><<<grid, block, 0, stream>>>(
