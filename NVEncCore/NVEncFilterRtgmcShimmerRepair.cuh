@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "NVEncFilterRtgmcShimmerRepair.h"
+#include <cstdlib>
 #include "rgy_cuda_util_kernel.h"
 
 #pragma warning (push)
@@ -642,6 +643,132 @@ __global__ void kernel_rtgmc_shimmer_repair_apply_staged(
         clamp(inputValue + mergedDiff - rangeHalf, 0, maxVal));
 }
 
+// 縦5画素の収縮・膨張、3x3平均、縦5画素の制限を共有メモリ上で融合する。
+#define RTGMC_SHIMMER_REPAIR_TILE_W 64
+#define RTGMC_SHIMMER_REPAIR_TILE_H 16
+// work-groupは64x4。x方向はタイル幅と同じにして、各段のループで除算・剰余を使わないようにする。
+#define RTGMC_SHIMMER_REPAIR_TILE_LOCAL_Y 4
+// 中間値は元コミットと同じintで保持し、隣接スレッドが別々の32bit語へ書き込む。
+#define RTGMC_SHIMMER_REPAIR_TILE_STORE int
+// delta: 出力行の上下5行 (envelope 2 + 3x3 1 + 縦window 2)、左右1列
+#define RTGMC_SHIMMER_REPAIR_TILE_DELTA_H (RTGMC_SHIMMER_REPAIR_TILE_H + 10)
+#define RTGMC_SHIMMER_REPAIR_TILE_DELTA_W (RTGMC_SHIMMER_REPAIR_TILE_W + 2)
+// 縦5tap min/max: 出力行の上下3行、左右1列
+#define RTGMC_SHIMMER_REPAIR_TILE_V_H (RTGMC_SHIMMER_REPAIR_TILE_H + 6)
+// 3x3平均: 出力行の上下2行
+#define RTGMC_SHIMMER_REPAIR_TILE_L_H (RTGMC_SHIMMER_REPAIR_TILE_H + 4)
+
+template<typename Type>
+__global__ void kernel_rtgmc_shimmer_repair_staged_tile(
+    uint8_t *pDst, const int dstPitch,
+    const uint8_t *pInput, const int inputPitch,
+    const uint8_t *pReference, const int referencePitch,
+    const int width,
+    const int height,
+    const int rangeHalf, const int maxVal
+) {
+    __shared__ RTGMC_SHIMMER_REPAIR_TILE_STORE delta[RTGMC_SHIMMER_REPAIR_TILE_DELTA_H][RTGMC_SHIMMER_REPAIR_TILE_DELTA_W];
+    __shared__ RTGMC_SHIMMER_REPAIR_TILE_STORE verticalPositive[RTGMC_SHIMMER_REPAIR_TILE_V_H][RTGMC_SHIMMER_REPAIR_TILE_DELTA_W];
+    __shared__ RTGMC_SHIMMER_REPAIR_TILE_STORE verticalNegative[RTGMC_SHIMMER_REPAIR_TILE_V_H][RTGMC_SHIMMER_REPAIR_TILE_DELTA_W];
+    __shared__ RTGMC_SHIMMER_REPAIR_TILE_STORE localPositive[RTGMC_SHIMMER_REPAIR_TILE_L_H][RTGMC_SHIMMER_REPAIR_TILE_W];
+    __shared__ RTGMC_SHIMMER_REPAIR_TILE_STORE localNegative[RTGMC_SHIMMER_REPAIR_TILE_L_H][RTGMC_SHIMMER_REPAIR_TILE_W];
+
+    const int lx = threadIdx.x;
+    const int ly = threadIdx.y;
+    const int x0 = blockIdx.x * RTGMC_SHIMMER_REPAIR_TILE_W;
+    const int y0 = blockIdx.y * RTGMC_SHIMMER_REPAIR_TILE_H;
+    const uint8_t *input = (const uint8_t *)pInput;
+    const uint8_t *reference = (const uint8_t *)pReference;
+
+    // delta: logical座標 (x0-1+ix, y0-5+iy)。座標のclampはrtgmc_read_pix内で行う (3段版と同じ)。
+    for (int iy = ly; iy < RTGMC_SHIMMER_REPAIR_TILE_DELTA_H; iy += RTGMC_SHIMMER_REPAIR_TILE_LOCAL_Y) {
+        for (int ix = lx; ix < RTGMC_SHIMMER_REPAIR_TILE_DELTA_W; ix += RTGMC_SHIMMER_REPAIR_TILE_W) {
+            delta[iy][ix] = (RTGMC_SHIMMER_REPAIR_TILE_STORE)rtgmcRepairDeltaCentered<Type>(input, inputPitch, reference, referencePitch, x0 - 1 + ix, y0 - 5 + iy, width, height, rangeHalf, maxVal);
+        }
+    }
+    __syncthreads();
+
+    // 縦5tap min/max (stage_vertical): logical行 y0-3+iy、delta行 iy..iy+4
+    for (int iy = ly; iy < RTGMC_SHIMMER_REPAIR_TILE_V_H; iy += RTGMC_SHIMMER_REPAIR_TILE_LOCAL_Y) {
+        for (int ix = lx; ix < RTGMC_SHIMMER_REPAIR_TILE_DELTA_W; ix += RTGMC_SHIMMER_REPAIR_TILE_W) {
+            int positive = maxVal;
+            int negative = 0;
+            for (int dy = 0; dy < 5; dy++) {
+                const int sample = delta[iy + dy][ix];
+                positive = min(positive, sample);
+                negative = max(negative, sample);
+            }
+            verticalPositive[iy][ix] = (RTGMC_SHIMMER_REPAIR_TILE_STORE)positive;
+            verticalNegative[iy][ix] = (RTGMC_SHIMMER_REPAIR_TILE_STORE)negative;
+        }
+    }
+    __syncthreads();
+
+    // 3x3平均 (stage_local): logical (x0+lx, y0-2+iy)、vertical行 iy+1 / 列 lx+1 が中心。
+    // 各work-itemは連続する行を担当し、横3和を直前2行ぶんレジスタに持ち回して縦に3行足す (整数和なので順序に依らず一致)。
+    {
+        const int x = x0 + lx;
+        const int rowsPerItem = (RTGMC_SHIMMER_REPAIR_TILE_L_H + RTGMC_SHIMMER_REPAIR_TILE_LOCAL_Y - 1) / RTGMC_SHIMMER_REPAIR_TILE_LOCAL_Y;
+        const int rowBegin = ly * rowsPerItem;
+        const int rowEnd = min(rowBegin + rowsPerItem, RTGMC_SHIMMER_REPAIR_TILE_L_H);
+        const int interiorX = x > 0 && x < width - 1;
+        int hPositive0 = 0, hPositive1 = 0, hNegative0 = 0, hNegative1 = 0;
+        if (rowBegin < rowEnd) {
+            hPositive0 = verticalPositive[rowBegin][lx] + verticalPositive[rowBegin][lx + 1] + verticalPositive[rowBegin][lx + 2];
+            hNegative0 = verticalNegative[rowBegin][lx] + verticalNegative[rowBegin][lx + 1] + verticalNegative[rowBegin][lx + 2];
+            hPositive1 = verticalPositive[rowBegin + 1][lx] + verticalPositive[rowBegin + 1][lx + 1] + verticalPositive[rowBegin + 1][lx + 2];
+            hNegative1 = verticalNegative[rowBegin + 1][lx] + verticalNegative[rowBegin + 1][lx + 1] + verticalNegative[rowBegin + 1][lx + 2];
+        }
+        for (int iy = rowBegin; iy < rowEnd; iy++) {
+            const int hPositive2 = verticalPositive[iy + 2][lx] + verticalPositive[iy + 2][lx + 1] + verticalPositive[iy + 2][lx + 2];
+            const int hNegative2 = verticalNegative[iy + 2][lx] + verticalNegative[iy + 2][lx + 1] + verticalNegative[iy + 2][lx + 2];
+            const int logicalY = y0 - 2 + iy;
+            const int centerPositive = verticalPositive[iy + 1][lx + 1];
+            const int centerNegative = verticalNegative[iy + 1][lx + 1];
+            int positive = centerPositive;
+            int negative = centerNegative;
+            if (interiorX && logicalY > 0 && logicalY < height - 1) {
+                positive = min(centerPositive, (int)((unsigned int)(hPositive0 + hPositive1 + hPositive2 + 4) / 9u)); // 和は非負なので符号無し除算でも同じ値
+                negative = max(centerNegative, (int)((unsigned int)(hNegative0 + hNegative1 + hNegative2 + 4) / 9u));
+            }
+            localPositive[iy][lx] = (RTGMC_SHIMMER_REPAIR_TILE_STORE)positive;
+            localNegative[iy][lx] = (RTGMC_SHIMMER_REPAIR_TILE_STORE)negative;
+            hPositive0 = hPositive1; hPositive1 = hPositive2;
+            hNegative0 = hNegative1; hNegative1 = hNegative2;
+        }
+    }
+    __syncthreads();
+
+    // 縦5tap envelopeで制限して適用 (apply_staged): logical (x0+lx, y0+iy)、local行 iy..iy+4
+    const int x = x0 + lx;
+    if (x >= width) {
+        return;
+    }
+    for (int iy = ly; iy < RTGMC_SHIMMER_REPAIR_TILE_H; iy += RTGMC_SHIMMER_REPAIR_TILE_LOCAL_Y) {
+        const int y = y0 + iy;
+        if (y >= height) {
+            break;
+        }
+        int diff = delta[iy + 5][lx + 1];
+        if (diff >= rangeHalf + 1) {
+            int upperEnvelope = localPositive[iy][lx];
+            for (int dy = 1; dy < 5; dy++) {
+                upperEnvelope = max(upperEnvelope, (int)localPositive[iy + dy][lx]);
+            }
+            diff = max(upperEnvelope, rangeHalf);
+        } else if (diff <= rangeHalf - 1) {
+            int lowerEnvelope = localNegative[iy][lx];
+            for (int dy = 1; dy < 5; dy++) {
+                lowerEnvelope = min(lowerEnvelope, (int)localNegative[iy + dy][lx]);
+            }
+            diff = min(lowerEnvelope, rangeHalf);
+        }
+        diff = clamp(diff, 0, maxVal);
+        const int inputValue = rtgmc_read_pix<Type>(input, x, y, inputPitch, width, height);
+        rtgmc_write_pix<Type>((uint8_t *)pDst, x, y, dstPitch, clamp(inputValue + diff - rangeHalf, 0, maxVal));
+    }
+}
+
 template<typename Type>
 __global__ void kernel_rtgmc_shimmer_repair_apply_fused_staged(
     uint8_t *pDst, const int dstPitch,
@@ -860,6 +987,23 @@ bool NVENC_RTGMC_SHIMMER_REPAIR_STAGED_LAUNCH_NAME(
     const int stagePitch,
     const int width, const int height, const int stageYOffset,
     const int rangeHalf, const int maxVal) {
+    const bool fused = pCorrectionDelta != nullptr
+        && pPositiveCorrectionGate != nullptr
+        && pNegativeCorrectionGate != nullptr;
+    // 中間段のダンプ時は3段版を維持し、環境変数が0のときも従来経路へ戻す。
+    static const bool tileEnabled = []() {
+        const auto value = std::getenv("NVENC_RTGMC_SHIMMER_REPAIR_TILE");
+        return !(value && value[0] == '0' && value[1] == '\0');
+    }();
+    if (!fused && tileEnabled) {
+        const dim3 tileBlock(RTGMC_SHIMMER_REPAIR_TILE_W, RTGMC_SHIMMER_REPAIR_TILE_LOCAL_Y);
+        const dim3 tileGrid((width + RTGMC_SHIMMER_REPAIR_TILE_W - 1) / RTGMC_SHIMMER_REPAIR_TILE_W,
+            (height + RTGMC_SHIMMER_REPAIR_TILE_H - 1) / RTGMC_SHIMMER_REPAIR_TILE_H);
+        kernel_rtgmc_shimmer_repair_staged_tile<NVENC_RTGMC_SHIMMER_REPAIR_TYPE><<<tileGrid, tileBlock, 0, stream>>>(
+            pDst, dstPitch, pInput, inputPitch, pReference, referencePitch,
+            width, height, rangeHalf, maxVal);
+        return true;
+    }
     kernel_rtgmc_shimmer_repair_stage_vertical<NVENC_RTGMC_SHIMMER_REPAIR_TYPE><<<stagedGridSize, blockSize, 0, stream>>>(
         pVerticalContractPositive, pVerticalExpandNegative, stagePitch,
         pInput, inputPitch, pReference, referencePitch,
@@ -868,9 +1012,6 @@ bool NVENC_RTGMC_SHIMMER_REPAIR_STAGED_LAUNCH_NAME(
         pLocalContractPositive, pLocalExpandNegative,
         pVerticalContractPositive, pVerticalExpandNegative, stagePitch,
         width, height, stageYOffset);
-    const bool fused = pCorrectionDelta != nullptr
-        && pPositiveCorrectionGate != nullptr
-        && pNegativeCorrectionGate != nullptr;
     if (fused) {
         kernel_rtgmc_shimmer_repair_apply_fused_staged<NVENC_RTGMC_SHIMMER_REPAIR_TYPE><<<gridSize, blockSize, 0, stream>>>(
             pDst, dstPitch,
