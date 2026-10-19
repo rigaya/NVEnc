@@ -1752,7 +1752,16 @@ int NVEncFilterKfm::sourceCacheTrimFloor() const {
             return 0;
         }
         // RFF直通では解析24p番号とsource位置が一致しないため、実際に消費したsource位置を基準にする。
-        trimFloor = std::max(0, (m_nextSwitchN60 >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND);
+        // UCF置換ではbefore60/after60レーンのprimingに加え、その区間のdeint60中間データを作るための
+        // deint60のprimingも遡って必要になる。VFRと同様にその分を残さないと、必要なsourceが先に破棄され、
+        // ensureUcfRtgmcRangeがMORE_DATAのままreset(trimmed)を繰り返して出力が終端まで止まる。
+        int lazyLookbehind = 0;
+        if (lazyDeint60Enabled(*prm) && m_deint60Rtgmc && prm->kfm.ucf && (m_before60Rtgmc || m_after60Rtgmc)) {
+            lazyLookbehind = m_deint60Rtgmc->requiredPrimingSourceFrames()
+                + std::max(m_before60Lane.requiredPrimingSourceFrames(), m_after60Lane.requiredPrimingSourceFrames())
+                + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY + 4;
+        }
+        trimFloor = std::max(0, (m_nextSwitchN60 >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND - lazyLookbehind);
     } else if (prm->kfm.mode == VppKfmMode::P60) {
         int lookbehind = KFM_VFR_SOURCE_TRIM_LOOKBEHIND;
         if (prm->kfm.ucf && (m_before60Rtgmc || m_after60Rtgmc)) {
