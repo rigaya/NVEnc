@@ -165,6 +165,11 @@ std::shared_ptr<CUFrameBuf> NVEncFilterRtgmcSearchPrefilter::SharedFramePool::ge
     auto pooled = std::find_if(frames.begin(), frames.end(), [&frameInfo](const Entry &candidate) {
         return candidate.frame && !cmpFrameInfoCspResolution(&candidate.frame->frame, &frameInfo);
     });
+    // 返却直後の画像へのホスト待ちでGPU投入が途切れないよう、FIFOに空き4枚を残す。
+    constexpr size_t reuseLag = 4;
+    if (frames.size() <= reuseLag) {
+        pooled = frames.end();
+    }
     std::unique_ptr<CUFrameBuf> frame;
     if (pooled != frames.end()) {
         if (pooled->readyEvent) {
