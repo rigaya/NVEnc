@@ -2651,71 +2651,71 @@ RGY_ERR run_kfm_ucf_source_crop_noise_limit_plane(RGYFrameInfo *dst, const RGYFr
 
 // V段の整数丸めをタイル内で済ませ、H段とnoise limitまで中間画像を作らず実行する。
 // 左右8画素の余裕は端で片側へ寄る9 tapとUVインターリーブにも対応する。
+// 1スレッドが横4画素を担当し、V段の整数丸めを共有タイルへ保存する。
 template<typename Type>
 __global__ void kernel_kfm_ucf_preprocess(
-    uint8_t *dst, const int dstPitch,
-    const uint8_t *src, const int srcPitch,
-    const int width, const int height,
-    const int srcXOffset, const int srcYOffset, const int srcYStep, const int channels,
-    const int *offsetV, const float *coeffV,
-    const int *offsetH, const float *coeffH,
+    uint8_t *dst, const int dstPitch, const uint8_t *src, const int srcPitch,
+    const int width, const int height, const int srcXOffset, const int srcYOffset, const int srcYStep, const int channels,
+    const int *offsetV, const float *coeffV, const int *offsetH, const float *coeffH,
     const int nmin, const int range, const int bitDepth) {
-    const int lx = threadIdx.x;
-    const int ly = threadIdx.y;
-    using Type4 = typename KfmVec4Traits<Type>::Type4;
-    const int x = (blockIdx.x * blockDim.x + threadIdx.x);
-    const int y = (blockIdx.y * blockDim.y + threadIdx.y);
-    const int baseX = blockIdx.x * 32;
-    const int channelShift = channels == 2 ? 1 : 0;
-    const int planeWidth = width >> channelShift;
-    // 単調なoffsetテーブルから必要なhaloだけを読み、境界の片側寄せにも追従する。
-    const int tileBegin = offsetH[baseX >> channelShift];
-    const int tileEnd = min(offsetH[min(int((baseX + 31) >> channelShift), planeWidth - 1)] + 9, planeWidth);
-    const int tileWidth = (tileEnd - tileBegin) * channels;
+    const int lx = threadIdx.x, ly = threadIdx.y;
+    const int x = (blockIdx.x * 32 + lx) * 4;
+    const int y = blockIdx.y * 4 + ly;
+    const int baseX = blockIdx.x * 128;
+    const int shift = channels == 2 ? 1 : 0;
+    const int planeWidth = width >> shift;
+    const int beginH = offsetH[baseX >> shift];
+    const int endH = min(offsetH[min((baseX + 127) >> shift, planeWidth - 1)] + 9, planeWidth);
+    const int origin = ((beginH * channels + srcXOffset) & ~3) - srcXOffset;
+    const int tileWidth = endH * channels - origin;
     const int maxValue = (1 << bitDepth) - 1;
-    __shared__ Type vertical[8][64];
-    // H係数は8行で共有し、グローバルテーブルの重複読み出しを減らす。
-    __shared__ float horizontalCoeff[9][32];
-    if (x < width) {
-        for (int i = ly; i < 9; i += 8) {
-            horizontalCoeff[i][lx] = coeffH[(x >> channelShift) * 9 + i];
-        }
-    }
-    __syncthreads();
+    __shared__ Type vertical[4][152];
     if (y < height) {
         const int begin = offsetV[y];
-        for (int tx = lx; tx < tileWidth; tx += 32) {
-            const int sx = tileBegin * channels + tx + srcXOffset;
-            float result = 0.0f;
+        for (int tx = lx * 4; tx < tileWidth; tx += 128) {
+            float result[4] = {0.0f, 0.0f, 0.0f, 0.0f};
             #pragma unroll
             for (int i = 0; i < 9; i++) {
-                const int iy = (height >= 9) ? begin + i : min(begin + i, height - 1);
-                const int sy = iy * srcYStep + srcYOffset;
-                const Type *p = (const Type *)(src + sy * srcPitch);
-                result += (float)int(p[sx]) * coeffV[y * 9 + i];
+                const int iy = height >= 9 ? begin + i : min(begin + i, height - 1);
+                const Type *row = (const Type *)(src + (iy * srcYStep + srcYOffset) * srcPitch);
+                const int sx = origin + tx + srcXOffset;
+                Type pixels[4];
+                using Vec = typename KfmVec4Traits<Type>::Type4;
+                if (((srcPitch | (sx * int(sizeof(Type)))) & (sizeof(Vec) - 1)) == 0 && sx + 3 < width + srcXOffset) {
+                    const auto v = ((const Vec *)row)[sx >> 2];
+                    pixels[0] = v.x; pixels[1] = v.y; pixels[2] = v.z; pixels[3] = v.w;
+                } else {
+                    #pragma unroll
+                    for (int j = 0; j < 4; j++) pixels[j] = row[min(sx + j, width + srcXOffset - 1)];
+                }
+                const float c = coeffV[y * 9 + i];
+                #pragma unroll
+                for (int j = 0; j < 4; j++) result[j] += float(pixels[j]) * c;
             }
-            vertical[ly][tx] = (Type)((int)(clamp(result, 0.0f, (float)maxValue) + 0.5f));
+            #pragma unroll
+            for (int j = 0; j < 4; j++) vertical[ly][tx + j] = Type(int(clamp(result[j], 0.0f, float(maxValue)) + 0.5f));
         }
     }
     __syncthreads();
     if (x >= width || y >= height) return;
-    const int hx = x >> channelShift;
-    const int channel = x & (channels - 1);
-    const int begin = offsetH[hx];
-    float result = 0.0f;
-    #pragma unroll
-    for (int i = 0; i < 9; i++) {
-        // 9画素未満の小さいplaneだけは従来どおり右端を複製する。
-        const int ix = (planeWidth >= 9) ? begin + i : min(begin + i, planeWidth - 1);
-        result += (float)int(vertical[ly][(ix - tileBegin) * channels + channel]) * horizontalCoeff[i][lx];
-    }
-    const int noise = (int)(clamp(result, 0.0f, (float)maxValue) + 0.5f);
-    const int original = kfm_ucf_read_field_crop_pix<Type>(src, x, y, srcPitch, width, height, srcXOffset, srcYOffset, srcYStep);
     const int neutral = 1 << (bitDepth - 1);
-    const int v = (original - noise + neutral * 2) >> 1;
-    const int scaledNmin = nmin << max(bitDepth - 8, 0);
-    const int scaledRange = range << max(bitDepth - 8, 0);
-    kfm_ucf_write_pix<Type>(dst, x, y, dstPitch, clamp(kfm_ucf_limiter(v, neutral, maxValue, scaledNmin, scaledRange), 0, maxValue));
+    const Type *original = (const Type *)(src + (y * srcYStep + srcYOffset) * srcPitch) + srcXOffset;
+    Type *out = (Type *)(dst + y * dstPitch);
+    #pragma unroll
+    for (int j = 0; j < 4; j++) {
+        const int xx = min(x + j, width - 1);
+        const int hx = xx >> shift, channel = xx & (channels - 1);
+        const int begin = offsetH[hx];
+        float result = 0.0f;
+        #pragma unroll
+        for (int i = 0; i < 9; i++) {
+            const int ix = planeWidth >= 9 ? begin + i : min(begin + i, planeWidth - 1);
+            result += float(vertical[ly][ix * channels + channel - origin]) * coeffH[hx * 9 + i];
+        }
+        const int noise = int(clamp(result, 0.0f, float(maxValue)) + 0.5f);
+        const int value = (int(original[xx]) - noise + neutral * 2) >> 1;
+        if (x + j < width) out[x + j] = Type(clamp(kfm_ucf_limiter(value, neutral, maxValue, nmin << max(bitDepth - 8, 0), range << max(bitDepth - 8, 0)), 0, maxValue));
+    }
 }
 
 template<typename Type>
@@ -2726,13 +2726,16 @@ __global__ void kernel_kfm_ucf_analyze_partial(
     const uint8_t *src0, const uint8_t *src1,
     const int diffPitch, const int diffWidth4, const int diffHeight, const int srcYOffset, const int bitDepth) {
     using Type4 = typename KfmVec4Traits<Type>::Type4;
-    const int x = (blockIdx.x * blockDim.x + threadIdx.x);
+    const int baseX = (blockIdx.x * blockDim.x + threadIdx.x) * 4;
     const int y = (blockIdx.y * blockDim.y + threadIdx.y);
     const int localLinear = threadIdx.x + 32 * threadIdx.y;
     const int groupLinear = blockIdx.x + gridDim.x * blockIdx.y;
     // 16bitでも1項目の最大値は256 * 4 * 6 * 65535でuintに収まる。
     __shared__ unsigned int partial[6][256];
     unsigned int sums[6] = { 0, 0, 0, 0, 0, 0 };
+    #pragma unroll
+    for (int j = 0; j < 4; j++) {
+    const int x = baseX + j;
     if (x < noiseWidth4 && y < noiseHeight) {
         const int pitch4 = noisePitch / (int)sizeof(Type4);
         const int off = x + y * pitch4;
@@ -2740,10 +2743,10 @@ __global__ void kernel_kfm_ucf_analyze_partial(
         const int4 s1 = KfmVec4Traits<Type>::to_int4(((const Type4 *)noise1)[off]);
         const int4 s2 = KfmVec4Traits<Type>::to_int4(((const Type4 *)noise2)[off]);
         const int neutral = 1 << max(bitDepth - 1, 0);
-        sums[0] = kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s0, make_int4(neutral, neutral, neutral, neutral))));
-        sums[1] = kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s1, make_int4(neutral, neutral, neutral, neutral))));
-        sums[2] = kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s1, s0)));
-        sums[3] = kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s2, s1)));
+        sums[0] += kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s0, make_int4(neutral, neutral, neutral, neutral))));
+        sums[1] += kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s1, make_int4(neutral, neutral, neutral, neutral))));
+        sums[2] += kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s1, s0)));
+        sums[3] += kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s2, s1)));
     }
 
     if (x < diffWidth4 && y < diffHeight) {
@@ -2756,7 +2759,7 @@ __global__ void kernel_kfm_ucf_analyze_partial(
         const Type4 c0 = f0[x + yy * pitch4];
         const Type4 d0 = f0[x + (yy + 1) * pitch4];
         const Type4 e0 = f0[x + (yy + 2) * pitch4];
-        sums[4] = kfm_ucf_hsum4u<Type>(kfm_ucf_calc_combe4<Type>(a0, b0, c0, d0, e0));
+        sums[4] += kfm_ucf_hsum4u<Type>(kfm_ucf_calc_combe4<Type>(a0, b0, c0, d0, e0));
 
         if (y & 1) {
             const Type4 a = f0[x + (yy - 2) * pitch4];
@@ -2764,25 +2767,32 @@ __global__ void kernel_kfm_ucf_analyze_partial(
             const Type4 c = f0[x + yy * pitch4];
             const Type4 d = f1[x + (yy + 1) * pitch4];
             const Type4 e = f0[x + (yy + 2) * pitch4];
-            sums[5] = kfm_ucf_hsum4u<Type>(kfm_ucf_calc_combe4<Type>(a, b, c, d, e));
+            sums[5] += kfm_ucf_hsum4u<Type>(kfm_ucf_calc_combe4<Type>(a, b, c, d, e));
         } else {
             const Type4 a = f1[x + (yy - 2) * pitch4];
             const Type4 b = f0[x + (yy - 1) * pitch4];
             const Type4 c = f1[x + yy * pitch4];
             const Type4 d = f0[x + (yy + 1) * pitch4];
             const Type4 e = f1[x + (yy + 2) * pitch4];
-            sums[5] = kfm_ucf_hsum4u<Type>(kfm_ucf_calc_combe4<Type>(a, b, c, d, e));
+            sums[5] += kfm_ucf_hsum4u<Type>(kfm_ucf_calc_combe4<Type>(a, b, c, d, e));
         }
     }
 
 
-    for (int i = 0; i < 6; i++) partial[i][localLinear] = sums[i];
+    }
+    // warp内で先に集約し、共有メモリとブロック同期を減らす。
+    const int lane = localLinear & 31, warp = localLinear >> 5;
+    for (int i = 0; i < 6; i++) {
+        for (int step = 16; step > 0; step >>= 1) sums[i] += __shfl_down_sync(0xffffffff, sums[i], step);
+        if (lane == 0) partial[i][warp] = sums[i];
+    }
     __syncthreads();
-    for (int step = 128; step > 0; step >>= 1) {
-        if (localLinear < step) {
-            for (int i = 0; i < 6; i++) partial[i][localLinear] += partial[i][localLinear + step];
+    if (warp == 0) {
+        for (int i = 0; i < 6; i++) {
+            unsigned int sum = lane < 8 ? partial[i][lane] : 0;
+            for (int step = 16; step > 0; step >>= 1) sum += __shfl_down_sync(0xffffffff, sum, step);
+            if (lane == 0) partial[i][0] = sum;
         }
-        __syncthreads();
     }
     if (localLinear == 0) {
         RGYKFM::NoiseResult result;
@@ -2837,7 +2847,7 @@ __global__ void kernel_kfm_ucf_analyze_reduce(
 
 RGY_ERR run_kfm_ucf_preprocess(RGYFrameInfo *dst, const RGYFrameInfo *src, int srcXOffset, int srcYOffset, int srcYStep, int channels,
     const int *offsetV, const float *coeffV, const int *offsetH, const float *coeffH, int nmin, int range, cudaStream_t stream) {
-    const dim3 block(32, 8), grid(divCeil(dst->width, 32), divCeil(dst->height, 8));
+    const dim3 block(32, 4), grid(divCeil(dst->width, 128), divCeil(dst->height, 4));
     const int bitDepth = RGY_CSP_BIT_DEPTH[dst->csp];
     if (bitDepth <= 8) {
         kernel_kfm_ucf_preprocess<uint8_t><<<grid, block, 0, stream>>>((uint8_t *)dst->ptr[0], dst->pitch[0], (const uint8_t *)src->ptr[0], src->pitch[0], dst->width, dst->height, srcXOffset, srcYOffset, srcYStep, channels, offsetV, coeffV, offsetH, coeffH, nmin, range, bitDepth);
@@ -2848,7 +2858,7 @@ RGY_ERR run_kfm_ucf_preprocess(RGYFrameInfo *dst, const RGYFrameInfo *src, int s
 }
 RGY_ERR run_kfm_ucf_analyze_fused(RGYKFM::NoiseResult *dst, int offset, const RGYFrameInfo *n0, const RGYFrameInfo *n1, const RGYFrameInfo *n2,
     const RGYFrameInfo *d0, const RGYFrameInfo *d1, int nw4, int dw4, int dh, int vpad, cudaStream_t stream) {
-    const dim3 block(32, 8), grid(divCeil(std::max(nw4, dw4), 32), divCeil(std::max(n0->height, dh), 8));
+    const dim3 block(32, 8), grid(divCeil(std::max(nw4, dw4), 128), divCeil(std::max(n0->height, dh), 8));
     const int bitDepth = RGY_CSP_BIT_DEPTH[n0->csp];
     if (bitDepth <= 8) {
         kernel_kfm_ucf_analyze_partial<uint8_t><<<grid, block, 0, stream>>>(dst, offset, (const uint8_t *)n0->ptr[0], (const uint8_t *)n1->ptr[0], (const uint8_t *)n2->ptr[0], n0->pitch[0], nw4, n0->height, (const uint8_t *)d0->ptr[0], (const uint8_t *)d1->ptr[0], d0->pitch[0], dw4, dh, vpad, bitDepth);

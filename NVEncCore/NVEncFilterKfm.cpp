@@ -5899,7 +5899,7 @@ RGY_ERR NVEncFilterKfm::submitUcfNoiseResult(const KfmCachedUcfNoise& noise0, co
         for (int i = 0; i < planes; i++) {
             const auto n = getPlane(&noise0.frame->frame, (RGY_PLANE)i);
             const auto d = getPlane(&source0.paddedFrame->frame, (RGY_PLANE)i);
-            capacity += divCeil(std::max(n.width, d.width) >> 2, 32) * divCeil(std::max(n.height, d.height), 8);
+            capacity += divCeil(std::max(n.width, d.width) >> 2, 128) * divCeil(std::max(n.height, d.height), 8);
         }
         pending.partialBuf = acquireUcfNoiseResultBuf(sizeof(RGYKFM::NoiseResult) * capacity);
         pending.resultBuf = acquireUcfNoiseResultBuf(sizeof(RGYKFM::NoiseResult) * 2);
@@ -5921,7 +5921,7 @@ RGY_ERR NVEncFilterKfm::submitUcfNoiseResult(const KfmCachedUcfNoise& noise0, co
             if (std::max(nw4, dw4) <= 0 || std::max(n0.height, height) <= 0) continue;
             sts = run_kfm_ucf_analyze_fused((RGYKFM::NoiseResult *)pending.partialBuf->ptrDevice, offset, &n0, &n1, &n2, &d0, &d1, nw4, dw4, height, vpad, stream);
             if (sts != RGY_ERR_NONE) return sts;
-            offset += divCeil(std::max(nw4, dw4), 32) * divCeil(std::max(n0.height, height), 8);
+            offset += divCeil(std::max(nw4, dw4), 128) * divCeil(std::max(n0.height, height), 8);
             if (i == 0) lumaCount = offset;
         }
         sts = run_kfm_ucf_reduce((RGYKFM::NoiseResult *)pending.resultBuf->ptrDevice, (const RGYKFM::NoiseResult *)pending.partialBuf->ptrDevice, lumaCount, offset - lumaCount, stream);
