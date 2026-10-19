@@ -855,13 +855,15 @@ __device__ __forceinline__ uint32_t degrainMotionSearchSumCandidateSadLanes(
     }
     __syncthreads();
 
-    for (int offset = blockSize >> 1; offset > 0; offset >>= 1) {
-        if (candidateIsValid && sadLane < offset) {
-            candidateLaneSums[partialBase + sadLane] += candidateLaneSums[partialBase + sadLane + offset];
+    // 候補グループの先頭レーンで逐次加算し、木構造リダクションの同期を省く。
+    // 呼び出し元は、共有領域へ再度書き込む前に全スレッドを同期すること。
+    uint32_t totalSad = 0u;
+    if (candidateIsValid && sadLane == 0) {
+        for (int i = 0; i < blockSize; i++) {
+            totalSad += candidateLaneSums[partialBase + i];
         }
-        __syncthreads();
     }
-    return (candidateIsValid && sadLane == 0) ? candidateLaneSums[partialBase] : 0u;
+    return totalSad;
 }
 
 __device__ __forceinline__ int degrainMotionSearchCandidateCostMagnitude(
@@ -1547,21 +1549,45 @@ __device__ __forceinline__ uint32_t degrainMotionSearchSourceBlockVarianceParall
     const int localThreadId) {
     const int count = blockSize * blockSize;
     const int localSize = blockSize * DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS;
-    uint32_t partialSum = 0u;
-    // 16bit画素は2乗和の合計が32bitを超えるため、v^2 (32bitに収まる) を上位/下位に分けて総和する
-    uint32_t partialSumSqLo = 0u;
-    uint32_t partialSumSqHi = 0u;
-    for (int i = localThreadId; i < count; i += localSize) {
-        const uint32_t value = (uint32_t)sourceBlockPixels[i];
-        partialSum += value;
-        const uint32_t valueSq = value * value;
-        partialSumSqLo += valueSq & 0xffffu;
-        partialSumSqHi += valueSq >> 16;
+    int64_t sum = 0;
+    int64_t sumSq = 0;
+    if (sizeof(TypePixel) == 1) {
+        // 8bitでは列ごとの和と2乗和が32bitに収まるため、2回の同期で集約する。
+        if (localThreadId < blockSize) {
+            uint32_t columnSum = 0u;
+            uint32_t columnSumSq = 0u;
+            for (int y = 0; y < blockSize; y++) {
+                const uint32_t value = (uint32_t)sourceBlockPixels[y * blockSize + localThreadId];
+                columnSum += value;
+                columnSumSq += value * value;
+            }
+            laneSums[localThreadId] = columnSum;
+            laneSums[blockSize + localThreadId] = columnSumSq;
+        }
+        __syncthreads();
+        for (int i = 0; i < blockSize; i++) {
+            sum += laneSums[i];
+            sumSq += laneSums[blockSize + i];
+        }
+        // 呼び出し元で共有領域を再利用する前に読み出しを完了する。
+        __syncthreads();
+    } else {
+        uint32_t partialSum = 0u;
+        // 16bit画素は2乗和の合計が32bitを超えるため、v^2 (32bitに収まる) を上位/下位に分けて総和する
+        uint32_t partialSumSqLo = 0u;
+        uint32_t partialSumSqHi = 0u;
+        for (int i = localThreadId; i < count; i += localSize) {
+            const uint32_t value = (uint32_t)sourceBlockPixels[i];
+            partialSum += value;
+            const uint32_t valueSq = value * value;
+            partialSumSqLo += valueSq & 0xffffu;
+            partialSumSqHi += valueSq >> 16;
+        }
+        sum = (int64_t)degrainMotionSearchBlockReduceAdd<blockSize>(laneSums, partialSum, localThreadId);
+        const int64_t sumSqLo = (int64_t)degrainMotionSearchBlockReduceAdd<blockSize>(laneSums, partialSumSqLo, localThreadId);
+        const int64_t sumSqHi = (int64_t)degrainMotionSearchBlockReduceAdd<blockSize>(laneSums, partialSumSqHi, localThreadId);
+        sumSq = (sumSqHi << 16) + sumSqLo;
     }
-    const int64_t sum = (int64_t)degrainMotionSearchBlockReduceAdd<blockSize>(laneSums, partialSum, localThreadId);
-    const int64_t sumSqLo = (int64_t)degrainMotionSearchBlockReduceAdd<blockSize>(laneSums, partialSumSqLo, localThreadId);
-    const int64_t sumSqHi = (int64_t)degrainMotionSearchBlockReduceAdd<blockSize>(laneSums, partialSumSqHi, localThreadId);
-    const int64_t sumSq = (sumSqHi << 16) + sumSqLo;
     const int64_t mean = sum / count;
     const int64_t varianceNumer = sumSq - mean * sum;
     return (varianceNumer <= 0) ? 0u : (uint32_t)(varianceNumer / count);
