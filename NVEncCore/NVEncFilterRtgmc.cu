@@ -2700,7 +2700,8 @@ int NVEncFilterRtgmc::requiredPrimingSourceFrames() const {
         std::max(0, rtgmc.matchTR2)
     });
     const int sourceMatchMargin = std::max(0, rtgmc.sourceMatch) * std::max({ 1, std::max(0, rtgmc.matchTR1), std::max(0, rtgmc.matchTR2) });
-    return std::max(8, temporalRadius + sourceMatchMargin + 4);
+    // primingの下限だけを撤去し、固定長sourceキャッシュの容量は維持する。
+    return temporalRadius + sourceMatchMargin + 4;
 }
 
 void NVEncFilterRtgmc::resetTemporalState() {
