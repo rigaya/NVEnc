@@ -211,11 +211,13 @@ protected:
     struct RepairPlaneResources {
         std::unique_ptr<CUFrameBuf> temporal;
         std::unique_ptr<CUFrameBuf> delta;
-        std::array<RepairPlane, 5> stages;
+        std::array<RepairPlane, 6> stages;
+        int stageCount = 0;
         std::shared_ptr<cudaEvent_t> lastEvent;
         void clear() {
             // 前回のconsumerが完了してから中間プレーンを解放する。
             if (lastEvent) cudaEventSynchronize(*lastEvent);
+            stageCount = 0;
             temporal.reset();
             delta.reset();
             for (auto &stage : stages) {

@@ -316,10 +316,9 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::recordRepairUse(const int planeIndex, c
 }
 
 bool NVEncFilterRtgmcSearchPrefilter::useRepairMultipass(const NVEncFilterParamRtgmcSearchPrefilter &prm) const {
-    // pad=2/3とthin=4,pad=0の専用level4経路はStep2まで旧経路へ戻す。
-    return !m_repairLegacy && prm.rep0Pad <= 1
-        && (prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED)
-        && !(prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_LEVEL4_PATH);
+    // 修復が有効な全プロファイルを多段化し、比較用の環境変数だけで旧経路を選ぶ。
+    return !m_repairLegacy
+        && (prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED);
 }
 
 RGY_ERR NVEncFilterRtgmcSearchPrefilter::setupRepairResources(const NVEncFilterParamRtgmcSearchPrefilter &prm, const bool processChroma) {
@@ -332,10 +331,12 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::setupRepairResources(const NVEncFilterP
         resources.delta = createPlaneFrame(info);
         if (!resources.temporal || !resources.delta) return RGY_ERR_MEMORY_ALLOC;
         if (resources.temporal->frame.pitch[0] != resources.delta->frame.pitch[0]) return RGY_ERR_INVALID_PARAM;
-        // Step1のFCは画面内のmotionGuideだけが読むため、必要なFCハローは0。
+        // FCは画面内のmotionGuideだけが読むため、必要なFCハローは0。
         // 後段の参照半径を逆順に加算し、画面外でも評価座標をクランプしない。
+        const bool level4 = (prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_LEVEL4_PATH) != 0;
+        resources.stageCount = level4 ? 4 : ((prm.rep0Pad == 2) ? 6 : 5);
         int hx = 0, hy = 0;
-        for (int stage = 4; stage >= 0; stage--) {
+        for (int stage = resources.stageCount - 1; stage >= 0; stage--) {
             auto &target = resources.stages[stage];
             target.hx = hx;
             target.hy = hy;
@@ -347,11 +348,19 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::setupRepairResources(const NVEncFilterP
                 if (!frame) return RGY_ERR_MEMORY_ALLOC;
             }
             if (target.polarity[0]->frame.pitch[0] != target.polarity[1]->frame.pitch[0]) return RGY_ERR_INVALID_PARAM;
-            if (stage == 4 && prm.rep0Pad == 1) { hx++; hy++; }
-            if (stage == 3) hy += 2 + ((prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_WIDE_ENVELOPE) ? 1 : 0);
-            if (stage == 2 && (prm.repairProfile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_RANK_LIMIT)) { hx++; hy++; }
-            if (stage == 1 && (prm.repairProfile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_CORE_BLEND)) { hx++; hy++; }
-            // TはDの縦近傍を読むが、Dだけは元画素と同様にクランプしてよい。
+            if (level4) {
+                // 縦envelope→mid→mean→core。midはmeanと同座標のcoreを直接読む。
+                // sampleYの端での置換はカーネルで行い、ここでは最大半径を確保する。
+                if (stage == 3) hy += 2;
+                if (stage == 1) { hx++; hy++; }
+            } else {
+                // pad=2はR2→R1→Bで半径を2回加算する。pad=3はBの3x3極値。
+                if (stage == 5 || (stage == 4 && prm.rep0Pad != 0)) { hx++; hy++; }
+                if (stage == 3) hy += 2 + ((prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_WIDE_ENVELOPE) ? 1 : 0);
+                if (stage == 2 && (prm.repairProfile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_RANK_LIMIT)) { hx++; hy++; }
+                if (stage == 1 && (prm.repairProfile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_CORE_BLEND)) { hx++; hy++; }
+            }
+            // coreはDの縦近傍を読むが、Dだけは元画素と同様にクランプしてよい。
         }
         resources.lastEvent = std::shared_ptr<cudaEvent_t>(new cudaEvent_t(), cudaevent_deleter());
         const auto eventStatus = err_to_rgy(cudaEventCreateWithFlags(resources.lastEvent.get(), cudaEventDisableTiming));
@@ -388,7 +397,7 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::emitFieldStableSearch(const int planeIn
         tc, delta, prm.tr0, sceneFlags, stream);
     sts = recordRepairUse(planeIndex, sts, stream);
     if (sts != RGY_ERR_NONE) return sts;
-    for (int stage = 0; stage < 5; stage++) {
+    for (int stage = 0; stage < resources.stageCount; stage++) {
         const auto &target = resources.stages[stage];
         const auto positive = getPlane(&target.polarity[1]->frame, RGY_PLANE_Y);
         const auto negative = getPlane(&target.polarity[0]->frame, RGY_PLANE_Y);
@@ -402,13 +411,16 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::emitFieldStableSearch(const int planeIn
             sourceHx = source.hx;
             sourceHy = source.hy;
         }
+        const auto &core = resources.stages[0];
+        const auto corePos = getPlane(&core.polarity[1]->frame, RGY_PLANE_Y);
+        const auto coreNeg = getPlane(&core.polarity[0]->frame, RGY_PLANE_Y);
         sts = launchRtgmcSearchPrefilterRepairStage(sourcePos, sourceNeg, sourceHx, sourceHy,
             positive, negative, target.hx, target.hy, cur.width, cur.height, profile, stage,
-            stream);
+            corePos, coreNeg, core.hx, core.hy, stream);
         sts = recordRepairUse(planeIndex, sts, stream);
         if (sts != RGY_ERR_NONE) return sts;
     }
-    const auto &gate = resources.stages[4];
+    const auto &gate = resources.stages[resources.stageCount - 1];
     const auto gatePos = getPlane(&gate.polarity[1]->frame, RGY_PLANE_Y);
     const auto gateNeg = getPlane(&gate.polarity[0]->frame, RGY_PLANE_Y);
     sts = launchRtgmcSearchPrefilterRepairApply(tc, delta, gatePos, gateNeg, gate.hx, gate.hy,

@@ -108,8 +108,9 @@ RGY_ERR launchRtgmcSearchPrefilterRangeConvertU16(const RGYFrameInfo&, int, cuda
 RGY_ERR launchRtgmcSearchPrefilterDebugU8(int, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, uint32_t, int, const uint32_t *, cudaStream_t);
 RGY_ERR launchRtgmcSearchPrefilterDebugU16(int, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, uint32_t, int, const uint32_t *, cudaStream_t);
 
+
 RGY_ERR launchRtgmcSearchPrefilterRepairTemporal(const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2, const RGYFrameInfo &tc, const RGYFrameInfo &delta, int tr0, const uint32_t *sceneFlags, cudaStream_t stream);
-RGY_ERR launchRtgmcSearchPrefilterRepairStage(const RGYFrameInfo &srcPos, const RGYFrameInfo &srcNeg, int srcHx, int srcHy, const RGYFrameInfo &dstPos, const RGYFrameInfo &dstNeg, int dstHx, int dstHy, int width, int height, uint32_t repairProfile, int stage, cudaStream_t stream);
+RGY_ERR launchRtgmcSearchPrefilterRepairStage(const RGYFrameInfo &srcPos, const RGYFrameInfo &srcNeg, int srcHx, int srcHy, const RGYFrameInfo &dstPos, const RGYFrameInfo &dstNeg, int dstHx, int dstHy, int width, int height, uint32_t repairProfile, int stage, const RGYFrameInfo &corePos, const RGYFrameInfo &coreNeg, int coreHx, int coreHy, cudaStream_t stream);
 RGY_ERR launchRtgmcSearchPrefilterRepairApply(const RGYFrameInfo &tc, const RGYFrameInfo &delta, const RGYFrameInfo &gatePos, const RGYFrameInfo &gateNeg, int gateHx, int gateHy, const RGYFrameInfo &dst, int dstHx, int dstHy, int width, int height, uint32_t repairProfile, cudaStream_t stream);
 
 #ifndef NVENC_RTGMC_SEARCH_PREFILTER_DECLARE_ONLY
@@ -1125,6 +1126,18 @@ __device__ __forceinline__ void rtgmc_search_prefilter_apply_scene_flags(
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
 // 中間プレーンは仮想座標を保持し、画面内へのクランプはTC/Dの参照で行う。
 template<typename TypePixel>
 __device__ __forceinline__ int rtgmc_search_prefilter_repair_plane_load(
@@ -1154,9 +1167,34 @@ template<typename TypePixel>
 __device__ __forceinline__ int rtgmc_search_prefilter_repair_stage_value(
     const uint8_t *src, const int pitch, const int hx, const int hy,
     const int width, const int height, const int x, const int y,
-    const uint32_t repairProfile, const int stage, const int positive) {
+    const uint32_t repairProfile, const int stage, const int positive,
+    const uint8_t *core, const int corePitch, const int coreHx, const int coreHy) {
     const uint32_t thinFlags = rtgmc_search_repair_profile_thin_reject_flags(repairProfile);
     const uint32_t restoreFlags = rtgmc_search_repair_profile_restore_flags(repairProfile);
+    if (restoreFlags & RGY_RTGMC_REPAIR_RESTORE_LEVEL4_PATH) {
+        if (stage == 0 || stage == 3) {
+            int value = (stage == 0) ? rtgmc_search_prefilter_polarity_core_seed<TypePixel>(positive)
+                : rtgmc_search_prefilter_polarity_envelope_seed<TypePixel>(positive);
+            for (int dy = -2; dy <= 2; dy++) {
+                // はみ出した行は評価行へ戻す。例えばy=1,dy=-2では0ではなく1を読む。
+                // Dの画面クランプとは別の置換であり、仮想座標での評価でもこの順序を保つ。
+                const int sampleY = (y + dy < 0 || y + dy >= height) ? y : y + dy;
+                const int sample = (stage == 0)
+                    ? rtgmc_search_prefilter_pixel_load<TypePixel>(src, pitch, width, height, x, sampleY)
+                    : rtgmc_search_prefilter_repair_plane_load<TypePixel>(src, pitch, hx, hy, x, sampleY);
+                value = (stage == 0) ? rtgmc_search_prefilter_polarity_core_merge(value, sample, positive)
+                    : rtgmc_search_prefilter_polarity_envelope_merge(value, sample, positive);
+            }
+            return value;
+        }
+        if (stage == 1) {
+            return rtgmc_search_prefilter_repair_plane_mean3x3<TypePixel>(src, pitch, hx, hy, width, height, x, y);
+        }
+        // level4のmidは前段の平均とstage0のcoreを合成する。平均だけをcoreと再合成してはいけない。
+        const int mean = rtgmc_search_prefilter_repair_plane_load<TypePixel>(src, pitch, hx, hy, x, y);
+        const int center = rtgmc_search_prefilter_repair_plane_load<TypePixel>(core, corePitch, coreHx, coreHy, x, y);
+        return rtgmc_search_prefilter_polarity_core_merge(center, mean, positive);
+    }
     if (stage == 0) {
         const int radius = 2 + ((thinFlags & RGY_RTGMC_REPAIR_THIN_WIDE_CORE) ? 1 : 0);
         int value = rtgmc_search_prefilter_polarity_core_seed<TypePixel>(positive);
@@ -1197,11 +1235,23 @@ __device__ __forceinline__ int rtgmc_search_prefilter_repair_stage_value(
         rtgmc_search_prefilter_sort8(v);
         return rtgmc_search_prefilter_clamp_int(center, v[3], v[4]);
     }
-    if (stage == 4 && rtgmc_search_repair_profile_restore_padding_level(repairProfile) == 1) {
+    const int padding = rtgmc_search_repair_profile_restore_padding_level(repairProfile);
+    if ((stage == 4 && (padding == 1 || padding == 2)) || stage == 5) {
+        // pad=2ではR1を保持した後、同じ端分岐と整数丸めでR2を別段として評価する。
         const int mean = rtgmc_search_prefilter_repair_plane_mean3x3<TypePixel>(src, pitch, hx, hy, width, height, x, y);
         return rtgmc_search_prefilter_extreme_merge(center, mean, positive);
     }
-    // Step1はpad=0,1のみ。pad=2,3とlevel4経路はホスト側で旧実装へ戻す。
+    if (stage == 4 && padding >= 3) {
+        // area envelopeには平均の端分岐がない。画面外のBも仮想座標のまま参照する。
+        int value = rtgmc_search_prefilter_extreme_seed<TypePixel>(positive);
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                const int sample = rtgmc_search_prefilter_repair_plane_load<TypePixel>(src, pitch, hx, hy, x + dx, y + dy);
+                value = rtgmc_search_prefilter_extreme_merge(value, sample, positive);
+            }
+        }
+        return value;
+    }
     return center;
 }
 
@@ -1230,7 +1280,9 @@ __global__ void kernel_rtgmc_search_prefilter_repair_stage(
     const int srcPitch, const int srcHx, const int srcHy,
     uint8_t *dstPos, uint8_t *dstNeg,
     const int dstPitch, const int dstHx, const int dstHy,
-    const int width, const int height, const uint32_t repairProfile, const int stage) {
+    const int width, const int height, const uint32_t repairProfile, const int stage,
+    const uint8_t *corePos, const uint8_t *coreNeg,
+    const int corePitch, const int coreHx, const int coreHy) {
     const int sx = (int)(blockIdx.x * blockDim.x + threadIdx.x);
     const int sy = (int)(blockIdx.y * blockDim.y + threadIdx.y);
     if (sx >= width + 2 * dstHx || sy >= height + 2 * dstHy) {
@@ -1239,9 +1291,9 @@ __global__ void kernel_rtgmc_search_prefilter_repair_stage(
     const int x = sx - dstHx;
     const int y = sy - dstHy;
     const int positive = rtgmc_search_prefilter_repair_stage_value<TypePixel>(
-        srcPos, srcPitch, srcHx, srcHy, width, height, x, y, repairProfile, stage, 1);
+        srcPos, srcPitch, srcHx, srcHy, width, height, x, y, repairProfile, stage, 1, corePos, corePitch, coreHx, coreHy);
     const int negative = rtgmc_search_prefilter_repair_stage_value<TypePixel>(
-        srcNeg, srcPitch, srcHx, srcHy, width, height, x, y, repairProfile, stage, 0);
+        srcNeg, srcPitch, srcHx, srcHy, width, height, x, y, repairProfile, stage, 0, coreNeg, corePitch, coreHx, coreHy);
     rtgmc_search_prefilter_pixel_store<TypePixel>(dstPos, dstPitch, sx, sy, positive);
     rtgmc_search_prefilter_pixel_store<TypePixel>(dstNeg, dstPitch, sx, sy, negative);
 }
@@ -1829,6 +1881,12 @@ static RGY_ERR launchRtgmcSearchPrefilterDebugTyped(
     return err_to_rgy(cudaGetLastError());
 }
 
+
+
+
+
+
+
 template<typename TypePixel>
 static RGY_ERR launchRtgmcSearchPrefilterRepairTemporalTyped(const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2, const RGYFrameInfo &tc, const RGYFrameInfo &delta, int tr0, const uint32_t *sceneFlags, cudaStream_t stream) {
     if (tc.pitch[0] != delta.pitch[0]) return RGY_ERR_INVALID_PARAM;
@@ -1840,12 +1898,12 @@ static RGY_ERR launchRtgmcSearchPrefilterRepairTemporalTyped(const RGYFrameInfo 
 }
 
 template<typename TypePixel>
-static RGY_ERR launchRtgmcSearchPrefilterRepairStageTyped(const RGYFrameInfo &srcPos, const RGYFrameInfo &srcNeg, int srcHx, int srcHy, const RGYFrameInfo &dstPos, const RGYFrameInfo &dstNeg, int dstHx, int dstHy, int width, int height, uint32_t repairProfile, int stage, cudaStream_t stream) {
-    if (srcPos.pitch[0] != srcNeg.pitch[0] || dstPos.pitch[0] != dstNeg.pitch[0]) return RGY_ERR_INVALID_PARAM;
+static RGY_ERR launchRtgmcSearchPrefilterRepairStageTyped(const RGYFrameInfo &srcPos, const RGYFrameInfo &srcNeg, int srcHx, int srcHy, const RGYFrameInfo &dstPos, const RGYFrameInfo &dstNeg, int dstHx, int dstHy, int width, int height, uint32_t repairProfile, int stage, const RGYFrameInfo &corePos, const RGYFrameInfo &coreNeg, int coreHx, int coreHy, cudaStream_t stream) {
+    if (srcPos.pitch[0] != srcNeg.pitch[0] || dstPos.pitch[0] != dstNeg.pitch[0] || corePos.pitch[0] != coreNeg.pitch[0]) return RGY_ERR_INVALID_PARAM;
     const auto block = rtgmcSearchPrefilterBlock();
     const auto grid = rtgmcSearchPrefilterGrid(dstPos);
     kernel_rtgmc_search_prefilter_repair_stage<TypePixel><<<grid, block, 0, stream>>>(
-        srcPos.ptr[0], srcNeg.ptr[0], srcPos.pitch[0], srcHx, srcHy, dstPos.ptr[0], dstNeg.ptr[0], dstPos.pitch[0], dstHx, dstHy, width, height, repairProfile, stage);
+        srcPos.ptr[0], srcNeg.ptr[0], srcPos.pitch[0], srcHx, srcHy, dstPos.ptr[0], dstNeg.ptr[0], dstPos.pitch[0], dstHx, dstHy, width, height, repairProfile, stage, corePos.ptr[0], coreNeg.ptr[0], corePos.pitch[0], coreHx, coreHy);
     return err_to_rgy(cudaGetLastError());
 }
 
