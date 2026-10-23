@@ -1,5 +1,15 @@
 # NVEnc Release Notes
 
+## 9.39
+
+- Speed up reconstruction in [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) / [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Speed up [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) `ucf=on`.
+- Reduce memory usage of [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) / [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Fix [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) `mode=24,ucf=on` stalling.
+- Fix [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) `ucf=on` aborting at the end of VFR/P24 output.
+- Fix [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) stalling on 24p with UCF at high bit depth.
+- Fix Windows builds rejecting dpid_lambda in [--vpp-resize](./NVEncC_Options.en.md#--vpp-resize-string-or-param1value1param2value2). ( #804 )
+
 ## 9.38
 
 - Improve [--seek](./NVEncC_Options.en.md#--seek-intintintint) / [--seekto](./NVEncC_Options.en.md#--seekto-intintintint) accuracy on mpegts/mp4 input.

@@ -214,6 +214,15 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2026.10.23 (9.39)
+- --vpp-kfm/--vpp-rtgmcの再構成処理の高速化。
+- --vpp-kfmのucf=on時の処理を高速化。
+- --vpp-kfm/--vpp-rtgmcのメモリ使用量を削減。
+- --vpp-kfm mode=24,ucf=onで出力が停止する問題を修正。
+- --vpp-kfm ucf=onのVFR/P24出力で終端でエラー終了する問題を修正。
+- --vpp-kfmで24p・UCF・高bit-depthで出力が停止する問題を修正。
+- Windows版で--vpp-resizeのdpid_lambda指定が拒否される問題を修正。 ( #804 )
+
 2026.10.07 (9.38)
 - mpegts/mp4入力で--seek/--seektoの精度を改善。
 - 端数サイズで--ssimが1.0を超える問題を修正。
