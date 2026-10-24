@@ -1442,7 +1442,8 @@ RGY_ERR NVEncFilterKfm::initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>&
     nrParam->degrain.thscd1 = 1600;
     nrParam->degrain.thscd2 = 130;
     nrParam->degrain.pel = 1;
-    nrParam->degrain.blksize = 16;
+    // 参照実装KFMDeint.avsiのnrblkは入力高さで切り替える。
+    nrParam->degrain.blksize = (prm->frameIn.height >= 720) ? 32 : 16;
     nrParam->degrain.overlap = nrParam->degrain.blksize / 2;
     nrParam->degrain.levels = 2;
     nrParam->degrain.chroma = true;
@@ -1455,7 +1456,7 @@ RGY_ERR NVEncFilterKfm::initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>&
         AddMessage(RGY_LOG_ERROR, _T("failed to initialize KFM NR Auto degrain(TR1) filter: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    AddMessage(RGY_LOG_INFO, _T("--vpp-kfm nr=true is wired to degrain preset=auto,tr=1,blksize=16,levels=2,binomial=true on the final KFM output stream.\n"));
+    AddMessage(RGY_LOG_INFO, _T("--vpp-kfm nr=true is wired to degrain preset=auto,tr=1,blksize=%d,levels=2,binomial=true on the final KFM output stream.\n"), nrParam->degrain.blksize);
     m_nrFilter = std::move(nrFilter);
     return RGY_ERR_NONE;
 }
