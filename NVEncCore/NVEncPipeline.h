@@ -4135,6 +4135,14 @@ public:
                     PrintMes(RGY_LOG_ERROR, _T("Failed to record filter finish cuda event.\n"));
                     return err_to_rgy(err);
                 }
+                // 別ストリームへの出力転送が終わるまで、次のフィルター処理による共有バッファの上書きを防ぐ。
+                if (streamLastFilter != streamFilter) {
+                    err = cudaStreamWaitEvent(streamFilter, *cudaEvent, 0);
+                    if (err != cudaSuccess) {
+                        PrintMes(RGY_LOG_ERROR, _T("出力転送後のフィルターストリーム待機を設定できません。\n"));
+                        return err_to_rgy(err);
+                    }
+                }
             }
             if (frame) {
                 //ここでinput frameの参照を m_prevInputFrame で保持するようにして、CUDAによるフレームの処理が完了しているかを確認できるようにする
