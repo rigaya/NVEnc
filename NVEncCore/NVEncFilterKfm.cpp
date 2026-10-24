@@ -1376,23 +1376,26 @@ bool NVEncFilterKfm::stageDumpRequested(int frame24Index) const {
             || m_stageDumpTargetFrames.find(frame24Index) != m_stageDumpTargetFrames.end());
 }
 
+// KFMのプリセットと明示指定を共通に解決し、SADのスケーリングはDegrain側へ任せる。
+static void kfmSetDegrainEarlySad(VppDegrain& degrain, const VppKfm& kfm) {
+    static const int searchEarlySadByPreset[] = { 0, 0, 0, 0, 16, 32, 64, 64, 64, 64, 64 };
+    static const int spatialEarlySadByPreset[] = { 0, 0, 0, 0, 16, 32, 64, 64, 64, 64, 64 };
+    const int preset = clamp((int)kfm.preset, (int)VppRtgmcPreset::Placebo, (int)VppRtgmcPreset::Draft);
+    degrain.searchEarlySad = (kfm.searchEarlySadOverride == FILTER_DEFAULT_KFM_SEARCH_EARLY_SAD_OVERRIDE)
+        ? searchEarlySadByPreset[preset]
+        : kfm.searchEarlySadOverride;
+    degrain.spatialEarlySad = (kfm.spatialEarlySadOverride == FILTER_DEFAULT_KFM_SPATIAL_EARLY_SAD_OVERRIDE)
+        ? spatialEarlySadByPreset[preset]
+        : kfm.spatialEarlySadOverride;
+}
+
 RGY_ERR NVEncFilterKfm::initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& prm, std::unique_ptr<NVEncFilterRtgmc>& rtgmc, bool updateOutputParam, int useFlag, bool sharedAnalysisMode) {
     auto rtgmcParam = std::make_shared<NVEncFilterParamRtgmc>();
     rtgmcParam->rtgmc.enable = true;
     rtgmcParam->rtgmc.preset = prm->kfm.preset;
     apply_vpp_rtgmc_preset(rtgmcParam->rtgmc, prm->kfm.preset, rtgmcParam->rtgmc.tuning);
-    static const int searchEarlySadByPreset[] = { 0, 0, 0, 0, 16, 32, 64, 64, 64, 64, 64 };
-    static const int spatialEarlySadByPreset[] = { 0, 0, 0, 0, 16, 32, 64, 64, 64, 64, 64 };
-    const int preset = clamp((int)prm->kfm.preset, (int)VppRtgmcPreset::Placebo, (int)VppRtgmcPreset::Draft);
-    const int searchEarlySad = (prm->kfm.searchEarlySadOverride == FILTER_DEFAULT_KFM_SEARCH_EARLY_SAD_OVERRIDE)
-        ? searchEarlySadByPreset[preset]
-        : prm->kfm.searchEarlySadOverride;
-    const int spatialEarlySad = (prm->kfm.spatialEarlySadOverride == FILTER_DEFAULT_KFM_SPATIAL_EARLY_SAD_OVERRIDE)
-        ? spatialEarlySadByPreset[preset]
-        : prm->kfm.spatialEarlySadOverride;
     for (auto *stagePrm : { &rtgmcParam->rtgmc.analyze, &rtgmcParam->rtgmc.tr1, &rtgmcParam->rtgmc.tr2 }) {
-        stagePrm->searchEarlySad = searchEarlySad;
-        stagePrm->spatialEarlySad = spatialEarlySad;
+        kfmSetDegrainEarlySad(*stagePrm, prm->kfm);
     }
     if (useFlag > 0) {
         rtgmcParam->rtgmc.tr1.useFlag = useFlag;
@@ -1449,6 +1452,7 @@ RGY_ERR NVEncFilterKfm::initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>&
     nrParam->degrain.chroma = true;
     nrParam->degrain.binomial = 1;
     nrParam->degrain.tvRange = true;
+    kfmSetDegrainEarlySad(nrParam->degrain, prm->kfm);
 
     auto nrFilter = std::make_unique<NVEncFilterDegrain>();
     auto sts = nrFilter->init(nrParam, m_pLog);
@@ -1456,7 +1460,8 @@ RGY_ERR NVEncFilterKfm::initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>&
         AddMessage(RGY_LOG_ERROR, _T("failed to initialize KFM NR Auto degrain(TR1) filter: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    AddMessage(RGY_LOG_INFO, _T("--vpp-kfm nr=true is wired to degrain preset=auto,tr=1,blksize=%d,levels=2,binomial=true on the final KFM output stream.\n"), nrParam->degrain.blksize);
+    AddMessage(RGY_LOG_INFO, _T("--vpp-kfm nr=true is wired to degrain preset=auto,tr=1,blksize=%d,levels=2,binomial=true,search_early_sad=%d,spatial_early_sad=%d on the final KFM output stream.\n"),
+        nrParam->degrain.blksize, nrParam->degrain.searchEarlySad, nrParam->degrain.spatialEarlySad);
     m_nrFilter = std::move(nrFilter);
     return RGY_ERR_NONE;
 }
