@@ -52,3 +52,26 @@ RGY_ERR run_onnx_deint_weave_rgb(float *output, const float *input,
     kernel_onnx_deint_weave_rgb<<<grid, block, 0, stream>>>(output, input, restoration, width, height, frameA);
     return err_to_rgy(cudaGetLastError());
 }
+
+// 上段へ偶数行、下段へ奇数行を集める。復元時は逆写像を使い、余分なコピーを省く。
+__global__ void kernel_onnx_deint_reorder_fields(float *output, const float *input,
+    const int width, const int height, const bool stack) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) return;
+    const int halfHeight = height / 2;
+    const int sourceY = stack ? (y % halfHeight) * 2 + y / halfHeight : y / 2 + (y & 1) * halfHeight;
+    const size_t plane = (size_t)width * height;
+    for (int channel = 0; channel < 3; channel++) {
+        const float value = input[(size_t)channel * plane + (size_t)sourceY * width + x];
+        output[(size_t)channel * plane + (size_t)y * width + x] = stack ? value : fminf(fmaxf(value, 0.0f), 1.0f);
+    }
+}
+
+RGY_ERR run_onnx_deint_reorder_fields(float *output, const float *input,
+    int width, int height, bool stack, cudaStream_t stream) {
+    const dim3 block(32, 8);
+    const dim3 grid(divCeil(width, (int)block.x), divCeil(height, (int)block.y));
+    kernel_onnx_deint_reorder_fields<<<grid, block, 0, stream>>>(output, input, width, height, stack);
+    return err_to_rgy(cudaGetLastError());
+}

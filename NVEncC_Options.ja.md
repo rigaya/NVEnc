@@ -273,6 +273,7 @@
   - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
   - [--vpp-onnx-deint \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-deint-param1value1param2value2)
+  - [--vpp-vhs-restore \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-vhs-restore-param1value1param2value2)
   - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
   - [--vpp-onnx-cache-dir \<string\>](#--vpp-onnx-cache-dir-string)
   - [--vpp-rife-ov \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-rife-ov-param1value1param2value2)
@@ -1959,6 +1960,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 - [--vpp-onnx-deint](#--vpp-onnx-deint-param1value1param2value2)
+- [--vpp-vhs-restore](#--vpp-vhs-restore-param1value1param2value2)
 - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
 - [--vpp-onnx-cache-dir](#--vpp-onnx-cache-dir-string)
 - [--vpp-rife-ov](#--vpp-rife-ov-param1value1param2value2)
@@ -4591,6 +4593,7 @@ ONNXモデルを使うデインターレースフィルタ。モデルは `onnx_
 
 `stdeint` と `stdeint_fast` は ST-DeInt（3ch入力、半分の高さの6ch出力）、`DDD` は DDD（3フィールドを転置した9ch入力、3ch出力）の登録名。`mode=bob` は入力1フレームから2枚のプログレッシブフレームを出力してフレームレートを2倍にし、`mode=normal` は表示順で先のフィールドを基準に1枚出力する。TFF/BFFのフィールド順を維持し、プログレッシブ入力はニューラル推論せずパススルーする。
 
+
 入力は8bit YUV420のみで、高さは4以上の偶数である必要がある。推論にはONNX RuntimeのCUDAまたはTensorRT execution providerを使用する。DDDはテンソルのpackと出力weaveをホストメモリで行い、推論自体はGPUで実行する。
 
 - **パラメータ**
@@ -4607,12 +4610,32 @@ ONNXモデルを使うデインターレースフィルタ。モデルは `onnx_
   - colorrange=&lt;string&gt; (デフォルト: auto)  
     入力色域。auto / limited (tv) / full (pc)。
 
-ST-DeIntとDDDのモデルファイルはNVEncにもHWEnc-onnx-modelsのリリースアーカイブにも含まれない。権利条件とライセンスを確認してモデルを別途生成または配置し、[HWEnc-onnx-models リポジトリ](https://github.com/rigaya/HWEnc-onnx-models)の `run_all.py` で `onnx_deint_models.json` を生成すること。
+DDDとvhs-restoreのモデル・ライセンス・`onnx_deint_models.json`は、[HWEnc-onnx-models](https://github.com/rigaya/HWEnc-onnx-models)のデインターレース用アーカイブに収録する。ST-DeIntはライセンスが未確定のため標準の取得・生成・配布対象に含めない。
 
 ```
 --vpp-onnx-model-dir C:\models\HWEnc-onnx-models
---vpp-onnx-deint model=stdeint,mode=bob,precision=fp32
 --vpp-onnx-deint model=DDD,mode=normal,precision=auto
+```
+
+VHS修復モデルはこのオプションでは使用できない。[`--vpp-vhs-restore`](#--vpp-vhs-restore-param1value1param2value2)を使用すること。
+
+### --vpp-vhs-restore [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+PAL/SECAM向けのVHS修復モデルを適用し、その後にGPU版Bwdifでデインターレースする。修復モデル自体は欠落フィールドを生成するデインターレースモデルではない。`--vpp-onnx-deint`および他のデインターレースフィルターとは併用できない。
+
+偶数行のフィールドを上段、奇数行を下段へ配置して推論し、元の行順へ戻してからBwdifを適用する。ノイズ除去は追加しない。映像の並べ替え・推論・補間は共有CUDA経路で実行し、ホスト経路へフォールバックしない。
+
+入力は8bit YUV420、高さは4の倍数。TFF/BFFを維持し、Bwdifの前後フレーム参照により1フレーム遅延する。プログレッシブ入力は修復せず、bobでは2枚に複製して出力する。
+
+- model=&lt;string&gt;（必須）：`vhs_restore_pal`または`vhs_restore_secam`。モデル配置先は[`--vpp-onnx-model-dir`](#--vpp-onnx-model-dir-string)で指定する。
+- enable=&lt;bool&gt;：true（デフォルト）/ false。
+- mode=&lt;string&gt;：bob（デフォルト、倍フレームレート）/ normal（元のフレームレート）。
+- precision=&lt;string&gt;：fp32（デフォルト）/ auto。
+- colormatrix=&lt;string&gt;：auto（デフォルト）/ auto_res / bt709 / smpte170m / bt470bg / bt2020nc。
+- colorrange=&lt;string&gt;：auto（デフォルト）/ limited（tv）/ full（pc）。
+
+```
+--vpp-onnx-model-dir C:\models\HWEnc-onnx-models
+--vpp-vhs-restore model=vhs_restore_pal,mode=bob,precision=fp32
 ```
 
 ### --vpp-onnx-model-dir &lt;string&gt;
@@ -4622,7 +4645,7 @@ ST-DeIntとDDDのモデルファイルはNVEncにもHWEnc-onnx-modelsのリリ�
 
 モデルファイルは [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases) からダウンロードできる。zipファイルを任意のディレクトリに展開し、そのディレクトリを指定する。
 
-リリースアーカイブにはST-DeInt/DDDのモデルファイルとデインターレース用マニフェストは含まれない。これらは別途生成・配置し、権利条件とライセンスを確認したうえで、`run_all.py` で `onnx_deint_models.json` を生成してから `--vpp-onnx-deint` を使用すること。
+`--vpp-onnx-deint`と`--vpp-vhs-restore`では、デインターレース用アーカイブを展開したルートディレクトリを指定する。`vhs_restore_pal`/`vhs_restore_secam`とDDDは同梱の`onnx_deint_models.json`から解決する。
 
 このオプションはモデルファイルの場所のみを指定する。ONNX Runtime GPU版、CUDA runtime、cuDNN、TensorRTなどのDLLは、別途 `PATH` または `NVEncC64.exe` と同じフォルダから見えるようにする必要がある。
 

@@ -3877,7 +3877,9 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         param->provider = _T("auto");
         param->precision = inputParam->vpp.onnxDeint.precision;
         param->cacheDir = inputParam->vpp.onnx.cacheDir;
+        param->timebase = m_outputTimebase;
         param->mode = inputParam->vpp.onnxDeint.mode;
+        param->vhsRestore = inputParam->vpp.onnxDeint.operation == VppOnnxDeintOperation::VhsRestore;
         param->colormatrix = inputParam->vpp.onnxDeint.colormatrix;
         param->colorrange = inputParam->vpp.onnxDeint.colorrange;
         param->deviceID = m_dev->id();

@@ -33,6 +33,7 @@
 #include "NVEncFilterParam.h"
 #include "rgy_prm.h"
 #include "rgy_onnxrt_cuda.h"
+#include "NVEncFilterBwdif.h"
 #include <array>
 #include <memory>
 #include <vector>
@@ -59,18 +60,23 @@ public:
     tstring precision;
     tstring cacheDir;
     VppOnnxDeintMode mode;
+    bool vhsRestore;
     CspMatrix colormatrix;
     CspColorRange colorrange;
     int deviceID;
+    rgy_rational<int> timebase;
 
     NVEncFilterParamOnnxDeint() :
-        modelFile(), modelDir(), provider(_T("auto")), precision(_T("fp32")), cacheDir(), mode(VppOnnxDeintMode::Bob),
-        colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), deviceID(-1) {};
+        modelFile(), modelDir(), provider(_T("auto")), precision(_T("fp32")), cacheDir(), mode(VppOnnxDeintMode::Bob), vhsRestore(false),
+        colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), deviceID(-1), timebase() {};
     virtual tstring print() const override;
 };
 
 RGY_ERR run_onnx_deint_weave_rgb(float *output, const float *input,
     const float *restoration, bool frameA, int width, int height, cudaStream_t stream);
+
+RGY_ERR run_onnx_deint_reorder_fields(float *output, const float *input,
+    int width, int height, bool stack, cudaStream_t stream);
 
 class NVEncFilterOnnxDeint : public NVEncFilter {
 public:
@@ -89,6 +95,7 @@ protected:
     RGY_ERR convertToRgb(const RGYFrameInfo *input, cudaStream_t stream);
     RGY_ERR convertFromRgb(RGYFrameInfo *output, cudaStream_t stream);
     RGY_ERR initCudaPath(cudaStream_t stream);
+    RGY_ERR runVhsRestore(const RGYFrameInfo *input, RGYFrameInfo **outputs, int *outputCount, cudaStream_t stream);
     RGY_ERR runCuda(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
         const int sourceIndices[2], cudaStream_t stream);
     RGY_ERR runHost(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
@@ -112,6 +119,7 @@ protected:
     RGY_ERR runTemporal(const RGYFrameInfo *input, RGYFrameInfo **outputs, int *outputFrameNum, cudaStream_t stream);
 
     std::unique_ptr<RGYOnnxRTCUDA> m_ov;
+    std::unique_ptr<NVEncFilterBwdif> m_bwdif;
     std::unique_ptr<NVEncFilterCspCrop> m_cropToRgb;
     std::unique_ptr<NVEncFilterCspCrop> m_cropFromRgb;
     int m_width;

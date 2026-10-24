@@ -3660,6 +3660,13 @@ struct VppRifeOV {
     tstring print() const;
 };
 
+// 公開オプションの選択を保持する。未指定は既存設定との互換性のためデインターレースとして扱う。
+enum class VppOnnxDeintOperation {
+    Unspecified,
+    Deinterlace,
+    VhsRestore,
+};
+
 enum class VppOnnxDeintMode {
     Bob,
     Normal,
@@ -3671,11 +3678,13 @@ enum class VppOnnxDeintMode {
 enum class VppOnnxDeintArchitecture {
     StDeint,
     DDD,
+    VhsRestore,
 };
 
 extern const CX_DESC list_vpp_onnx_deint_mode[];
 struct VppOnnxDeint {
     bool    enable;
+    VppOnnxDeintOperation operation;
     tstring modelFile;
     tstring device;
     tstring precision;

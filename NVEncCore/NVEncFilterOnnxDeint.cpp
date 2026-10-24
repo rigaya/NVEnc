@@ -33,10 +33,18 @@
 #include <cstring>
 
 static OnnxDeintModelSpec onnxDeintModelSpec(VppOnnxDeintArchitecture architecture, int frameWidth, int frameHeight) {
+    if (architecture == VppOnnxDeintArchitecture::VhsRestore) {
+        return { architecture, 3, 3, frameHeight, frameWidth, frameHeight, frameWidth, 1, true };
+    }
     if (architecture == VppOnnxDeintArchitecture::DDD) {
         return { architecture, 9, 3, frameWidth, frameHeight / 2, frameWidth, frameHeight / 2, 1, false };
     }
     return { architecture, 3, 6, frameHeight, frameWidth, frameHeight / 2, frameWidth, 0, true };
+}
+
+static const TCHAR *onnx_deint_architecture_name(VppOnnxDeintArchitecture architecture) {
+    if (architecture == VppOnnxDeintArchitecture::VhsRestore) return _T("vhs_restore");
+    return architecture == VppOnnxDeintArchitecture::DDD ? _T("ddd") : _T("stdeint");
 }
 
 static const TCHAR *onnx_deint_cx_desc_or_unknown(const CX_DESC *list, int value) {
@@ -92,7 +100,7 @@ private:
 };
 
 NVEncFilterOnnxDeint::NVEncFilterOnnxDeint() :
-    NVEncFilter(), m_ov(), m_cropToRgb(), m_cropFromRgb(), m_width(0), m_height(0), m_mode(VppOnnxDeintMode::Bob), m_defaultTff(true),
+    NVEncFilter(), m_ov(), m_bwdif(), m_cropToRgb(), m_cropFromRgb(), m_width(0), m_height(0), m_mode(VppOnnxDeintMode::Bob), m_defaultTff(true),
     m_havePrevTimestamp(false), m_prevTimestamp(0), m_prevDuration(0),
     m_inputBuf(), m_outputBuf(), m_inputDevice(), m_outputDevice(), m_weaveDevice(),
     m_modelName(), m_modelPath(), m_spec(), m_provider(RGYOnnxRTProvider::Auto),
@@ -107,6 +115,7 @@ NVEncFilterOnnxDeint::~NVEncFilterOnnxDeint() {
 
 void NVEncFilterOnnxDeint::close() {
     m_ov.reset();
+    m_bwdif.reset();
     m_cropToRgb.reset();
     m_cropFromRgb.reset();
     m_inputDevice.reset();
@@ -130,7 +139,7 @@ void NVEncFilterOnnxDeint::close() {
 }
 
 tstring NVEncFilterParamOnnxDeint::print() const {
-    return strsprintf(_T("onnx-deint: model=%s, mode %s, provider %s, precision %s, cache_dir %s, colormatrix %s, colorrange %s"), modelFile.c_str(),
+    return strsprintf(_T("%s: model=%s, mode %s, provider %s, precision %s, cache_dir %s, colormatrix %s, colorrange %s"), vhsRestore ? _T("vhs-restore") : _T("onnx-deint"), modelFile.c_str(),
         get_cx_desc(list_vpp_onnx_deint_mode, (int)mode), provider.c_str(), precision.c_str(),
         cacheDir.empty() ? _T("disabled") : cacheDir.c_str(),
         onnx_deint_cx_desc_or_unknown(list_colormatrix, colormatrix), onnx_deint_cx_desc_or_unknown(list_colorrange, colorrange));
@@ -143,6 +152,7 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    m_name = prm->vhsRestore ? _T("vhs-restore") : _T("onnx-deint");
     if (!RGYOnnxRTCUDA::available()) {
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: this build was compiled without ONNX Runtime CUDA support.\n"));
         return RGY_ERR_UNSUPPORTED;
@@ -178,11 +188,19 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     VppOnnxDeintArchitecture architecture;
     if (*modelEntry->onnxDeintArchitecture == _T("stdeint")) {
         architecture = VppOnnxDeintArchitecture::StDeint;
+    } else if (*modelEntry->onnxDeintArchitecture == _T("vhs_restore")) {
+        architecture = VppOnnxDeintArchitecture::VhsRestore;
     } else if (*modelEntry->onnxDeintArchitecture == _T("ddd")) {
         architecture = VppOnnxDeintArchitecture::DDD;
     } else {
-        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model \"%s\" has unknown architecture \"%s\" (expected stdeint or ddd).\n"),
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model \"%s\" has unknown architecture \"%s\" (expected stdeint, ddd or vhs_restore).\n"),
             prm->modelFile.c_str(), modelEntry->onnxDeintArchitecture->c_str());
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->vhsRestore != (architecture == VppOnnxDeintArchitecture::VhsRestore)) {
+        AddMessage(RGY_LOG_ERROR, _T("%sではarchitecture=%sのモデルを使用できません。%sを指定してください。\n"),
+            m_name.c_str(), onnx_deint_architecture_name(architecture),
+            architecture == VppOnnxDeintArchitecture::VhsRestore ? _T("--vpp-vhs-restore") : _T("--vpp-onnx-deint"));
         return RGY_ERR_INVALID_PARAM;
     }
     m_modelName = prm->modelFile;
@@ -201,6 +219,10 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     m_height = prm->frameIn.height;
     if (m_height < 4 || (m_height & 1) != 0) {
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: height must be an even value of at least 4 (got %d).\n"), m_height);
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (architecture == VppOnnxDeintArchitecture::VhsRestore && (m_height % 4) != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("vhs-restore:の高さはBwdifに合わせ4の倍数にしてください。\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     if (prm->mode != VppOnnxDeintMode::Bob && prm->mode != VppOnnxDeintMode::Normal) {
@@ -253,7 +275,7 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     }
     if (m_ov->inChannels() != m_spec.inputChannels || m_ov->outChannels() != m_spec.outputChannels) {
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: invalid %s model (expected %dch input / %dch output, got %dch / %dch).\n"),
-            m_spec.architecture == VppOnnxDeintArchitecture::DDD ? _T("DDD") : _T("ST-DeInt"), m_spec.inputChannels, m_spec.outputChannels,
+            onnx_deint_architecture_name(m_spec.architecture), m_spec.inputChannels, m_spec.outputChannels,
             m_ov->inChannels(), m_ov->outChannels());
         return RGY_ERR_UNSUPPORTED;
     }
@@ -341,12 +363,33 @@ RGY_ERR NVEncFilterOnnxDeint::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     }
 
     m_havePrevTimestamp = false;
+    if (m_spec.architecture == VppOnnxDeintArchitecture::VhsRestore) {
+        // 修復後のフィールド補間と遅延・drain処理は既存のGPU版Bwdifへ委譲する。
+        auto bwdifPrm = std::make_shared<NVEncFilterParamBwdif>();
+        bwdifPrm->frameIn = prm->frameIn;
+        // 子の入力仕様へ親の所有バッファを渡すと、子のキャッシュ確保時に解放されてしまう。
+        for (auto& ptr : bwdifPrm->frameIn.ptr) ptr = nullptr;
+        bwdifPrm->frameOut = bwdifPrm->frameIn;
+        bwdifPrm->baseFps = prm->baseFps;
+        if (m_mode == VppOnnxDeintMode::Bob) bwdifPrm->baseFps /= 2;
+        bwdifPrm->timebase = prm->timebase;
+        bwdifPrm->bwdif.enable = true;
+        bwdifPrm->bwdif.mode = m_mode == VppOnnxDeintMode::Bob ? VppBwdifMode::Bob : VppBwdifMode::Frame;
+        bwdifPrm->bwdif.order = VppBwdifOrder::Auto;
+        bwdifPrm->bwdif.deint = VppBwdifDeint::Interlaced;
+        m_bwdif = std::make_unique<NVEncFilterBwdif>();
+        err = m_bwdif->init(bwdifPrm, m_pLog);
+        if (err != RGY_ERR_NONE) return err;
+        prm->frameOut = bwdifPrm->frameOut;
+    }
+
     m_param = prm;
-    setFilterInfo(prm->print() + strsprintf(_T(", resolved=%s, architecture=%s, execution=host"),
-        m_modelPath.c_str(), m_spec.architecture == VppOnnxDeintArchitecture::DDD ? _T("ddd") : _T("stdeint")));
-    AddMessage(RGY_LOG_DEBUG, _T("onnx-deint: model=%s, resolved=%s, architecture=%s, %dx%d, mode %s, provider %s, execution=host, model %dch/%dch %dx%d.\n"),
-        m_modelName.c_str(), m_modelPath.c_str(), m_spec.architecture == VppOnnxDeintArchitecture::DDD ? _T("ddd") : _T("stdeint"), m_width, m_height,
-        get_cx_desc(list_vpp_onnx_deint_mode, (int)m_mode), m_ov->providerName().c_str(),
+    const auto execution = m_spec.architecture == VppOnnxDeintArchitecture::VhsRestore ? _T("cuda-required+bwdif") : _T("host");
+    setFilterInfo(prm->print() + strsprintf(_T(", resolved=%s, architecture=%s, execution=%s"),
+        m_modelPath.c_str(), onnx_deint_architecture_name(m_spec.architecture), execution));
+    AddMessage(RGY_LOG_DEBUG, _T("onnx-deint: model=%s, resolved=%s, architecture=%s, %dx%d, mode %s, provider %s, execution=%s, model %dch/%dch %dx%d.\n"),
+        m_modelName.c_str(), m_modelPath.c_str(), onnx_deint_architecture_name(m_spec.architecture), m_width, m_height,
+        get_cx_desc(list_vpp_onnx_deint_mode, (int)m_mode), m_ov->providerName().c_str(), execution,
         m_ov->inChannels(), m_ov->outChannels(), m_spec.modelWidth, m_spec.modelHeight);
     return RGY_ERR_NONE;
 }
@@ -443,7 +486,9 @@ RGY_ERR NVEncFilterOnnxDeint::initCudaPath(cudaStream_t stream) {
     if (m_cudaPathTried) return m_cudaPath ? RGY_ERR_NONE : RGY_ERR_UNSUPPORTED;
     m_cudaPathTried = true;
     if (!m_inputDevice || !m_outputDevice || stream == nullptr) {
-        AddMessage(RGY_LOG_WARN, _T("onnx-deint: CUDA zero-copy initialization is unavailable; using host path.\n"));
+        AddMessage(RGY_LOG_WARN, m_spec.architecture == VppOnnxDeintArchitecture::VhsRestore
+            ? _T("vhs-restore:に必要な共有CUDA経路を初期化できません。\n")
+            : _T("onnx-deint: CUDA zero-copy initialization is unavailable; using host path.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     auto deviceSession = std::make_unique<RGYOnnxRTCUDA>();
@@ -455,16 +500,52 @@ RGY_ERR NVEncFilterOnnxDeint::initCudaPath(cudaStream_t stream) {
         || deviceSession->inHeight() != m_spec.modelHeight || deviceSession->inWidth() != m_spec.modelWidth
         || deviceSession->outHeight() != m_spec.outputHeight || deviceSession->outWidth() != m_spec.outputWidth) {
         const auto reason = !errorMessage.empty() ? errorMessage : deviceSession->lastError();
-        AddMessage(RGY_LOG_WARN, _T("onnx-deint: CUDA zero-copy initialization failed; using host path: %s\n"), reason.c_str());
+        AddMessage(RGY_LOG_WARN, m_spec.architecture == VppOnnxDeintArchitecture::VhsRestore
+            ? _T("vhs-restore:に必要な共有CUDA経路の初期化に失敗しました: %s\n")
+            : _T("onnx-deint: CUDA zero-copy initialization failed; using host path: %s\n"), reason.c_str());
         return (err != RGY_ERR_NONE) ? err : RGY_ERR_UNSUPPORTED;
     }
     m_ov = std::move(deviceSession);
     m_cudaPath = true;
     const auto prm = std::dynamic_pointer_cast<NVEncFilterParamOnnxDeint>(m_param);
     if (prm) setFilterInfo(prm->print() + strsprintf(_T(", resolved=%s, architecture=%s, execution=cuda-zerocopy"),
-        m_modelPath.c_str(), m_spec.architecture == VppOnnxDeintArchitecture::DDD ? _T("ddd") : _T("stdeint")));
+        m_modelPath.c_str(), onnx_deint_architecture_name(m_spec.architecture)));
     AddMessage(RGY_LOG_INFO, _T("onnx-deint: path cuda-zerocopy initialized on the filter stream.\n"));
     return RGY_ERR_NONE;
+}
+
+// vhs-restoreはデインターレースモデルではないため、修復後にGPU版Bwdifを適用する。
+RGY_ERR NVEncFilterOnnxDeint::runVhsRestore(const RGYFrameInfo *input, RGYFrameInfo **outputs,
+    int *outputCount, cudaStream_t stream) {
+    auto source = *input;
+    if (input->ptr[0] && (input->picstruct & RGY_PICSTRUCT_INTERLACED) != 0) {
+        auto err = initCudaPath(stream);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("vhs-restore:には共有CUDAのGPU推論が必要です。\n"));
+            return err;
+        }
+        err = convertToRgb(input, stream);
+        if (err != RGY_ERR_NONE) return err;
+        err = run_onnx_deint_reorder_fields((float *)m_weaveDevice->ptr, (const float *)m_inputDevice->ptr,
+            m_width, m_height, true, stream);
+        if (err != RGY_ERR_NONE) return err;
+        err = m_ov->inferDevice((const float *)m_weaveDevice->ptr, (float *)m_outputDevice->ptr);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("vhs-restore:のGPU推論に失敗しました: %s\n"), m_ov->lastError().c_str());
+            return err;
+        }
+        err = run_onnx_deint_reorder_fields((float *)m_weaveDevice->ptr, (const float *)m_outputDevice->ptr,
+            m_width, m_height, false, stream);
+        if (err != RGY_ERR_NONE) return err;
+        auto restored = &m_frameBuf[0]->frame;
+        err = convertFromRgb(restored, stream);
+        if (err != RGY_ERR_NONE) return err;
+        // Bwdifへ元のフィールド順・時刻を渡す。プログレッシブ化はBwdifの出力時に行う。
+        copyFramePropWithoutRes(restored, input);
+        source = *restored;
+    }
+    // プログレッシブ入力も同じ遅延経路を通し、drainを含めて出力順序を維持する。
+    return m_bwdif->filter(&source, outputs, outputCount, stream);
 }
 
 RGY_ERR NVEncFilterOnnxDeint::runCuda(const RGYFrameInfo *input, RGYFrameInfo **outputs,
@@ -694,6 +775,9 @@ RGY_ERR NVEncFilterOnnxDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
     ppOutputFrames[1] = nullptr;
     if (!pInputFrame) {
         return RGY_ERR_NONE;
+    }
+    if (m_spec.architecture == VppOnnxDeintArchitecture::VhsRestore) {
+        return runVhsRestore(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
     }
     if (m_spec.architecture == VppOnnxDeintArchitecture::DDD) {
         return runTemporal(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);

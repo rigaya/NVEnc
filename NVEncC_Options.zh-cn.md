@@ -278,6 +278,7 @@
     - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
     - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
     - [--vpp-onnx-deint \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-deint-param1value1param2value2)
+    - [--vpp-vhs-restore \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-vhs-restore-param1value1param2value2)
     - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
     - [--vpp-onnx-cache-dir \<string\>](#--vpp-onnx-cache-dir-string)
     - [--vpp-rife-ov \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-rife-ov-param1value1param2value2)
@@ -2019,6 +2020,7 @@ vpp过滤器的应用顺序是固定的，与命令行的顺序无关，将按�
 - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 - [--vpp-onnx-deint](#--vpp-onnx-deint-param1value1param2value2)
+- [--vpp-vhs-restore](#--vpp-vhs-restore-param1value1param2value2)
 - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
 - [--vpp-onnx-cache-dir](#--vpp-onnx-cache-dir-string)
 - [--vpp-rife-ov](#--vpp-rife-ov-param1value1param2value2)
@@ -4613,6 +4615,7 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
 
 `stdeint` 与 `stdeint_fast` 注册项使用 ST-DeInt（3 通道输入，6 通道半高输出）。`DDD` 注册项使用 DDD（三场、转置的 9 通道输入与 3 通道输出）。`mode=bob` 对每个输入帧输出两个逐行帧并使帧率翻倍；`mode=normal` 使用首先显示的场输出一帧。TFF/BFF 场序得以保留。逐行输入直接透传，不做神经网络反交错。
 
+
 此滤镜仅接受 8bit YUV420 输入，帧高须为不小于 4 的偶数。推理使用带 CUDA 或 TensorRT 执行提供器的 ONNX Runtime。DDD 将张量打包与输出交织放在主机内存上执行，推理仍在 GPU 上运行。
 
 - **参数**
@@ -4629,12 +4632,32 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
   - colorrange=&lt;string&gt; （默认：auto）  
     输入彩色范围：auto / limited (tv) / full (pc)。
 
-NVEnc 和 HWEnc-onnx-models 的发布压缩包中均不包含 ST-DeInt 或 DDD 模型文件。请自行确认相关权利与许可，单独放置或生成模型，然后在 [HWEnc-onnx-models 仓库](https://github.com/rigaya/HWEnc-onnx-models) 中运行 `run_all.py` 生成 `onnx_deint_models.json`。
+DDDとvhs-restoreのモデル・ライセンス・`onnx_deint_models.json`は、[HWEnc-onnx-models](https://github.com/rigaya/HWEnc-onnx-models)のデインターレース用アーカイブに収録する。ST-DeIntはライセンスが未確定のため標準の取得・生成・配布対象に含めない。
 
 ```
 --vpp-onnx-model-dir C:\models\HWEnc-onnx-models
---vpp-onnx-deint model=stdeint,mode=bob,precision=fp32
 --vpp-onnx-deint model=DDD,mode=normal,precision=auto
+```
+
+VHS修復モデルはこのオプションでは使用できない。[`--vpp-vhs-restore`](#--vpp-vhs-restore-param1value1param2value2)を使用すること。
+
+### --vpp-vhs-restore [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+PAL/SECAM向けのVHS修復モデルを適用し、その後にGPU版Bwdifでデインターレースする。修復モデル自体は欠落フィールドを生成するデインターレースモデルではない。`--vpp-onnx-deint`および他のデインターレースフィルターとは併用できない。
+
+偶数行のフィールドを上段、奇数行を下段へ配置して推論し、元の行順へ戻してからBwdifを適用する。ノイズ除去は追加しない。映像の並べ替え・推論・補間は共有CUDA経路で実行し、ホスト経路へフォールバックしない。
+
+入力は8bit YUV420、高さは4の倍数。TFF/BFFを維持し、Bwdifの前後フレーム参照により1フレーム遅延する。プログレッシブ入力は修復せず、bobでは2枚に複製して出力する。
+
+- model=&lt;string&gt;（必須）：`vhs_restore_pal`または`vhs_restore_secam`。モデル配置先は[`--vpp-onnx-model-dir`](#--vpp-onnx-model-dir-string)で指定する。
+- enable=&lt;bool&gt;：true（デフォルト）/ false。
+- mode=&lt;string&gt;：bob（デフォルト、倍フレームレート）/ normal（元のフレームレート）。
+- precision=&lt;string&gt;：fp32（デフォルト）/ auto。
+- colormatrix=&lt;string&gt;：auto（デフォルト）/ auto_res / bt709 / smpte170m / bt470bg / bt2020nc。
+- colorrange=&lt;string&gt;：auto（デフォルト）/ limited（tv）/ full（pc）。
+
+```
+--vpp-onnx-model-dir C:\models\HWEnc-onnx-models
+--vpp-vhs-restore model=vhs_restore_pal,mode=bob,precision=fp32
 ```
 
 ### --vpp-onnx-model-dir &lt;string&gt;
@@ -4644,7 +4667,7 @@ NVEnc 和 HWEnc-onnx-models 的发布压缩包中均不包含 ST-DeInt 或 DDD �
 
 模型文件可从 [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases) 下载。下载 zip 压缩包，解压到任意目录并指定该目录。
 
-发布压缩包中不包含 ST-DeInt 或 DDD 模型，也不包含反交错清单文件。请自行生成或放置这些文件、确认权利与许可，并使用 `run_all.py` 生成 `onnx_deint_models.json` 后再使用 `--vpp-onnx-deint`。
+`--vpp-onnx-deint`と`--vpp-vhs-restore`では、デインターレース用アーカイブを展開したルートディレクトリを指定する。`vhs_restore_pal`/`vhs_restore_secam`とDDDは同梱の`onnx_deint_models.json`から解決する。
 
 此选项仅指定模型文件的位置。ONNX Runtime GPU、CUDA runtime、cuDNN、TensorRT 及相关 DLL 仍需通过 `PATH` 或放到 `NVEncC64.exe` 同目录使其可见。
 
