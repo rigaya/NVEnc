@@ -2012,14 +2012,20 @@ void NVEncFilterKfm::captureDeint60Intermediates() {
     if (!m_deint60Rtgmc) {
         return;
     }
+    // QSV入力はduration=0の場合があるため、bobと同じfps/timebaseから元の時間幅を補完する。
+    // RTGMCのbaseFpsは初期化時にbob後の2倍fpsへ更新されている。
+    const auto rtgmcPrm = dynamic_cast<const NVEncFilterParamRtgmc *>(m_deint60Rtgmc->GetFilterParam());
+    const int64_t defaultSourceDuration = rtgmcPrm && rtgmcPrm->timebase.is_valid() && rtgmcPrm->baseFps.is_valid()
+        ? std::max<int64_t>(1, (int64_t)((rtgmcPrm->timebase.inv() / rtgmcPrm->baseFps * 2).qdouble() + 0.5))
+        : 1;
     // 解析段の遅延があるため、今feedしたsource番号と出力された中間データの番号は一致しない。
     // bobが保持する入力identityから元のsourceを特定し、別のfeedで出る2フィールドも同じ組へ追加する。
     for (const auto& captured : m_deint60Rtgmc->getCapturedIntermediates()) {
         const auto& info = captured.frameInfo;
-        const auto source = std::find_if(m_sourceCache.begin(), m_sourceCache.end(), [&info](const KfmCachedSource& entry) {
+        const auto source = std::find_if(m_sourceCache.begin(), m_sourceCache.end(), [&info, defaultSourceDuration](const KfmCachedSource& entry) {
             return (info.inputFrameId < 0 || entry.inputFrameId == info.inputFrameId)
                 && entry.frame && entry.timestamp <= info.timestamp
-                && info.timestamp < entry.timestamp + std::max<int64_t>(1, entry.frame->frame.duration);
+                && info.timestamp < entry.timestamp + std::max<int64_t>(1, entry.frame->frame.duration == 0 ? defaultSourceDuration : entry.frame->frame.duration);
         });
         if (source == m_sourceCache.end()) {
             continue;
