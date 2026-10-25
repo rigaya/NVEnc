@@ -342,6 +342,21 @@ std::shared_ptr<CUFrameBuf> NVRtgmcSharedFramePool::acquire(const RGYFrameInfo *
     return buf;
 }
 
+void NVRtgmcSharedFramePool::trim(size_t maxFreeFrames) {
+    // 古い返却画像を残し、余剰の新しい画像だけを安全に解放する。貸出中の画像には触れない。
+    size_t freeFrames = std::count_if(m_pool.begin(), m_pool.end(), [](const std::shared_ptr<CUFrameBuf>& frame) {
+        return frame && frame.use_count() == 1;
+    });
+    for (size_t i = m_pool.size(); i > 0 && freeFrames > maxFreeFrames; ) {
+        --i;
+        if (m_pool[i] && m_pool[i].use_count() == 1) {
+            m_pool[i]->frame.dataList.clear();
+            m_pool.erase(m_pool.begin() + i);
+            --freeFrames;
+        }
+    }
+}
+
 void NVRtgmcSharedFramePool::clear() {
     m_pool.clear();
 }
@@ -2823,7 +2838,13 @@ void NVEncFilterRtgmc::resetTemporalState() {
     m_pendingOutputFrames.clear();
     m_pendingSourceMatchFrameProps.clear();
     if (m_ediSideDataFramePool) {
-        m_ediSideDataFramePool->clear();
+        const auto prm = std::dynamic_pointer_cast<NVEncFilterParamRtgmc>(m_param);
+        if (prm && prm->ediPoolResetRetainFrames > 0) {
+            // 窓の巻き戻し後に使う分だけ残し、高水位の余剰を持ち越さない。
+            m_ediSideDataFramePool->trim(prm->ediPoolResetRetainFrames);
+        } else {
+            m_ediSideDataFramePool->clear();
+        }
     }
 
     // 3. Source cache: clear key/event metadata but keep the GPU frame buffers so they

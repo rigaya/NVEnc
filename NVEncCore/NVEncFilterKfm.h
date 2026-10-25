@@ -475,6 +475,8 @@ protected:
     void trimDeint60Cache(std::deque<KfmCachedDeint60>& cache);
     bool isSwitchSingleFrameN60(int n60) const;
     void markSwitchSingleFrameN60Range(int start60, int duration60);
+    void applyCombedSingleFrameDuration(KfmSwitchTiming& timing);
+    int telecine24PatchN60(int frame24Index) const;
     bool switchSingleFrameDurationEnabled() const;
     void writeSwitchTimingDump();
     void writeTelecine24DurationDump();
@@ -670,6 +672,7 @@ protected:
     struct KfmProfileStats {
         bool enabled;
         KfmProfileCounter submitFMCounts, readbackFMCounts, analyzeCpu, analyzerTrailing, appendAnalyzer, snapshotCopy, snapshotMark60p, appendWrite, writeFinal, deriveTimings, emitPending, vfrScheduler;
+        KfmProfileCounter containsCombeWait, nrMaskWait;
         int64_t cleanSuperCacheHits;
         int64_t cleanSuperCacheMisses;
         int64_t cleanSuperCacheAvoidedFields;
@@ -683,6 +686,30 @@ protected:
     std::unique_ptr<NVEncFilterRtgmc> m_before60Rtgmc;
     std::unique_ptr<NVEncFilterRtgmc> m_after60Rtgmc;
     std::unique_ptr<NVEncFilterDegrain> m_nrFilter;
+    struct KfmNrCacheEntry {
+        int index = -1;
+        std::shared_ptr<CUFrameBuf> frame;
+        RGYCudaEvent event;
+    };
+    struct KfmBranchNrStats {
+        int64_t baseDraws = 0, neighborDraws = 0, baseHits = 0, resultHits = 0, nrFrames = 0;
+        int64_t baseAllocations = 0, baseReuses = 0;
+        size_t maxSource = 0;
+    };
+    std::array<std::unique_ptr<NVEncFilterDegrain>, 2> m_nrBranches;
+    std::array<std::deque<KfmNrCacheEntry>, 2> m_nrBaseCache;
+    std::array<std::vector<std::shared_ptr<CUFrameBuf>>, 2> m_nrBasePool;
+    std::array<KfmNrCacheEntry, 2> m_nrResults;
+    std::array<std::unique_ptr<CUFrameBuf>, 1> m_nrBaseWork;
+    std::array<std::unique_ptr<CUFrameBuf>, 3> m_nrSuperWork;
+    KfmBranchNrStats m_branchNrStats;
+    bool branchNrEnabled(const NVEncFilterParamKfm& prm) const;
+    int branchNrSourceFloor() const;
+    RGY_ERR getNrBase(int branch, int index, bool drain, cudaStream_t stream,
+        std::shared_ptr<CUFrameBuf>& frame, RGYCudaEvent& event);
+    RGY_ERR renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& timing, bool drain, bool fixed24,
+        cudaStream_t stream, RGYCudaEvent *event);
+
     std::unique_ptr<RGYKFM::KFMAnalyze> m_analyzer;
     std::shared_ptr<SharedFramePool> m_kfmFramePool;
     std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotFree;

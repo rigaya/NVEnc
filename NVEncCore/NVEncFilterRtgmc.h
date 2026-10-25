@@ -59,6 +59,7 @@ class NVRtgmcSharedFramePool {
 public:
     NVRtgmcSharedFramePool(const char *allocStatsTag = "RTGMC shared frame pool");
     std::shared_ptr<CUFrameBuf> acquire(const RGYFrameInfo *frame);
+    void trim(size_t maxFreeFrames);
     void clear();
 private:
     std::vector<std::shared_ptr<CUFrameBuf>> m_pool;
@@ -70,8 +71,10 @@ public:
     VppRtgmc rtgmc;
     rgy_rational<int> timebase;
     bool sharedAnalysisMode;
+    // 内部利用時のresetで残す返却済みEDI画像数。通常経路は従来どおり全解放する。
+    size_t ediPoolResetRetainFrames;
 
-    NVEncFilterParamRtgmc() : rtgmc(), timebase(), sharedAnalysisMode(false) {}
+    NVEncFilterParamRtgmc() : rtgmc(), timebase(), sharedAnalysisMode(false), ediPoolResetRetainFrames(0) {}
     virtual ~NVEncFilterParamRtgmc() {}
     virtual tstring print() const override { return rtgmc.print(); }
 };
