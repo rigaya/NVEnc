@@ -802,6 +802,22 @@ RGY_ERR NVEncFilterDegrain::checkParam(const std::shared_ptr<NVEncFilterParamDeg
     return RGY_ERR_NONE;
 }
 
+static RGYDegrainLevel1LumaKey degrainOwnedAnalysisLumaKey(const RGYDegrainAnalysisState& state, const RGYFrameInfo& plane) {
+    if (plane.width != state.analysisLumaWidth || plane.height != state.analysisLumaHeight
+        || plane.pitch[0] != state.analysisLumaPitch) return {};
+    for (int slot = 0; slot < (int)state.analysisLuma.size(); slot++) {
+        if (state.analysisLuma[slot] && state.analysisLumaFrameNumbers[slot] >= 0
+            && state.analysisLumaGenerations[slot] != 0
+            && plane.ptr[0] == reinterpret_cast<uint8_t*>(state.analysisLuma[slot]->ptr)
+            && plane.bitdepth == state.analysisLumaFrame[slot].bitdepth
+            && plane.csp == state.analysisLumaFrame[slot].csp
+            && plane.mem_type == state.analysisLumaFrame[slot].mem_type) {
+            return { slot, state.analysisLumaGenerations[slot], state.lumaLevel1Epoch };
+        }
+    }
+    return {};
+}
+
 RGY_ERR NVEncFilterDegrain::allocCacheFrames(const RGYFrameInfo &frameInfo, int cacheSize) {
     bool reuse = (int)m_cacheFrames.size() == cacheSize;
     for (const auto &frame : m_cacheFrames) {
@@ -1139,6 +1155,11 @@ int NVEncFilterDegrain::drainFrameCount() const {
 RGY_ERR NVEncFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
     const auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
     const int index = cacheIndex(m_inputCount);
+    const auto clearInputOwner = [](RGYFrameInfo& frame) {
+        frame.dataList.erase(std::remove_if(frame.dataList.begin(), frame.dataList.end(), [](const auto& data) {
+            return std::dynamic_pointer_cast<RGYFrameDataDegrainInputRef>(data) != nullptr;
+        }), frame.dataList.end());
+    };
     auto err = degrainWaitEvents(stream, wait_events);
     if (err != RGY_ERR_NONE) {
         return err;
@@ -1150,6 +1171,20 @@ RGY_ERR NVEncFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, cuda
         RGYFrameInfo zeroCopyRef;
         std::shared_ptr<CUFrameBuf> zeroCopyOwner;
         auto owner = rtgmcGetAttachedFrameRef(pInputFrame);
+        for (const auto& data : pInputFrame->dataList) {
+            const auto ref = std::dynamic_pointer_cast<RGYFrameDataDegrainInputRef>(data);
+            const auto borrowed = ref ? ref->frameRef() : nullptr;
+            bool sameStorage = borrowed && !cmpFrameInfoCspResolution(&borrowed->frame, pInputFrame)
+                && borrowed->frame.bitdepth == pInputFrame->bitdepth;
+            for (int plane = 0; sameStorage && plane < RGY_CSP_PLANES[pInputFrame->csp]; plane++) {
+                sameStorage = borrowed->frame.ptr[plane] && borrowed->frame.ptr[plane] == pInputFrame->ptr[plane]
+                    && borrowed->frame.pitch[plane] == pInputFrame->pitch[plane];
+            }
+            if (sameStorage) {
+                owner = borrowed;
+                break;
+            }
+        }
         if (owner && owner->frame.ptr[0]
             && owner->frame.ptr[0] == pInputFrame->ptr[0]
             && !cmpFrameInfoCspResolution(&owner->frame, pInputFrame)
@@ -1173,6 +1208,8 @@ RGY_ERR NVEncFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, cuda
             zeroCopyOwner = edi->frameRef();
         }
         if (zeroCopyOwner) {
+            // 解析lumaやNR出力がdataListをコピーしても、baseを長期pinしない。
+            clearInputOwner(zeroCopyRef);
             m_cacheFrameRefs[index] = zeroCopyRef;
             m_cacheFrameOwners[index] = zeroCopyOwner;
             err = degrainRecordEvent(stream, event);
@@ -1198,6 +1235,7 @@ RGY_ERR NVEncFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, cuda
         return err;
     }
     copyFrameProp(pCacheFrame, pInputFrame);
+    clearInputOwner(*pCacheFrame);
     return RGY_ERR_NONE;
 }
 
@@ -1766,6 +1804,8 @@ RGY_ERR NVEncFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 }
 
 void NVEncFilterDegrain::resetTemporalState() {
+    m_analysis.invalidateLevel1LumaCache();
+    m_analysis.analysisLumaGenerations.fill(0);
     // Reset time-dependent state only; GPU buffer allocations and built kernels are preserved.
     // Pending scene-change readbacks must be synchronized before discarding.
     clearPendingSceneChange();
@@ -1811,6 +1851,11 @@ void NVEncFilterDegrain::resetTemporalState() {
 }
 
 void NVEncFilterDegrain::close() {
+    m_analysis.invalidateLevel1LumaCache();
+    m_analysis.analysisLumaGenerations.fill(0);
+    m_analysis.analysisLumaGenerationCounter = 0;
+    m_analysis.lumaLevel1CacheHits = 0;
+    m_analysis.lumaLevel1Generated = 0;
     m_degrain.clear();
     m_degrainChroma.clear();
     m_degrainPel1.clear();
@@ -2198,7 +2243,36 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &fra
         || RGY_CSP_PLANES[frames.cur->csp] != (processChroma ? 3 : 1)
         || (!processChroma && RGY_CSP_CHROMA_FORMAT[frames.cur->csp] != RGY_CHROMAFMT_MONOCHROME);
     auto err = RGY_ERR_NONE;
-    if (copyDegrainOutput) {
+    const auto chromaFormat = RGY_CSP_CHROMA_FORMAT[frames.cur->csp];
+    bool copyChromaOnly = copyDegrainOutput && !m_debugEnv.forceDegrainCopy && !processChroma
+        && !rgy_csp_has_alpha(frames.cur->csp) && RGY_CSP_PLANES[frames.cur->csp] == 3
+        && (chromaFormat == RGY_CHROMAFMT_YUV420 || chromaFormat == RGY_CHROMAFMT_YUV422 || chromaFormat == RGY_CHROMAFMT_YUV444)
+        && frames.cur->csp == ppOutputFrames[0]->csp;
+    const std::array<RGY_PLANE, 2> chromaPlanes = { RGY_PLANE_U, RGY_PLANE_V };
+    std::array<RGYFrameInfo, 2> chromaDst, chromaCur;
+    if (copyChromaOnly) {
+        for (size_t i = 0; i < chromaPlanes.size(); i++) {
+            chromaDst[i] = getPlane(ppOutputFrames[0], chromaPlanes[i]);
+            chromaCur[i] = getPlane(frames.cur, chromaPlanes[i]);
+            const auto &dst = chromaDst[i];
+            const auto &cur = chromaCur[i];
+            const int bytesPerPixel = cur.bitdepth > 8 ? 2 : 1;
+            copyChromaOnly = copyChromaOnly && dst.ptr[0] != nullptr && cur.ptr[0] != nullptr
+                && cur.width > 0 && cur.height > 0 && dst.width == cur.width && dst.height == cur.height
+                && cur.bitdepth > 0 && cur.bitdepth <= 16 && dst.bitdepth == cur.bitdepth
+                && cur.pitch[0] / bytesPerPixel >= cur.width && dst.pitch[0] / bytesPerPixel >= dst.width;
+        }
+    }
+    if (copyChromaOnly) {
+        // Yは全画素を描画するため、保持するUVだけを同一streamで順にコピーする。
+        for (size_t i = 0; i < chromaPlanes.size(); i++) {
+            err = copyPlaneAsync(&chromaDst[i], &chromaCur[i], stream);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Degrain出力の色差コピーに失敗しました: %s.\n"), get_err_mes(err));
+                return err;
+            }
+        }
+    } else if (copyDegrainOutput) {
         err = copyFrameAsync(ppOutputFrames[0], frames.cur, stream);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to prepare degrain degrain output: %s.\n"), get_err_mes(err));
@@ -2809,11 +2883,76 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo 
         level0Planes[dir + 1] = refPlanes[dir];
     }
     std::vector<RGYCudaEvent> downsampleEvents(level1FrameCount);
+    std::array<CUMemBuf*, RGY_DEGRAIN_MAX_LEVEL1_LUMA_FRAMES> level1Planes = {};
+    std::array<RGYDegrainLevel1LumaKey, RGY_DEGRAIN_MAX_LEVEL1_LUMA_FRAMES> requestedKeys = {};
+    bool useLevel1Cache = refs == 2 && prm->degrain.pel == 1
+        && useAnalysisLumaCache() && !m_lastAnalysisUsedSearchLuma;
+    // 異streamへ移る呼出側は従来どおり前streamのreader完了を保証する。異streamのhitは使わない。
+    if (m_analysis.lumaLevel1CacheStreamValid && m_analysis.lumaLevel1CacheStream != stream) {
+        m_analysis.invalidateLevel1LumaCache();
+    }
     for (int i = 0; i < level1FrameCount; i++) {
+        requestedKeys[i] = degrainOwnedAnalysisLumaKey(m_analysis, level0Planes[i]);
+        useLevel1Cache = useLevel1Cache && requestedKeys[i].valid();
+        level1Planes[i] = m_analysis.lumaLevel1[i].get();
+    }
+    if (!useLevel1Cache) {
+        // 外部探索Y・生Y・別設定のscratch上書きで、以前の半解像度keyを残さない。
+        m_analysis.invalidateLevel1LumaCache();
+    } else {
+        m_analysis.lumaLevel1CacheStream = stream;
+        m_analysis.lumaLevel1CacheStreamValid = true;
+    }
+    std::array<int, RGY_DEGRAIN_MAX_LEVEL1_LUMA_FRAMES> roleSlots;
+    roleSlots.fill(-1);
+    std::array<bool, RGY_DEGRAIN_MAX_LEVEL1_LUMA_FRAMES> pinned = {};
+    if (useLevel1Cache) {
+        // 必要な全hitを先にpinし、後続roleで必要なentryをmissのvictimにしない。
+        for (int i = 0; i < level1FrameCount; i++) {
+            for (int slot = 0; slot < level1FrameCount; slot++) {
+                const auto& entry = m_analysis.lumaLevel1Cache[slot];
+                if (entry.key.valid() && entry.key == requestedKeys[i] && entry.ready() != nullptr) {
+                    roleSlots[i] = slot;
+                    pinned[slot] = true;
+                    level1Planes[i] = m_analysis.lumaLevel1[slot].get();
+                    downsampleEvents[i] = entry.ready;
+                    m_analysis.lumaLevel1CacheHits++;
+                    break;
+                }
+            }
+        }
+    }
+    for (int i = 0; i < level1FrameCount; i++) {
+        if (roleSlots[i] >= 0) continue;
+        if (useLevel1Cache) {
+            // EOF/先頭で同じ解析Yを指すroleは、同一呼出し中の新規生成も共有する。
+            for (int previous = 0; previous < i; previous++) {
+                if (requestedKeys[previous] == requestedKeys[i]) {
+                    roleSlots[i] = roleSlots[previous];
+                    level1Planes[i] = level1Planes[previous];
+                    downsampleEvents[i] = downsampleEvents[previous];
+                    m_analysis.lumaLevel1CacheHits++;
+                    break;
+                }
+            }
+            if (roleSlots[i] >= 0) continue;
+        }
+        int slot = i;
+        if (useLevel1Cache) {
+            slot = 0;
+            while (slot < level1FrameCount && pinned[slot]) slot++;
+            if (slot >= level1FrameCount) return RGY_ERR_INVALID_CALL;
+            pinned[slot] = true;
+            roleSlots[i] = slot;
+            // launch失敗時に、上書き途中の画像へ古いkeyでhitさせない。
+            m_analysis.lumaLevel1Cache[slot] = RGYDegrainLevel1LumaCacheEntry();
+        }
+        level1Planes[i] = m_analysis.lumaLevel1[slot].get();
+
         const auto profileStepStart = profileNow();
         err = launchNVEncDegrainDownsampleLuma2x(
             level0Planes[i],
-            *m_analysis.lumaLevel1[i],
+            *level1Planes[i],
             m_analysis.lumaLevel1Pitch,
             m_analysis.lumaLevel1Width,
             m_analysis.lumaLevel1Height,
@@ -2825,6 +2964,11 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo 
         err = degrainRecordEvent(stream, &downsampleEvents[i]);
         if (err != RGY_ERR_NONE) {
             return err;
+        }
+        m_analysis.lumaLevel1Generated++;
+        if (useLevel1Cache) {
+            m_analysis.lumaLevel1Cache[slot].key = requestedKeys[i];
+            m_analysis.lumaLevel1Cache[slot].ready = downsampleEvents[i];
         }
         err = profileFinishStep(_T("downsample"), profileDownsampleMs, profileStepStart, -1);
         if (err != RGY_ERR_NONE) {
@@ -2936,7 +3080,7 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo 
                 return errSubpel;
             }
             errSubpel = launchNVEncDegrainBuildSubpelPlanes(
-                reinterpret_cast<const uint8_t *>(m_analysis.lumaLevel1[dir + 1]->ptr),
+                reinterpret_cast<const uint8_t *>(level1Planes[dir + 1]->ptr),
                 m_analysis.lumaLevel1Pitch,
                 *ws.subpelLevel1,
                 subpelL1Stride,
@@ -2985,9 +3129,9 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo 
         err = degrainWaitEvents(stream, { seedLevel1Event, downsampleEvents[0], downsampleEvents[dir + 1] });
         if (err == RGY_ERR_NONE) {
             err = launchNVEncDegrainMotionSearchSearchParallel(
-                reinterpret_cast<const uint8_t *>(m_analysis.lumaLevel1[0]->ptr),
-                reinterpret_cast<const uint8_t *>(m_analysis.lumaLevel1[dir + 1]->ptr),
-                useSubpelPlanes ? reinterpret_cast<const uint8_t *>(ws.subpelLevel1->ptr) : reinterpret_cast<const uint8_t *>(m_analysis.lumaLevel1[dir + 1]->ptr),
+                reinterpret_cast<const uint8_t *>(level1Planes[0]->ptr),
+                reinterpret_cast<const uint8_t *>(level1Planes[dir + 1]->ptr),
+                useSubpelPlanes ? reinterpret_cast<const uint8_t *>(ws.subpelLevel1->ptr) : reinterpret_cast<const uint8_t *>(level1Planes[dir + 1]->ptr),
                 useSubpelPlanes ? subpelL1Stride : 0,
                 *ws.level1.vectors,
                 m_analysis.lumaLevel1Pitch,
@@ -3034,9 +3178,9 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo 
             err = degrainWaitEvents(stream, { level1VectorReadyEvent });
             if (err == RGY_ERR_NONE) {
                 err = launchNVEncDegrainMotionSearchSpatialRefine(
-                    reinterpret_cast<const uint8_t *>(m_analysis.lumaLevel1[0]->ptr),
-                    reinterpret_cast<const uint8_t *>(m_analysis.lumaLevel1[dir + 1]->ptr),
-                    useSubpelPlanes ? reinterpret_cast<const uint8_t *>(ws.subpelLevel1->ptr) : reinterpret_cast<const uint8_t *>(m_analysis.lumaLevel1[dir + 1]->ptr),
+                    reinterpret_cast<const uint8_t *>(level1Planes[0]->ptr),
+                    reinterpret_cast<const uint8_t *>(level1Planes[dir + 1]->ptr),
+                    useSubpelPlanes ? reinterpret_cast<const uint8_t *>(ws.subpelLevel1->ptr) : reinterpret_cast<const uint8_t *>(level1Planes[dir + 1]->ptr),
                     useSubpelPlanes ? subpelL1Stride : 0,
                     *ws.level1.vectors,
                     *ws.level1.vectorsPrev,
@@ -3711,6 +3855,8 @@ void NVEncFilterDegrain::loadDebugEnv() {
 }
 
 RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilterParamDegrain> &prm) {
+    m_analysis.invalidateLevel1LumaCache();
+    m_analysis.analysisLumaGenerations.fill(0);
     m_analysis.mode = prm->degrain.mode;
     m_analysis.layout = rgy_degrain_make_block_layout(prm->frameOut, prm->degrain);
     m_analysis.layoutLevel1 = rgy_degrain_make_pyramid_block_layout(prm->frameOut, prm->degrain);
@@ -4046,6 +4192,7 @@ RGY_ERR NVEncFilterDegrain::generateAnalysisLumaFrame(const int centerFrame, cud
     analysisFrame.width = m_analysis.analysisLumaWidth;
     analysisFrame.height = m_analysis.analysisLumaHeight;
     m_analysis.analysisLumaFrameNumbers[slot] = centerFrame;
+    m_analysis.analysisLumaGenerations[slot] = ++m_analysis.analysisLumaGenerationCounter;
     m_analysis.analysisLumaGeneratedUntil = centerFrame;
     m_analysis.analysisLumaEvents[slot] = lumaEvent;
     m_analysis.analysisLumaEvent = lumaEvent;

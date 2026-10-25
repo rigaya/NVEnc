@@ -32,6 +32,7 @@
 #include <deque>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "NVEncFilter.h"
@@ -39,6 +40,16 @@
 #include "rgy_prm.h"
 
 using NVEncDegrainKernelProgram = std::string;
+
+// 一時入力viewの所有者。cacheの専用shared_ptrへ移した後はdataListから外し、
+// 解析画像や出力へ所有参照を伝搬させない。所有frame自身へ添付すると自己循環する。
+class RGYFrameDataDegrainInputRef : public RGYFrameData {
+public:
+    explicit RGYFrameDataDegrainInputRef(std::shared_ptr<CUFrameBuf> frame) : m_frame(std::move(frame)) {}
+    std::shared_ptr<CUFrameBuf> frameRef() const { return m_frame; }
+private:
+    std::shared_ptr<CUFrameBuf> m_frame;
+};
 
 class NVEncFilterParamDegrain : public NVEncFilterParam {
 public:
