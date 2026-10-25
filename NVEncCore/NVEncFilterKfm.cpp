@@ -8394,7 +8394,11 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                         }
                         ucf30 = selectUcfDecomb30Frame(outputTiming.sourceIndex, deint30, &copyWaitEvents);
                     }
-                    if (!baseCopyQueued30) {
+                    if (!baseCopyQueued30 && ucf30 == deint30) {
+                        // 完成済みの同じwork画像はコピーせず、既存のpending/output枠へ移管する。
+                        out = deint30;
+                        outputEvent = deintEvent;
+                    } else if (!baseCopyQueued30) {
                         sts = copyFrameWithEvent(out, ucf30, copyWaitEvents, &outputEvent, _T("deint30 output"));
                         if (sts != RGY_ERR_NONE) {
                             return sts;
