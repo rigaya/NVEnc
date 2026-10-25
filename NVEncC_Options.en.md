@@ -2568,7 +2568,9 @@ Please note that this filter is slow, recommended to be used on dGPUs.
   - ucf=&lt;bool&gt;  
     Enable the UCF stage. Default: off.
   - nr=&lt;bool&gt;  
-    Apply degrain on the final KFM output stream. Default: off.
+    Apply NR using `vpp-degrain` to the 24p/30p branches after UCF and before patch processing. NR is not applied to the 60p branch and is disabled in `mode=60`. Default: off.
+    NR uses `blksize=32` when the input height is at least 720, or `16` otherwise. `search_early_sad` / `spatial_early_sad` inherit the KFM settings (preset values or explicit overrides).
+    Progressive RFF source frames preserved by `rff=on` skip UCF and patch processing and receive NR in the 24p branch.
   - is120=&lt;bool&gt;  
     Reserve 120fps duration correction flag. Default: on.
   - rff=&lt;bool&gt;  

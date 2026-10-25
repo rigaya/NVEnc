@@ -2640,7 +2640,9 @@ RFF（Reflect the Repeat Field）标记。可以解决由于 RFF 引发的 avsyn
   启用 UCF stage。默认: off。
 
 - nr=&lt;bool&gt;  
-  对最终 KFM 输出应用 degrain。默认: off。
+  在24p/30p分支中，在UCF之后、patch处理之前使用`vpp-degrain`降噪。60p分支不进行降噪，`mode=60`时禁用。默认: off。
+  输入高度至少为720时，NR使用`blksize=32`，否则使用`16`。`search_early_sad` / `spatial_early_sad`继承KFM设置（预设值或显式覆盖值）。
+  `rff=on`保留的逐行RFF原始帧跳过UCF和patch处理，在24p分支中降噪。
 
 - is120=&lt;bool&gt;  
   120fps duration 修正用保留参数。默认: on。

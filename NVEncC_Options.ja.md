@@ -2612,7 +2612,9 @@ nnediによるインタレ解除を行う。
   - ucf=&lt;bool&gt;  
     UCF段を有効化。デフォルト: off。
   - nr=&lt;bool&gt;  
-    最終出力に `vpp-degrain` を適用。デフォルト: off。
+    24p/30pの枝で、UCFの後・patchの前に`vpp-degrain`によるNRを適用する。60pの枝には適用せず、`mode=60`では無効。デフォルト: off。
+    NRの`blksize`は入力の高さが720以上なら32、それ未満なら16。`search_early_sad` / `spatial_early_sad`はKFMの設定（プリセット値または明示指定）を引き継ぐ。
+    `rff=on`で保持するプログレッシブRFF原画は、UCFとpatchを省略し、24pの枝でNRを適用する。
   - is120=&lt;bool&gt;  
     120fps duration補正用の予約フラグ。デフォルト: on。
   - rff=&lt;bool&gt;  
