@@ -1503,6 +1503,8 @@ RGY_ERR NVEncFilterKfm::initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>&
         // resetして前・現・次の3枚だけを投入する有限窓。通常の16枚cacheは不要。
         nrParam->inputCacheSize = 3;
         nrParam->zeroCopyCache = true;
+        // CUDA固有のSC判定パイプラインによる追加遅延を避け、有限窓の中央画像を即時に受け取る。
+        nrParam->deferSceneChange = false;
         const int count = prm->kfm.mode == VppKfmMode::VFR ? 2 : 1;
         for (int i = 0; i < count; i++) {
             m_nrBranches[i] = std::make_unique<NVEncFilterDegrain>();
@@ -6150,7 +6152,11 @@ RGY_ERR NVEncFilterKfm::renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& t
         sts = nr->filter(end == 3 ? &inputViews[2] : nullptr, nrOutput, &count, stream);
         if (sts == RGY_ERR_NONE) sts = kfmRecordEvent(stream, &nrEvent);
         if (sts != RGY_ERR_NONE) return sts;
-        if (count != 1 || !nrOutput[0] || nrOutput[0]->inputFrameId != index) return RGY_ERR_INVALID_CALL;
+        if (count != 1 || !nrOutput[0] || nrOutput[0]->inputFrameId != index) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM枝NRの出力が中央画像と一致しません(branch=%d, index=%d, count=%d, outputId=%d)。\n"),
+                branch, index, count, nrOutput[0] ? nrOutput[0]->inputFrameId : -1);
+            return RGY_ERR_INVALID_CALL;
+        }
         // 同kはfilterを呼ばず保持される。workへの読取りは次filterの書込みより先に
         // 同じin-order queueへ投入するため、中間の所有画像へのコピーは不要。
         result.frame = nrOutput[0];

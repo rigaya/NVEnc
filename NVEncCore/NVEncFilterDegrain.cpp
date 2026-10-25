@@ -3569,7 +3569,7 @@ RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet
     const auto currentFrameAnalysisData = m_frameAnalysisData;
     const auto currentBoundAnalyzeResult = m_boundAnalyzeResult;
     const auto currentFrameAnalysisLayout = m_frameAnalysisLayout;
-    const bool canDeferSceneChange = !m_boundAnalyzeResult.valid() || m_frameAnalysisData;
+    const bool canDeferSceneChange = prm->deferSceneChange && (!m_boundAnalyzeResult.valid() || m_frameAnalysisData);
     if (canDeferSceneChange && !pendingOutputEmitted && m_pendingSceneChange.size() >= SCENE_CHANGE_PIPELINE_DEPTH) {
         auto err = resolvePendingSceneChangeFrame(ppOutputFrames, pOutputFrameNum, stream, event);
         if (err != RGY_ERR_NONE) {
