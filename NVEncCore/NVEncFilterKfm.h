@@ -699,10 +699,12 @@ protected:
         int64_t baseDraws = 0, neighborDraws = 0, baseHits = 0, resultHits = 0, nrFrames = 0;
         int64_t baseAllocations = 0, baseReuses = 0;
         int64_t rffBaseDraws = 0;
+        int64_t continuousFeeds = 0, nrResets = 0;
         size_t maxSource = 0;
         size_t maxSingleLive = 0, maxSinglePlan = 0;
     };
     std::array<std::unique_ptr<NVEncFilterDegrain>, 2> m_nrBranches;
+    std::array<int, 2> m_nrRunLastIndex = { -1, -1 };
     std::array<std::deque<KfmNrCacheEntry>, 2> m_nrBaseCache;
     std::array<std::vector<std::shared_ptr<CUFrameBuf>>, 2> m_nrBasePool;
     std::array<KfmNrCacheEntry, 2> m_nrResults;
