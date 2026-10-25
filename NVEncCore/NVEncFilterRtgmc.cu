@@ -2384,7 +2384,7 @@ RGY_ERR NVEncFilterRtgmc::captureIntermediateFrame(const RGYFrameInfo *frame, cu
 }
 
 RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, bool storePending) {
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, bool storePending, bool finalOutputWritten) {
     if (filterIdx >= m_filters.size()) {
         if (m_pendingOutputFrames.size() >= m_frameBuf.size()) {
             AddMessage(RGY_LOG_ERROR, _T("Too many pending output frames fromchain.\n"));
@@ -2397,7 +2397,7 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
         const int outputIndex = m_outputBufferIndex;
         m_outputBufferIndex = (m_outputBufferIndex + 1) % (int)m_frameBuf.size();
         auto pOut = &m_frameBuf[outputIndex]->frame;
-        auto err = copyFinalOutput(pOut, pInputFrame, stream, wait_events, event);
+        auto err = finalOutputWritten ? RGY_ERR_NONE : copyFinalOutput(pOut, pInputFrame, stream, wait_events, event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copyfinal output: %s.\n"), get_err_mes(err));
             return err;
@@ -2426,13 +2426,24 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
         return RGY_ERR_NONE;
     }
 
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamRtgmc>(m_param);
+    // TR2有効時の遅延/drain経路は今回の対象外とし、末尾がRep2だけの場合に限定する。
+    auto directOutput = filterIdx == RTGMC_FILTER_POST_TR2_SHIMMER_REPAIR && prm && !prm->rtgmc.border
+        && prm->rtgmc.tr2.delta <= 0 && !m_filters[RTGMC_FILTER_POST_TR2_LIMIT]
+        && prm->rtgmc.lossless != 1 && !m_filters[RTGMC_FILTER_ADD_NOISE2]
+        && m_pendingOutputFrames.size() < m_frameBuf.size()
+        && (storePending || *pOutputFrameNum < RGY_RTGMC_MAX_OUT_FRAMES)
+        ? &m_frameBuf[m_outputBufferIndex]->frame : nullptr;
     int childOutFrameNum = 0;
     RGYFrameInfo *childOutFrames[RGY_RTGMC_MAX_OUT_FRAMES] = { 0 };
+    childOutFrames[0] = directOutput;
     RGYCudaEvent childEvent;
     auto sts = runNestedFilter(filterIdx, pInputFrame, childOutFrames, &childOutFrameNum, stream, wait_events, &childEvent);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
+    const bool directWritten = directOutput && childOutFrameNum == 1 && childOutFrames[0] == directOutput;
+    if (directWritten && event) *event = childEvent;
     auto childWaitEvents = rtgmcPropagateWaitEvents(wait_events, childEvent);
     for (int i = 0; i < childOutFrameNum; i++) {
         propagateRtgmcInternalFrameData(childOutFrames[i], pInputFrame);
@@ -2508,7 +2519,8 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
             if (m_analysisOnly && filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND) {
                 continue; // UCFレーンへの中間データの供給だけで止める。
             }
-            sts = runThrough(filterIdx + 1, childOutFrames[i], ppOutputFrames, pOutputFrameNum, stream, nextWaitEvents, event, storePending);
+            sts = runThrough(directWritten ? m_filters.size() : filterIdx + 1, childOutFrames[i],
+                ppOutputFrames, pOutputFrameNum, stream, nextWaitEvents, event, storePending, directWritten);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }

@@ -227,7 +227,7 @@ protected:
     RGY_ERR captureIntermediateFrame(const RGYFrameInfo *frame, cudaStream_t stream,
         const std::vector<RGYCudaEvent>& waitEvents);
     RGY_ERR runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, bool storePending);
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, bool storePending, bool finalOutputWritten = false);
     RGY_ERR drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream, RGYCudaEvent *event);
     RGY_ERR returnPendingFrames(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);

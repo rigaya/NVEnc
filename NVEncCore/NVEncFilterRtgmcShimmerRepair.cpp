@@ -725,9 +725,9 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::run_filter(const RGYFrameInfo *pInputFram
     int *pOutputFrameNum, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events,
     RGYCudaEvent *event) {
     *pOutputFrameNum = 0;
-    ppOutputFrames[0] = nullptr;
 
     if (!pInputFrame || !pInputFrame->ptr[0] || !pRefFrame || !pRefFrame->ptr[0]) {
+        ppOutputFrames[0] = nullptr;
         return RGY_ERR_NONE;
     }
     if (m_useKernel && !m_frameBuf.size()) {
@@ -742,15 +742,16 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::run_filter(const RGYFrameInfo *pInputFram
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto pOutFrame = m_frameBuf[RTGMC_SHIMMER_REPAIR_FRAME_OUTPUT].get();
-    ppOutputFrames[0] = &pOutFrame->frame;
+    auto pOutFrame = prm->stage == RGYRtgmcShimmerRepairStage::PostTR2 && ppOutputFrames[0]
+        ? ppOutputFrames[0] : &m_frameBuf[RTGMC_SHIMMER_REPAIR_FRAME_OUTPUT]->frame;
+    ppOutputFrames[0] = pOutFrame;
     *pOutputFrameNum = 1;
 
     if (m_useKernel) {
-        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_frameBuf[RTGMC_SHIMMER_REPAIR_FRAME_OUTPUT]->frame.mem_type);
-        const auto refMemcpyKind = getCudaMemcpyKind(pRefFrame->mem_type, m_frameBuf[RTGMC_SHIMMER_REPAIR_FRAME_OUTPUT]->frame.mem_type);
+        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, pOutFrame->mem_type);
+        const auto refMemcpyKind = getCudaMemcpyKind(pRefFrame->mem_type, pOutFrame->mem_type);
         if (memcpyKind == cudaMemcpyDeviceToDevice && refMemcpyKind == cudaMemcpyDeviceToDevice) {
-            auto err = processFrame(&pOutFrame->frame, pInputFrame, pRefFrame, *prm, stream, wait_events, event);
+            auto err = processFrame(pOutFrame, pInputFrame, pRefFrame, *prm, stream, wait_events, event);
             if (err != RGY_ERR_NONE) {
                 return err;
             }
@@ -775,7 +776,7 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::run_filter(const RGYFrameInfo *pInputFram
             AddMessage(RGY_LOG_ERROR, _T("failed to copy rtgmc-shimmer-repair reference frame: %s.\n"), get_err_mes(copyErr));
             return copyErr;
         }
-        auto err = processFrame(&pOutFrame->frame, pInputTmp, pRefTmp, *prm, stream, {}, event);
+        auto err = processFrame(pOutFrame, pInputTmp, pRefTmp, *prm, stream, {}, event);
         if (err != RGY_ERR_NONE) {
             return err;
         }
