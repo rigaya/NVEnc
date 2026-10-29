@@ -91,6 +91,9 @@ public:
     // CUDAデバイス上のCHW floatバッファを直接入出力に束縛する。
     // init()でuserComputeStreamを指定して初期化できた場合のみ利用できる。
     RGY_ERR inferDevice(const float *inDevice, float *outDevice);
+
+    // 複数ポートのCUDAバッファを同じ推論ストリーム上で直接入出力する。
+    RGY_ERR inferMultiDevice(const std::vector<const float *> &inputs, const std::vector<float *> &outputs);
     bool deviceIOAvailable() const;
 
     int inChannels()  const;

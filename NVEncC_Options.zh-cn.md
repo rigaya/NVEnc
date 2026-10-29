@@ -4569,7 +4569,7 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
 
 - **兼容性参数**
   - device=&lt;string&gt;、interop=&lt;string&gt;  
-    为与 QSVEnc/VCEEnc 的命令行兼容性而接受，但 NVEnc 不会用它们选择推理设备或传输方式。推理绑定到编码器所用的 CUDA 设备，并使用经由主机内存回读的路径。
+    为与QSVEnc/VCEEnc的命令行兼容性而接受，但NVEnc不会用它们选择推理设备或传输方式。推理绑定到编码器所用的CUDA设备。前后处理在CUDA上运行，并优先使用共享GPU张量进行推理。无法使用共享推理时，仅通过主机内存传输float张量。
 
 - **可用模型名**
 

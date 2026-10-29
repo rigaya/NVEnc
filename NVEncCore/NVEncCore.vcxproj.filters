@@ -829,6 +829,9 @@
     <ClInclude Include="NVEncFilterOnnx.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilterOnnxKernels.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="NVEncFilterRifeOV.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>

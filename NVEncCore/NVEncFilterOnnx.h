@@ -33,6 +33,7 @@
 #include "NVEncFilterParam.h"
 #include "rgy_prm.h"
 #include "rgy_onnxrt_cuda.h"
+#include "NVEncFilterOnnxKernels.h"
 #include <vector>
 #include <memory>
 #include <deque>
@@ -69,8 +70,7 @@ enum class OnnxIO {
 // the network's I/O convention is inferred from its channel count (OnnxIO), so the
 // same load-and-run covers every model family with no per-model code.
 //
-// ホスト経路は全I/O形式を処理する。単一フレームの対応形式ではCUDA IoBindingと
-// CspCropを使用し、GPU上のテンソルを直接入出力する。
+// 全経路の前後処理をCUDAに統一し、共有推論またはテンソル転送で実行する。
 class NVEncFilterOnnx : public NVEncFilter {
 public:
     NVEncFilterOnnx();
@@ -80,21 +80,13 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
 
-    // host-readback path: copy the input to a host staging frame, build the input
-    // tensor, run the network, write the result to a host staging frame, copy it to
-    // the device output. Works for every OnnxIO mode.
-    RGY_ERR runHost(const RGYFrameInfo *in, RGYFrameInfo *out, cudaStream_t stream);
-
-    // host pre/post, dispatched on m_io. fillInputHost packs the host input frame
-    // into m_inBuf (inC*inW*inH, CHW); writeOutputHost unpacks m_outBuf
-    // (outC*outW*outH, CHW) into the host output frame.
-    void fillInputHost(const RGYFrameInfo &hin);
-    void writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo &hin);
+    // 推論の共有経路とコピー経路でCUDA前後処理を共有する。
+    RGY_ERR inferCuda(cudaStream_t stream);
+    OnnxColorCoeffs colorCoeffs() const;
     // compute the YUV<->RGB matrix + range coefficients.
     void setupColorCoeffs(int matrixSelIn, int matrixSelOut, bool rangeTV, int pixMax);
 
     // 時系列窓用のRGBパックと遅延出力。
-    void packFrameRGB(const RGYFrameInfo &hin, float *dst);
     RGY_ERR runTemporal(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
     RGY_ERR emitTemporalOutput(int64_t outIdx, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
     RGY_ERR initMask(const std::shared_ptr<NVEncFilterParamOnnx> &prm, int inW, int inH, RGY_CSP inCsp);
@@ -111,6 +103,7 @@ protected:
     std::unique_ptr<RGYOnnxRTCUDA> m_ov;
     OnnxIO m_io;                          // I/O convention inferred from channel counts
     int   m_inC, m_outC;                        // model input / output channel counts
+    int m_modelInW, m_modelInH, m_padL, m_padT;
     int   m_scale;                              // integer upscale factor from the model (out/in)
     float m_maxval;                             // (1<<bitdepth)-1
     bool  m_ycbcr;                              // 3ch model fed as planar YCbCr instead of RGB
@@ -122,17 +115,13 @@ protected:
     float m_matRY, m_matGY, m_matBY, m_matRU, m_matGU, m_matBU, m_matRV, m_matGV, m_matBV; // RGB -> YUV
 
     // host-readback path scratch
-    std::unique_ptr<CUFrameBuf>  m_inStaging;   // host (CPU) copy of the input frame
-    std::unique_ptr<CUFrameBuf>  m_outStaging;  // host (CPU) scratch for the output frame
     std::vector<float>           m_inBuf;       // network input tensor  (inC*inW*inH, CHW)
     std::vector<float>           m_outBuf;      // network output tensor (outC*outW*outH, CHW)
-    std::vector<float>           m_u444, m_v444;// normalised chroma at output luma res (for 4:2:0 downsample)
 
     // CUDA IoBinding経路
     std::unique_ptr<CUMemBuf> m_inputDevice;
     std::unique_ptr<CUMemBuf> m_outputDevice;
-    std::unique_ptr<NVEncFilterCspCrop> m_cropToRgb;
-    std::unique_ptr<NVEncFilterCspCrop> m_cropFromRgb;
+    std::unique_ptr<CUMemBuf> m_yuvInputDevice;
     std::unique_ptr<NVEncFilterCspCrop> m_cropToYuv444;
     std::unique_ptr<NVEncFilterCspCrop> m_cropFromYuv444;
     std::unique_ptr<NVEncFilterResize> m_lumaResize;
@@ -146,7 +135,7 @@ protected:
 
     int m_temporalT;
     struct RingFrame {
-        std::vector<float> rgb;
+        std::unique_ptr<CUMemBuf> rgb;
         int64_t timestamp;
         int64_t duration;
         RGY_PICSTRUCT picstruct;
@@ -162,7 +151,8 @@ protected:
     int m_maskModelW, m_maskModelH;
     int m_imgPortIdx, m_mskPortIdx;
     float m_maskOutScale;
-    std::vector<float> m_maskFrame, m_maskModel, m_frameRGB, m_modelIn, m_modelOut;
+    std::vector<float> m_maskFrame, m_maskModel;
+    std::unique_ptr<CUMemBuf> m_maskFrameDevice, m_maskModelDevice, m_frameRGBDevice, m_compositeDevice, m_maskRangeDevice;
     bool m_maskMode;
 
     // opt-in end-of-chain resize (out_res=): runs after the network core, fitting

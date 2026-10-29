@@ -4547,7 +4547,7 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
 
 - **互換用パラメータ**
   - device=&lt;string&gt;, interop=&lt;string&gt;  
-    QSVEnc/VCEEnc とのCLI互換のため受け付けるが、NVEnc では推論デバイスや転送方式の選択には使用しない。推論はエンコードに使用する CUDA デバイスに紐づき、host-readback 経路を使用する。
+    QSVEnc/VCEEncとのCLI互換のため受け付けるが、NVEncでは推論デバイスや転送方式の選択には使用しない。推論はエンコードに使用するCUDAデバイスに紐づく。前後処理はCUDAで行い、共有GPUテンソルによる推論を優先する。共有推論を利用できない場合は、floatテンソルのみをホスト経由で転送する。
 
 - **使用可能なモデル名一覧**
 

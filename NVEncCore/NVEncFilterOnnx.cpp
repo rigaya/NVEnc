@@ -42,17 +42,17 @@ tstring NVEncFilterParamOnnx::print() const {
 
 NVEncFilterOnnx::NVEncFilterOnnx() :
     m_ov(), m_io(OnnxIO::LumaSR), m_inC(1), m_outC(1),
-    m_scale(1), m_maxval(255.0f), m_ycbcr(false), m_sigmaNorm(0.0f),
+    m_modelInW(0), m_modelInH(0), m_padL(0), m_padT(0), m_scale(1), m_maxval(255.0f), m_ycbcr(false), m_sigmaNorm(0.0f),
     m_yOff(0.0f), m_yScale(1.0f), m_yRange(255.0f), m_cOff(128.0f), m_cScale(1.0f), m_cRange(255.0f),
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
-    m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444(),
-    m_inputDevice(), m_outputDevice(), m_cropToRgb(), m_cropFromRgb(), m_cropToYuv444(), m_cropFromYuv444(), m_lumaResize(),
+    m_inBuf(), m_outBuf(),
+    m_inputDevice(), m_outputDevice(), m_yuvInputDevice(), m_cropToYuv444(), m_cropFromYuv444(), m_lumaResize(),
     m_modelPath(), m_provider(RGYOnnxRTProvider::Auto), m_precision(), m_cacheDir(), m_deviceID(-1),
     m_cudaPathTried(false), m_cudaPath(false),
     m_temporalT(1), m_ring(), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
     m_maskModelW(0), m_maskModelH(0), m_imgPortIdx(0), m_mskPortIdx(1), m_maskOutScale(0.0f),
-    m_maskFrame(), m_maskModel(), m_frameRGB(), m_modelIn(), m_modelOut(), m_maskMode(false) {
+    m_maskFrame(), m_maskModel(), m_maskFrameDevice(), m_maskModelDevice(), m_frameRGBDevice(), m_compositeDevice(), m_maskRangeDevice(), m_maskMode(false) {
     m_name = _T("onnx");
 }
 
@@ -61,8 +61,6 @@ NVEncFilterOnnx::~NVEncFilterOnnx() {
 }
 
 namespace {
-static inline int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
-static inline float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
 static const TCHAR *cx_desc_or_unknown(const CX_DESC *list, int value) {
     const auto desc = get_cx_desc(list, value);
@@ -112,74 +110,6 @@ static bool onnx_supported_csp(RGY_CSP csp) {
     }
 }
 
-// Bilinearly sample one 8-bit chroma channel (half-res, 4:2:0) at the location of
-// luma pixel (lx, ly), upsampling x2. Returns the raw value (0..255) as a float.
-static inline float sample_chroma_up2(const uint8_t *plane, const int pitch, const int stride,
-                                      const int cw, const int ch, const int lx, const int ly) {
-    const float cx = (lx + 0.5f) * 0.5f - 0.5f;
-    const float cy = (ly + 0.5f) * 0.5f - 0.5f;
-    const int x0 = (int)std::floor(cx); const float fx = cx - (float)x0;
-    const int y0 = (int)std::floor(cy); const float fy = cy - (float)y0;
-    const int x0c = clampi(x0,     0, cw - 1) * stride;
-    const int x1c = clampi(x0 + 1, 0, cw - 1) * stride;
-    const uint8_t *r0 = plane + (size_t)clampi(y0,     0, ch - 1) * pitch;
-    const uint8_t *r1 = plane + (size_t)clampi(y0 + 1, 0, ch - 1) * pitch;
-    const float a = r0[x0c], b = r0[x1c];
-    const float c = r1[x0c], d = r1[x1c];
-    const float top = a + (b - a) * fx;
-    const float bot = c + (d - c) * fx;
-    return top + (bot - top) * fy;
-}
-
-// 2x2 box-downsample a full-res normalised channel to a half-res 8-bit chroma
-// plane, encoding each averaged value as v*encScale + encOff (rounded, clamped).
-//
-// この関数では float32 として厳密に丸める必要がある。/fp:fast でビルドする
-// MSVC は `avg * encScale + encOff` をより高精度な中間値として保持するため、
-// float32 値がちょうど .5 の境界に来ても中間値がわずかに下回り、(int) への
-// 切り捨てで1段階小さくなる。発生頻度は約 1e-6 で差は常に1だが、この関数の
-// 記述および対応する OpenCL カーネルと結果が一致しなくなる。中間値への
-// (float) キャスト、volatile 一時変数、precise 専用丸め関数では改善しなかった
-// ため、関数全体に precise を強制する。
-#if defined(_MSC_VER)
-#pragma float_control(precise, on, push)
-#endif
-static void downsample420_encode(uint8_t *dst, const int dstPitch, const int dstStride,
-                                 const float *srcFull, const int fullW, const int fullH,
-                                 const float encScale, const float encOff, const int pixMax) {
-    const int cw = fullW / 2;
-    const int ch = fullH / 2;
-    for (int cy = 0; cy < ch; cy++) {
-        const float *s0 = srcFull + (size_t)(2 * cy)     * fullW;
-        const float *s1 = srcFull + (size_t)(2 * cy + 1) * fullW;
-        uint8_t *drow = dst + (size_t)cy * dstPitch;
-        for (int cx = 0; cx < cw; cx++) {
-            const int x0 = 2 * cx;
-            const float avg = (s0[x0] + s0[x0 + 1] + s1[x0] + s1[x0 + 1]) * 0.25f;
-            const int v = (int)(avg * encScale + encOff + 0.5f);
-            drow[cx * dstStride] = (uint8_t)clampi(v, 0, pixMax);
-        }
-    }
-}
-#if defined(_MSC_VER)
-#pragma float_control(pop)
-#endif
-
-// Copy one 8-bit plane (row-by-row, honouring pitches). width is in samples,
-// srcStride/dstStride 1 for planar, 2 for nv12-interleaved.
-static void copy_plane_u8(uint8_t *dst, const int dstPitch, const int dstStride,
-                          const uint8_t *src, const int srcPitch, const int srcStride,
-                          const int width, const int height) {
-    for (int y = 0; y < height; y++) {
-        const uint8_t *srow = src + (size_t)y * srcPitch;
-        uint8_t *drow = dst + (size_t)y * dstPitch;
-        if (srcStride == 1 && dstStride == 1) {
-            memcpy(drow, srow, (size_t)width);
-        } else {
-            for (int x = 0; x < width; x++) drow[x * dstStride] = srow[x * srcStride];
-        }
-    }
-}
 } // namespace
 
 // マスク画像を1フレームだけ読み込み、0..1の輝度配列に変換する。
@@ -267,16 +197,6 @@ static void resizeMaskPlane(const float *src, int sw, int sh, float *dst, int dw
     }
 }
 
-static inline float sampleMaskPlane(const float *src, int sw, int sh, float fx, float fy) {
-    int x0 = (int)std::floor(fx), y0 = (int)std::floor(fy);
-    const float wx = fx - x0, wy = fy - y0;
-    const int x1 = std::min(x0 + 1, sw - 1), y1 = std::min(y0 + 1, sh - 1);
-    x0 = std::max(x0, 0); y0 = std::max(y0, 0);
-    const float a = src[(size_t)y0 * sw + x0] * (1.0f - wx) + src[(size_t)y0 * sw + x1] * wx;
-    const float b = src[(size_t)y1 * sw + x0] * (1.0f - wx) + src[(size_t)y1 * sw + x1] * wx;
-    return a * (1.0f - wy) + b * wy;
-}
-
 void NVEncFilterOnnx::setupColorCoeffs(int matrixSelIn, int matrixSelOut, bool rangeTV, int pixMax) {
     float Kr = 0.2126f, Kb = 0.0722f;        // BT.709 default
     if (matrixSelIn == 601)  { Kr = 0.299f;  Kb = 0.114f; }
@@ -293,11 +213,13 @@ void NVEncFilterOnnx::setupColorCoeffs(int matrixSelIn, int matrixSelOut, bool r
     m_matRY = Kr2;                             m_matGY = Kg2;                             m_matBY = Kb2;
     m_matRU = -Kr2 / (2.0f * (1.0f - Kb2));    m_matGU = -Kg2 / (2.0f * (1.0f - Kb2));    m_matBU = 0.5f;
     m_matRV = 0.5f;                            m_matGV = -Kg2 / (2.0f * (1.0f - Kr2));    m_matBV = -Kb2 / (2.0f * (1.0f - Kr2));
-    m_yOff   = rangeTV ? (16.0f  * pixMax / 255.0f) : 0.0f;
-    m_yRange = rangeTV ? (219.0f * pixMax / 255.0f) : (float)pixMax;
+    // 上位bitdepthのlimited-rangeも、元の8bitコード値を整数倍して扱う。
+    const float depthScale = (float)(pixMax + 1) / 256.0f;
+    m_yOff   = rangeTV ? (16.0f  * depthScale) : 0.0f;
+    m_yRange = rangeTV ? (219.0f * depthScale) : (float)pixMax;
     m_yScale = 1.0f / m_yRange;
-    m_cOff   = rangeTV ? (128.0f * pixMax / 255.0f) : ((float)pixMax / 2.0f);
-    m_cRange = rangeTV ? (224.0f * pixMax / 255.0f) : (float)pixMax;
+    m_cOff   = rangeTV ? (128.0f * depthScale) : ((float)pixMax / 2.0f);
+    m_cRange = rangeTV ? (224.0f * depthScale) : (float)pixMax;
     m_cScale = 1.0f / m_cRange;
 }
 
@@ -370,6 +292,7 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
 
     const int inW = prm->frameIn.width;
     const int inH = prm->frameIn.height;
+    m_modelInW = inW; m_modelInH = inH; m_padL = m_padT = 0;
 
     // CUDA device ordinal: prefer the one NVEnc passed (the encoder's GPU); if unset,
     // fall back to the device of the current CUDA context (the encoder's context is
@@ -420,10 +343,6 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     m_inC  = m_ov->inChannels();
     m_outC = m_ov->outChannels();
     if (!prm->onnx.maskFile.empty()) {
-        if (RGY_CSP_BIT_DEPTH[inCsp] != 8) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: 9bit以上の入力ではmask=を使用できません。\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
         if (prm->onnx.frames > 1) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: mask=とframes=は同時に指定できません。\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -437,10 +356,6 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     }
     m_temporalT = std::max(1, prm->onnx.frames);
     if (m_temporalT > 1) {
-        if (RGY_CSP_BIT_DEPTH[inCsp] != 8) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: 9bit以上の入力ではframes=を使用できません。\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
         if (m_inC != m_temporalT * 3 || m_outC != 3) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: frames=%dには%dch入力と3ch出力のRGBモデルが必要です（現在%dch/%dch）。\n"),
                 m_temporalT, m_temporalT * 3, m_inC, m_outC);
@@ -459,14 +374,33 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         return RGY_ERR_UNSUPPORTED;
     }
 
-    const int outW = m_ov->outWidth();
-    const int outH = m_ov->outHeight();
-    if (outW <= 0 || outH <= 0 || (outW % inW) != 0 || (outH % inH) != 0 || (outW / inW) != (outH / inH)) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx: model output %dx%d is not an integer upscale of input %dx%d.\n"),
-            outW, outH, inW, inH);
-        return RGY_ERR_UNSUPPORTED;
+    int outW = m_ov->outWidth();
+    int outH = m_ov->outHeight();
+    auto exactScale = [&]() {
+        return outW > 0 && outH > 0 && outW % inW == 0 && outH % inH == 0
+            && outW / inW == outH / inH;
+    };
+    if (!exactScale()) {
+        // valid畳み込みによる対称な縮小を入力端の複製で補い、出力解像度を維持する。
+        const int guessedScale = std::max(1, (int)std::round((double)outW / inW));
+        const int cropW = guessedScale * inW - outW, cropH = guessedScale * inH - outH;
+        if (cropW <= 0 || cropH <= 0 || cropW != cropH || cropW % guessedScale != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: モデル出力%dx%dは入力%dx%dの整数倍ではありません。\n"), outW, outH, inW, inH);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const int padTotal = cropW / guessedScale;
+        m_padL = m_padT = padTotal / 2;
+        m_modelInW = inW + padTotal; m_modelInH = inH + padTotal;
+        err = m_ov->init(m_modelPath, m_deviceID, m_provider, m_modelInH, m_modelInW,
+            errMsg, nullptr, m_precision, m_cacheDir);
+        if (err != RGY_ERR_NONE) return err;
+        outW = m_ov->outWidth(); outH = m_ov->outHeight();
+        if (!exactScale()) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: パディング後もモデル出力%dx%dは入力%dx%dの整数倍になりません。\n"), outW, outH, inW, inH);
+            return RGY_ERR_UNSUPPORTED;
+        }
     }
-    m_scale  = outW / inW;
+    m_scale = outW / inW;
     if ((m_io == OnnxIO::GrayNoise || m_io == OnnxIO::Chroma) && m_scale != 1) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: %s model must be scale=1 (got x%d).\n"),
             (m_io == OnnxIO::Chroma) ? _T("chroma") : _T("gray+noise"), m_scale);
@@ -487,7 +421,7 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         onnx_matrix_to_coeff_id(prm->onnx.colormatrixOut, inH, matrixSelOut);
     }
     const bool rangeTV = (prm->onnx.colorrange != RGY_COLORRANGE_FULL);
-    setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, 255);
+    setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, (int)m_maxval);
 
     // Output frame buffer at the (possibly upscaled) resolution.
     auto frameOut = prm->frameOut;
@@ -504,32 +438,13 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
-    // host-readback scratch
-    m_inBuf.resize((size_t)m_inC  * inW  * inH);
+    m_inBuf.resize((size_t)m_inC * m_modelInW * m_modelInH);
     m_outBuf.resize(m_ov->outElemCount());
-    if ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr) {
-        m_u444.resize((size_t)outW * outH);
-        m_v444.resize((size_t)outW * outH);
-    }
-    if (RGY_CSP_BIT_DEPTH[inCsp] == 8) {
-        m_inStaging  = std::make_unique<CUFrameBuf>();
-        m_outStaging = std::make_unique<CUFrameBuf>();
-        if (m_inStaging->allocHost(inW, inH, inCsp) != RGY_ERR_NONE
-            || m_outStaging->allocHost(outW, outH, inCsp) != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: failed to allocate host staging frame buffers.\n"));
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-    }
-
-    m_cudaPathTried = false;
-    m_cudaPath = false;
-    if (m_temporalT == 1) {
-        m_inputDevice = std::make_unique<CUMemBuf>(m_inBuf.size() * sizeof(float));
-        m_outputDevice = std::make_unique<CUMemBuf>(m_outBuf.size() * sizeof(float));
-        if (m_inputDevice->alloc() != RGY_ERR_NONE || m_outputDevice->alloc() != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: CUDAテンソルバッファの確保に失敗しました。\n"));
-            return RGY_ERR_MEMORY_ALLOC;
-        }
+    m_cudaPathTried = false; m_cudaPath = false;
+    m_inputDevice = std::make_unique<CUMemBuf>(m_inBuf.size() * sizeof(float));
+    m_outputDevice = std::make_unique<CUMemBuf>(m_outBuf.size() * sizeof(float));
+    if (m_inputDevice->alloc() != RGY_ERR_NONE || m_outputDevice->alloc() != RGY_ERR_NONE) {
+        return RGY_ERR_MEMORY_ALLOC;
     }
     if (m_temporalT == 1 && m_io == OnnxIO::LumaSR && m_scale != 1) {
         auto resizeParam = std::make_shared<NVEncFilterParamResize>();
@@ -545,47 +460,17 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
             return err;
         }
     }
-    if (m_temporalT == 1 && (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr) {
-        const auto matrixIn = (matrixSel == 601) ? RGY_MATRIX_ST170_M
-            : (matrixSel == 2020) ? RGY_MATRIX_BT2020_NCL : RGY_MATRIX_BT709;
-        const auto matrixOut = (matrixSelOut == 601) ? RGY_MATRIX_ST170_M
-            : (matrixSelOut == 2020) ? RGY_MATRIX_BT2020_NCL : RGY_MATRIX_BT709;
-        const auto rgbIn = tensorFrame((float *)m_inputDevice->ptr, 3, inW, inH, RGY_CSP_RGB_F32);
-        const auto rgbOut = tensorFrame((float *)m_outputDevice->ptr, 3, outW, outH, RGY_CSP_RGB_F32);
-        auto toRgbParam = std::make_shared<NVEncFilterParamCrop>();
-        toRgbParam->frameIn = prm->frameIn;
-        toRgbParam->frameIn.picstruct = RGY_PICSTRUCT_FRAME;
-        toRgbParam->frameOut = rgbIn;
-        toRgbParam->baseFps = prm->baseFps;
-        toRgbParam->matrix = matrixIn;
-        toRgbParam->colorrange = rangeTV ? RGY_COLORRANGE_LIMITED : RGY_COLORRANGE_FULL;
-        toRgbParam->bOutOverwrite = false;
-        m_cropToRgb = std::make_unique<NVEncFilterCspCrop>();
-        err = m_cropToRgb->init(toRgbParam, m_pLog);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: YUVからRGBへの変換初期化に失敗しました: %s.\n"), get_err_mes(err));
-            return err;
-        }
-        auto fromRgbParam = std::make_shared<NVEncFilterParamCrop>();
-        fromRgbParam->frameIn = rgbOut;
-        fromRgbParam->frameOut = frameOut;
-        fromRgbParam->baseFps = prm->baseFps;
-        fromRgbParam->matrix = matrixOut;
-        fromRgbParam->colorrange = toRgbParam->colorrange;
-        fromRgbParam->bOutOverwrite = false;
-        m_cropFromRgb = std::make_unique<NVEncFilterCspCrop>();
-        err = m_cropFromRgb->init(fromRgbParam, m_pLog);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: RGBからYUVへの変換初期化に失敗しました: %s.\n"), get_err_mes(err));
-            return err;
-        }
-    }
     if (m_temporalT == 1 && (m_io == OnnxIO::Chroma || (m_io == OnnxIO::RGB && m_ycbcr))) {
-        const auto yuvIn = tensorFrame((float *)m_inputDevice->ptr, 3, inW, inH, RGY_CSP_YUV444_F32);
+        if (m_modelInW != inW || m_modelInH != inH) {
+            m_yuvInputDevice = std::make_unique<CUMemBuf>((size_t)3 * inW * inH * sizeof(float));
+            if (m_yuvInputDevice->alloc() != RGY_ERR_NONE) return RGY_ERR_MEMORY_ALLOC;
+        }
+        auto inputPtr = m_yuvInputDevice ? m_yuvInputDevice->ptr : m_inputDevice->ptr;
+        const auto yuvIn = tensorFrame((float *)inputPtr, 3, inW, inH, RGY_CSP_YUV444_F32);
         auto yuvOut = tensorFrame((float *)m_outputDevice->ptr, 3, outW, outH, RGY_CSP_YUV444_F32);
         if (m_io == OnnxIO::Chroma) {
             const size_t planeBytes = (size_t)inW * inH * sizeof(float);
-            yuvOut.ptr[0] = (uint8_t *)m_inputDevice->ptr;
+            yuvOut.ptr[0] = (uint8_t *)inputPtr;
             yuvOut.ptr[1] = (uint8_t *)m_outputDevice->ptr;
             yuvOut.ptr[2] = (uint8_t *)m_outputDevice->ptr + planeBytes;
         }
@@ -713,7 +598,7 @@ RGY_ERR NVEncFilterOnnx::reinitHostPath(tstring &errorMessage) {
     m_ov.reset();
     auto hostSession = std::make_unique<RGYOnnxRTCUDA>();
     auto err = hostSession->init(m_modelPath, m_deviceID, m_provider,
-        m_param->frameIn.height, m_param->frameIn.width, errorMessage,
+        m_modelInH, m_modelInW, errorMessage,
         nullptr, m_precision, m_cacheDir);
     if (err == RGY_ERR_NONE) {
         m_ov = std::move(hostSession);
@@ -726,11 +611,7 @@ RGY_ERR NVEncFilterOnnx::reinitHostPath(tstring &errorMessage) {
 RGY_ERR NVEncFilterOnnx::initCudaPath(cudaStream_t stream) {
     if (m_cudaPathTried) return m_cudaPath ? RGY_ERR_NONE : RGY_ERR_UNSUPPORTED;
     m_cudaPathTried = true;
-    if (stream == nullptr || !m_inputDevice || !m_outputDevice
-        || ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr && (!m_cropToRgb || !m_cropFromRgb))
-        || ((m_io == OnnxIO::Chroma || (m_io == OnnxIO::RGB && m_ycbcr)) && (!m_cropToYuv444 || !m_cropFromYuv444))) {
-        return RGY_ERR_UNSUPPORTED;
-    }
+    if (stream == nullptr || !m_inputDevice || !m_outputDevice) return RGY_ERR_UNSUPPORTED;
 
     // 初期化時のホスト経路用セッションを保持したまま同じモデルをウォームアップすると、
     // 重いモデルでは一時的に2セッション分のVRAMが必要になるため、先に解放する。
@@ -738,16 +619,12 @@ RGY_ERR NVEncFilterOnnx::initCudaPath(cudaStream_t stream) {
     auto session = std::make_unique<RGYOnnxRTCUDA>();
     tstring errorMessage;
     auto err = session->init(m_modelPath, m_deviceID, m_provider,
-        m_param->frameIn.height, m_param->frameIn.width, errorMessage,
+        m_modelInH, m_modelInW, errorMessage,
         stream, m_precision, m_cacheDir);
     if (err != RGY_ERR_NONE || !session->deviceIOAvailable()
         || session->inChannels() != m_inC || session->outChannels() != m_outC
         || session->outWidth() * session->outHeight() * session->outChannels() != (int)m_outBuf.size()) {
         const auto reason = !errorMessage.empty() ? errorMessage : session->lastError();
-        if (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] != 8) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: 9bit以上の入力に必要なCUDAゼロコピー経路を初期化できません: %s\n"), reason.c_str());
-            return (err != RGY_ERR_NONE) ? err : RGY_ERR_UNSUPPORTED;
-        }
         AddMessage(RGY_LOG_WARN, _T("onnx: CUDAゼロコピー経路を初期化できないためホスト経路を使用します: %s\n"), reason.c_str());
         const auto cudaPathErr = (err != RGY_ERR_NONE) ? err : RGY_ERR_UNSUPPORTED;
 
@@ -781,52 +658,90 @@ RGY_ERR NVEncFilterOnnx::prepareLumaOutput(const RGYFrameInfo *input, RGYFrameIn
     return err;
 }
 
+OnnxColorCoeffs NVEncFilterOnnx::colorCoeffs() const {
+    return { m_yOff, m_yScale, m_yRange, m_cOff, m_cScale, m_cRange,
+        m_matVR, m_matUG, m_matVG, m_matUB, m_matRY, m_matGY, m_matBY,
+        m_matRU, m_matGU, m_matBU, m_matRV, m_matGV, m_matBV };
+}
+
+RGY_ERR NVEncFilterOnnx::inferCuda(cudaStream_t stream) {
+    if (!m_cudaPathTried) {
+        auto err = initCudaPath(stream);
+        if (err != RGY_ERR_NONE && !m_ov) return err;
+    }
+    if (m_cudaPath) {
+        RGY_ERR err;
+        if (m_maskMode) {
+            std::vector<const float *> inputs(2);
+            inputs[m_imgPortIdx] = (const float *)m_inputDevice->ptr;
+            inputs[m_mskPortIdx] = (const float *)m_maskModelDevice->ptr;
+            err = m_ov->inferMultiDevice(inputs, { (float *)m_outputDevice->ptr });
+        } else {
+            err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
+        }
+        if (err == RGY_ERR_NONE) return err;
+        AddMessage(RGY_LOG_WARN, _T("onnx: CUDA共有推論に失敗したためテンソル転送経路へ切り替えます: %s\n"), m_ov->lastError().c_str());
+        // 推論途中のストリームを完了してから共有セッションを解放する。
+        err = err_to_rgy(cudaStreamSynchronize(stream));
+        if (err != RGY_ERR_NONE) return err;
+        m_cudaPath = false;
+        tstring message;
+        err = reinitHostPath(message);
+        if (err != RGY_ERR_NONE) return err;
+    }
+    // 推論I/Oだけを転送し、画素のパックと復元はCUDAの同じ処理を使う。
+    auto err = err_to_rgy(cudaMemcpyAsync(m_inBuf.data(), m_inputDevice->ptr,
+        m_inBuf.size() * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    if (err != RGY_ERR_NONE) return err;
+    err = err_to_rgy(cudaStreamSynchronize(stream));
+    if (err != RGY_ERR_NONE) return err;
+    if (m_maskMode) {
+        std::vector<const float *> inputs(2);
+        inputs[m_imgPortIdx] = m_inBuf.data(); inputs[m_mskPortIdx] = m_maskModel.data();
+        err = m_ov->inferMulti(inputs, { m_outBuf.data() });
+    } else {
+        err = m_ov->infer(m_inBuf.data(), m_outBuf.data());
+    }
+    if (err != RGY_ERR_NONE) return err;
+    return err_to_rgy(cudaMemcpyAsync(m_outputDevice->ptr, m_outBuf.data(),
+        m_outBuf.size() * sizeof(float), cudaMemcpyHostToDevice, stream));
+}
+
 RGY_ERR NVEncFilterOnnx::runCudaLuma(const RGYFrameInfo *input, RGYFrameInfo *output, cudaStream_t stream) {
     auto err = prepareLumaOutput(input, output, stream);
     if (err != RGY_ERR_NONE) return err;
-    err = run_onnx_pack_luma((float *)m_inputDevice->ptr, input, stream);
+    err = run_onnx_pack_luma_padded((float *)m_inputDevice->ptr, input,
+        m_modelInW, m_modelInH, m_padL, m_padT, stream);
     if (err != RGY_ERR_NONE) return err;
-    err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
+    err = inferCuda(stream);
     if (err != RGY_ERR_NONE) return err;
     return run_onnx_unpack_luma(output, (const float *)m_outputDevice->ptr, stream);
 }
 
 RGY_ERR NVEncFilterOnnx::runCudaRGB(const RGYFrameInfo *input, RGYFrameInfo *output, cudaStream_t stream) {
-    auto inputFrame = *input;
-    inputFrame.picstruct = RGY_PICSTRUCT_FRAME;
-    auto rgbInput = tensorFrame((float *)m_inputDevice->ptr, 3, input->width, input->height, RGY_CSP_RGB_F32);
-    RGYFrameInfo *rgbInputOut[1] = { &rgbInput };
-    int outputCount = 0;
-    auto err = m_cropToRgb->filter(&inputFrame, rgbInputOut, &outputCount, stream);
+    auto err = run_onnx_pack((float *)m_inputDevice->ptr, input,
+        m_modelInW, m_modelInH, m_padL, m_padT, false, colorCoeffs(), stream);
     if (err != RGY_ERR_NONE) return err;
     if (m_io == OnnxIO::RGBNoise) {
-        const size_t plane = (size_t)input->width * input->height;
-        uint32_t sigmaBits = 0;
-        std::memcpy(&sigmaBits, &m_sigmaNorm, sizeof(sigmaBits));
-        const auto cuerr = cuMemsetD32Async((CUdeviceptr)((float *)m_inputDevice->ptr + 3 * plane),
-            sigmaBits, plane, (CUstream)stream);
-        if (cuerr != CUDA_SUCCESS) return RGY_ERR_CUDA;
+        const size_t plane = (size_t)m_modelInW * m_modelInH;
+        err = run_onnx_fill((float *)m_inputDevice->ptr + 3 * plane, plane, m_sigmaNorm, stream);
+        if (err != RGY_ERR_NONE) return err;
     }
-    err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
+    err = inferCuda(stream);
     if (err != RGY_ERR_NONE) return err;
-    auto rgbOutput = tensorFrame((float *)m_outputDevice->ptr, 3, output->width, output->height, RGY_CSP_RGB_F32);
-    RGYFrameInfo *yuvOutput[1] = { output };
-    outputCount = 0;
-    return m_cropFromRgb->filter(&rgbOutput, yuvOutput, &outputCount, stream);
+    return run_onnx_unpack(output, (const float *)m_outputDevice->ptr, false, colorCoeffs(), stream);
 }
 
 RGY_ERR NVEncFilterOnnx::runCudaGrayNoise(const RGYFrameInfo *input, RGYFrameInfo *output, cudaStream_t stream) {
     auto err = copyFrameAsync(output, input, stream);
     if (err != RGY_ERR_NONE) return err;
-    err = run_onnx_pack_luma((float *)m_inputDevice->ptr, input, stream);
+    err = run_onnx_pack_luma_padded((float *)m_inputDevice->ptr, input,
+        m_modelInW, m_modelInH, m_padL, m_padT, stream);
     if (err != RGY_ERR_NONE) return err;
-    const size_t plane = (size_t)input->width * input->height;
-    uint32_t sigmaBits = 0;
-    std::memcpy(&sigmaBits, &m_sigmaNorm, sizeof(sigmaBits));
-    const auto cuerr = cuMemsetD32Async((CUdeviceptr)((float *)m_inputDevice->ptr + plane),
-        sigmaBits, plane, (CUstream)stream);
-    if (cuerr != CUDA_SUCCESS) return RGY_ERR_CUDA;
-    err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
+    const size_t plane = (size_t)m_modelInW * m_modelInH;
+    err = run_onnx_fill((float *)m_inputDevice->ptr + plane, plane, m_sigmaNorm, stream);
+    if (err != RGY_ERR_NONE) return err;
+    err = inferCuda(stream);
     if (err != RGY_ERR_NONE) return err;
     return run_onnx_unpack_luma(output, (const float *)m_outputDevice->ptr, stream);
 }
@@ -834,17 +749,23 @@ RGY_ERR NVEncFilterOnnx::runCudaGrayNoise(const RGYFrameInfo *input, RGYFrameInf
 RGY_ERR NVEncFilterOnnx::runCudaYuv444(const RGYFrameInfo *input, RGYFrameInfo *output, cudaStream_t stream) {
     auto inputFrame = *input;
     inputFrame.picstruct = RGY_PICSTRUCT_FRAME;
-    auto yuvInput = tensorFrame((float *)m_inputDevice->ptr, 3, input->width, input->height, RGY_CSP_YUV444_F32);
+    auto inputPtr = m_yuvInputDevice ? m_yuvInputDevice->ptr : m_inputDevice->ptr;
+    auto yuvInput = tensorFrame((float *)inputPtr, 3, input->width, input->height, RGY_CSP_YUV444_F32);
     RGYFrameInfo *yuvInputOut[1] = { &yuvInput };
     int outputCount = 0;
     auto err = m_cropToYuv444->filter(&inputFrame, yuvInputOut, &outputCount, stream);
     if (err != RGY_ERR_NONE) return err;
-    err = m_ov->inferDevice((const float *)m_inputDevice->ptr, (float *)m_outputDevice->ptr);
+    if (m_yuvInputDevice) {
+        err = run_onnx_pad_planes((float *)m_inputDevice->ptr, (const float *)inputPtr,
+            input->width, input->height, m_modelInW, m_modelInH, m_padL, m_padT, stream);
+        if (err != RGY_ERR_NONE) return err;
+    }
+    err = inferCuda(stream);
     if (err != RGY_ERR_NONE) return err;
     auto yuvOutput = tensorFrame((float *)m_outputDevice->ptr, 3, output->width, output->height, RGY_CSP_YUV444_F32);
     if (m_io == OnnxIO::Chroma) {
         const size_t planeBytes = (size_t)input->width * input->height * sizeof(float);
-        yuvOutput.ptr[0] = (uint8_t *)m_inputDevice->ptr;
+        yuvOutput.ptr[0] = (uint8_t *)inputPtr;
         yuvOutput.ptr[1] = (uint8_t *)m_outputDevice->ptr;
         yuvOutput.ptr[2] = (uint8_t *)m_outputDevice->ptr + planeBytes;
     }
@@ -869,57 +790,11 @@ RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     RGYFrameInfo *coreFrame = &pOutFrame->frame;
     copyFramePropWithoutRes(coreFrame, pInputFrame);
 
-    RGY_ERR cerr = RGY_ERR_UNSUPPORTED;
-    RGY_ERR cudaPathInitErr = RGY_ERR_NONE;
-    if (m_io == OnnxIO::LumaSR) {
-        cudaPathInitErr = initCudaPath(stream);
-        if (cudaPathInitErr == RGY_ERR_NONE) {
-            cerr = runCudaLuma(pInputFrame, coreFrame, stream);
-        }
-    } else if ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr) {
-        cudaPathInitErr = initCudaPath(stream);
-        if (cudaPathInitErr == RGY_ERR_NONE) {
-            cerr = runCudaRGB(pInputFrame, coreFrame, stream);
-        }
-    } else if (m_io == OnnxIO::GrayNoise) {
-        cudaPathInitErr = initCudaPath(stream);
-        if (cudaPathInitErr == RGY_ERR_NONE) {
-            cerr = runCudaGrayNoise(pInputFrame, coreFrame, stream);
-        }
-    } else if (m_io == OnnxIO::Chroma || (m_io == OnnxIO::RGB && m_ycbcr)) {
-        cudaPathInitErr = initCudaPath(stream);
-        if (cudaPathInitErr == RGY_ERR_NONE) {
-            cerr = runCudaYuv444(pInputFrame, coreFrame, stream);
-        }
-    }
-    if (m_cudaPath && cerr != RGY_ERR_NONE) {
-        const auto cudaReason = m_ov ? m_ov->lastError() : tstring();
-        if (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] != 8) {
-            AddMessage(RGY_LOG_ERROR, cudaReason.empty()
-                ? strsprintf(_T("onnx: 9bit以上の入力でCUDAゼロコピー実行に失敗しました: %s。\n"), get_err_mes(cerr))
-                : strsprintf(_T("onnx: 9bit以上の入力でCUDAゼロコピー実行に失敗しました: %s。\n"), cudaReason.c_str()));
-            return cerr;
-        }
-        AddMessage(RGY_LOG_WARN, cudaReason.empty()
-            ? strsprintf(_T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), get_err_mes(cerr))
-            : strsprintf(_T("onnx: CUDAゼロコピー実行に失敗したためホスト経路へフォールバックします: %s.\n"), cudaReason.c_str()));
-        m_cudaPath = false;
-        tstring hostErrorMessage;
-        const auto hostErr = reinitHostPath(hostErrorMessage);
-        if (hostErr != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: ホスト経路用セッションの再初期化に失敗しました: %s\n"), hostErrorMessage.c_str());
-            return hostErr;
-        }
-    }
-    if (!m_cudaPath) {
-        if (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] != 8) {
-            return (cudaPathInitErr != RGY_ERR_NONE) ? cudaPathInitErr : RGY_ERR_UNSUPPORTED;
-        }
-        if (!m_ov) {
-            return (cudaPathInitErr != RGY_ERR_NONE) ? cudaPathInitErr : RGY_ERR_UNKNOWN;
-        }
-        cerr = runHost(pInputFrame, coreFrame, stream);
-    }
+    RGY_ERR cerr;
+    if (m_io == OnnxIO::LumaSR) cerr = runCudaLuma(pInputFrame, coreFrame, stream);
+    else if (m_io == OnnxIO::GrayNoise) cerr = runCudaGrayNoise(pInputFrame, coreFrame, stream);
+    else if (m_io == OnnxIO::Chroma || m_ycbcr) cerr = runCudaYuv444(pInputFrame, coreFrame, stream);
+    else cerr = runCudaRGB(pInputFrame, coreFrame, stream);
     if (cerr != RGY_ERR_NONE) {
         return cerr;
     }
@@ -943,56 +818,19 @@ RGY_ERR NVEncFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     return RGY_ERR_NONE;
 }
 
-void NVEncFilterOnnx::packFrameRGB(const RGYFrameInfo &hin, float *dst) {
-    const int w = hin.width, h = hin.height;
-    const size_t chSize = (size_t)w * h;
-    const bool nv12 = (hin.csp == RGY_CSP_NV12);
-    const int cw = w / 2, ch = h / 2;
-    const uint8_t *pU = hin.ptr[1];
-    const uint8_t *pV = nv12 ? (hin.ptr[1] + 1) : hin.ptr[2];
-    const int cStride = nv12 ? 2 : 1;
-    const int cPitchU = hin.pitch[1], cPitchV = nv12 ? hin.pitch[1] : hin.pitch[2];
-    if (m_ycbcr) {
-        for (int y = 0; y < h; y++) {
-            const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
-            float *c0 = dst + (size_t)y * w;
-            float *c1 = dst + chSize + (size_t)y * w;
-            float *c2 = dst + 2 * chSize + (size_t)y * w;
-            for (int x = 0; x < w; x++) {
-                c0[x] = (float)yrow[x] / m_maxval;
-                c1[x] = sample_chroma_up2(pU, cPitchU, cStride, cw, ch, x, y) / m_maxval;
-                c2[x] = sample_chroma_up2(pV, cPitchV, cStride, cw, ch, x, y) / m_maxval;
-            }
-        }
-    } else {
-        for (int y = 0; y < h; y++) {
-            const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
-            float *rd = dst + (size_t)y * w;
-            float *gd = dst + chSize + (size_t)y * w;
-            float *bd = dst + 2 * chSize + (size_t)y * w;
-            for (int x = 0; x < w; x++) {
-                const float yn = ((float)yrow[x] - m_yOff) * m_yScale;
-                const float un = (sample_chroma_up2(pU, cPitchU, cStride, cw, ch, x, y) - m_cOff) * m_cScale;
-                const float vn = (sample_chroma_up2(pV, cPitchV, cStride, cw, ch, x, y) - m_cOff) * m_cScale;
-                rd[x] = clampf(yn + m_matVR * vn, 0.0f, 1.0f);
-                gd[x] = clampf(yn + m_matUG * un + m_matVG * vn, 0.0f, 1.0f);
-                bd[x] = clampf(yn + m_matUB * un, 0.0f, 1.0f);
-            }
-        }
-    }
-}
-
 RGY_ERR NVEncFilterOnnx::runTemporal(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     const int k = (m_temporalT - 1) / 2;
     const size_t frameSize = (size_t)m_ov->inWidth() * m_ov->inHeight();
     if (pInputFrame->ptr[0] != nullptr) {
-        auto err = copyFrameAsync(&m_inStaging->frame, pInputFrame, stream);
+        RingFrame rf;
+        rf.rgb = std::make_unique<CUMemBuf>(3 * frameSize * sizeof(float));
+        if (rf.rgb->alloc() != RGY_ERR_NONE) return RGY_ERR_MEMORY_ALLOC;
+        auto err = run_onnx_pack((float *)rf.rgb->ptr, pInputFrame,
+            m_modelInW, m_modelInH, m_padL, m_padT, m_ycbcr, colorCoeffs(), stream);
         if (err != RGY_ERR_NONE) return err;
+        // 出力待ちの場合も、入力が再利用される前に読み込み完了を保証する。
         err = err_to_rgy(cudaStreamSynchronize(stream));
         if (err != RGY_ERR_NONE) return err;
-        RingFrame rf;
-        rf.rgb.resize(3 * frameSize);
-        packFrameRGB(m_inStaging->frame, rf.rgb.data());
         rf.timestamp = pInputFrame->timestamp;
         rf.duration = pInputFrame->duration;
         rf.picstruct = pInputFrame->picstruct;
@@ -1063,18 +901,15 @@ RGY_ERR NVEncFilterOnnx::initMask(const std::shared_ptr<NVEncFilterParamOnnx> &p
     m_io = OnnxIO::RGB;
     m_ycbcr = false;
     m_scale = 1;
-    m_maxval = 255.0f;
-    m_frameRGB.resize((size_t)3 * inW * inH);
-    m_modelIn.resize((size_t)3 * m_maskModelW * m_maskModelH);
-    m_modelOut.resize((size_t)3 * m_maskModelW * m_maskModelH);
-    m_outBuf.resize((size_t)3 * inW * inH);
-    m_u444.resize((size_t)inW * inH);
-    m_v444.resize((size_t)inW * inH);
+    m_modelInW = m_maskModelW; m_modelInH = m_maskModelH; m_padL = m_padT = 0;
+    m_maxval = (float)((1 << RGY_CSP_BIT_DEPTH[inCsp]) - 1);
+    m_inBuf.resize((size_t)3 * m_maskModelW * m_maskModelH);
+    m_outBuf.resize(m_inBuf.size());
     int matrixSel = 0, matrixSelOut = 0;
     onnx_matrix_to_coeff_id(prm->onnx.colormatrix, inH, matrixSel);
     if (prm->onnx.colormatrixOut == RGY_MATRIX_AUTO) matrixSelOut = matrixSel;
     else onnx_matrix_to_coeff_id(prm->onnx.colormatrixOut, inH, matrixSelOut);
-    setupColorCoeffs(matrixSel, matrixSelOut, prm->onnx.colorrange != RGY_COLORRANGE_FULL, 255);
+    setupColorCoeffs(matrixSel, matrixSelOut, prm->onnx.colorrange != RGY_COLORRANGE_FULL, (int)m_maxval);
 
     auto frameOut = prm->frameOut;
     frameOut.csp = inCsp; frameOut.width = inW; frameOut.height = inH;
@@ -1082,12 +917,24 @@ RGY_ERR NVEncFilterOnnx::initMask(const std::shared_ptr<NVEncFilterParamOnnx> &p
     err = AllocFrameBuf(prm->frameOut, 1);
     if (err != RGY_ERR_NONE) return err;
     for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
-    m_inStaging = std::make_unique<CUFrameBuf>();
-    m_outStaging = std::make_unique<CUFrameBuf>();
-    if (m_inStaging->allocHost(inW, inH, inCsp) != RGY_ERR_NONE || m_outStaging->allocHost(inW, inH, inCsp) != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx: mask stagingバッファの確保に失敗しました。\n"));
-        return RGY_ERR_MEMORY_ALLOC;
+    const size_t frameBytes = (size_t)inW * inH * sizeof(float);
+    const size_t modelBytes = (size_t)m_maskModelW * m_maskModelH * sizeof(float);
+    m_inputDevice = std::make_unique<CUMemBuf>(3 * modelBytes);
+    m_outputDevice = std::make_unique<CUMemBuf>(3 * modelBytes);
+    m_maskFrameDevice = std::make_unique<CUMemBuf>(frameBytes);
+    m_maskModelDevice = std::make_unique<CUMemBuf>(modelBytes);
+    m_frameRGBDevice = std::make_unique<CUMemBuf>(3 * frameBytes);
+    m_compositeDevice = std::make_unique<CUMemBuf>(3 * frameBytes);
+    m_maskRangeDevice = std::make_unique<CUMemBuf>(sizeof(int));
+    for (auto buffer : { m_inputDevice.get(), m_outputDevice.get(), m_maskFrameDevice.get(),
+        m_maskModelDevice.get(), m_frameRGBDevice.get(), m_compositeDevice.get(), m_maskRangeDevice.get() }) {
+        if (buffer->alloc() != RGY_ERR_NONE) return RGY_ERR_MEMORY_ALLOC;
     }
+    err = err_to_rgy(cudaMemcpy(m_maskFrameDevice->ptr, m_maskFrame.data(), frameBytes, cudaMemcpyHostToDevice));
+    if (err != RGY_ERR_NONE) return err;
+    err = err_to_rgy(cudaMemcpy(m_maskModelDevice->ptr, m_maskModel.data(), modelBytes, cudaMemcpyHostToDevice));
+    if (err != RGY_ERR_NONE) return err;
+    m_cudaPathTried = m_cudaPath = false;
     setFilterInfo(strsprintf(_T("onnx: %s %dx%d io=rgb+mask (model %dx%d) backend=%s"),
         PathGetFilename(prm->onnx.modelFile).c_str(), inW, inH, m_maskModelW, m_maskModelH, m_ov->providerName().c_str()));
     m_param = prm;
@@ -1096,40 +943,27 @@ RGY_ERR NVEncFilterOnnx::initMask(const std::shared_ptr<NVEncFilterParamOnnx> &p
 
 RGY_ERR NVEncFilterOnnx::runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     if (pInputFrame->ptr[0] == nullptr) { *pOutputFrameNum = 0; return RGY_ERR_NONE; }
-    const size_t frameSize = (size_t)pInputFrame->width * pInputFrame->height;
-    const size_t modelSize = (size_t)m_maskModelW * m_maskModelH;
-    auto err = copyFrameAsync(&m_inStaging->frame, pInputFrame, stream);
+    const int fw = pInputFrame->width, fh = pInputFrame->height;
+    auto err = run_onnx_pack((float *)m_frameRGBDevice->ptr, pInputFrame, fw, fh, 0, 0, false, colorCoeffs(), stream);
     if (err != RGY_ERR_NONE) return err;
-    err = err_to_rgy(cudaStreamSynchronize(stream));
+    err = run_onnx_mask_resize((const float *)m_frameRGBDevice->ptr, (float *)m_inputDevice->ptr,
+        fw, fh, m_maskModelW, m_maskModelH, stream);
     if (err != RGY_ERR_NONE) return err;
-    packFrameRGB(m_inStaging->frame, m_frameRGB.data());
-    for (int c = 0; c < 3; c++) {
-        resizeMaskPlane(m_frameRGB.data() + c * frameSize, pInputFrame->width, pInputFrame->height,
-            m_modelIn.data() + c * modelSize, m_maskModelW, m_maskModelH);
-    }
-    std::vector<const float *> inputs(2);
-    inputs[m_imgPortIdx] = m_modelIn.data(); inputs[m_mskPortIdx] = m_maskModel.data();
-    std::vector<float *> outputs = { m_modelOut.data() };
-    err = m_ov->inferMulti(inputs, outputs);
+    err = inferCuda(stream);
     if (err != RGY_ERR_NONE) return err;
     if (m_maskOutScale == 0.0f) {
-        float maxv = 0.0f; for (const auto v : m_modelOut) maxv = std::max(maxv, v);
-        m_maskOutScale = (maxv > 2.0f) ? (1.0f / 255.0f) : 1.0f;
+        // 初回の出力範囲判定をGPU上に保持して後続フレームでも使用する。
+        err = run_onnx_mask_detect((const float *)m_outputDevice->ptr, 3 * m_maskModelW * m_maskModelH,
+            (int *)m_maskRangeDevice->ptr, stream);
+        if (err != RGY_ERR_NONE) return err;
+        m_maskOutScale = 1.0f;
     }
-    for (int c = 0; c < 3; c++) {
-        const float *src = m_modelOut.data() + c * modelSize;
-        const float *base = m_frameRGB.data() + c * frameSize;
-        float *dst = m_outBuf.data() + c * frameSize;
-        for (int y = 0; y < pInputFrame->height; y++) for (int x = 0; x < pInputFrame->width; x++) {
-            const size_t pos = (size_t)y * pInputFrame->width + x;
-            const float fx = ((x + 0.5f) * m_maskModelW) / pInputFrame->width - 0.5f;
-            const float fy = ((y + 0.5f) * m_maskModelH) / pInputFrame->height - 0.5f;
-            dst[pos] = m_maskFrame[pos] > 0.5f ? clampf(sampleMaskPlane(src, m_maskModelW, m_maskModelH, fx, fy) * m_maskOutScale, 0.0f, 1.0f) : base[pos];
-        }
-    }
-    writeOutputHost(m_outStaging->frame, m_inStaging->frame);
+    err = run_onnx_mask_composite((const float *)m_frameRGBDevice->ptr, (const float *)m_outputDevice->ptr,
+        (const float *)m_maskFrameDevice->ptr, (const int *)m_maskRangeDevice->ptr, (float *)m_compositeDevice->ptr,
+        fw, fh, m_maskModelW, m_maskModelH, stream);
+    if (err != RGY_ERR_NONE) return err;
     auto coreFrame = &m_frameBuf[0]->frame;
-    err = copyFrameAsync(coreFrame, &m_outStaging->frame, stream);
+    err = run_onnx_unpack(coreFrame, (const float *)m_compositeDevice->ptr, false, colorCoeffs(), stream);
     if (err != RGY_ERR_NONE) return err;
     copyFramePropWithoutRes(coreFrame, pInputFrame);
     ppOutputFrames[0] = coreFrame; *pOutputFrameNum = 1;
@@ -1144,14 +978,14 @@ RGY_ERR NVEncFilterOnnx::emitTemporalOutput(int64_t outIdx, RGYFrameInfo **ppOut
     for (int j = 0; j < m_temporalT; j++) {
         int64_t r = outIdx - k + j - m_ringBaseIdx;
         if (r < 0) r = 0; else if (r >= ringN) r = ringN - 1;
-        std::copy(m_ring[(size_t)r].rgb.begin(), m_ring[(size_t)r].rgb.end(),
-            m_inBuf.begin() + (size_t)j * 3 * frameSize);
+        auto err = err_to_rgy(cudaMemcpyAsync((float *)m_inputDevice->ptr + (size_t)j * 3 * frameSize,
+            m_ring[(size_t)r].rgb->ptr, 3 * frameSize * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+        if (err != RGY_ERR_NONE) return err;
     }
-    auto err = m_ov->infer(m_inBuf.data(), m_outBuf.data());
+    auto err = inferCuda(stream);
     if (err != RGY_ERR_NONE) return err;
-    writeOutputHost(m_outStaging->frame, m_inStaging->frame);
     auto coreFrame = &m_frameBuf[0]->frame;
-    err = copyFrameAsync(coreFrame, &m_outStaging->frame, stream);
+    err = run_onnx_unpack(coreFrame, (const float *)m_outputDevice->ptr, m_ycbcr, colorCoeffs(), stream);
     if (err != RGY_ERR_NONE) return err;
     int64_t cr = outIdx - m_ringBaseIdx;
     if (cr < 0) cr = 0; else if (cr >= ringN) cr = ringN - 1;
@@ -1176,217 +1010,17 @@ RGY_ERR NVEncFilterOnnx::emitTemporalOutput(int64_t outIdx, RGYFrameInfo **ppOut
     return RGY_ERR_NONE;
 }
 
-// Pack the host input frame into m_inBuf (inC*inW*inH floats, CHW).
-void NVEncFilterOnnx::fillInputHost(const RGYFrameInfo &hin) {
-    const int inW = hin.width;
-    const int inH = hin.height;
-    const size_t chSize = (size_t)inW * inH;
-    const bool nv12 = (hin.csp == RGY_CSP_NV12);
-    const int cw = inW / 2, ch = inH / 2;
-    const uint8_t *pU = hin.ptr[1];
-    const uint8_t *pV = nv12 ? (hin.ptr[1] + 1) : hin.ptr[2];
-    const int cStride = nv12 ? 2 : 1;
-    const int cPitchU = hin.pitch[1];
-    const int cPitchV = nv12 ? hin.pitch[1] : hin.pitch[2];
-    float *base = m_inBuf.data();
-
-    switch (m_io) {
-    case OnnxIO::LumaSR:
-        break;
-    case OnnxIO::GrayNoise:
-        for (int y = 0; y < inH; y++) {
-            const uint8_t *srow = hin.ptr[0] + (size_t)y * hin.pitch[0];
-            float *drow = base + (size_t)y * inW;
-            for (int x = 0; x < inW; x++) drow[x] = (float)srow[x] / m_maxval;
-        }
-        if (m_io == OnnxIO::GrayNoise) {
-            std::fill(base + chSize, base + 2 * chSize, m_sigmaNorm);
-        }
-        break;
-    case OnnxIO::Chroma:
-        for (int y = 0; y < inH; y++) {
-            const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
-            float *yd = base + (size_t)y * inW;
-            float *ud = base + chSize + (size_t)y * inW;
-            float *vd = base + 2 * chSize + (size_t)y * inW;
-            for (int x = 0; x < inW; x++) {
-                yd[x] = (float)yrow[x] / m_maxval;
-                ud[x] = sample_chroma_up2(pU, cPitchU, cStride, cw, ch, x, y) / m_maxval;
-                vd[x] = sample_chroma_up2(pV, cPitchV, cStride, cw, ch, x, y) / m_maxval;
-            }
-        }
-        break;
-    case OnnxIO::RGB:
-    case OnnxIO::RGBNoise:
-        if (m_ycbcr) {
-            for (int y = 0; y < inH; y++) {
-                const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
-                float *c0 = base + (size_t)y * inW;
-                float *c1 = base + chSize + (size_t)y * inW;
-                float *c2 = base + 2 * chSize + (size_t)y * inW;
-                for (int x = 0; x < inW; x++) {
-                    c0[x] = (float)yrow[x] / m_maxval;
-                    c1[x] = sample_chroma_up2(pU, cPitchU, cStride, cw, ch, x, y) / m_maxval;
-                    c2[x] = sample_chroma_up2(pV, cPitchV, cStride, cw, ch, x, y) / m_maxval;
-                }
-            }
-        } else {
-            for (int y = 0; y < inH; y++) {
-                const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
-                float *rd = base + (size_t)y * inW;
-                float *gd = base + chSize + (size_t)y * inW;
-                float *bd = base + 2 * chSize + (size_t)y * inW;
-                for (int x = 0; x < inW; x++) {
-                    const float yn = ((float)yrow[x] - m_yOff) * m_yScale;
-                    const float un = (sample_chroma_up2(pU, cPitchU, cStride, cw, ch, x, y) - m_cOff) * m_cScale;
-                    const float vn = (sample_chroma_up2(pV, cPitchV, cStride, cw, ch, x, y) - m_cOff) * m_cScale;
-                    rd[x] = clampf(yn + m_matVR * vn, 0.0f, 1.0f);
-                    gd[x] = clampf(yn + m_matUG * un + m_matVG * vn, 0.0f, 1.0f);
-                    bd[x] = clampf(yn + m_matUB * un, 0.0f, 1.0f);
-                }
-            }
-        }
-        if (m_io == OnnxIO::RGBNoise) {
-            std::fill(base + 3 * chSize, base + 4 * chSize, m_sigmaNorm);
-        }
-        break;
-    }
-}
-
-// Unpack m_outBuf (outC*outW*outH floats, CHW) into the host output frame.
-void NVEncFilterOnnx::writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo &hin) {
-    const int outW = hout.width;
-    const int outH = hout.height;
-    const size_t chSize = (size_t)outW * outH;
-    const bool nv12 = (hout.csp == RGY_CSP_NV12);
-    const int pixMax = (int)m_maxval;
-    const float *ob = m_outBuf.data();
-    uint8_t *oU = hout.ptr[1];
-    uint8_t *oV = nv12 ? (hout.ptr[1] + 1) : hout.ptr[2];
-    const int oStride = nv12 ? 2 : 1;
-    const int oPitchU = hout.pitch[1];
-    const int oPitchV = nv12 ? hout.pitch[1] : hout.pitch[2];
-
-    switch (m_io) {
-    case OnnxIO::LumaSR:
-        break;
-    case OnnxIO::GrayNoise: {
-        for (int y = 0; y < outH; y++) {
-            const float *srow = ob + (size_t)y * outW;
-            uint8_t *drow = hout.ptr[0] + (size_t)y * hout.pitch[0];
-            for (int x = 0; x < outW; x++) { int v = (int)(srow[x] * m_maxval + 0.5f); drow[x] = (uint8_t)clampi(v, 0, pixMax); }
-        }
-        const int cw = hin.width / 2, chh = hin.height / 2;
-        const uint8_t *iU = hin.ptr[1];
-        const uint8_t *iV = nv12 ? (hin.ptr[1] + 1) : hin.ptr[2];
-        const int iStride = nv12 ? 2 : 1;
-        const int iPitchU = hin.pitch[1], iPitchV = nv12 ? hin.pitch[1] : hin.pitch[2];
-        copy_plane_u8(oU, oPitchU, oStride, iU, iPitchU, iStride, cw, chh);
-        copy_plane_u8(oV, oPitchV, oStride, iV, iPitchV, iStride, cw, chh);
-        break;
-    }
-    case OnnxIO::Chroma:
-        copy_plane_u8(hout.ptr[0], hout.pitch[0], 1, hin.ptr[0], hin.pitch[0], 1, outW, outH);
-        downsample420_encode(oU, oPitchU, oStride, ob + 0 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
-        downsample420_encode(oV, oPitchV, oStride, ob + 1 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
-        break;
-    case OnnxIO::RGB:
-    case OnnxIO::RGBNoise:
-        if (m_ycbcr) {
-            for (int y = 0; y < outH; y++) {
-                const float *srow = ob + (size_t)y * outW;
-                uint8_t *drow = hout.ptr[0] + (size_t)y * hout.pitch[0];
-                for (int x = 0; x < outW; x++) { int v = (int)(srow[x] * m_maxval + 0.5f); drow[x] = (uint8_t)clampi(v, 0, pixMax); }
-            }
-            downsample420_encode(oU, oPitchU, oStride, ob + 1 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
-            downsample420_encode(oV, oPitchV, oStride, ob + 2 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
-        } else {
-            for (int y = 0; y < outH; y++) {
-                const float *rr = ob + 0 * chSize + (size_t)y * outW;
-                const float *gg = ob + 1 * chSize + (size_t)y * outW;
-                const float *bb = ob + 2 * chSize + (size_t)y * outW;
-                uint8_t *yd = hout.ptr[0] + (size_t)y * hout.pitch[0];
-                float *un = m_u444.data() + (size_t)y * outW;
-                float *vn = m_v444.data() + (size_t)y * outW;
-                for (int x = 0; x < outW; x++) {
-                    const float R = rr[x], G = gg[x], B = bb[x];
-                    const float Yn = m_matRY * R + m_matGY * G + m_matBY * B;
-                    un[x] = m_matRU * R + m_matGU * G + m_matBU * B;
-                    vn[x] = m_matRV * R + m_matGV * G + m_matBV * B;
-                    const int v = (int)(Yn * m_yRange + m_yOff + 0.5f);
-                    yd[x] = (uint8_t)clampi(v, 0, pixMax);
-                }
-            }
-            downsample420_encode(oU, oPitchU, oStride, m_u444.data(), outW, outH, m_cRange, m_cOff, pixMax);
-            downsample420_encode(oV, oPitchV, oStride, m_v444.data(), outW, outH, m_cRange, m_cOff, pixMax);
-        }
-        break;
-    }
-}
-
-RGY_ERR NVEncFilterOnnx::runHost(const RGYFrameInfo *in, RGYFrameInfo *out, cudaStream_t stream) {
-    RGY_ERR err = RGY_ERR_NONE;
-    if (m_io == OnnxIO::LumaSR) {
-        // ホスト推論へのフォールバック時も、画素形式とテンソルの変換はCUDA側へ統一する。
-        err = run_onnx_pack_luma((float *)m_inputDevice->ptr, in, stream);
-        if (err != RGY_ERR_NONE) return err;
-        err = err_to_rgy(cudaMemcpyAsync(m_inBuf.data(), m_inputDevice->ptr,
-            m_inBuf.size() * sizeof(float), cudaMemcpyDeviceToHost, stream));
-        if (err != RGY_ERR_NONE) return err;
-        err = err_to_rgy(cudaStreamSynchronize(stream));
-        if (err != RGY_ERR_NONE) return err;
-    } else {
-        // device input -> host staging, then wait for the copy so the CPU can read it.
-        err = copyFrameAsync(&m_inStaging->frame, in, stream);
-        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: copy input to staging failed: %s.\n"), get_err_mes(err)); return err; }
-        err = err_to_rgy(cudaStreamSynchronize(stream));
-        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: stream sync failed: %s.\n"), get_err_mes(err)); return err; }
-        fillInputHost(m_inStaging->frame);
-    }
-
-    // 3. inference.
-    err = m_ov->infer(m_inBuf.data(), m_outBuf.data());
-    if (err != RGY_ERR_NONE) {
-        const auto lastError = m_ov->lastError();
-        if (!lastError.empty()) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: inference failed: %s.\n"), lastError.c_str());
-        } else {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: inference failed.\n"));
-        }
-        return err;
-    }
-
-    if (m_io == OnnxIO::LumaSR) {
-        err = prepareLumaOutput(in, out, stream);
-        if (err != RGY_ERR_NONE) return err;
-        err = err_to_rgy(cudaMemcpyAsync(m_outputDevice->ptr, m_outBuf.data(),
-            m_outBuf.size() * sizeof(float), cudaMemcpyHostToDevice, stream));
-        if (err != RGY_ERR_NONE) return err;
-        return run_onnx_unpack_luma(out, (const float *)m_outputDevice->ptr, stream);
-    } else {
-        writeOutputHost(m_outStaging->frame, m_inStaging->frame);
-        err = copyFrameAsync(out, &m_outStaging->frame, stream);
-        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: copy staging to output failed: %s.\n"), get_err_mes(err)); return err; }
-        return RGY_ERR_NONE;
-    }
-}
-
 void NVEncFilterOnnx::close() {
     m_postResize.reset();
-    m_cropToRgb.reset();
-    m_cropFromRgb.reset();
+    m_yuvInputDevice.reset();
     m_cropToYuv444.reset();
     m_cropFromYuv444.reset();
     m_lumaResize.reset();
     m_inputDevice.reset();
     m_outputDevice.reset();
-    m_inStaging.reset();
-    m_outStaging.reset();
     m_ov.reset();
     m_inBuf.clear();
     m_outBuf.clear();
-    m_u444.clear();
-    m_v444.clear();
     m_ring.clear();
     m_ringBaseIdx = 0;
     m_recvCount = 0;
@@ -1396,9 +1030,8 @@ void NVEncFilterOnnx::close() {
     m_maskOutScale = 0.0f;
     m_maskFrame.clear();
     m_maskModel.clear();
-    m_frameRGB.clear();
-    m_modelIn.clear();
-    m_modelOut.clear();
+    m_maskFrameDevice.reset(); m_maskModelDevice.reset(); m_frameRGBDevice.reset();
+    m_compositeDevice.reset(); m_maskRangeDevice.reset();
     m_maskMode = false;
     m_cudaPathTried = false;
     m_cudaPath = false;

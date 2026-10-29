@@ -200,12 +200,12 @@ public:
     bool engineCacheLoadFailure = false;
     bool deviceIO = false;
     std::unique_ptr<Ort::MemoryInfo> deviceMemInfo;
-    std::unique_ptr<Ort::Value> deviceInput;
-    std::unique_ptr<Ort::Value> deviceOutput;
+    std::vector<Ort::Value> deviceInputs;
+    std::vector<Ort::Value> deviceOutputs;
     std::unique_ptr<Ort::IoBinding> ioBinding;
     std::unique_ptr<Ort::RunOptions> deviceRunOptions;
-    const float *boundInput = nullptr;
-    float *boundOutput = nullptr;
+    std::vector<const float *> boundInputs;
+    std::vector<float *> boundOutputs;
 };
 
 RGYOnnxRTCUDA::RGYOnnxRTCUDA() : m_impl(std::make_unique<Impl>()) {}
@@ -261,12 +261,12 @@ RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, co
         I.engineCacheLoadFailure = false;
         I.deviceIO = false;
         I.deviceMemInfo.reset();
-        I.deviceInput.reset();
-        I.deviceOutput.reset();
+        I.deviceInputs.clear();
+        I.deviceOutputs.clear();
         I.ioBinding.reset();
         I.deviceRunOptions.reset();
-        I.boundInput = nullptr;
-        I.boundOutput = nullptr;
+        I.boundInputs.clear();
+        I.boundOutputs.clear();
         I.lastError.clear();
         auto cudaerr = selectCudaDevice(I.deviceID);
         if (cudaerr != cudaSuccess) {
@@ -565,7 +565,15 @@ RGY_ERR RGYOnnxRTCUDA::inferMulti(const std::vector<const float *> &inputs, cons
 }
 
 RGY_ERR RGYOnnxRTCUDA::inferDevice(const float *inDevice, float *outDevice) {
+    if (m_impl->inNames.size() != 1 || m_impl->outNames.size() != 1) return RGY_ERR_INVALID_PARAM;
+    return inferMultiDevice({ inDevice }, { outDevice });
+}
+
+RGY_ERR RGYOnnxRTCUDA::inferMultiDevice(const std::vector<const float *> &inputs, const std::vector<float *> &outputs) {
     if (!m_impl->session || !m_impl->deviceIO) return RGY_ERR_UNSUPPORTED;
+    if (inputs.size() != m_impl->inNames.size() || outputs.size() != m_impl->outNames.size()) return RGY_ERR_INVALID_PARAM;
+    for (const auto ptr : inputs) if (ptr == nullptr) return RGY_ERR_NULL_PTR;
+    for (const auto ptr : outputs) if (ptr == nullptr) return RGY_ERR_NULL_PTR;
     CudaContextRestorer contextRestorer;
     try {
         auto &I = *m_impl;
@@ -576,24 +584,38 @@ RGY_ERR RGYOnnxRTCUDA::inferDevice(const float *inDevice, float *outDevice) {
             return RGY_ERR_CUDA;
         }
         cudaGetLastError();
-        std::vector<int64_t> inDims  = { 1, I.inC,  I.inH,  I.inW };
-        std::vector<int64_t> outDims = { 1, I.outC, I.outH, I.outW };
-        const size_t inCount  = (size_t)I.inC  * I.inH  * I.inW;
-        const size_t outCount = (size_t)I.outC * I.outH * I.outW;
-        if (!I.ioBinding || I.boundInput != inDevice || I.boundOutput != outDevice) {
+        if (!I.ioBinding || I.boundInputs != inputs || I.boundOutputs != outputs) {
+            // 各ポートの形状と名前を維持し、ポインタが変わったときだけ束縛を作り直す。
+            I.ioBinding.reset();
+            I.deviceInputs.clear();
+            I.deviceOutputs.clear();
             I.deviceMemInfo = std::make_unique<Ort::MemoryInfo>("Cuda", OrtDeviceAllocator, I.deviceID, OrtMemTypeDefault);
-            I.deviceInput = std::make_unique<Ort::Value>(Ort::Value::CreateTensor<float>(*I.deviceMemInfo,
-                const_cast<float *>(inDevice), inCount, inDims.data(), inDims.size()));
-            I.deviceOutput = std::make_unique<Ort::Value>(Ort::Value::CreateTensor<float>(*I.deviceMemInfo,
-                outDevice, outCount, outDims.data(), outDims.size()));
-            I.ioBinding = std::make_unique<Ort::IoBinding>(*I.session);
-            I.ioBinding->BindInput(I.inName.c_str(), *I.deviceInput);
-            I.ioBinding->BindOutput(I.outName.c_str(), *I.deviceOutput);
+            I.deviceInputs.reserve(inputs.size());
+            I.deviceOutputs.reserve(outputs.size());
+            for (size_t i = 0; i < inputs.size(); i++) {
+                const std::array<int64_t, 4> dims = { 1, I.inCs[i], I.inHs[i], I.inWs[i] };
+                const size_t count = (size_t)I.inCs[i] * I.inHs[i] * I.inWs[i];
+                I.deviceInputs.emplace_back(Ort::Value::CreateTensor<float>(*I.deviceMemInfo,
+                    const_cast<float *>(inputs[i]), count, dims.data(), dims.size()));
+            }
+            for (size_t i = 0; i < outputs.size(); i++) {
+                const std::array<int64_t, 4> dims = { 1, I.outCs[i], I.outHs[i], I.outWs[i] };
+                const size_t count = (size_t)I.outCs[i] * I.outHs[i] * I.outWs[i];
+                I.deviceOutputs.emplace_back(Ort::Value::CreateTensor<float>(*I.deviceMemInfo,
+                    outputs[i], count, dims.data(), dims.size()));
+            }
+            auto binding = std::make_unique<Ort::IoBinding>(*I.session);
+            for (size_t i = 0; i < inputs.size(); i++) binding->BindInput(I.inNames[i].c_str(), I.deviceInputs[i]);
+            for (size_t i = 0; i < outputs.size(); i++) binding->BindOutput(I.outNames[i].c_str(), I.deviceOutputs[i]);
             I.deviceRunOptions = std::make_unique<Ort::RunOptions>();
-            I.boundInput = inDevice;
-            I.boundOutput = outDevice;
+            I.boundInputs = inputs;
+            I.boundOutputs = outputs;
+            I.ioBinding = std::move(binding);
         }
+        // provider内部の転送ストリームも待ち、束縛済みテンソルの前後処理と順序を揃える。
+        I.ioBinding->SynchronizeInputs();
         I.session->Run(*I.deviceRunOptions, *I.ioBinding);
+        I.ioBinding->SynchronizeOutputs();
     } catch (const Ort::Exception &e) {
         m_impl->lastError = char_to_tstring(e.what());
         return RGY_ERR_UNKNOWN;
@@ -644,6 +666,7 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &, const int, const RGYOnnxRTProvider,
 RGY_ERR RGYOnnxRTCUDA::infer(const float *, float *) { return RGY_ERR_UNSUPPORTED; }
 RGY_ERR RGYOnnxRTCUDA::inferMulti(const std::vector<const float *> &, const std::vector<float *> &) { return RGY_ERR_UNSUPPORTED; }
 RGY_ERR RGYOnnxRTCUDA::inferDevice(const float *, float *) { return RGY_ERR_UNSUPPORTED; }
+RGY_ERR RGYOnnxRTCUDA::inferMultiDevice(const std::vector<const float *> &, const std::vector<float *> &) { return RGY_ERR_UNSUPPORTED; }
 bool RGYOnnxRTCUDA::deviceIOAvailable() const { return false; }
 int RGYOnnxRTCUDA::inChannels()  const { return 0; }
 int RGYOnnxRTCUDA::inputCount() const { return 0; }

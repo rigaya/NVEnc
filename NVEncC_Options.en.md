@@ -4488,7 +4488,7 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
 
 - **Compatibility parameters**
   - device=&lt;string&gt;, interop=&lt;string&gt;  
-    Accepted for CLI compatibility with QSVEnc/VCEEnc, but NVEnc does not use them to select the inference device or transfer mode. Inference is bound to the CUDA device used by the encoder and uses the host-readback path.
+    Accepted for CLI compatibility with QSVEnc/VCEEnc, but NVEnc does not use them to select the inference device or transfer mode. Inference is bound to the CUDA device used by the encoder. Pre/post processing runs on CUDA, preferring inference with shared GPU tensors. If shared inference is unavailable, only float tensors are transferred through host memory.
 
 - **Available model names**
 
