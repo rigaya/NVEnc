@@ -1,5 +1,14 @@
 # NVEnc Release Notes
 
+## 9.40
+
+- Speed up [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2).
+- Move single-frame, mask, and multi-frame pre/post-processing in [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) to CUDA.
+- Fix [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) reading a stale frame before the inference result is updated under GPU load.
+- Fix a race in raw output ([--codec](./NVEncC_Options.en.md#-c---codec-string) `raw`) where a GPU buffer could be reused during transfer.
+- Add a PAL/SECAM VHS restoration filter [--vpp-vhs-restore](./NVEncC_Options.en.md#--vpp-vhs-restore-param1value1param2value2). ( rigaya/HWEnc-onnx-models#1 )
+  Models are added to the HWEnc-onnx-models deinterlace archive.
+
 ## 9.39
 
 - Speed up reconstruction in [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) / [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1).

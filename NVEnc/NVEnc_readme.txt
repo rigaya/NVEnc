@@ -214,6 +214,14 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2026.10.31 (9.40)
+- --vpp-kfmの高速化。
+- --vpp-onnxでONNXの単一フレーム・マスク・複数フレームの前後処理をCUDAに統一。
+- GPU負荷時に--vpp-onnxが推論結果の更新前のフレームを読む競合を修正。
+- raw出力の転送中にGPUバッファが再利用される競合を修正。
+- PAL/SECAM向けのVHS修復フィルタを追加。(--vpp-vhs-restore) ( rigaya/HWEnc-onnx-models#1 )
+  モデルはHWEnc-onnx-modelsのデインターレース用アーカイブに追加。
+
 2026.10.23 (9.39)
 - --vpp-kfm/--vpp-rtgmcの再構成処理の高速化。
 - --vpp-kfmのucf=on時の処理を高速化。
