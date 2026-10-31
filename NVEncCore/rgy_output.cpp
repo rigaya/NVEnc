@@ -37,6 +37,28 @@
 #include <smmintrin.h>
 #endif
 
+static bool g_preview_server_mode = false;
+
+void rgy_output_set_preview_server_mode(bool enabled) {
+    g_preview_server_mode = enabled;
+}
+
+static FILE *rgy_output_stdout() {
+    if (!g_preview_server_mode) return stdout;
+#if defined(_WIN32) || defined(_WIN64)
+    const int fd = _dup(_fileno(stdout));
+    if (fd < 0) return nullptr;
+    FILE *fp = _fdopen(fd, "wb");
+    if (!fp) _close(fd);
+#else
+    const int fd = dup(fileno(stdout));
+    if (fd < 0) return nullptr;
+    FILE *fp = fdopen(fd, "wb");
+    if (!fp) close(fd);
+#endif
+    return fp;
+}
+
 // H.264とHEVCのAUD(Access Unit Delimiter)の固定ビット列
 static const uint8_t AUD_H264_PRIMARY[] = { 0x00, 0x00, 0x00, 0x01, 0x09, 0x10 }; // AUD (primary_pic_type = 0)
 static const uint8_t AUD_HEVC_PRIMARY[] = { 0x00, 0x00, 0x00, 0x01, 0x46, 0x01 }; // AUD (pic_type = 0)
@@ -827,7 +849,8 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         if (rawPrm->qFirstProcessData) {
             AddMessage(RGY_LOG_DEBUG, _T("using parallel queue\n"));
         } else if (_tcscmp(strFileName, _T("-")) == 0) {
-            m_fDest.reset(stdout);
+            m_fDest.reset(rgy_output_stdout());
+            if (!m_fDest) return RGY_ERR_FILE_OPEN;
             m_outputIsStdout = true;
             AddMessage(RGY_LOG_DEBUG, _T("using stdout\n"));
         } else {
@@ -1101,7 +1124,8 @@ RGY_ERR RGYOutFrame::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutpu
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-        m_fDest.reset(stdout);
+        m_fDest.reset(rgy_output_stdout());
+        if (!m_fDest) return RGY_ERR_FILE_OPEN;
         m_outputIsStdout = true;
         AddMessage(RGY_LOG_DEBUG, _T("using stdout\n"));
     } else {

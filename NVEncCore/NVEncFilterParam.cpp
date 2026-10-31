@@ -251,7 +251,11 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
         for (size_t ielem = 0; ielem < _countof(paramsResizeLibPlacebo); ielem++) {
             paramListResizeLibPlacebo.push_back(paramsResizeLibPlacebo[ielem]);
         }
-        std::vector<std::string> paramList = paramListResizeLibPlacebo;
+        // libplacebo無効時は受理しないpl-*を候補から除き、algoだけは残す。
+        std::vector<std::string> paramList;
+        for (const auto& prm : paramListResizeLibPlacebo) {
+            if (ENABLE_LIBPLACEBO || prm == "algo") paramList.push_back(prm);
+        }
         for (size_t ielem = 0; ielem < _countof(paramsResizeNVEnc); ielem++) {
             paramList.push_back(paramsResizeNVEnc[ielem]);
         }

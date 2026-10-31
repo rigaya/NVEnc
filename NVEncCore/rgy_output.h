@@ -54,6 +54,9 @@
 using std::unique_ptr;
 using std::shared_ptr;
 
+// 常駐プレビューではライターの破棄後も標準出力を保持する。
+void rgy_output_set_preview_server_mode(bool enabled);
+
 enum OutputType {
     OUT_TYPE_NONE = 0,
     OUT_TYPE_BITSTREAM,

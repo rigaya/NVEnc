@@ -2105,6 +2105,10 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_bitstream.h" />
     <ClInclude Include="rgy_chapter.h" />
     <ClInclude Include="rgy_cmd.h" />
+    <ClInclude Include="rgy_cmd_selftest.h" />
+    <ClInclude Include="rgy_help_selftest_cases.h" />
+    <ClInclude Include="NVEncHelpCodegenCases.h" />
+    <ClInclude Include="rgy_preview_server.h" />
     <ClInclude Include="rgy_codepage.h" />
     <ClInclude Include="rgy_cuda_util.h" />
     <ClInclude Include="rgy_cuda_util_kernel.h" />

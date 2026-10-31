@@ -356,6 +356,7 @@ NVEncCore::NVEncCore() :
     m_parallelEnc(),
     m_devNames(),
     m_pAbortByUser(nullptr),
+    m_pPreviewAbort(nullptr),
     m_cudaSchedule(CU_CTX_SCHED_AUTO),
     m_stCreateEncodeParams(),
     m_dynamicRC(),
@@ -431,6 +432,10 @@ NVEncCore::~NVEncCore() {
 
 void NVEncCore::SetAbortFlagPointer(bool *abortFlag) {
     m_pAbortByUser = abortFlag;
+}
+
+void NVEncCore::SetPreviewAbortFlagPointer(std::atomic<bool> *abortFlag) {
+    m_pPreviewAbort = abortFlag;
 }
 
 //エンコーダが出力使用する色空間を入力パラメータをもとに取得
@@ -1460,6 +1465,7 @@ RGY_ERR NVEncCore::Deinitialize() {
     PrintMes(RGY_LOG_DEBUG, _T("Closing logger...\n"));
     m_pLog.reset();
     m_pAbortByUser = nullptr;
+    m_pPreviewAbort = nullptr;
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
     //すべてのエラーをflush - 次回に影響しないように
@@ -6304,9 +6310,9 @@ RGY_ERR NVEncCore::Encode() {
     TCHAR handleEvent[256];
     _stprintf_s(handleEvent, NVENCC_ABORT_EVENT, GetCurrentProcessId());
     auto heAbort = std::unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter>((HANDLE)CreateEvent(nullptr, TRUE, FALSE, handleEvent));
-    auto checkAbort = [pabort = m_pAbortByUser, &heAbort]() { return ((pabort != nullptr && *pabort) || WaitForSingleObject(heAbort.get(), 0) == WAIT_OBJECT_0) ? true : false; };
+    auto checkAbort = [pabort = m_pAbortByUser, previewAbort = m_pPreviewAbort, &heAbort]() { return ((previewAbort && previewAbort->load()) || (pabort != nullptr && *pabort) || WaitForSingleObject(heAbort.get(), 0) == WAIT_OBJECT_0) ? true : false; };
 #else
-    auto checkAbort = [pabort = m_pAbortByUser]() { return  (pabort != nullptr && *pabort); };
+    auto checkAbort = [pabort = m_pAbortByUser, previewAbort = m_pPreviewAbort]() { return (previewAbort && previewAbort->load()) || (pabort != nullptr && *pabort); };
 #endif
     m_pStatus->SetStart();
 
@@ -6369,8 +6375,9 @@ RGY_ERR NVEncCore::Encode() {
     int64_t eofDrainWriteMsTotal = 0;
     int64_t eofDrainWriteMsMax = 0;
     {
-        auto checkContinue = [&checkAbort](RGY_ERR& err) {
-            if (checkAbort() || stdInAbort()) { err = RGY_ERR_ABORTED; return false; }
+        auto checkContinue = [&checkAbort, this](RGY_ERR& err) {
+            // 常駐時の標準入力は要求受信スレッドだけが読む。
+            if (checkAbort() || (!m_pPreviewAbort && stdInAbort())) { err = RGY_ERR_ABORTED; return false; }
             return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE;
         };
         while (checkContinue(err)) {

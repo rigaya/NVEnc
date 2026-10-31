@@ -236,6 +236,13 @@ jobs:
           if "${{ matrix.platform }}" == "Win32" set NVENCC_EXE=NVEncC_Release\NVEncC.exe
           "%NVENCC_EXE%" --check-cmd-parse
 
+      - name: Check VPP help schema
+        shell: cmd
+        run: |
+          set NVENCC_EXE=NVEncC_Release\NVEncC64.exe
+          if "${{ matrix.platform }}" == "Win32" set NVENCC_EXE=NVEncC_Release\NVEncC.exe
+          "%NVENCC_EXE%" --check-cmd-parse help
+
       - name: Check Version
         if: github.event_name == 'workflow_dispatch'
         id: check_ver

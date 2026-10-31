@@ -331,46 +331,32 @@ tstring encoder_help() {
     str += gen_cmd_help_common();
     str += _T("\n");
 
-    str += strsprintf(_T("\n")
-        _T("   --vpp-deinterlace <string>   set deinterlace mode / default: none\n")
-        _T("                                  none, bob, adaptive (normal)\n")
-        _T("                                  available only with avhw reader\n"));
-    str += print_list_options(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
+    str += _T("\nVPP Options:\n");
+    tstring vppHelp = _T("\n  [deinterlace] Deinterlace\n   --vpp-deinterlace <string> Hardware decoder deinterlacing; requires avhw input. (default: none)\n");
+    vppHelp += rgy_cmd_help_values(list_deinterlace);
+    vppHelp += _T("\n  [denoise] Denoise\n   --vpp-gauss <string> Gaussian smoothing mask. (default: disabled)\n");
+    vppHelp += rgy_cmd_help_values(list_nppi_gauss);
     if (ENABLE_NVVFX) {
-        str += strsprintf(_T("\n")
-            _T("   --vpp-nvvfx-denoise [<param1>=<value>][,<param2>=<value>][...]\n")
-            _T("     enable nvvfx webcam denoise filter.\n")
-            _T("    params\n")
-            _T("      strength=<int>        0 ... conservative (default)\n")
-            _T("                            1 ... aggressive \n"));
-        str += strsprintf(_T("\n")
-            _T("   --vpp-nvvfx-framegen [<param1>=<value>][,<param2>=<value>][...]\n")
-            _T("     enable nvvfx video frame generation (VFG) filter.\n")
-            _T("     requires Ada GPUs (CC:8.9) or later.\n")
-            _T("    params\n")
-            _T("      mode=<string>         low, medium (default), high\n")
-            _T("      multiplier=<int>      2 - 8 (default = 2)\n")
-            _T("                            generates (multiplier - 1) frames\n")
-            _T("                            between each input frame pair.\n")
-            _T("      autoshotchange=<bool> enable automatic shot change detection (default = true).\n"));
-        str += strsprintf(_T("\n")
-            _T("   --vpp-nvvfx-model-dir <string> set directory which has nxxmfx models.\n"));
+        vppHelp += _T("\n  [denoise] Denoise\n   --vpp-nvvfx-denoise [<param1>=<value>][,<param2>=<value>][...]\n     NVIDIA VFX webcam denoising.\n    params\n");
+        vppHelp += _T("      strength=<float> Denoising strength; 0 is conservative and 1 is aggressive. (default: 0.0)\n");
+        vppHelp += _T("\n  [framerate] Frame rate and interpolation\n   --vpp-nvvfx-framegen [<param1>=<value>][,<param2>=<value>][...]\n     NVIDIA VFX frame generation; requires Ada GPUs or later.\n    params\n");
+        vppHelp += _T("      mode=<string> Frame generation mode. (default: medium)\n");
+        vppHelp += rgy_cmd_help_values(list_vpp_nvvfx_framegen_mode);
+        vppHelp += _T("      multiplier=<int> Output frame-rate multiplier; generates multiplier minus one frames per pair. (default: 2)\n");
+        vppHelp += _T("      autoshotchange=<bool> Automatic shot-change detection. (default: true)\n");
+        vppHelp += _T("\n  [other] Other settings\n   --vpp-nvvfx-model-dir <path> Directory containing NVIDIA VFX models.\n");
     }
     if (ENABLE_NVSDKNGX) {
-        str += strsprintf(_T("\n")
-            _T("   --vpp-ngx-truehdr [<param1>=<value>][,<param2>=<value>][...]\n")
-            _T("     enable ngx truehdr filter.\n")
-            _T("    params\n")
-            _T("      contrast=<int>     the difference between lights and darks (default %d, 0 - 200).\n")
-            _T("      saturation=<int>   color intensity (default %d, 0 - 200).\n")
-            _T("      middlegray=<int>   average brightness (default %d, 10 - 100).\n")
-            _T("      maxluminance=<int> peak brightness in nits (default %d, 400 - 2000).\n"),
+        vppHelp += strsprintf(_T("\n  [color] Color adjustment\n   --vpp-ngx-truehdr [<param1>=<value>][,<param2>=<value>][...]\n     Convert SDR to HDR with NVIDIA NGX.\n    params\n")
+            _T("      contrast=<int> Difference between dark and light areas. (default: %d)\n")
+            _T("      saturation=<int> Color intensity. (default: %d)\n")
+            _T("      middlegray=<int> Average brightness. (default: %d)\n")
+            _T("      maxluminance=<int> Peak brightness in nits. (default: %d)\n"),
             FILTER_DEFAULT_NGX_TRUEHDR_CONTRAST, FILTER_DEFAULT_NGX_TRUEHDR_SATURATION,
             FILTER_DEFAULT_NGX_TRUEHDR_MIDDLE_GRAY, FILTER_DEFAULT_NGX_TRUEHDR_MAX_LUMINANCE);
     }
-
-    str += _T("\n");
-    str += gen_cmd_help_vpp();
+    vppHelp += gen_cmd_help_vpp();
+    str += rgy_cmd_help_vpp_sections(vppHelp);
     str += _T("\n");
     str += strsprintf(_T("")
         _T("   --cuda-schedule <string>     set cuda schedule mode (default: sync).\n")

@@ -129,6 +129,8 @@ tstring gen_cmd(const RGYParamControl *ctrl, const RGYParamControl *defaultPrm, 
 
 tstring gen_cmd_help_input();
 tstring gen_cmd_help_common();
+tstring rgy_cmd_help_values(const CX_DESC *list);
+tstring rgy_cmd_help_vpp_sections(const tstring& help);
 tstring gen_cmd_help_vpp();
 tstring gen_cmd_help_ctrl();
 
