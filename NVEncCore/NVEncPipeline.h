@@ -1634,6 +1634,13 @@ protected:
 #else
                 if (m_thDecoder.native_handle() && !RGYThreadStillActive(m_thDecoder.native_handle())) {
 #endif
+                    // 待機中に正常終了した場合も、残った出力とEOFを先に確認する。
+                    // スレッド終了だけを異常扱いすると、最後のフレームを捨ててしまう。
+                    if (!m_dec->frameQueue()->isEmpty()) continue;
+                    if (m_dec->frameQueue()->isEndOfDecode()) {
+                        m_state = RGY_STATE_EOF;
+                        return RGY_ERR_MORE_BITSTREAM;
+                    }
                     PrintMes(RGY_LOG_ERROR, _T("Decode thread is not responding.\n"));
                     m_state = RGY_STATE_ERROR;
                     return RGY_ERR_UNKNOWN;
