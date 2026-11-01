@@ -210,6 +210,8 @@ afsStripeCache::~afsStripeCache() {
 
 afsStreamStatus::afsStreamStatus() :
     m_initialized(false),
+    m_quarterTimebase(1, 1),
+    m_timebase(1, 1),
     m_quarter_jitter(0),
     m_additional_jitter(0),
     m_phase24(0),
@@ -224,6 +226,11 @@ afsStreamStatus::afsStreamStatus() :
 
 afsStreamStatus::~afsStreamStatus() {
     m_fpLog.reset();
+}
+
+void afsStreamStatus::set_timebase(const rgy_rational<int>& quarterTimebase, const rgy_rational<int>& timebase) {
+    m_quarterTimebase = quarterTimebase;
+    m_timebase = timebase;
 }
 
 void afsStreamStatus::init(uint8_t status, int drop24) {
@@ -374,7 +381,8 @@ int afsStreamStatus::set_status(int iframe, uint8_t status, int drop24, int64_t 
         frameTs->pos = AFS_SSTS_DROP; //drop
     } else {
         m_prev_jitter = m_quarter_jitter;
-        frameTs->pos = frameTs->orig_pts + m_quarter_jitter;
+        // 位相補正の単位はtimebaseの1tickではなく、入力の1/4フレーム。
+        frameTs->pos = frameTs->orig_pts + rational_rescale((int64_t)m_quarter_jitter, m_quarterTimebase, m_timebase);
     }
     write_log(frameTs);
     return 0;
@@ -589,6 +597,9 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     m_nPts = 0;
     m_inputOriginPts = 0;
     m_inputOriginValid = false;
+    const auto quarterTimebase = (pAfsParam->inFps.n() > 0 && pAfsParam->inFps.d() > 0)
+        ? pAfsParam->inFps.inv() * rgy_rational<int>(1, 4) : pAfsParam->inTimebase;
+    m_streamsts.set_timebase(quarterTimebase, pAfsParam->inTimebase);
     m_pathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_FLAGS));
     if (pAfsParam->afs.force24) {
         pAfsParam->baseFps *= rgy_rational<int>(4, 5);
