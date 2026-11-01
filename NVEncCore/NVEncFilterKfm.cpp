@@ -1579,6 +1579,10 @@ RGY_ERR NVEncFilterKfm::cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t
     if (prm && prm->kfm.mode == VppKfmMode::P24 && frame->timestamp >= 0) {
         if (m_p24InputOriginPts < 0) {
             m_p24InputOriginPts = frame->timestamp;
+            // P24のCFR時計も入力の原点にそろえ、seek後の絶対PTSを失わないようにする。
+            // 通常の0原点では従来と同じ値になり、slot番号と解析用indexは相対値のまま保つ。
+            m_nextSwitchPts = m_p24InputOriginPts;
+            m_nextTelecine24Pts = m_p24InputOriginPts;
         }
         m_p24InputEndPts = std::max(m_p24InputEndPts, frame->timestamp + rffInputDuration(frame->flags));
     }

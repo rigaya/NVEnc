@@ -2378,7 +2378,8 @@ public:
             }
         }
         PrintMes(RGY_LOG_TRACE, _T("check_pts(%d/%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), taskSurf->surf().frame()->inputFrameId(), m_inFrames, m_tsOutEstimated, outPtsSource, outDuration);
-        if (m_tsOutFirst == INVALID_PTS) {
+        const bool firstInputPts = m_tsOutFirst == INVALID_PTS;
+        if (firstInputPts) {
             m_tsOutFirst = outPtsSource; //最初のpts
             PrintMes(RGY_LOG_DEBUG, _T("check_pts: m_tsOutFirst %lld\n"), outPtsSource);
         }
@@ -2386,6 +2387,10 @@ public:
         if (!m_timestampPassThrough) {
             //最初のptsを0に修正
             outPtsSource -= m_tsOutFirst;
+        }
+        if (firstInputPts && (m_vpp_rff || m_vpp_afs_rff_aware)) {
+            // 初回の入力原点をgapと誤認しないよう、正規化後の入力と同じ時計から推定を始める。
+            m_tsOutEstimated = outPtsSource;
         }
 
         if ((m_avsync & RGY_AVSYNC_VFR) || m_vpp_rff || m_vpp_afs_rff_aware) {

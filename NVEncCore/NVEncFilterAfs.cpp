@@ -27,6 +27,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include <map>
+#include <limits>
 #include <array>
 #include "convert_csp.h"
 #include "rgy_filesystem.h"
@@ -408,6 +409,8 @@ NVEncFilterAfs::NVEncFilterAfs() :
     m_eventMergeScan(),
     m_nFrame(0),
     m_nPts(0),
+    m_inputOriginPts(0),
+    m_inputOriginValid(false),
     m_source(),
     m_scan(),
     m_stripe(),
@@ -584,6 +587,8 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     pAfsParam->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
     m_nFrame = 0;
     m_nPts = 0;
+    m_inputOriginPts = 0;
+    m_inputOriginValid = false;
     m_pathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_FLAGS));
     if (pAfsParam->afs.force24) {
         pAfsParam->baseFps *= rgy_rational<int>(4, 5);
@@ -937,6 +942,13 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             cudaEventRecord(*m_eventSrcAdd.get(), stream);
             cudaStreamWaitEvent(*m_streamAnalyze.get(), *m_eventSrcAdd.get(), 0);
         }
+        if (!m_inputOriginValid && pInputFrame->timestamp != std::numeric_limits<int64_t>::min()) {
+            // リングcacheの先頭は後で上書きされるため、入力原点を専用に保持する。
+            // 通常時もpassthrough時も、出力時計を同じ入力timestampから始める。
+            m_inputOriginPts = pInputFrame->timestamp;
+            m_inputOriginValid = true;
+            m_nPts = rational_rescale(m_inputOriginPts, pAfsParam->inTimebase, pAfsParam->outTimebase);
+        }
         if (iframe == 0) {
             // scan_frame(p1 = -2, p0 = -1)のscan_frameも必要
             if (RGY_ERR_NONE != (sts = scan_frame(iframe-1, false, pAfsParam.get(), (STREAM_OPT) ? *m_streamAnalyze.get() : stream))) {
@@ -949,6 +961,9 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             return sts;
         }
     }
+
+    // statusの負値はdropを表すため、位相計算には原点を引いた時刻を渡す。
+    const int64_t input_origin = m_inputOriginValid ? m_inputOriginPts : 0;
 
     if (iframe >= 5) {
         int reverse[4] = { 0 }, assume_shift[4] = { 0 }, result_stat[4] = { 0 };
@@ -978,7 +993,7 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         if (m_nFrame == 0) {
             //m_nFrame == 0のときは、下記がセットされていない
             for (int i = 0; i < preread_len; i++) {
-                if (m_streamsts.set_status(i, m_status[i], i, m_source.get(i)->frame.timestamp) != 0) {
+                if (m_streamsts.set_status(i, m_status[i], i, m_source.get(i)->frame.timestamp - input_origin) != 0) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to set afs_status(%d).\n"), i);
                     return RGY_ERR_CUDA;
                 }
@@ -990,12 +1005,12 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             //読み込まれた範囲を超える部分のtimestampは外挿する
             //こうしないと最終フレームのdurationが正しく計算されない
             if (m_nFrame+preread_len >= m_source.inframe()) {
-                //1フレームの平均時間
-                auto inframe_avg_duration = (m_source.get(m_source.inframe()-1)->frame.timestamp + m_source.inframe() / 2) / m_source.inframe();
+                // 絶対PTSの原点を平均時間へ混ぜず、0原点時の分母と丸めは維持する。
+                auto inframe_avg_duration = (m_source.get(m_source.inframe()-1)->frame.timestamp - input_origin + m_source.inframe() / 2) / m_source.inframe();
                 //外挿するフレーム数をかけて足し込む
                 timestamp += (m_nFrame+preread_len - (m_source.inframe()-1)) * inframe_avg_duration;
             }
-            if (m_streamsts.set_status(m_nFrame+preread_len, m_status[m_nFrame+preread_len], 0, timestamp) != 0) {
+            if (m_streamsts.set_status(m_nFrame+preread_len, m_status[m_nFrame+preread_len], 0, timestamp - input_origin) != 0) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to set afs_status(%d).\n"), m_nFrame+preread_len);
                 return RGY_ERR_CUDA;
             }
@@ -1086,6 +1101,9 @@ void NVEncFilterAfs::close() {
     m_eventScanFrame.reset();
     m_eventMergeScan.reset();
     m_nFrame = 0;
+    m_nPts = 0;
+    m_inputOriginPts = 0;
+    m_inputOriginValid = false;
     m_frameBuf.clear();
     m_source.clear();
     m_scan.clear();

@@ -7009,13 +7009,18 @@ NVENCSTATUS NVEncCore::Encode() {
             }
         }
         PrintMes(RGY_LOG_TRACE, _T("check_pts(%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), pInputFrame->getFrameInfo().inputFrameId, nOutEstimatedPts, outPtsSource, outDuration);
-        if (nOutFirstPts == AV_NOPTS_VALUE) {
+        const bool firstInputPts = nOutFirstPts == AV_NOPTS_VALUE;
+        if (firstInputPts) {
             nOutFirstPts = outPtsSource; //最初のpts
             PrintMes(RGY_LOG_TRACE, _T("check_pts: nOutFirstPts %lld\n"), outPtsSource);
         }
         //最初のptsを0に修正
         if (!m_timestampPassThrough) {
             outPtsSource -= nOutFirstPts;
+        }
+        if (firstInputPts && (vpp_rff || vpp_afs_rff_aware)) {
+            // 初回の入力原点をgapと誤認しないよう、正規化後の入力と同じ時計から推定を始める。
+            nOutEstimatedPts = outPtsSource;
         }
         if (outPtsSource < 0) {
             PrintMes(RGY_LOG_WARN, _T("check_pts: Invalid timestamp calculated from input frame #%d: timestamp %lld (-%lld), timebase %d/%d.\n"),
