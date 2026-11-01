@@ -6532,7 +6532,9 @@ RGY_ERR NVEncCore::Encode() {
                     if (stopwatchOutput) stopwatchOutput->add(0, 0);
                 }
             }
-            if (flushFailed) {
+            // while条件での中断も外側へ伝え、次反復でerrを初期化しない。
+            // 進捗なしのままflush用の空作業を追加し続けるのを防ぐ。
+            if (flushFailed || err == RGY_ERR_ABORTED) {
                 break;
             }
             if (dataqueue.empty()) {
