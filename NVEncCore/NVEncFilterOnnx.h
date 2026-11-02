@@ -76,6 +76,10 @@ public:
     NVEncFilterOnnx();
     virtual ~NVEncFilterOnnx();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+
+    // --vpp-onnx-cache-dir 未指定時に使う既定の TensorRT engine / timing cache ディレクトリ。
+    // provider=auto は TensorRT を優先するため、未指定でも engine 再ビルドを避けて永続化する。
+    static tstring defaultCacheDir();
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
@@ -130,6 +134,9 @@ protected:
     tstring m_precision;
     tstring m_cacheDir;
     int m_deviceID;
+    // models.json の "fp32" フラグ。fp16 で画質が破綻するモデル (NNEDI3 等) は
+    // provider=auto でも TensorRT fp16 を使わない。
+    bool m_forceFp32;
     bool m_cudaPathTried;
     bool m_cudaPath;
 

@@ -278,144 +278,188 @@ RGY_ERR RGYOnnxRTCUDA::initImpl(const tstring &modelPath, const int deviceID, co
         if (!I.env)   I.env   = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "nvenc-onnx");
         if (!I.alloc) I.alloc = std::make_unique<Ort::AllocatorWithDefaultOptions>();
 
-        Ort::SessionOptions opts;
-        opts.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-        // 推論時の実形状とメモリパターンの計画が食い違うモデルでは、CUDAの
-        // reduction処理が不正な一時バッファを参照するため、メモリパターンを無効化する。
-        opts.DisableMemPattern();
-
         // Bind inference to the CUDA device ordinal NVEnc selected. TensorRT, when
         // requested, layers on top of CUDA (ORT requires the CUDA EP as the fallback
         // for any op TensorRT cannot run), so append TensorRT first, then CUDA.
-        const bool wantTensorRT = (provider == RGYOnnxRTProvider::TensorRT);
+        //
+        // provider=auto は TensorRT を優先する (fp16 と kernel fusion で大きく速くなるため)。
+        // TensorRT 未導入・このモデルの engine が作れない環境では、セッション作り直しで
+        // CUDA 単独へフォールバックする。engine cache が効いていた場合は、壊れた cache が
+        // 原因の可能性が高いので init() 側の cache クリア再試行に任せる。
+        const bool wantTensorRT = (provider == RGYOnnxRTProvider::TensorRT || provider == RGYOnnxRTProvider::Auto);
+        const bool allowCudaFallback = (provider == RGYOnnxRTProvider::Auto);
         auto& ort = onnxRuntime();
         bool tensorRTAttached = false;
-        if (wantTensorRT) {
-            tstring tensorRTV2Error;
-            const auto& api = Ort::GetApi();
-            if (api.CreateTensorRTProviderOptions != nullptr
-                && api.UpdateTensorRTProviderOptions != nullptr
-                && api.UpdateTensorRTProviderOptionsWithValue != nullptr
-                && api.SessionOptionsAppendExecutionProvider_TensorRT_V2 != nullptr) {
-                try {
-                    const auto precLower = tolowercase(precision);
-                    const bool useFP16 = (precLower == _T("auto") || precLower == _T("fp16") || precLower == _T("f16"));
-                    Ort::TensorRTProviderOptions trtOptions;
-                    std::unordered_map<std::string, std::string> optionValues = {
-                        { "device_id", std::to_string(deviceID) },
-                        { "trt_fp16_enable", useFP16 ? "1" : "0" }
-                    };
-                    if (userComputeStream != nullptr) {
-                        optionValues["has_user_compute_stream"] = "1";
-                    }
-                    if (!cacheDir.empty()) {
-                        // ORT reuses a cached engine whenever its filename hash matches, but that
-                        // hash covers neither the model weights nor the input shape: the same model
-                        // at another resolution, or a re-exported model under the same name, maps to
-                        // the same cache file and the stale engine fails the session (or worse, runs
-                        // with the old weights). Key a subdirectory on everything a TensorRT engine
-                        // is actually specific to: model content, WxH, precision, GPU (SM + name).
-                        cudaDeviceProp prop;
-                        memset(&prop, 0, sizeof(prop));
-                        cudaGetDeviceProperties(&prop, deviceID);
-                        const auto keyDirName = strsprintf(_T("trt_m%016llx_%dx%d_%s"),
-                            (unsigned long long)fnv1a64File(modelPath), width, height,
-                            useFP16 ? _T("fp16") : _T("fp32"));
-                        // NVEnc・ORT・CUDAドライバAPI・GPUの環境が変わった場合は、
-                        // TensorRTに古いキャッシュを渡さず別の親ディレクトリを使う。
-                        const auto environmentDir = cacheDir + _T("/") + tensorRTCacheEnvironment(prop);
-                        const auto engineCacheDir = environmentDir + _T("/") + keyDirName;
-                        const auto timingCacheDir = environmentDir + _T("/trt_timing");
-                        const bool engineCacheCreated = CreateDirectoryRecursive(engineCacheDir.c_str());
-                        const bool timingCacheCreated = CreateDirectoryRecursive(timingCacheDir.c_str());
-                        if (rgy_directory_exists(engineCacheDir)) {
-                            optionValues["trt_engine_cache_enable"] = "1";
-                            optionValues["trt_engine_cache_path"] = tchar_to_string(engineCacheDir, CP_UTF8);
-                            I.engineCacheDir = engineCacheDir;
-                            std::error_code ec;
-                            for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::path(engineCacheDir), ec)) {
-                                if (entry.is_regular_file(ec) && entry.path().extension() == std::filesystem::path(_T(".engine"))) {
-                                    I.engineCacheHadFiles = true;
-                                    break;
-                                }
-                            }
-                        } else if (!engineCacheCreated) {
-                            I.lastError = _T("TensorRT engine cacheディレクトリを作成できないため、キャッシュを無効にしました: ") + engineCacheDir;
-                        }
-                        if (rgy_directory_exists(timingCacheDir)) {
-                            // kernel tactic timings; keyed per compute capability inside the cache and
-                            // shared across models, so cold engine builds on this GPU get much shorter
-                            optionValues["trt_timing_cache_enable"] = "1";
-                            optionValues["trt_timing_cache_path"] = tchar_to_string(timingCacheDir, CP_UTF8);
-                        } else if (!timingCacheCreated) {
-                            const auto timingError = _T("TensorRT timing cacheディレクトリを作成できないため、timing cacheを無効にしました: ") + timingCacheDir;
-                            I.lastError += (I.lastError.empty() ? tstring() : _T(" ")) + timingError;
-                        }
-                    }
-                    trtOptions.Update(optionValues);
-                    if (userComputeStream != nullptr) {
-                        trtOptions.UpdateWithValue("user_compute_stream", userComputeStream);
-                    }
-                    opts.AppendExecutionProvider_TensorRT_V2(*trtOptions);
-                    tensorRTAttached = true;
-                    I.provider = _T("tensorrt");
-                    I.precision = useFP16 ? _T("f16") : _T("f32");
-                } catch (const Ort::Exception &e) {
-                    tensorRTV2Error = tstring(_T("TensorRT V2 provider options failed: ")) + char_to_tstring(e.what());
-                    I.engineCacheDir.clear();
-                    I.engineCacheHadFiles = false;
-                }
-            } else {
-                tensorRTV2Error = _T("TensorRT V2 provider options are unavailable.");
-            }
-            if (!tensorRTAttached && ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
-                OrtStatus *stTrt = ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()(static_cast<OrtSessionOptions*>(opts), deviceID);
-                if (stTrt == nullptr) {
-                    tensorRTAttached = true;
-                    I.provider = _T("tensorrt");
-                    I.precision = _T("f32");
-                    I.lastError = tensorRTV2Error;
-                } else {
-                    const auto legacyError = tstring(_T("AppendExecutionProvider_Tensorrt failed: "))
-                        + char_to_tstring(Ort::GetApi().GetErrorMessage(stTrt));
-                    Ort::GetApi().ReleaseStatus(stTrt);
-                    I.lastError = tensorRTV2Error.empty() ? legacyError : tensorRTV2Error + _T(" ") + legacyError;
-                }
-            }
-            if (!tensorRTAttached && !ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
-                I.lastError = tensorRTV2Error.empty()
-                    ? _T("TensorRT execution provider is unavailable.")
-                    : tensorRTV2Error + _T(" TensorRT legacy provider is unavailable.");
-            }
-        }
-        if (userComputeStream != nullptr) {
-            try {
-                Ort::CUDAProviderOptions cudaOptions;
-                cudaOptions.Update({
-                    { "device_id", std::to_string(deviceID) },
-                    { "has_user_compute_stream", "1" }
-                });
-                cudaOptions.UpdateWithValue("user_compute_stream", userComputeStream);
-                opts.AppendExecutionProvider_CUDA_V2(*cudaOptions);
-                I.deviceIO = true;
-            } catch (const Ort::Exception &e) {
-                I.lastError = tstring(_T("CUDA V2 provider options failed: ")) + char_to_tstring(e.what());
-                I.deviceIO = false;
-            }
-        }
-        if (!I.deviceIO) {
-            OrtStatus *stCuda = ort.p_OrtSessionOptionsAppendExecutionProviderCUDA()(static_cast<OrtSessionOptions*>(opts), deviceID);
-            if (stCuda != nullptr) {
-                errMessage = tstring(_T("AppendExecutionProvider_CUDA failed: "))
-                           + char_to_tstring(Ort::GetApi().GetErrorMessage(stCuda));
-                Ort::GetApi().ReleaseStatus(stCuda);
-                return RGY_ERR_UNSUPPORTED;
-            }
-        }
+        tstring cudaAttachError;
 
-        initStage = (tensorRTAttached && I.engineCacheHadFiles) ? InitStage::TensorRTSessionCreate : InitStage::Other;
-        I.session = std::make_unique<Ort::Session>(*I.env, modelPath.c_str(), opts);
-        initStage = InitStage::Other;
+        auto appendCudaProvider = [&](Ort::SessionOptions &sessionOptions) -> bool {
+            if (userComputeStream != nullptr) {
+                try {
+                    Ort::CUDAProviderOptions cudaOptions;
+                    cudaOptions.Update({
+                        { "device_id", std::to_string(deviceID) },
+                        { "has_user_compute_stream", "1" }
+                    });
+                    cudaOptions.UpdateWithValue("user_compute_stream", userComputeStream);
+                    sessionOptions.AppendExecutionProvider_CUDA_V2(*cudaOptions);
+                    I.deviceIO = true;
+                    return true;
+                } catch (const Ort::Exception &e) {
+                    I.lastError = tstring(_T("CUDA V2 provider options failed: ")) + char_to_tstring(e.what());
+                    I.deviceIO = false;
+                    return false;
+                }
+            }
+            OrtStatus *stCuda = ort.p_OrtSessionOptionsAppendExecutionProviderCUDA()(static_cast<OrtSessionOptions*>(sessionOptions), deviceID);
+            if (stCuda != nullptr) {
+                cudaAttachError = tstring(_T("AppendExecutionProvider_CUDA failed: "))
+                                + char_to_tstring(Ort::GetApi().GetErrorMessage(stCuda));
+                Ort::GetApi().ReleaseStatus(stCuda);
+                return false;
+            }
+            return true;
+        };
+
+        auto createSession = [&](bool withTensorRT) -> std::unique_ptr<Ort::Session> {
+            Ort::SessionOptions opts;
+            opts.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+            // 推論時の実形状とメモリパターンの計画が食い違うモデルでは、CUDAの
+            // reduction処理が不正な一時バッファを参照するため、メモリパターンを無効化する。
+            opts.DisableMemPattern();
+            tensorRTAttached = false;
+            if (withTensorRT) {
+                tstring tensorRTV2Error;
+                const auto& api = Ort::GetApi();
+                if (api.CreateTensorRTProviderOptions != nullptr
+                    && api.UpdateTensorRTProviderOptions != nullptr
+                    && api.UpdateTensorRTProviderOptionsWithValue != nullptr
+                    && api.SessionOptionsAppendExecutionProvider_TensorRT_V2 != nullptr) {
+                    try {
+                        const auto precLower = tolowercase(precision);
+                        const bool useFP16 = (precLower == _T("auto") || precLower == _T("fp16") || precLower == _T("f16"));
+                        Ort::TensorRTProviderOptions trtOptions;
+                        std::unordered_map<std::string, std::string> optionValues = {
+                            { "device_id", std::to_string(deviceID) },
+                            { "trt_fp16_enable", useFP16 ? "1" : "0" }
+                        };
+                        if (userComputeStream != nullptr) {
+                            optionValues["has_user_compute_stream"] = "1";
+                        }
+                        if (!cacheDir.empty()) {
+                            // ORT reuses a cached engine whenever its filename hash matches, but that
+                            // hash covers neither the model weights nor the input shape: the same model
+                            // at another resolution, or a re-exported model under the same name, maps to
+                            // the same cache file and the stale engine fails the session (or worse, runs
+                            // with the old weights). Key a subdirectory on everything a TensorRT engine
+                            // is actually specific to: model content, WxH, precision, GPU (SM + name).
+                            cudaDeviceProp prop;
+                            memset(&prop, 0, sizeof(prop));
+                            cudaGetDeviceProperties(&prop, deviceID);
+                            const auto keyDirName = strsprintf(_T("trt_m%016llx_%dx%d_%s"),
+                                (unsigned long long)fnv1a64File(modelPath), width, height,
+                                useFP16 ? _T("fp16") : _T("fp32"));
+                            // NVEnc・ORT・CUDAドライバAPI・GPUの環境が変わった場合は、
+                            // TensorRTに古いキャッシュを渡さず別の親ディレクトリを使う。
+                            const auto environmentDir = cacheDir + _T("/") + tensorRTCacheEnvironment(prop);
+                            const auto engineCacheDir = environmentDir + _T("/") + keyDirName;
+                            const auto timingCacheDir = environmentDir + _T("/trt_timing");
+                            const bool engineCacheCreated = CreateDirectoryRecursive(engineCacheDir.c_str());
+                            const bool timingCacheCreated = CreateDirectoryRecursive(timingCacheDir.c_str());
+                            if (rgy_directory_exists(engineCacheDir)) {
+                                optionValues["trt_engine_cache_enable"] = "1";
+                                optionValues["trt_engine_cache_path"] = tchar_to_string(engineCacheDir, CP_UTF8);
+                                I.engineCacheDir = engineCacheDir;
+                                std::error_code ec;
+                                for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::path(engineCacheDir), ec)) {
+                                    if (entry.is_regular_file(ec) && entry.path().extension() == std::filesystem::path(_T(".engine"))) {
+                                        I.engineCacheHadFiles = true;
+                                        break;
+                                    }
+                                }
+                            } else if (!engineCacheCreated) {
+                                I.lastError = _T("TensorRT engine cacheディレクトリを作成できないため、キャッシュを無効にしました: ") + engineCacheDir;
+                            }
+                            if (rgy_directory_exists(timingCacheDir)) {
+                                // kernel tactic timings; keyed per compute capability inside the cache and
+                                // shared across models, so cold engine builds on this GPU get much shorter
+                                optionValues["trt_timing_cache_enable"] = "1";
+                                optionValues["trt_timing_cache_path"] = tchar_to_string(timingCacheDir, CP_UTF8);
+                            } else if (!timingCacheCreated) {
+                                const auto timingError = _T("TensorRT timing cacheディレクトリを作成できないため、timing cacheを無効にしました: ") + timingCacheDir;
+                                I.lastError += (I.lastError.empty() ? tstring() : _T(" ")) + timingError;
+                            }
+                        }
+                        trtOptions.Update(optionValues);
+                        if (userComputeStream != nullptr) {
+                            trtOptions.UpdateWithValue("user_compute_stream", userComputeStream);
+                        }
+                        opts.AppendExecutionProvider_TensorRT_V2(*trtOptions);
+                        tensorRTAttached = true;
+                        I.provider = _T("tensorrt");
+                        I.precision = useFP16 ? _T("f16") : _T("f32");
+                    } catch (const Ort::Exception &e) {
+                        tensorRTV2Error = tstring(_T("TensorRT V2 provider options failed: ")) + char_to_tstring(e.what());
+                        I.engineCacheDir.clear();
+                        I.engineCacheHadFiles = false;
+                    }
+                } else {
+                    tensorRTV2Error = _T("TensorRT V2 provider options are unavailable.");
+                }
+                if (!tensorRTAttached && ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
+                    OrtStatus *stTrt = ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()(static_cast<OrtSessionOptions*>(opts), deviceID);
+                    if (stTrt == nullptr) {
+                        tensorRTAttached = true;
+                        I.provider = _T("tensorrt");
+                        I.precision = _T("f32");
+                        I.lastError = tensorRTV2Error;
+                    } else {
+                        const auto legacyError = tstring(_T("AppendExecutionProvider_Tensorrt failed: "))
+                            + char_to_tstring(Ort::GetApi().GetErrorMessage(stTrt));
+                        Ort::GetApi().ReleaseStatus(stTrt);
+                        I.lastError = tensorRTV2Error.empty() ? legacyError : tensorRTV2Error + _T(" ") + legacyError;
+                    }
+                }
+                if (!tensorRTAttached && !ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
+                    I.lastError = tensorRTV2Error.empty()
+                        ? _T("TensorRT execution provider is unavailable.")
+                        : tensorRTV2Error + _T(" TensorRT legacy provider is unavailable.");
+                }
+            }
+            if (!appendCudaProvider(opts)) {
+                return nullptr;
+            }
+            initStage = (tensorRTAttached && I.engineCacheHadFiles) ? InitStage::TensorRTSessionCreate : InitStage::Other;
+            auto session = std::make_unique<Ort::Session>(*I.env, modelPath.c_str(), opts);
+            initStage = InitStage::Other;
+            return session;
+        };
+
+        tstring tensorRTSessionError;
+        try {
+            // engine cache が効いていた場合は、engine 自体が壊れている可能性が高い。
+            // その場合は init() が cache を消してもう一度ここを実行するので、
+            // フォールバックは cache クリア後の失敗時に行う。
+            I.session = createSession(wantTensorRT);
+        } catch (const Ort::Exception &) {
+            if (!allowCudaFallback || !tensorRTAttached || I.engineCacheHadFiles) {
+                throw;
+            }
+        }
+        if (!I.session && cudaAttachError.empty()) {
+            tensorRTSessionError = I.lastError.empty() ? _T("TensorRT session creation failed.") : I.lastError;
+            // TensorRT 単独では組めなかった。CUDA だけで組み直す (精度も fp32 に戻る)。
+            I.provider = _T("cuda");
+            I.precision = _T("f32");
+            I.engineCacheDir.clear();
+            I.engineCacheHadFiles = false;
+            I.deviceIO = false;
+            I.lastError = _T("TensorRT provider was unusable, fell back to CUDA: ") + tensorRTSessionError;
+            I.session = createSession(false);
+        }
+        if (!I.session) {
+            errMessage = cudaAttachError.empty() ? _T("ONNX session creation failed.") : cudaAttachError;
+            return RGY_ERR_UNSUPPORTED;
+        }
 
         if (I.session->GetInputCount() < 1 || I.session->GetOutputCount() < 1) {
             errMessage = _T("model has no input/output tensor.");

@@ -3883,6 +3883,11 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         param->provider = _T("auto");
         param->precision = inputParam->vpp.onnxDeint.precision;
         param->cacheDir = inputParam->vpp.onnx.cacheDir;
+        if (param->cacheDir.empty()) {
+            // provider=auto は TensorRT を優先するため、未指定でもユーザー単位の
+            // engineキャッシュを使う (未指定のままだと実行ごとにengine再構築になる)。
+            param->cacheDir = NVEncFilterOnnx::defaultCacheDir();
+        }
         param->timebase = m_outputTimebase;
         param->mode = inputParam->vpp.onnxDeint.mode;
         param->vhsRestore = inputParam->vpp.onnxDeint.operation == VppOnnxDeintOperation::VhsRestore;

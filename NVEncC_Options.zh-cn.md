@@ -4540,9 +4540,11 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
   - model=&lt;string&gt;  
     ONNX 模型文件路径（必需）。指定了 `--vpp-onnx-model-dir` 时，models.json 中注册的模型可省略扩展名。
   - provider=&lt;string&gt; （默认：auto）  
-    执行提供器。auto / cuda / tensorrt (trt)
+    执行提供器。auto / cuda / tensorrt (trt)。`auto` 优先使用 TensorRT，TensorRT 不可用或无法构建该模型的引擎时回退到 CUDA。
   - prec=&lt;string&gt; （默认：auto）  
-    TensorRT 计算精度。auto / fp16 (f16) / fp32 (f32)。使用 TensorRT 时 auto 为 fp16。CUDA 提供器使用 fp32。
+    推理精度。auto / fp16 (f16) / fp32 (f32)。该设置用于 TensorRT 构建引擎，CUDA 提供器按 fp32 运行。  
+    - `provider=auto` / `provider=tensorrt`：auto 会构建 fp16 引擎。TensorRT 在构建引擎时从 fp32 模型转换，因此不需要额外的模型文件。  
+    - models.json 中标记 `fp32: true` 的模型（如 NNEDI3）在 auto / tensorrt 下也强制 fp32。
   - colormatrix=&lt;string&gt; （默认：auto）  
     接受与 [`--colormatrix`](#--colormatrix-string) 相同的名称。`--vpp-onnx` 支持 auto / auto_res / smpte170m / bt470bg / bt709 / bt2020nc。旧名称 bt601、bt2020 也作为 smpte170m、bt2020nc 的别名接受。
   - colormatrix_out=&lt;string&gt; （默认：auto）  
@@ -4680,12 +4682,12 @@ PAL/SECAM向けのVHS修復モデルを適用し、その後にGPU版Bwdifでデ
 ### --vpp-onnx-cache-dir &lt;string&gt;
 用于缓存 TensorRT 引擎的目录。
 
-省略此选项时禁用缓存。首次运行会构建引擎；此后在模型内容、精度、输入形状与运行环境相同的情况下可直接加载缓存引擎，显著缩短启动时间。
+省略时使用按用户划分的默认缓存目录（Windows：`%LOCALAPPDATA%\NVEnc\onnx`，Linux：`$XDG_CACHE_HOME/nvenc/onnx` 或 `~/.cache/nvenc/onnx`）。`provider=auto` 与 `provider=tensorrt` 会使用 TensorRT，因此首次运行会构建引擎；此后在模型内容、精度、输入形状与运行环境相同的情况下可直接加载缓存引擎，显著缩短启动时间。指定 `provider=cuda` 则不使用 TensorRT。
 
 按 NVEnc 版本与修订号、ONNX Runtime 版本、CUDA 驱动 API 版本和 GPU 分别使用不同的子目录。TensorRT 版本不匹配会由 TensorRT 自身的引擎兼容性检查检出，随后相应引擎会重建一次。同一运行环境中的模型共享 timing cache。旧环境的目录不会被自动删除。
 
 ```
---vpp-onnx-cache-dir C:\models\HWEnc-onnx-cache
+--vpp-onnx-cache-dir C:\models\NVEnc-onnx-cache
 ```
 
 ### --vpp-rife-ov [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

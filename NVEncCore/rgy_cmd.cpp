@@ -6185,7 +6185,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         const auto paramList = std::vector<std::string>{
             "enable", "model", "modelfile", "provider", "device",
 #if ENCODER_NVENC
-            "interop",
+            "interop", "prec",
 #endif
             "precision",
             "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "frames", "mask", "out_res", "resize"
@@ -17633,8 +17633,10 @@ tstring gen_cmd_help_vpp() {
     str += _T("        values: auto, fp16, fp32\n");
 #endif
 #if ENCODER_NVENC
-    str += _T("      provider=<string> Execution provider; auto chooses CUDA (default: auto)\n");
+    str += _T("      provider=<string> Execution provider; auto prefers TensorRT and falls back to CUDA (default: auto)\n");
     str += _T("        values: auto, cuda, tensorrt\n");
+    str += _T("      prec=<string> TensorRT engine precision; the CUDA provider runs fp32 (default: auto)\n");
+    str += _T("        values: auto, fp16, fp32\n");
 #endif
     str += _T("      colormatrix=<string> Input YUV/RGB conversion matrix (default: auto)\n");
     str += _T("        values: auto, auto_res, smpte170m, bt470bg, bt709, bt2020nc\n");
@@ -17695,7 +17697,7 @@ tstring gen_cmd_help_vpp() {
     str += _T("        values: auto, tv, limited, pc, full\n");
 #endif
 #if ENABLE_OPENVINO || ENCODER_NVENC
-    str += _T("\n  [other] Other settings\n   --vpp-onnx-cache-dir <path> Cache compiled OpenVINO models or TensorRT engines in this directory.\n");
+    str += _T("\n  [other] Other settings\n   --vpp-onnx-cache-dir <path> Cache compiled OpenVINO models or TensorRT engines (default: per-user cache directory).\n");
 #endif
 #endif
 #if ENABLE_VPP_FILTER_SMOOTH

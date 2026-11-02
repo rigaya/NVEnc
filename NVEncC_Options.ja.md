@@ -4518,9 +4518,12 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
   - model=&lt;string&gt;  
     ONNXモデルファイルのパス (必須)。`--vpp-onnx-model-dir` 指定時は、models.json に登録されたモデル名を拡張子なしで指定可能。
   - provider=&lt;string&gt; (デフォルト: auto)  
-    推論に使用する実行プロバイダ。auto / cuda / tensorrt (trt)
+    推論に使用する実行プロバイダ。auto / cuda / tensorrt (trt)。  
+    `auto` は TensorRT を優先し、TensorRT が使えない・そのモデルの engine を構築できない場合は CUDA へフォールバックする。
   - prec=&lt;string&gt; (デフォルト: auto)  
-    TensorRTの演算精度。auto / fp16 (f16) / fp32 (f32)。autoはTensorRTでfp16を使用する。CUDA providerではfp32を使用する。
+    推論精度。auto / fp16 (f16) / fp32 (f32)。TensorRT のエンジン生成時に適用される設定で、CUDA provider は fp32 で実行する。  
+    - `provider=auto` / `provider=tensorrt`: auto は fp16 のエンジンを生成する。TensorRT は fp32 モデルからエンジン生成時に fp16 化するため、追加のモデルファイルは不要。  
+    - `models.json` で `fp32: true` が付いたモデル (NNEDI3 など) は、auto / tensorrt でも fp32 を強制する。
   - colormatrix=&lt;string&gt; (デフォルト: auto)  
     [`--colormatrix`](#--colormatrix-string) と同じ名前を受け付ける。`--vpp-onnx` で対応するのは auto / auto_res / smpte170m / bt470bg / bt709 / bt2020nc。互換性のため、旧指定名の bt601 と bt2020 も smpte170m / bt2020nc の別名として受け付ける。
   - colormatrix_out=&lt;string&gt; (デフォルト: auto)  
@@ -4658,12 +4661,12 @@ PAL/SECAM向けのVHS修復モデルを適用し、その後にGPU版Bwdifでデ
 ### --vpp-onnx-cache-dir &lt;string&gt;
 TensorRTエンジンのキャッシュ先ディレクトリを指定する。
 
-未指定時はキャッシュを無効にする。初回実行ではエンジンを構築し、同じモデル内容・精度・入力形状・実行環境を使用する以降の実行ではキャッシュを読み込んで起動時間を大幅に短縮できる。
+未指定時はユーザー単位の既定キャッシュを使用する (Windows: `%LOCALAPPDATA%\NVEnc\onnx`、Linux: `$XDG_CACHE_HOME/nvenc/onnx` または `~/.cache/nvenc/onnx`)。`provider=auto` / `provider=tensorrt` は TensorRT を使うため、既定でも初回実行でエンジンを構築し、同じモデル内容・精度・入力形状・実行環境を使う以降の実行ではキャッシュを読み込んで起動時間を大幅に短縮できる。`provider=cuda` を指定すれば TensorRT は使われない。
 
 キャッシュはNVEncのバージョンとrevision、ONNX Runtimeのバージョン、CUDAドライバAPIのバージョン、GPUごとに別ディレクトリへ保存する。TensorRTのバージョン不一致はTensorRT自身のengine互換性検証で検出し、該当engineを1回だけ自動再構築する。同じ実行環境ではモデル間でtiming cacheを共有する。古い環境用ディレクトリは自動削除しない。
 
 ```
---vpp-onnx-cache-dir C:\models\HWEnc-onnx-cache
+--vpp-onnx-cache-dir C:\models\NVEnc-onnx-cache
 ```
 
 ### --vpp-rife-ov [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

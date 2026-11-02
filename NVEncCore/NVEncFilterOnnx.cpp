@@ -49,6 +49,7 @@ NVEncFilterOnnx::NVEncFilterOnnx() :
     m_inBuf(), m_outBuf(),
     m_inputDevice(), m_outputDevice(), m_yuvInputDevice(), m_cropToYuv444(), m_cropFromYuv444(), m_lumaResize(),
     m_modelPath(), m_provider(RGYOnnxRTProvider::Auto), m_precision(), m_cacheDir(), m_deviceID(-1),
+    m_forceFp32(false),
     m_cudaPathTried(false), m_cudaPath(false),
     m_temporalT(1), m_ring(), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
     m_maskModelW(0), m_maskModelH(0), m_imgPortIdx(0), m_mskPortIdx(1), m_maskOutScale(0.0f),
@@ -111,6 +112,29 @@ static bool onnx_supported_csp(RGY_CSP csp) {
 }
 
 } // namespace
+
+// --vpp-onnx-cache-dir 未指定時の置き場所。TensorRT engine のビルドは数分かかるため、
+// ユーザー単位で再利用できる場所に置く (環境キーで NVEnc/ORT/CUDA/GPU ごとに別ディレクトリ)。
+// 開発ツリーの HWEnc/ ではなく製品名 (NVEnc) のユーザーデータとして置く。
+tstring NVEncFilterOnnx::defaultCacheDir() {
+#if defined(_WIN32) || defined(_WIN64)
+    const wchar_t *base = _wgetenv(L"LOCALAPPDATA");
+    if (base == nullptr || *base == L'\0') {
+        base = _wgetenv(L"TEMP");
+    }
+    return (base != nullptr && *base != L'\0') ? PathCombineS(tstring(base), _T("NVEnc/onnx")) : tstring();
+#else
+    const char *xdg = getenv("XDG_CACHE_HOME");
+    if (xdg != nullptr && *xdg != '\0') {
+        return PathCombineS(tstring(xdg), "nvenc/onnx");
+    }
+    const char *home = getenv("HOME");
+    if (home != nullptr && *home != '\0') {
+        return PathCombineS(tstring(home), ".cache/nvenc/onnx");
+    }
+    return tstring();
+#endif
+}
 
 // マスク画像を1フレームだけ読み込み、0..1の輝度配列に変換する。
 #if ENABLE_AVSW_READER
@@ -248,6 +272,9 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
             AddMessage(RGY_LOG_ERROR, _T("onnx: model \"%s\" not found in models.json\n"), prm->onnx.modelFile.c_str());
             return RGY_ERR_NOT_FOUND;
         }
+        // models.json の "fp32": true は fp16 で画質が破綻するモデルの指定。
+        // provider=auto が TensorRT (既定 fp16) を選ぶようになったため、必ず従う。
+        m_forceFp32 = entry->fp32;
         prm->onnx.modelFile = registry.resolveModelPath(prm->onnx.modelFile);
         if (prm->onnx.colorspace.empty() || prm->onnx.colorspace == _T("auto")) {
             prm->onnx.colorspace = entry->colorspace;
@@ -302,7 +329,7 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         cudaGetDevice(&deviceID);
     }
 
-    // Provider selection: auto -> CUDA (default), cuda, tensorrt.
+    // Provider selection: auto -> TensorRT 優先 (使えなければ CUDA), cuda, tensorrt.
     RGYOnnxRTProvider provider = RGYOnnxRTProvider::Auto;
     const tstring provStr = prm->onnx.provider;
     if      (provStr == _T("tensorrt") || provStr == _T("trt")) provider = RGYOnnxRTProvider::TensorRT;
@@ -310,20 +337,26 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     else                                                         provider = RGYOnnxRTProvider::Auto;
     m_modelPath = prm->onnx.modelFile;
     m_provider = provider;
-    m_precision = prm->onnx.precision;
+    m_precision = m_forceFp32 ? _T("fp32") : prm->onnx.precision;
     m_cacheDir = prm->onnx.cacheDir;
+    if (m_cacheDir.empty()) {
+        // TensorRT の engine / timing cache はビルドに数分かかるため、明示指定が無くても
+        // ユーザー単位で永続化しておく (CUDA のみの構成では参照されない)。
+        const auto defaultCache = defaultCacheDir();
+        if (!defaultCache.empty() && CreateDirectoryRecursive(defaultCache.c_str())) {
+            m_cacheDir = defaultCache;
+        }
+    }
     m_deviceID = deviceID;
 
     m_ov = std::make_unique<RGYOnnxRTCUDA>();
     tstring errMsg;
 
-    if (provider == RGYOnnxRTProvider::TensorRT) {
-        AddMessage(RGY_LOG_INFO, prm->onnx.cacheDir.empty()
-            ? _T("onnx: building TensorRT engine (this may take minutes)...\n")
-            : _T("onnx: building/loading TensorRT engine (first run per model/resolution/precision may take minutes)...\n"));
+    if (provider != RGYOnnxRTProvider::Cuda) {
+        AddMessage(RGY_LOG_INFO, _T("onnx: building/loading TensorRT engine (first run per model/resolution/precision may take minutes)...\n"));
     }
     RGY_ERR err = m_ov->init(prm->onnx.modelFile, deviceID, provider, inH, inW, errMsg,
-        nullptr, prm->onnx.precision, prm->onnx.cacheDir);
+        nullptr, m_precision, m_cacheDir);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile model: %s\n"),
             errMsg.c_str());
