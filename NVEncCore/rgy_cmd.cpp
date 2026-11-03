@@ -1112,12 +1112,12 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
                 param_arg = tolowercase(param_arg);
+                // 参照は付け替えられないので、push_backを終えてから末尾の参照を取る。
                 if (param_arg == _T("matrix") || param_arg == _T("colormatrix")) {
-                    auto& conv = vpp->colorspace.convs.back();
-                    if (conv.from.matrix != conv.to.matrix) {
+                    if (vpp->colorspace.convs.back().from.matrix != vpp->colorspace.convs.back().to.matrix) {
                         vpp->colorspace.convs.push_back(ColorspaceConv());
-                        conv = vpp->colorspace.convs.back();
                     }
+                    auto& conv = vpp->colorspace.convs.back();
                     if (!parse((int *)&conv.from.matrix, (int *)&conv.to.matrix, param_val, list_colormatrix)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colormatrix);
                         return 1;
@@ -1125,11 +1125,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("colorprim")) {
-                    auto &conv = vpp->colorspace.convs.back();
-                    if (conv.from.colorprim != conv.to.colorprim) {
+                    if (vpp->colorspace.convs.back().from.colorprim != vpp->colorspace.convs.back().to.colorprim) {
                         vpp->colorspace.convs.push_back(ColorspaceConv());
-                        conv = vpp->colorspace.convs.back();
                     }
+                    auto& conv = vpp->colorspace.convs.back();
                     if (!parse((int *)&conv.from.colorprim, (int *)&conv.to.colorprim, param_val, list_colorprim)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colorprim);
                         return 1;
@@ -1137,11 +1136,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("transfer")) {
-                    auto &conv = vpp->colorspace.convs.back();
-                    if (conv.from.transfer != conv.to.transfer) {
+                    if (vpp->colorspace.convs.back().from.transfer != vpp->colorspace.convs.back().to.transfer) {
                         vpp->colorspace.convs.push_back(ColorspaceConv());
-                        conv = vpp->colorspace.convs.back();
                     }
+                    auto& conv = vpp->colorspace.convs.back();
                     if (!parse((int *)&conv.from.transfer, (int *)&conv.to.transfer, param_val, list_transfer)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_transfer);
                         return 1;
@@ -1149,11 +1147,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("range") || param_arg == _T("colorrange")) {
-                    auto &conv = vpp->colorspace.convs.back();
-                    if (conv.from.colorrange != conv.to.colorrange) {
+                    if (vpp->colorspace.convs.back().from.colorrange != vpp->colorspace.convs.back().to.colorrange) {
                         vpp->colorspace.convs.push_back(ColorspaceConv());
-                        conv = vpp->colorspace.convs.back();
                     }
+                    auto& conv = vpp->colorspace.convs.back();
                     if (!parse((int *)&conv.from.colorrange, (int *)&conv.to.colorrange, param_val, list_colorrange)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colorrange);
                         return 1;

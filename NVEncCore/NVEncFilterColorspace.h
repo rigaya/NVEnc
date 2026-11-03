@@ -80,7 +80,7 @@ public:
     RGY_ERR setOperation(RGY_CSP csp_in, RGY_CSP csp_out);
     std::string printOpAll() const;
     tstring printInfoAll() const;
-    VideoVUIInfo VuiOut() const;
+    VideoVUIInfo VuiOut(const VideoVUIInfo& input) const;
 private:
     RGY_ERR addColorspaceOpHDR2SDRHable(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
     RGY_ERR addColorspaceOpHDR2SDRMobius(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);

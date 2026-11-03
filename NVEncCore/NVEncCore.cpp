@@ -930,7 +930,7 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
 }
 
 RGY_ERR NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FORMAT encBufferFormat) {
-    const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
+    auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
         (inputParams->codec_rgy == RGY_CODEC_RAW || inputParams->codec_rgy == RGY_CODEC_AVCODEC) &&
         (  RGY_CSP_CHROMA_FORMAT[inputParams->outputCsp] == RGY_CHROMAFMT_RGB
         || RGY_CSP_CHROMA_FORMAT[inputParams->outputCsp] == RGY_CHROMAFMT_RGB_PACKED),
@@ -939,6 +939,8 @@ RGY_ERR NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FOR
         std::make_pair(m_sar.n(), m_sar.d()),
         m_encFps);
     if (inputParams->codec_rgy == RGY_CODEC_RAW || inputParams->codec_rgy == RGY_CODEC_AVCODEC) {
+        // rawではコーデック設定からVUIを復元できないため、フィルタ後に解決した値を渡す。
+        outputVideoInfo.vui = m_encVUI;
         inputParams->common.AVMuxTarget &= ~RGY_MUX_VIDEO;
     }
 

@@ -63,6 +63,30 @@ static inline int rgy_help_codegen_cases() {
             {}, { _T("--vpp-overlay") }
         },
         {
+            _T("colorspace preserves chained matrix operations"),
+            { _T("--vpp-colorspace"), _T("matrix=bt709:smpte170m,matrix=smpte170m:bt709") },
+            false,
+            { _T("matrix=bt709:smpte170m"), _T("matrix=smpte170m:bt709") }, {}
+        },
+        {
+            _T("colorspace preserves chained colorprim operations"),
+            { _T("--vpp-colorspace"), _T("colorprim=bt709:bt2020,colorprim=bt2020:bt709") },
+            false,
+            { _T("colorprim=bt709:bt2020"), _T("colorprim=bt2020:bt709") }, {}
+        },
+        {
+            _T("colorspace preserves chained transfer operations"),
+            { _T("--vpp-colorspace"), _T("transfer=bt709:linear,transfer=linear:bt709") },
+            false,
+            { _T("transfer=bt709:linear"), _T("transfer=linear:bt709") }, {}
+        },
+        {
+            _T("colorspace preserves chained range operations"),
+            { _T("--vpp-colorspace"), _T("range=limited:full,range=full:limited") },
+            false,
+            { _T("range=limited:full"), _T("range=full:limited") }, {}
+        },
+        {
             _T("colorspace default desat_base keeps double precision"),
             { _T("--vpp-colorspace"), _T("desat_base=0.18") },
             false,

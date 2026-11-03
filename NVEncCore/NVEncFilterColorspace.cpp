@@ -1096,8 +1096,21 @@ tstring ColorspaceOpCtrl::printInfoAll() const {
     return str;
 }
 
-VideoVUIInfo ColorspaceOpCtrl::VuiOut() const {
-    return operations.back().to;
+VideoVUIInfo ColorspaceOpCtrl::VuiOut(const VideoVUIInfo& input) const {
+    auto output = input;
+    const auto keepKnown = [&](const VideoVUIInfo& value) {
+        if (value.matrix >= 0 && value.matrix != RGY_MATRIX_UNSPECIFIED && value.matrix != COLOR_VALUE_AUTO_RESOLUTION) output.matrix = value.matrix;
+        if (value.colorprim > 0 && value.colorprim != RGY_PRIM_UNSPECIFIED && value.colorprim != COLOR_VALUE_AUTO_RESOLUTION) output.colorprim = value.colorprim;
+        if (value.transfer > 0 && value.transfer != RGY_TRANSFER_UNSPECIFIED && value.transfer != COLOR_VALUE_AUTO_RESOLUTION) output.transfer = value.transfer;
+        if (value.chromaloc > RGY_CHROMALOC_UNSPECIFIED && value.chromaloc != COLOR_VALUE_AUTO_RESOLUTION) output.chromaloc = value.chromaloc;
+    };
+    // 演算を変えず、途中で変更された項目は最後の値、変更のない項目は入口の値を残す。
+    if (!m_path.empty()) keepKnown(m_path.front().from);
+    for (const auto& operation : m_path) keepKnown(operation.to);
+    // 整数出力の実正規化は、最終toがFULLのときだけfull、それ以外はlimitedになる。
+    output.colorrange = operations.back().to.colorrange == RGY_COLORRANGE_FULL ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_LIMITED;
+    output.setDescriptPreset();
+    return output;
 }
 
 RGY_ERR ColorspaceOpCtrl::addColorspaceOpNclYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to) {
@@ -1807,9 +1820,29 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
         }
     }
 
-    //入力ファイルのVUIが取得されていれば、これを使用する
-    auto &firstVUI = prmCsp->colorspace.convs.begin()->from;
-    firstVUI.apply_auto(prmCsp->VuiIn, prmCsp->frameIn.height);
+    // 書かなかった項目は変えず、入口と直前の結果から実際の演算前に解決する。
+    const auto inheritMissing = [&](VideoVUIInfo value, const VideoVUIInfo& previous) {
+        if (value.matrix == RGY_MATRIX_UNSPECIFIED) value.matrix = previous.matrix;
+        if (value.colorprim == RGY_PRIM_UNSPECIFIED) value.colorprim = previous.colorprim;
+        if (value.transfer == RGY_TRANSFER_UNSPECIFIED) value.transfer = previous.transfer;
+        if (value.colorrange == RGY_COLORRANGE_UNSPECIFIED) value.colorrange = previous.colorrange;
+        if (value.chromaloc == RGY_CHROMALOC_UNSPECIFIED) value.chromaloc = previous.chromaloc;
+        value.apply_auto(previous, prmCsp->frameIn.height);
+        return value;
+    };
+    // HDR2SDRとLUTの行列・色域・伝達特性は専用処理の既定出力を残す。
+    const bool specialOutput = prmCsp->colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED || !prmCsp->colorspace.lut3d.table_file.empty();
+    auto previousVui = prmCsp->VuiIn;
+    for (auto& conversion : prmCsp->colorspace.convs) {
+        conversion.from = inheritMissing(conversion.from, previousVui);
+        if (!specialOutput) {
+            conversion.to = inheritMissing(conversion.to, conversion.from);
+        } else {
+            if (conversion.to.colorrange == RGY_COLORRANGE_UNSPECIFIED) conversion.to.colorrange = conversion.from.colorrange;
+            if (conversion.to.chromaloc == RGY_CHROMALOC_UNSPECIFIED) conversion.to.chromaloc = conversion.from.chromaloc;
+        }
+        previousVui = conversion.to;
+    }
 
     auto prmPrev = std::dynamic_pointer_cast<NVEncFilterParamColorspace>(m_param);
     if (!prmPrev || prmPrev->colorspace != prmCsp->colorspace) {
@@ -1911,7 +1944,8 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
 }
 
 VideoVUIInfo NVEncFilterColorspace::VuiOut() const {
-    return opCtrl->VuiOut();
+    const auto param = std::dynamic_pointer_cast<NVEncFilterParamColorspace>(m_param);
+    return opCtrl->VuiOut(param->VuiIn);
 }
 
 tstring NVEncFilterParamColorspace::print() const {

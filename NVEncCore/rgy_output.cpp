@@ -66,8 +66,8 @@ static const uint8_t AUD_HEVC_PRIMARY[] = { 0x00, 0x00, 0x00, 0x01, 0x46, 0x01 }
 // P010は10bitの値を16bitコンテナのMSB側に詰めて保持するため、LSB詰め10bitに戻す際のシフト量
 static const int RGY_CSP_P010_SHIFT_TO_10BIT = 6;
 
-static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info, const RGY_CSP csp, const rgy_rational<int>& timebase = rgy_rational<int>(0, 0)) {
-    char buffer[256] = { 0 };
+static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info, const RGY_CSP csp, const rgy_rational<int>& timebase = rgy_rational<int>(0, 0), const bool writeColorInfo = false) {
+    char buffer[512] = { 0 };
     char *ptr = buffer;
     uint32_t len = 0;
     memcpy(ptr, "YUV4MPEG2 ", 10);
@@ -85,6 +85,23 @@ static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info, const RGY_CSP csp
     len += sprintf_s(ptr+len, sizeof(buffer)-len, "A%d:%d ", info->sar[0], info->sar[1]);
     if (timebase.is_valid()) {
         len += sprintf_s(ptr+len, sizeof(buffer)-len, "XTIMEBASE=%d:%d ", timebase.n(), timebase.d());
+    }
+    if (writeColorInfo) {
+        // 通常のy4m出力は変えず、プレビュー用拡張のときだけ出力側の色情報を添える。
+        const auto& vui = info->vui;
+        if (vui.colorrange == RGY_COLORRANGE_LIMITED || vui.colorrange == RGY_COLORRANGE_FULL) {
+            len += sprintf_s(ptr+len, sizeof(buffer)-len, "XCOLORRANGE=%s ", vui.colorrange == RGY_COLORRANGE_FULL ? "FULL" : "LIMITED");
+        }
+        const auto appendColor = [&](const char *name, const CX_DESC *list, const int value, const int unspecified) {
+            const auto text = get_chr_from_value(list, value);
+            if (value < 0 || value == COLOR_VALUE_AUTO_RESOLUTION || value == unspecified || _tcscmp(text, _T("unknown")) == 0) return;
+            const auto valueName = tchar_to_string(text);
+            len += sprintf_s(ptr+len, sizeof(buffer)-len, "%s=%s ", name, valueName.c_str());
+        };
+        appendColor("XCOLORMATRIX", list_colormatrix, vui.matrix, RGY_MATRIX_UNSPECIFIED);
+        appendColor("XCOLORPRIM", list_colorprim, vui.colorprim, RGY_PRIM_UNSPECIFIED);
+        appendColor("XTRANSFER", list_transfer, vui.transfer, RGY_TRANSFER_UNSPECIFIED);
+        appendColor("XCHROMALOC", list_chromaloc_str, vui.chromaloc, RGY_CHROMALOC_UNSPECIFIED);
     }
     const auto cspHeader = csp_rgy_to_y4mheader(csp);
     if (!cspHeader) return RGY_ERR_INVALID_COLOR_FORMAT;
@@ -1176,7 +1193,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
             } else if (csp == RGY_CSP_P010) {
                 csp = RGY_CSP_YV12_10;
             }
-            WriteY4MHeader(m_fDest.get(), &m_VideoOutputInfo, csp, m_y4mTimestamp ? m_outputTimebase : rgy_rational<int>(0, 0));
+            WriteY4MHeader(m_fDest.get(), &m_VideoOutputInfo, csp, m_y4mTimestamp ? m_outputTimebase : rgy_rational<int>(0, 0), m_y4mTimestamp);
             m_y4mHeaderWritten = true;
         }
         if (m_y4mTimestamp) {
