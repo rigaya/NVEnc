@@ -85,10 +85,10 @@ struct RGYCmdSelfTestResult {
 
 // help検証は判定不能も別計上し、検証を飛ばしてNG 0になったように見せない。
 struct RGYCmdHelpSelfTestResult {
-    int ng[5] = {};
-    int checked[5] = {};
-    int except[5] = {};
-    int unsupported[5] = {};
+    int ng[7] = {};
+    int checked[7] = {};
+    int except[7] = {};
+    int unsupported[7] = {};
     int options = 0;
     int parameters = 0;
     int derived = 0;
@@ -292,12 +292,55 @@ public:
             helpCheck(0, option.canonical, optionName, _T("option must start at column 4"));
             helpCheck(0, option.classified, optionName, _T("option has no valid category heading"));
             helpCheck(0, !option.duplicate, optionName, _T("duplicate option declaration"));
+            // mainの名前はparams内の宣言だけを参照し、位置と重複も独立に調べる。
+            std::set<tstring> parameterNames, mainNames;
+            for (const auto& field : option.fields) {
+                if (!field.key.empty() && option.paramsLine != 0 && field.line > option.paramsLine) parameterNames.insert(field.key);
+            }
+            for (const auto line : option.mainLines) {
+                helpCheck(5, option.paramsLine != 0 && line < option.paramsLine, optionName, _T("main: must precede params"));
+            }
+            for (const auto& entry : option.mainParameters) {
+                helpCheck(5, parameterNames.count(entry) != 0, optionName, _T("main: parameter is not declared in params: ") + entry);
+                helpCheck(5, mainNames.insert(entry).second, optionName, _T("duplicate parameter in main: ") + entry);
+            }
             std::set<tstring> names;
             for (auto& field : option.fields) {
                 if (!field.key.empty()) ++m_helpResult.parameters;
                 const auto name = optionName + (field.key.empty() ? tstring() : _T(" ") + field.key);
                 helpCheck(0, field.canonical, name, _T("parameter must use six spaces and name=<type>"));
                 helpCheck(0, names.insert(field.key).second, name, _T("duplicate parameter declaration"));
+                // 条件の参照先と候補は、同じオプションの宣言済みパラメータだけで解決する。
+                if (!field.conditions.empty()) {
+                    helpCheck(6, field.conditionLast, name, _T("when: must follow the description and values:"));
+                    helpCheck(6, field.conditions.size() == 1, name, _T("only one when: line is allowed per parameter"));
+                    for (const auto& condition : field.conditions) {
+                        HelpMatch match;
+                        static const HelpRegex whenRow(_T("^( {8,})when: ([A-Za-z0-9_][A-Za-z0-9_.-]*)(?:(=|!=)(.+))?$"));
+                        const bool valid = std::regex_match(condition, match, whenRow);
+                        helpCheck(6, valid, name, _T("malformed when: condition"));
+                        if (!valid) continue;
+                        helpCheck(6, !field.hasValues || match[1].str().size() == field.valuesIndent, name,
+                            _T("when: must use the same indentation as values:"));
+                        const auto reference = match[2].str();
+                        const auto referenced = std::find_if(option.fields.begin(), option.fields.end(), [&](const HelpField& item) {
+                            return item.key == reference && option.paramsLine != 0 && item.line > option.paramsLine;
+                        });
+                        helpCheck(6, referenced != option.fields.end(), name, _T("when: reference is not declared in params: ") + reference);
+                        if (referenced == option.fields.end() || match[3].str().empty()) continue;
+                        for (const auto& rawValue : split(match[4].str(), _T(","))) {
+                            const auto value = trim(rawValue);
+                            const auto wildcard = value.find(_T('*'));
+                            const bool prefix = wildcard != tstring::npos && wildcard == value.size() - 1;
+                            const bool validValue = !value.empty() && (wildcard == tstring::npos
+                                || (prefix && value.size() > 1 && value.find(_T('*'), wildcard + 1) == tstring::npos));
+                            const bool found = validValue && std::any_of(referenced->values.begin(), referenced->values.end(), [&](const tstring& candidate) {
+                                return prefix ? candidate.compare(0, value.size() - 1, value, 0, value.size() - 1) == 0 : candidate == value;
+                            });
+                            helpCheck(6, found, name, _T("when: candidate does not match any referenced values: ") + value);
+                        }
+                    }
+                }
                 const auto types = split(field.type, _T("|"));
                 helpCheck(0, field.validTypeSyntax, name, _T("malformed type declaration"));
                 if (field.structured) ++m_helpResult.structured;
@@ -348,8 +391,10 @@ public:
                     helpUnsupported(2, name, _T("default unavailable because help declaration is incomplete"));
                 }
                 for (const auto& value : field.values) {
-                    helpCheck(3, helpAccepts(option.name, field.key, value), name,
-                        _T("parser rejected value: ") + value);
+                    // 変換元と変換先の候補は、両側に同じ値を置いて構造全体をパーサに渡す。
+                    const auto input = field.type == _T("<from>:<to>") ? value + _T(":") + value : value;
+                    helpCheck(3, helpAccepts(option.name, field.key, input), name,
+                        _T("parser rejected value: ") + input);
                 }
                 if (constrainedString && !field.hasValues) helpUnsupported(3, name, _T("values unavailable because help declaration is incomplete"));
                 if (unknownString) helpUnsupported(3, name, _T("enum versus structured string is unresolved; no declared values are available"));
@@ -367,7 +412,7 @@ public:
         int failures = 0;
         _ftprintf(stdout, _T("derived defaults %d (C2/C3 excluded), structured types %d\n"), m_helpResult.derived, m_helpResult.structured);
         _ftprintf(stdout, _T("Help validation: options %d, parameters %d\n"), m_helpResult.options, m_helpResult.parameters);
-        for (int category = 0; category < 5; ++category) {
+        for (int category = 0; category < 7; ++category) {
             _ftprintf(stdout, _T("C%d checked %d, NG %d, except %d, unsupported %d\n"), category + 1,
                 m_helpResult.checked[category], m_helpResult.ng[category], m_helpResult.except[category], m_helpResult.unsupported[category]);
             failures += m_helpResult.ng[category] + m_helpResult.unsupported[category];
@@ -383,16 +428,21 @@ private:
     struct HelpField {
         tstring key, type, defaultValue, low, high;
         std::vector<tstring> values;
-        size_t line = 0;
+        std::vector<tstring> conditions;
+        size_t line = 0, valuesIndent = 0;
         bool canonical = false;
         bool validTypeSyntax = false, structured = false;
         bool hasDefault = false, canonicalDefault = false;
         bool hasValues = false, canonicalValues = false;
+        bool conditionLast = true;
         bool hasRange = false, canonicalRange = false;
     };
     struct HelpOption {
         tstring name;
         std::vector<HelpField> fields;
+        std::vector<tstring> mainParameters;
+        std::vector<size_t> mainLines;
+        size_t paramsLine = 0;
         bool classified = false, canonical = false, duplicate = false;
     };
 
@@ -678,6 +728,11 @@ private:
     }
 
     static void helpReadMetadata(HelpField& field, const tstring& line, size_t number) {
+        if (trim(line).compare(0, 5, _T("when:")) == 0) {
+            field.conditions.push_back(line);
+            return;
+        }
+        if (!field.conditions.empty() && !trim(line).empty()) field.conditionLast = false;
         HelpMatch match;
         static const HelpRegex canonicalDefault(_T("\\(default: ([^,()]+)(, range: ([^(),]*)\\.\\.([^(),]*))?\\)$"));
         if (std::regex_search(line, match, canonicalDefault)) {
@@ -720,6 +775,7 @@ private:
         static const HelpRegex values(_T("^[ \\t]*values: (.+)$"));
         if (std::regex_match(line, match, values)) {
             field.hasValues = true;
+            field.valuesIndent = line.find_first_not_of(_T(" \t"));
             field.canonicalValues = number == field.line + 1;
             for (const auto& value : helpSplitValues(match[1].str())) field.values.push_back(helpUnquote(value));
         }
@@ -778,7 +834,17 @@ private:
                 continue;
             }
             if (current < 0) continue;
-            if (trim(line) == _T("params")) { inParams = true; lastField = -1; continue; }
+            const auto trimmedLine = trim(line);
+            if (trimmedLine.compare(0, 5, _T("main:")) == 0) {
+                options[current].mainLines.push_back(number);
+                for (const auto& name : split(trimmedLine.substr(5), _T(","))) options[current].mainParameters.push_back(trim(name));
+                continue;
+            }
+            if (trimmedLine == _T("params")) {
+                inParams = true; lastField = -1;
+                if (options[current].paramsLine == 0) options[current].paramsLine = number;
+                continue;
+            }
             if (std::regex_match(line, match, fieldRow)) {
                 HelpField field;
                 field.key = match[2].str(); helpSetType(field, match[3].str()); field.line = number;

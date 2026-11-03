@@ -17028,23 +17028,29 @@ tstring gen_cmd_help_vpp() {
     str += _T("   --vpp-colorspace [<param1>=<value>][,<param2>=<value>][...]\n");
     str += _T("     Convert colorspace, transfer characteristics, or HDR tone mapping.\n    params\n");
     str += _T("      matrix=<from>:<to>          Matrix conversion; retain the input matrix when unspecified. (default: derived)\n");
-    str += _T("        Names: bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c.\n");
+    str += rgy_cmd_help_values(list_colormatrix);
     str += _T("      colorprim=<from>:<to>       Primaries conversion; retain the input primaries when unspecified. (default: derived)\n");
-    str += _T("        Names: bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020.\n");
+    str += rgy_cmd_help_values(list_colorprim);
     str += _T("      transfer=<from>:<to>        Transfer conversion; retain the input transfer when unspecified. (default: derived)\n");
-    str += _T("        Names: bt709, smpte170m, bt470m, bt470bg, smpte240m, linear, log100, log316,\n");
-    str += _T("        iec61966-2-4, iec61966-2-1, bt2020-10, bt2020-12, smpte2084, arib-srd-b67.\n");
+    str += rgy_cmd_help_values(list_transfer);
     str += _T("      range=<from>:<to>           Signal-range conversion (limited or full); retain the input range when unspecified. (default: derived)\n");
+    str += _T("        values: limited, full\n");
     str += _T("      lut3d=<path>                3D LUT file.\n");
     str += _T("      lut3d_interp=<string>       3D LUT interpolation. (default: tetrahedral)\n");
     str += rgy_cmd_help_values(list_vpp_colorspace_lut3d_interp);
+    str += _T("        when: lut3d\n");
     str += _T("      hdr2sdr=<string>            HDR10-to-SDR tone-mapping operator. (default: none)\n");
     str += rgy_cmd_help_values(list_vpp_hdr2sdr);
     str += strsprintf(_T("      source_peak=<float>         HDR source peak luminance in nits. (default: %.1f)\n"), FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK);
+    str += _T("        when: hdr2sdr!=none\n");
     str += strsprintf(_T("      ldr_nits=<float>            Target SDR peak luminance in nits. (default: %.1f)\n"), FILTER_DEFAULT_COLORSPACE_LDRNITS);
+    str += _T("        when: hdr2sdr!=none\n");
     str += strsprintf(_T("      desat_base=<float>          Base luminance for highlight desaturation. (default: %.2f)\n"), FILTER_DEFAULT_HDR2SDR_DESAT_BASE);
+    str += _T("        when: hdr2sdr!=none\n");
     str += strsprintf(_T("      desat_strength=<float>      Highlight desaturation strength. (default: %.2f)\n"), FILTER_DEFAULT_HDR2SDR_DESAT_STRENGTH);
+    str += _T("        when: hdr2sdr!=none\n");
     str += strsprintf(_T("      desat_exp=<float>           Highlight desaturation exponent. (default: %.2f)\n"), FILTER_DEFAULT_HDR2SDR_DESAT_EXP);
+    str += _T("        when: hdr2sdr!=none\n");
 #endif
 #if ENABLE_LIBPLACEBO
     str += _T("\n  [color] Color adjustment\n");
@@ -17116,7 +17122,7 @@ tstring gen_cmd_help_vpp() {
 #if ENABLE_VPP_FILTER_AFS
     str += _T("\n  [deinterlace] Deinterlace\n");
     str += _T("   --vpp-afs [<param1>=<value>][,<param2>=<value>][...]\n");
-    str += _T("     Automatic field-shift deinterlacing.\n    params\n");
+    str += _T("     Automatic field-shift deinterlacing.\n    main: preset, 24fps, drop, smooth, shift, level, method_switch, coeff_shift, thre_shift, thre_deint, thre_motion_y, thre_motion_c, tune\n    params\n");
     str += _T("      preset=<string>             Load an AFS preset before applying parameters below. (default: default)\n");
     str += rgy_cmd_help_values(list_afs_preset);
     str += _T("      ini=<path>                  Load settings exported by afs.auf; explicit parameters override loaded settings.\n");
@@ -17144,7 +17150,7 @@ tstring gen_cmd_help_vpp() {
 #if ENABLE_VPP_FILTER_NNEDI_UPSCALE
     str += _T("\n  [resize] Resize and geometry\n");
     str += _T("   --vpp-nnedi-upscale [<param1>=<value>][,<param2>=<value>][...]\n");
-    str += _T("     Edge-directed 2x upscale with the NNEDI network.\n    params\n");
+    str += _T("     Edge-directed 2x upscale with the NNEDI network.\n    main: nns, nsize, quality, prescreen\n    params\n");
     str += _T("     Output is exactly 2x the input. Even-sized progressive 4:2:0, 4:4:4 or monochrome input is required.\n");
     str += _T("      nsize=<string>              NNEDI neighborhood size. (default: 32x4)\n");
     str += rgy_cmd_help_values(list_vpp_nnedi_nsize);
@@ -17163,7 +17169,7 @@ tstring gen_cmd_help_vpp() {
 #if ENABLE_VPP_FILTER_NNEDI
     str += _T("\n  [deinterlace] Deinterlace\n");
     str += _T("   --vpp-nnedi [<param1>=<value>][,<param2>=<value>][...]\n");
-    str += _T("     NNEDI deinterlacing.\n    params\n");
+    str += _T("     NNEDI deinterlacing.\n    main: field, nns, nsize, quality, prescreen\n    params\n");
     str += _T("      planes=<string>             Target planes; colon-separated combinations are also accepted. (default: all)\n");
     str += _T("        values: all, y, u, v, y:u:v\n");
     str += _T("      field=<string>              Target output field. (default: auto)\n");
@@ -17223,7 +17229,7 @@ tstring gen_cmd_help_vpp() {
     str += _T("        values: sobel, prewitt, sobel_full, scharr, kirsch, laplacian\n");
 #endif
 #if ENABLE_VPP_FILTER_RTGMC
-    str += _T("\n  [deinterlace] Deinterlace\n   --vpp-rtgmc [<param1>=<value>][,<param2>=<value>][...]\n     High-quality motion-compensated deinterlacing.\n    params\n");
+    str += _T("\n  [deinterlace] Deinterlace\n   --vpp-rtgmc [<param1>=<value>][,<param2>=<value>][...]\n     High-quality motion-compensated deinterlacing.\n    main: preset, tuning, sharpness, source_match, lossless\n    params\n");
     str += _T("      preset=<string> Speed and quality preset. (default: faster)\n");
     str += rgy_cmd_help_values(list_vpp_rtgmc_preset);
     str += _T("      tuning=<string> Preset block-size tuning. (default: none)\n");
@@ -17304,7 +17310,7 @@ tstring gen_cmd_help_vpp() {
     str += _T("      precise=<bool> Precise retouch mode chosen by preset. (default: derived)\n");
 #endif
 #if ENABLE_VPP_FILTER_KFM
-    str += _T("\n  [deinterlace] Deinterlace\n   --vpp-kfm [<param1>=<value>][,<param2>=<value>][...]\n     Adaptive inverse telecine.\n    params\n");
+    str += _T("\n  [deinterlace] Deinterlace\n   --vpp-kfm [<param1>=<value>][,<param2>=<value>][...]\n     Adaptive inverse telecine.\n    main: mode, preset, thswitch, nr, ucf\n    params\n");
     str += _T("      mode=<string> Output cadence. (default: vfr)\n");
     str += rgy_cmd_help_values(list_vpp_kfm_mode);
     str += _T("      preset=<string> Motion-search speed preset. (default: faster)\n");
@@ -17456,38 +17462,55 @@ tstring gen_cmd_help_vpp() {
     str += _T("        The short form is --vpp-resize <algorithm>[,<param>=<value>].\n        Gaussian resizing uses p=2.0.\n");
     str += strsprintf(_T("      sharpness=<float> RCAS strength for fsr1 or USM strength for nis. (default: %.2f, range: 0.0..1.0)\n"), FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS);
     str += _T("        The fsr1 and nis parameters have the same initial strength.\n");
+    str += _T("        when: algo=fsr1, nis\n");
     str += strsprintf(_T("      dpid_lambda=<float> Detail-preservation strength for dpid; 0 is area-equivalent. (default: %.2f, range: 0.0..4.0)\n"), FILTER_DEFAULT_RESIZE_DPID_LAMBDA);
+    str += _T("        when: algo=dpid\n");
     str += _T("      cascade=<string> Cascade mode for nis. (default: auto)\n");
     str += _T("        values: auto, on, off\n");
+    str += _T("        when: algo=nis\n");
     str += _T("      hdr=<string> HDR mode for nis. (default: auto)\n");
     str += rgy_cmd_help_values(list_vpp_resize_nis_hdr);
+    str += _T("        when: algo=nis\n");
 #if ENABLE_OPENCL
     str += _T("      opt=<string> Implementation for nis. (default: default)\n");
     str += rgy_cmd_help_values(list_vpp_resize_nis_opt);
+    str += _T("        when: algo=nis\n");
 #endif
     str += strsprintf(_T("      b=<float> Mitchell-Netravali B parameter for bicubic. (default: %.2f)\n"), FILTER_DEFAULT_RESIZE_BICUBIC_B);
+    str += _T("        when: algo=bicubic\n");
     str += strsprintf(_T("      c=<float> Mitchell-Netravali C parameter for bicubic. (default: %.2f)\n"), FILTER_DEFAULT_RESIZE_BICUBIC_C);
     str += _T("        Bicubic aliases: mitchell, catmull-rom, hermite.\n");
+    str += _T("        when: algo=bicubic\n");
 #if ENABLE_NVSDKNGX
     str += _T("      vsr-quality=<int> NGX video-super-resolution model/mode. (default: 1)\n");
     str += _T("        values: 0, 1, 2, 3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23\n");
     str += _T("        0 uses bicubic; 8-11 denoise, 12-15 deblur, 16-19 restore detail.\n");
     str += _T("        Modes 0 and 8-19 require VFX SDK 1.2 or later; streaming modes 21/23\n");
     str += _T("        require VFX SDK 1.3 or later and an Ampere or newer GPU.\n");
+    str += _T("        when: algo=ngx-vsr\n");
     str += _T("      vsr-strength=<float> NGX VSR strength; requires VFX SDK 1.3 or later. (default: 1.0, range: 0.0..1.0)\n");
+    str += _T("        when: algo=ngx-vsr\n");
 #endif
 #if ENCODER_QSV
     str += _T("      superres-mode=<string> QSV AI super-resolution mode. (default: default)\n");
     str += _T("        values: disabled, default, sharpen, artifactremoval\n");
+    str += _T("        when: algo=mfx_ai_superres\n");
     str += _T("      superres-algo=<string> QSV AI super-resolution algorithm. (default: default)\n");
     str += _T("        values: default, 1, 2\n");
+    str += _T("        when: algo=mfx_ai_superres\n");
 #endif
         if (ENABLE_LIBPLACEBO) {
     str += _T("      pl-radius=<float> Libplacebo resampling radius; selected filter defines the unspecified radius. (default: derived, range: 0.0..16.0)\n");
+    str += _T("        The radius is ignored for non-resizable libplacebo kernels.\n");
+    str += _T("        when: algo=libplacebo-*\n");
     str += strsprintf(_T("      pl-clamp=<float> Clamp strength. (default: %.1f, range: 0.0..1.0)\n"), FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_CLAMP);
+    str += _T("        when: algo=libplacebo-*\n");
     str += strsprintf(_T("      pl-taper=<float> Taper strength. (default: %.1f, range: 0.0..1.0)\n"), FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_TAPER);
+    str += _T("        when: algo=libplacebo-*\n");
     str += strsprintf(_T("      pl-blur=<float> Blur strength. (default: %.1f, range: 0.0..100.0)\n"), FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_BLUR);
+    str += _T("        when: algo=libplacebo-*\n");
     str += strsprintf(_T("      pl-antiring=<float> Antiringing strength. (default: %.1f, range: 0.0..1.0)\n"), FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_ANTIRING);
+    str += _T("        when: algo=libplacebo-*\n");
         }
     }
 #else
@@ -17576,7 +17599,7 @@ tstring gen_cmd_help_vpp() {
     str += _T("      show_scores=<bool> Log candidate error scores (default: false)\n");
 #endif
 #if ENABLE_VPP_FILTER_ANIME4K
-    str += _T("\n  [resize] Resize and geometry\n   --vpp-anime4k-shader [<param1>=<value>][,<param2>=<value>][...]\n     Anime4K GLSL luma refinement and upscaling.\n    params\n");
+    str += _T("\n  [resize] Resize and geometry\n   --vpp-anime4k-shader [<param1>=<value>][,<param2>=<value>][...]\n     Anime4K GLSL luma refinement and upscaling.\n    main: mode, scale, strength, denoise, darken, antiring\n    params\n");
     str += _T("      mode=<string> Processing variant (default: ani4k_original)\n");
     str += rgy_cmd_help_values(list_vpp_anime4k_mode);
     str += strsprintf(_T("      scale=<int> 1 refines, 2 upscales; some modes select their own scale (default: %d)\n"), FILTER_DEFAULT_ANIME4K_SCALE);
@@ -17622,7 +17645,7 @@ tstring gen_cmd_help_vpp() {
     str += _T("      h_fov=<float> Output horizontal field of view (default: 90.0)\n");
     str += _T("      w=<int> Output width; 0 follows the input (default: 0)\n");
     str += _T("      h=<int> Output height; 0 follows the input (default: 0)\n");
-    str += _T("\n  [ai] AI\n   --vpp-onnx [<param1>=<value>][,<param2>=<value>][...]\n     Run an ONNX model directly with ONNX Runtime.\n    params\n");
+    str += _T("\n  [ai] AI\n   --vpp-onnx [<param1>=<value>][,<param2>=<value>][...]\n     Run an ONNX model directly with ONNX Runtime.\n    main: model, provider, prec, out_res\n    params\n");
     str += _T("      model=<path> Registered model name or ONNX model path\n");
 #if ENABLE_OPENVINO
     str += _T("      device=<string> OpenVINO device; NPU requires a compatible runtime (default: GPU.0)\n");
@@ -17706,7 +17729,7 @@ tstring gen_cmd_help_vpp() {
     str += _T("        values: auto, fp16, fp32\n");
 #endif
 #if ENABLE_VPP_FILTER_DENOISE_DCT
-    str += _T("\n  [denoise] Denoise\n   --vpp-denoise-dct [<param1>=<value>][,<param2>=<value>][...]\n     DCT-domain denoising.\n    params\n");
+    str += _T("\n  [denoise] Denoise\n   --vpp-denoise-dct [<param1>=<value>][,<param2>=<value>][...]\n     DCT-domain denoising.\n    main: sigma, step, block_size\n    params\n");
     str += _T("      step=<int> Calculation step; smaller is higher quality (default: 2)\n");
     str += _T("        values: 1, 2, 4, 8\n");
     str += strsprintf(_T("      sigma=<float> Noise level for the highest-frequency bins (default: %.2f)\n"), FILTER_DEFAULT_DENOISE_DCT_SIGMA);
@@ -17717,7 +17740,7 @@ tstring gen_cmd_help_vpp() {
     str += _T("        values: 8, 16\n");
 #endif
 #if ENABLE_VPP_FILTER_FFT3D
-    str += _T("\n  [denoise] Denoise\n   --vpp-fft3d [<param1>=<value>][,<param2>=<value>][...]\n     FFT-domain spatial and temporal denoising.\n    params\n");
+    str += _T("\n  [denoise] Denoise\n   --vpp-fft3d [<param1>=<value>][,<param2>=<value>][...]\n     FFT-domain spatial and temporal denoising.\n    main: sigma, amount, block_size, overlap, method, sharpen, scutoff\n    params\n");
     str += strsprintf(_T("      sigma=<float> Noise level for the highest frequencies (default: %.2f, range: 0..100)\n"), FILTER_DEFAULT_DENOISE_FFT3D_SIGMA);
     str += _T("      sigma2=<float> Noise level follows sigma when omitted (default: derived)\n");
     str += _T("      sigma3=<float> Noise level follows sigma when omitted (default: derived)\n");
@@ -17971,7 +17994,7 @@ tstring gen_cmd_help_vpp() {
         _T("  [edge] Edge enhancement\n")
         _T("   --vpp-dehalo [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     halo removal filter. Applies correction to luma and copies chroma unchanged.\n")
-        _T("    params\n")
+        _T("    main: mode, rx, ry, darkstr, brightstr, lowsens, highsens, ss\n    params\n")
         _T("      mode=<string>             filter mode (default: legacy)\n")
         _T("        values: legacy, alpha\n")
         _T("      rx=<float>                horizontal halo radius (default: %.2f, range: 0.5..10.0)\n")
@@ -17994,7 +18017,7 @@ tstring gen_cmd_help_vpp() {
         _T("  [edge] Edge enhancement\n")
         _T("   --vpp-finedehalo [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     fine halo removal filter. Applies correction to luma and copies chroma unchanged.\n")
-        _T("    params\n")
+        _T("    main: mode, rx, ry, darkstr, brightstr, showmask\n    params\n")
         _T("      mode=<string>             internal dehalo mode (default: alpha)\n")
         _T("        values: legacy, alpha\n")
         _T("      rx=<float>                horizontal halo radius (default: %.2f, range: 0.5..10.0)\n")
@@ -18068,7 +18091,7 @@ tstring gen_cmd_help_vpp() {
         _T("  [edge] Edge enhancement\n")
         _T("   --vpp-hqdering [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     DCT ringing reduction filter. Applies correction to luma and copies chroma unchanged.\n")
-        _T("    params\n")
+        _T("    main: mrad, mthr, sigma, sharp, showmask\n    params\n")
         _T("      mrad=<int>                ring mask expansion radius (default: %d, range: 1..3)\n")
         _T("      mthr=<int>                edge mask threshold (default: %d, range: 0..255)\n")
         _T("      sigma=<float>             Gaussian blur sigma (default: %.2f, range: 0.5..5.0)\n")
@@ -18203,7 +18226,7 @@ tstring gen_cmd_help_vpp() {
         _T("  [color] Color adjustment\n")
         _T("   --vpp-tweak [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     Adjust brightness, contrast, gamma, saturation and hue.\n")
-        _T("    params\n")
+        _T("    main: brightness, contrast, gamma, saturation, hue, vibrance\n    params\n")
         _T("      brightness=<float> Brightness offset (default: %.1f, range: -1.0..1.0)\n")
         _T("      contrast=<float> Contrast multiplier (default: %.1f, range: -2.0..2.0)\n")
         _T("      gamma=<float> Gamma correction (default: %.1f, range: 0.1..10.0)\n")
@@ -18247,7 +18270,7 @@ tstring gen_cmd_help_vpp() {
         _T("  [deband] Deband\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable deband filter.\n")
-        _T("    params\n")
+        _T("    main: range, thre, dither, sample, blurfirst\n    params\n")
         _T("      range=<int>               range (default: %d, range: 0..127)\n")
         _T("      sample=<int>              sample (default: %d, range: 0..2)\n")
         _T("      thre=<int>                Set thresholds for all planes (default: derived)\n")
