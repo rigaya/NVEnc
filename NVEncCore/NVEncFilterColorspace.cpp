@@ -1516,6 +1516,9 @@ RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &ou
     }
     auto out_target = out;
     out_target.apply_auto(in, height);
+    // rangeは整数との入出力で処理し、正規化済みfloatの色空間探索には含めない。
+    const auto output_vui = out_target;
+    out_target.colorrange = in.colorrange;
     AddMessage(RGY_LOG_DEBUG, _T("Search path from %s -> %s"), in.print_main().c_str(), out_target.print_main().c_str());
 
     std::deque<VideoVUIInfo> queue;
@@ -1560,6 +1563,10 @@ RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &ou
     }
     for (auto it = path.rbegin(); it != path.rend(); it++) {
         m_path.push_back(std::move(*it));
+    }
+    // 最後のrangeだけを復元し、出口のfloat→int正規化へ渡す。
+    if (out_target.colorrange != output_vui.colorrange) {
+        m_path.push_back(ColorspaceOpInfo(out_target, output_vui, std::make_unique<ColorspaceOpNone>()));
     }
     return RGY_ERR_NONE;
 }
