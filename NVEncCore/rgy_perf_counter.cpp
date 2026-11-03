@@ -413,8 +413,8 @@ int RGYGPUCounterWin::thread_fin() {
             } else {
                 //正常に初期化処理がされず、途中でフリーズしてしまったときは強制終了が必要
                 HANDLE handle = thRefresh.native_handle();
-                thRefresh.detach();
                 TerminateThread(handle, 0);
+                thRefresh.detach();
             }
         }
     } catch (...) {
