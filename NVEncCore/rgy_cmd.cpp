@@ -6538,7 +6538,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         && (ENABLE_VPP_FILTER_ONNX || ENABLE_VPP_FILTER_ONNX_DEINT)
         && (ENABLE_OPENVINO || ENCODER_NVENC)) {
         i++;
-        vpp->onnx.cacheDir = tstring(strInput[i]);
+        // autoは既定のキャッシュ先(ユーザーごとのフォルダ)を使う。helpの既定値と同じ指定を受け付ける
+        vpp->onnx.cacheDir = (_tcsicmp(strInput[i], _T("auto")) == 0) ? tstring() : tstring(strInput[i]);
         return 0;
     }
     if (IS_OPTION("vpp-denoise-dct") && ENABLE_VPP_FILTER_DENOISE_DCT) {
@@ -17694,7 +17695,7 @@ tstring gen_cmd_help_vpp() {
     str += _T("        values: auto, tv, limited, pc, full\n");
 #endif
 #if ENABLE_OPENVINO || ENCODER_NVENC
-    str += _T("\n  [other] Other settings\n   --vpp-onnx-cache-dir <path> Cache compiled OpenVINO models or TensorRT engines (default: per-user cache directory).\n");
+    str += _T("\n  [other] Other settings\n   --vpp-onnx-cache-dir <path> Cache compiled OpenVINO models or TensorRT engines in this directory. (default: auto)\n");
 #endif
 #endif
 #if ENABLE_VPP_FILTER_SMOOTH
