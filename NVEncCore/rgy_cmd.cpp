@@ -17335,7 +17335,7 @@ tstring gen_cmd_help_vpp() {
     str += rgy_cmd_help_values(list_vpp_rtgmc_bob_order);
 #endif
 #if ENABLE_VPP_FILTER_RTGMC_SEARCH_PREFILTER
-    str += _T("\n  [deinterlace] Deinterlace\n   --vpp-rtgmc-search-prefilter [<param1>=<value>][,<param2>=<value>][...]\n     Search-reference prefilter scaffold.\n    params\n");
+    str += _T("\n  [other] Other settings\n   --vpp-rtgmc-search-prefilter [<param1>=<value>][,<param2>=<value>][...]\n     Search-reference prefilter scaffold.\n    params\n");
     str += strsprintf(_T("      tr0=<int> Temporal radius; -1 uses an external EDI reference. (default: %d, range: -1..2)\n"), FILTER_DEFAULT_DEGRAIN_TR0);
     str += strsprintf(_T("      rep0-thin=<int> Thin repair level. (default: %d, range: 0..7)\n"), FILTER_DEFAULT_DEGRAIN_REP0);
     str += _T("      rep0-pad=<int> Padding repair level. (default: 0, range: 0..3)\n");
@@ -17344,7 +17344,7 @@ tstring gen_cmd_help_vpp() {
     str += _T("      chroma_motion=<bool> Prefilter chroma planes. (default: false)\n");
 #endif
 #if ENABLE_VPP_FILTER_RTGMC_EDI
-    str += _T("\n  [deinterlace] Deinterlace\n   --vpp-rtgmc-edi [<param1>=<value>][,<param2>=<value>][...]\n     Standalone EDI scaffold.\n    params\n");
+    str += _T("\n  [other] Other settings\n   --vpp-rtgmc-edi [<param1>=<value>][,<param2>=<value>][...]\n     Standalone EDI scaffold.\n    params\n");
     str += _T("      mode=<string> Interpolation mode. (default: bob)\n");
     str += rgy_cmd_help_values(list_vpp_rtgmc_edi_mode);
     str += _T("      nnsize=<int> NNEDI window-size index. (default: 1, range: 0..6)\n");
@@ -17354,7 +17354,7 @@ tstring gen_cmd_help_vpp() {
     str += rgy_cmd_help_values(list_vpp_rtgmc_chroma_edi_mode);
 #endif
 #if ENABLE_VPP_FILTER_RTGMC_RETOUCH
-    str += _T("\n  [deinterlace] Deinterlace\n   --vpp-rtgmc-retouch [<param1>=<value>][,<param2>=<value>][...]\n     Standalone retouch resharpening.\n    params\n");
+    str += _T("\n  [other] Other settings\n   --vpp-rtgmc-retouch [<param1>=<value>][,<param2>=<value>][...]\n     Standalone retouch resharpening.\n    params\n");
     str += strsprintf(_T("      sharpness=<float> Vertical resharpen strength. (default: %.2f, range: 0.0..1.0)\n"), FILTER_DEFAULT_RTGMC_RETOUCH_SHARPNESS);
     str += strsprintf(_T("      limit=<float> Legacy sharpness limit. (default: %.2f, range: 0.0..1.0)\n"), FILTER_DEFAULT_RTGMC_RETOUCH_LIMIT);
     str += strsprintf(_T("      smode=<int> Resharpen mode. (default: %d, range: 0..2)\n"), FILTER_DEFAULT_RTGMC_RETOUCH_SMODE);
@@ -17368,7 +17368,7 @@ tstring gen_cmd_help_vpp() {
     str += strsprintf(_T("      tr2=<int> Effective detail-gain TR2 value. (default: %d)\n"), FILTER_DEFAULT_DEGRAIN_DELTA);
 #endif
 #if ENABLE_VPP_FILTER_RTGMC_SHIMMER_REPAIR
-    str += _T("\n  [deinterlace] Deinterlace\n   --vpp-rtgmc-shimmer-repair [<param1>=<value>][,<param2>=<value>][...]\n     Standalone shimmer repair scaffold.\n    params\n");
+    str += _T("\n  [other] Other settings\n   --vpp-rtgmc-shimmer-repair [<param1>=<value>][,<param2>=<value>][...]\n     Standalone shimmer repair scaffold.\n    params\n");
     str += _T("      stage=<string> Bare invocation is standalone; parameterized invocation defaults to rep1. (default: derived)\n");
     str += rgy_cmd_help_values(list_vpp_rtgmc_shimmer_repair_stage);
     str += _T("      mode=<string> Processing mode; currently passthrough only. (default: passthrough)\n");
