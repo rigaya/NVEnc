@@ -46,6 +46,8 @@ class NVEncFilterDenoisePmd : public NVEncFilter {
 public:
     NVEncFilterDenoisePmd();
     virtual ~NVEncFilterDenoisePmd();
+    // 反復用バッファは現在フレームから毎回作り直し、過去フレームを参照しない。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;

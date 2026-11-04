@@ -96,6 +96,8 @@ public:
     // Reset only time-dependent state (pending queues, frame counters, cache metadata).
     // GPU buffer allocations and built kernels are preserved.
     virtual void resetTemporalState() {}
+    // 未監査のフィルタや未知の設定は安全側に倒し、履歴依存として扱う。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const { return true; }
 protected:
     virtual RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames) override;
     RGY_ERR filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, cudaStream_t stream);
@@ -136,6 +138,8 @@ class NVEncFilterCspCrop : public NVEncFilter {
 public:
     NVEncFilterCspCrop();
     virtual ~NVEncFilterCspCrop();
+    // 色変換と切り出しは現在フレームと固定の変換係数だけを参照する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
@@ -174,6 +178,31 @@ class NVEncFilterResize : public NVEncFilter {
 public:
     NVEncFilterResize();
     virtual ~NVEncFilterResize();
+    // 監査済みのCUDA空間補間だけを許可し、自動選択や外部実装は履歴依存として扱う。
+    virtual bool dependsOnHistory(const RGYParamVpp& prm) const override {
+        switch (prm.resize_algo) {
+        case RGY_VPP_RESIZE_NEAREST:
+        case RGY_VPP_RESIZE_BILINEAR:
+        case RGY_VPP_RESIZE_BICUBIC:
+        case RGY_VPP_RESIZE_SPLINE16:
+        case RGY_VPP_RESIZE_SPLINE36:
+        case RGY_VPP_RESIZE_SPLINE64:
+        case RGY_VPP_RESIZE_LANCZOS2:
+        case RGY_VPP_RESIZE_LANCZOS3:
+        case RGY_VPP_RESIZE_LANCZOS4:
+        case RGY_VPP_RESIZE_LANCZOS5:
+        case RGY_VPP_RESIZE_LANCZOS6:
+        case RGY_VPP_RESIZE_LANCZOS7:
+        case RGY_VPP_RESIZE_LANCZOS8:
+        case RGY_VPP_RESIZE_AREA:
+        case RGY_VPP_RESIZE_MITCHELL:
+        case RGY_VPP_RESIZE_CATMULL_ROM:
+        case RGY_VPP_RESIZE_HERMITE:
+            return false;
+        default:
+            return true;
+        }
+    }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
@@ -230,6 +259,8 @@ class NVEncFilterPad : public NVEncFilter {
 public:
     NVEncFilterPad();
     virtual ~NVEncFilterPad();
+    // 余白は固定色で埋め、現在フレームだけを配置する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;

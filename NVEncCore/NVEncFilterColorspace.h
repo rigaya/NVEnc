@@ -142,6 +142,8 @@ class NVEncFilterColorspace : public NVEncFilter {
 public:
     NVEncFilterColorspace();
     virtual ~NVEncFilterColorspace();
+    // 生成する色変換カーネルは現在画素と固定の色変換設定だけを参照する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
     virtual RGY_ERR setupCustomFilter(const RGY_CSP cspIn, const RGYFrameInfo &frameInfo, shared_ptr<NVEncFilterParamColorspace> prm);
     virtual std::string genKernelCode();

@@ -53,6 +53,7 @@
 #include "rgy_help_selftest_cases.h"
 #include "NVEncHelpCodegenCases.h"
 #include "rgy_preview_server.h"
+#include "rgy_preview_history.h"
 #include "NVEncCore.h"
 
 static void show_version() {
@@ -467,7 +468,23 @@ int _tmain(int argc, TCHAR **argv) {
             if (parse_cmd(&params, (int)previewArgv.size() - 1, previewArgv.data()) != 0) return RGY_ERR_INVALID_PARAM;
             return run_encode_params(params, abort);
         };
-        return rgy_preview_server_main(callback, "NVEnc", VER_STR_FILEVERSION);
+        auto probe = [defaults](const std::vector<tstring>& args, bool& history) -> RGY_ERR {
+            history = true;
+            auto mergedArgs = defaults;
+            mergedArgs.insert(mergedArgs.end(), args.begin(), args.end());
+            auto previewArgv = rgy_cmd_selftest_argv(mergedArgs);
+            InEncodeVideoParam params;
+            if (parse_cmd(&params, (int)previewArgv.size() - 1, previewArgv.data()) != 0) return RGY_ERR_INVALID_PARAM;
+            if (rgy_preview_external_history(params)) return RGY_ERR_NONE;
+            if (params.vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) return RGY_ERR_NONE;
+            const auto filters = NVEncCore::CreateVppFilterOrder(&params, false, cropEnabled(params.input.crop), rgy_preview_resize_type(params.input, params.vpp));
+            for (const auto type : filters) {
+                if (rgy_preview_filter_depends_on_history(type, params.vpp)) return RGY_ERR_NONE;
+            }
+            history = false;
+            return RGY_ERR_NONE;
+        };
+        return rgy_preview_server_main(callback, "NVEnc", VER_STR_FILEVERSION, probe);
     }
 
     if (argc == 1) {

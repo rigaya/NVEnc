@@ -44,6 +44,8 @@ class NVEncFilterTransform : public NVEncFilter {
 public:
     NVEncFilterTransform();
     virtual ~NVEncFilterTransform();
+    // 固定の座標変換を現在フレームへ適用する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;

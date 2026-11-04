@@ -46,6 +46,8 @@ class NVEncFilterDenoiseDct : public NVEncFilter {
 public:
     NVEncFilterDenoiseDct();
     virtual ~NVEncFilterDenoiseDct();
+    // ブロック変換と閾値処理は現在フレーム内で完結する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;

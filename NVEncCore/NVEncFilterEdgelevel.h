@@ -44,6 +44,8 @@ class NVEncFilterEdgelevel : public NVEncFilter {
 public:
     NVEncFilterEdgelevel();
     virtual ~NVEncFilterEdgelevel();
+    // 現在フレーム内の近傍画素と固定の係数だけを参照する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;

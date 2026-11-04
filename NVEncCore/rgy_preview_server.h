@@ -29,6 +29,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <functional>
+#include <deque>
 #include <mutex>
 #include <thread>
 #include <iostream>
@@ -41,6 +42,7 @@
 #endif
 
 using RGYPreviewRunFunc = std::function<RGY_ERR(const std::vector<tstring>&, std::atomic<bool>*)>;
+using RGYPreviewProbeFunc = std::function<RGY_ERR(const std::vector<tstring>&, bool&)>;
 
 // 出力先の上書き、標準入力の横取り、制御用コマンドの混入を防ぐ。
 static inline bool rgy_preview_valid_args(const std::vector<tstring>& args) {
@@ -59,18 +61,19 @@ static inline bool rgy_preview_valid_args(const std::vector<tstring>& args) {
     return true;
 }
 
-static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *encoder, const char *encver) {
+static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *encoder, const char *encver, RGYPreviewProbeFunc probe = {}) {
 #if defined(_WIN32)
     if (_setmode(_fileno(stdin), _O_BINARY) < 0 || _setmode(_fileno(stdout), _O_BINARY) < 0) return 1;
 #endif
-    struct Request { int64_t id = 0; std::vector<tstring> args; };
+    struct Request { int64_t id = 0; std::vector<tstring> args; bool probe = false; };
     std::mutex mutex;
     std::condition_variable cv;
-    Request pending;
-    bool hasPending = false, quitting = false, active = false;
+    // probeは到着順を保ち、未実行runだけを最新要求へ置換する。新runはそれ以前のprobeを追い越さない。
+    std::deque<Request> pending;
+    bool quitting = false, active = false;
     int64_t activeId = 0;
     std::atomic<bool> abort(false);
-    fprintf(stdout, "RGYPREVIEW READY version=1 encoder=%s encver=%s\n", encoder, encver);
+    fprintf(stdout, "RGYPREVIEW READY version=1 encoder=%s encver=%s%s\n", encoder, encver, probe ? " probe=1" : "");
     fflush(stdout);
     std::thread reader([&]() {
         std::string line;
@@ -80,11 +83,12 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
                 const auto json = nlohmann::json::parse(line);
                 const auto cmd = json.at("cmd").get<std::string>();
                 if (cmd == "quit") break;
-                if (cmd != "run" && cmd != "cancel") throw std::runtime_error("cmd");
+                if (cmd != "run" && cmd != "cancel" && cmd != "probe") throw std::runtime_error("cmd");
                 if (!json.at("id").is_number_integer()) throw std::runtime_error("id");
                 Request req;
                 req.id = json.at("id").get<int64_t>();
-                if (cmd == "run") {
+                req.probe = cmd == "probe";
+                if (cmd == "run" || req.probe) {
                     if (!json.at("args").is_array()) throw std::runtime_error("args");
                     for (const auto& arg : json.at("args")) {
                         const auto str = arg.get<std::string>();
@@ -94,12 +98,17 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
                 }
                 std::lock_guard<std::mutex> lock(mutex);
                 if (cmd == "run") {
-                    pending = std::move(req);
-                    hasPending = true;
+                    pending.erase(std::remove_if(pending.begin(), pending.end(), [](const Request& item) { return !item.probe; }), pending.end());
+                    pending.push_back(std::move(req));
                     if (active) abort.store(true);
+                } else if (req.probe) {
+                    // 進行中のrunは取り消さず、ENDの後に同じワーカースレッドで解析する。
+                    pending.push_back(std::move(req));
                 } else {
                     if (active && activeId == req.id) abort.store(true);
-                    if (hasPending && pending.id == req.id) hasPending = false;
+                    pending.erase(std::remove_if(pending.begin(), pending.end(), [&](const Request& item) {
+                        return !item.probe && item.id == req.id;
+                    }), pending.end());
                 }
                 cv.notify_one();
             } catch (const std::exception&) {
@@ -108,7 +117,7 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
         }
         std::lock_guard<std::mutex> lock(mutex);
         quitting = true;
-        hasPending = false;
+        pending.clear();
         abort.store(true);
         cv.notify_one();
     });
@@ -116,13 +125,27 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
         Request req;
         {
             std::unique_lock<std::mutex> lock(mutex);
-            cv.wait(lock, [&]() { return quitting || hasPending; });
+            cv.wait(lock, [&]() { return quitting || !pending.empty(); });
             if (quitting) break;
-            req = std::move(pending);
-            hasPending = false;
-            active = true;
+            req = std::move(pending.front());
+            pending.pop_front();
+            active = !req.probe;
             activeId = req.id;
             abort.store(false);
+        }
+        if (req.probe) {
+            bool history = true;
+            RGY_ERR rc = RGY_ERR_INVALID_PARAM;
+            if (probe && rgy_preview_valid_args(req.args)) {
+                req.args.insert(req.args.end(), { _T("-c"), _T("raw"), _T("--y4m-timestamp"), _T("-o"), _T("-") });
+                try { rc = probe(req.args, history); }
+                catch (...) { rc = RGY_ERR_UNKNOWN; }
+            }
+            // 失敗時は履歴なしと誤認させず、応答自体は常に1行で完了する。
+            fprintf(stdout, "RGYPREVIEW PROBE id=%lld history=%d rc=%d\n", (long long)req.id,
+                rc == RGY_ERR_NONE && !history ? 0 : 1, (int)rc);
+            fflush(stdout);
+            continue;
         }
         fprintf(stdout, "RGYPREVIEW BEGIN id=%lld\n", (long long)req.id);
         fflush(stdout);

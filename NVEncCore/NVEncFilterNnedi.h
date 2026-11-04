@@ -82,6 +82,17 @@ class NVEncFilterNnedi : public NVEncFilter {
 public:
     NVEncFilterNnedi();
     virtual ~NVEncFilterNnedi();
+    // 単一フィールド補間は現在フレーム内で完結するが、bob系は出力レートを変える。
+    virtual bool dependsOnHistory(const RGYParamVpp& prm) const override {
+        switch (prm.nnedi.field) {
+        case VPP_NNEDI_FIELD_AUTO:
+        case VPP_NNEDI_FIELD_TOP:
+        case VPP_NNEDI_FIELD_BOTTOM:
+            return false;
+        default:
+            return true;
+        }
+    }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 
     RGY_ERR validateParam(const RGYNnediParam& prm);

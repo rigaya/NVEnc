@@ -21,6 +21,8 @@ class NVEncFilterFineDehalo : public NVEncFilter {
 public:
     NVEncFilterFineDehalo();
     virtual ~NVEncFilterFineDehalo();
+    // 内部のハロー補正と輪郭マスクは現在フレーム内で完結する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;

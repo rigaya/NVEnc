@@ -46,6 +46,8 @@ class NVEncFilterDenoiseKnn : public NVEncFilter {
 public:
     NVEncFilterDenoiseKnn();
     virtual ~NVEncFilterDenoiseKnn();
+    // 時間方向の参照がない設定だけを許可し、未知の値も履歴依存として扱う。
+    virtual bool dependsOnHistory(const RGYParamVpp& prm) const override { return prm.knn.d != 0; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;

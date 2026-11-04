@@ -58,6 +58,8 @@ class NVEncFilterDenoiseNLMeans : public NVEncFilter {
 public:
     NVEncFilterDenoiseNLMeans();
     virtual ~NVEncFilterDenoiseNLMeans();
+    // 時間方向の参照がない設定だけを許可し、未知の値も履歴依存として扱う。
+    virtual bool dependsOnHistory(const RGYParamVpp& prm) const override { return prm.nlmeans.d != 0; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
 #if ENABLE_VPP_NLMEANS

@@ -45,6 +45,8 @@ class NVEncFilterTweak : public NVEncFilter {
 public:
     NVEncFilterTweak();
     virtual ~NVEncFilterTweak();
+    // 色調整と内部の色変換は現在フレームと固定パラメータだけを参照する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;

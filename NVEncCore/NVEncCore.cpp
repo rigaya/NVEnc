@@ -2992,7 +2992,8 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     return RGY_ERR_NONE;
 }
 
-std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoParam *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired) {
+// デバイスに依存する置換より前の列挙を、通常経路とpreviewの履歴判定で共有する。
+std::vector<VppType> NVEncCore::CreateVppFilterOrder(const InEncodeVideoParam *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired) {
     std::vector<VppType> filterPipeline;
     filterPipeline.reserve((size_t)VppType::CL_MAX);
     const bool useInputCspForDeint = inputParam->vpp.deintCsp == VppDeintCsp::Input && vpp_deinterlacer_filter_count_wo_vppnv(inputParam) > 0;
@@ -3119,6 +3120,12 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.anime4k.enable)     filterPipeline.push_back(VppType::CL_ANIME4K);
     if (inputParam->vpp.fruc.enable)     filterPipeline.push_back(VppType::CL_FRUC);
     if (inputParam->vppnv.nvvfxFrameGen.enable) filterPipeline.push_back(VppType::NVVFX_FRAME_GENERATION);
+
+    return filterPipeline;
+}
+
+std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoParam *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired) {
+    auto filterPipeline = CreateVppFilterOrder(inputParam, cspConvRequired, cropRequired, resizeRequired);
 
     if (filterPipeline.size() == 0) {
         return filterPipeline;

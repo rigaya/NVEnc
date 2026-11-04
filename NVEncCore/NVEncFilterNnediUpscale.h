@@ -57,6 +57,8 @@ class NVEncFilterNnediUpscale : public NVEncFilter {
 public:
     NVEncFilterNnediUpscale();
     virtual ~NVEncFilterNnediUpscale();
+    // 内部補間は固定フィールドで現在フレームだけを拡大し、出力レートを変えない。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 
 protected:

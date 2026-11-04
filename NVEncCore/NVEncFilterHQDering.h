@@ -20,6 +20,8 @@ class NVEncFilterHQDering : public NVEncFilter {
 public:
     NVEncFilterHQDering();
     virtual ~NVEncFilterHQDering();
+    // 輪郭マスクとぼかしは現在フレーム内で完結する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;

@@ -44,6 +44,8 @@ class NVEncFilterWarpsharp : public NVEncFilter {
 public:
     NVEncFilterWarpsharp();
     virtual ~NVEncFilterWarpsharp();
+    // 輪郭マスクと変形座標は現在フレームだけから求める。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamWarpsharp> prm);
