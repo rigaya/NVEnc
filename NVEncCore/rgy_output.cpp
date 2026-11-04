@@ -43,6 +43,10 @@ void rgy_output_set_preview_server_mode(bool enabled) {
     g_preview_server_mode = enabled;
 }
 
+bool rgy_output_is_preview_server_mode() {
+    return g_preview_server_mode;
+}
+
 static FILE *rgy_output_stdout() {
     if (!g_preview_server_mode) return stdout;
 #if defined(_WIN32) || defined(_WIN64)

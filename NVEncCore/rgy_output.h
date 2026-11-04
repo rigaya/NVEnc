@@ -56,6 +56,8 @@ using std::shared_ptr;
 
 // 常駐プレビューではライターの破棄後も標準出力を保持する。
 void rgy_output_set_preview_server_mode(bool enabled);
+// 常駐プレビューで共有する動作モードを参照する。
+bool rgy_output_is_preview_server_mode();
 
 enum OutputType {
     OUT_TYPE_NONE = 0,
