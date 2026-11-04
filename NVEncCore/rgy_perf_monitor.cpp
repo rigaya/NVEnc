@@ -36,6 +36,7 @@
 #include <string>
 #include "rgy_status.h"
 #include "rgy_perf_monitor.h"
+#include "rgy_output.h"
 #include "rgy_resource.h"
 #include "cpu_info.h"
 #include "rgy_osdep.h"
@@ -641,6 +642,10 @@ std::string CPerfMonitor::write_header(int nSelect) {
 
 #if ENABLE_PERF_COUNTER
 void CPerfMonitor::runCounterThread() {
+#if ENCODER_QSV
+    // Init前とmonitor初期化内の両入口を止め、常駐でWMIthreadを生成しない。
+    if (rgy_output_is_preview_server_mode()) return;
+#endif
     if (!m_perfCounter) {
         OSVERSIONINFOEXW osver;
         getOSVersion(&osver);
@@ -1204,7 +1209,13 @@ void CPerfMonitor::loader(void *prm) {
 
 void CPerfMonitor::run() {
     m_threadParam.apply(GetCurrentThread());
-    AddMessage(RGY_LOG_DEBUG, _T("Set perf monitor thread param %s.\n"), m_threadParam.desc().c_str());
+#if ENCODER_QSV
+    // 常駐の旧loggerをquietへ変える時点では、workerがlevelを読まないようにする。
+    if (!rgy_output_is_preview_server_mode())
+#endif
+    {
+        AddMessage(RGY_LOG_DEBUG, _T("Set perf monitor thread param %s.\n"), m_threadParam.desc().c_str());
+    }
     while (!m_bAbort) {
         auto timenow = std::chrono::system_clock::now();
         if (m_nInterval <= 100 || timenow - m_refreshedTime > std::chrono::milliseconds(m_nInterval)) {

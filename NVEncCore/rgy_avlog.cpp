@@ -26,6 +26,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include <memory>
+#include <mutex>
 #include "rgy_version.h"
 
 #if ENABLE_AVSW_READER
@@ -34,6 +35,8 @@
 #include "rgy_avlog.h"
 
 static std::weak_ptr<RGYLog> g_pQSVLog;
+// 登録の切替とcallbackからのweak_ptr・行頭状態へのアクセスを同期する。
+static std::mutex g_avLogMutex;
 static int print_prefix = 1;
 static std::atomic<bool> g_bSetCustomLog(false);
 
@@ -43,7 +46,12 @@ static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list v
     char mes[4096];
     va_list vl2;
     va_copy(vl2, vl);
-    av_log_format_line(ptr, level, fmt, vl, mes, sizeof(mes), &print_prefix);
+    std::shared_ptr<RGYLog> pQSVLog;
+    {
+        std::lock_guard<std::mutex> lock(g_avLogMutex);
+        av_log_format_line(ptr, level, fmt, vl, mes, sizeof(mes), &print_prefix);
+        pQSVLog = g_pQSVLog.lock();
+    }
     if (rgy_log_level > RGY_LOG_DEBUG) {
         // 不要なメッセージをフィルター
         if (strstr(mes, "Skipping NAL unit") != nullptr) {
@@ -51,7 +59,7 @@ static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list v
             return;
         }
     }
-    if (auto pQSVLog = g_pQSVLog.lock()) {
+    if (pQSVLog) {
         if (rgy_log_level >= pQSVLog->getLogLevel(RGY_LOGT_LIBAV))  {
             if (pQSVLog->logFileAvail()) {
                 pQSVLog->write_log(rgy_log_level, RGY_LOGT_LIBAV, char_to_tstring(mes, CP_UTF8).c_str(), true);
@@ -63,12 +71,24 @@ static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list v
 }
 
 void av_qsv_log_set(std::shared_ptr<RGYLog>& pQSVLog) {
+    std::lock_guard<std::mutex> lock(g_avLogMutex);
     g_pQSVLog = pQSVLog;
     g_bSetCustomLog = true;
     av_log_set_callback(av_qsv_log_callback);
 }
 
 void av_qsv_log_free() {
+    std::lock_guard<std::mutex> lock(g_avLogMutex);
+    if (g_bSetCustomLog) {
+        g_bSetCustomLog = false;
+        av_log_set_callback(av_log_default_callback);
+        g_pQSVLog.reset();
+    }
+}
+
+void av_qsv_log_free_owner(const std::shared_ptr<RGYLog>& owner) {
+    std::lock_guard<std::mutex> lock(g_avLogMutex);
+    if (!owner || g_pQSVLog.lock() != owner) return;
     if (g_bSetCustomLog) {
         g_bSetCustomLog = false;
         av_log_set_callback(av_log_default_callback);

@@ -33,16 +33,159 @@
 #include <mutex>
 #include <thread>
 #include <iostream>
+#include <utility>
+#include <stdexcept>
 #include "../json/json.hpp"
 #include "rgy_util.h"
 #include "rgy_err.h"
 #if defined(_WIN32)
 #include <io.h>
 #include <fcntl.h>
+#include <Windows.h>
+#else
+#include <poll.h>
+#include <unistd.h>
+#include <cerrno>
 #endif
 
-using RGYPreviewRunFunc = std::function<RGY_ERR(const std::vector<tstring>&, std::atomic<bool>*)>;
+// 非空cleanupは出力seal済みの所有権を渡す。既存のRGY_ERR返却callbackは暗黙変換で維持する。
+struct RGYPreviewRunResult {
+    RGY_ERR rc;
+    std::function<void()> cleanup;
+    RGYPreviewRunResult(RGY_ERR value = RGY_ERR_NONE) : rc(value) {}
+    RGYPreviewRunResult(RGY_ERR value, std::function<void()> release) : rc(value), cleanup(std::move(release)) {}
+    RGYPreviewRunResult(RGYPreviewRunResult&&) noexcept = default;
+    RGYPreviewRunResult& operator=(RGYPreviewRunResult&&) noexcept = default;
+    RGYPreviewRunResult(const RGYPreviewRunResult&) = delete;
+    RGYPreviewRunResult& operator=(const RGYPreviewRunResult&) = delete;
+};
+using RGYPreviewRunFunc = std::function<RGYPreviewRunResult(const std::vector<tstring>&, std::atomic<bool>*)>;
+
+// 実行中とcaptureの最終解放までを1slotとして数え、旧cleanupと次pipelineの最大2個を保つ。
+class RGYPreviewDeferredCleanup {
+public:
+    struct Statistics { size_t submitted = 0, completed = 0, capacityWaits = 0, failures = 0; bool started = false, busy = false; };
+    using FailureHandler = std::function<void(int64_t)>;
+    // CPUfixtureのthread生成失敗注入にも使える。空なら通常のstd::threadを生成する。
+    using WorkerStarter = std::function<std::thread(std::function<void()>)>;
+private:
+    mutable std::mutex m_mutex;
+    std::mutex m_joinMutex;
+    std::condition_variable m_cv;
+    bool m_stopping = false;
+    std::function<void()> m_job;
+    int64_t m_jobId = 0;
+    FailureHandler m_failure;
+    WorkerStarter m_start;
+    Statistics m_stats;
+    std::thread m_thread;
+    void worker() {
+        for (;;) {
+            std::function<void()> job;
+            int64_t id;
+            {
+                std::unique_lock<std::mutex> lock(m_mutex);
+                m_cv.wait(lock, [&]() { return m_stopping || !!m_job; });
+                if (!m_job) break;
+                job = std::move(m_job);
+                m_job = {};
+                id = m_jobId;
+            }
+            bool failed = false;
+            try { job(); }
+            catch (...) { failed = true; }
+            // GPU資源等を持つcaptureもmutex外で解放してから、slotを空ける。
+            job = {};
+            if (failed && m_failure) {
+                try { m_failure(id); } catch (...) { }
+            }
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                ++m_stats.completed;
+                if (failed) ++m_stats.failures;
+                m_stats.busy = false;
+            }
+            m_cv.notify_all();
+        }
+    }
+public:
+    explicit RGYPreviewDeferredCleanup(FailureHandler failure = {}, WorkerStarter start = {})
+        : m_failure(std::move(failure)), m_start(std::move(start)) {}
+    ~RGYPreviewDeferredCleanup() { finish(); }
+    RGYPreviewDeferredCleanup(const RGYPreviewDeferredCleanup&) = delete;
+    RGYPreviewDeferredCleanup& operator=(const RGYPreviewDeferredCleanup&) = delete;
+    bool defer(std::function<void()>& job, int64_t id = 0) {
+        if (!job) return true;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        if (m_stats.busy) {
+            ++m_stats.capacityWaits;
+            m_cv.wait(lock, [&]() { return !m_stats.busy || m_stopping; });
+        }
+        if (m_stopping || m_stats.failures) return false;
+        if (!m_stats.started) {
+            // 生成に失敗してもjobは呼出し側へ残し、同期回収できるようにする。
+            m_thread = m_start ? m_start([this]() { worker(); }) : std::thread([this]() { worker(); });
+            if (!m_thread.joinable()) throw std::runtime_error("preview cleanup worker");
+            m_stats.started = true;
+        }
+        m_stats.busy = true;
+        ++m_stats.submitted;
+        m_jobId = id;
+        m_job = std::move(job);
+        job = {};
+        lock.unlock();
+        m_cv.notify_all();
+        return true;
+    }
+    bool finish() {
+        std::lock_guard<std::mutex> joinLock(m_joinMutex);
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_stopping = true;
+        }
+        m_cv.notify_all();
+        if (m_thread.joinable()) m_thread.join();
+        return statistics().failures == 0;
+    }
+    Statistics statistics() const { std::lock_guard<std::mutex> lock(m_mutex); return m_stats; }
+};
 using RGYPreviewProbeFunc = std::function<RGY_ERR(const std::vector<tstring>&, bool&)>;
+
+// 行途中の入力でも終了を観測できるよう、stdinだけを小さいbufferで読む。
+class RGYPreviewStdinReader {
+    char m_buffer[4096];
+    size_t m_position = 0, m_length = 0;
+public:
+    bool readLine(std::string& line, const std::function<bool()>& stopping) {
+        line.clear();
+        for (;;) {
+            if (stopping()) return false;
+            if (m_position < m_length) {
+                const char *first = m_buffer + m_position;
+                const char *last = m_buffer + m_length;
+                const char *end = std::find(first, last, '\n');
+                line.append(first, static_cast<size_t>(end - first));
+                m_position += static_cast<size_t>(end - first);
+                if (m_position < m_length) { ++m_position; return true; }
+            }
+#if defined(_WIN32)
+            const int count = _read(_fileno(stdin), m_buffer, static_cast<unsigned int>(sizeof(m_buffer)));
+            if (count <= 0) return !stopping() && !line.empty();
+#else
+            pollfd input = { STDIN_FILENO, POLLIN, 0 };
+            const int ready = poll(&input, 1, 50);
+            if (ready < 0 && errno == EINTR) continue;
+            if (ready < 0) return false;
+            if (!ready) continue;
+            const auto count = read(STDIN_FILENO, m_buffer, sizeof(m_buffer));
+            if (count < 0 && errno == EINTR) continue;
+            if (count <= 0) return !stopping() && !line.empty();
+#endif
+            m_position = 0;
+            m_length = static_cast<size_t>(count);
+        }
+    }
+};
 
 // 出力先の上書き、標準入力の横取り、制御用コマンドの混入を防ぐ。
 static inline bool rgy_preview_valid_args(const std::vector<tstring>& args) {
@@ -73,11 +216,25 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
     bool quitting = false, active = false;
     int64_t activeId = 0;
     std::atomic<bool> abort(false);
+    bool cleanupFailed = false;
+    int64_t cleanupFailureId = 0;
+    auto cleanupFailure = [&](int64_t id) {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (!cleanupFailed) cleanupFailureId = id;
+        cleanupFailed = true;
+        quitting = true;
+        pending.clear();
+        abort.store(true);
+        cv.notify_one();
+    };
+    RGYPreviewDeferredCleanup cleanup(cleanupFailure);
     fprintf(stdout, "RGYPREVIEW READY version=1 encoder=%s encver=%s%s\n", encoder, encver, probe ? " probe=1" : "");
     fflush(stdout);
     std::thread reader([&]() {
         std::string line;
-        while (std::getline(std::cin, line)) {
+        RGYPreviewStdinReader input;
+        auto stopping = [&]() { std::lock_guard<std::mutex> lock(mutex); return quitting; };
+        while (input.readLine(line, stopping)) {
             if (!line.empty() && line.back() == '\r') line.pop_back();
             try {
                 const auto json = nlohmann::json::parse(line);
@@ -141,6 +298,10 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
                 try { rc = probe(req.args, history); }
                 catch (...) { rc = RGY_ERR_UNKNOWN; }
             }
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                if (cleanupFailed) rc = RGY_ERR_UNKNOWN;
+            }
             // 失敗時は履歴なしと誤認させず、応答自体は常に1行で完了する。
             fprintf(stdout, "RGYPREVIEW PROBE id=%lld history=%d rc=%d\n", (long long)req.id,
                 rc == RGY_ERR_NONE && !history ? 0 : 1, (int)rc);
@@ -150,12 +311,29 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
         fprintf(stdout, "RGYPREVIEW BEGIN id=%lld\n", (long long)req.id);
         fflush(stdout);
         fprintf(stderr, "RGYPREVIEW BEGIN id=%lld\n", (long long)req.id);
-        RGY_ERR rc = RGY_ERR_INVALID_PARAM;
+        RGYPreviewRunResult result(RGY_ERR_INVALID_PARAM);
         if (rgy_preview_valid_args(req.args)) {
-            req.args.insert(req.args.end(), { _T("-c"), _T("raw"), _T("--y4m-timestamp"), _T("-o"), _T("-") });
-            try { rc = run(req.args, &abort); }
-            catch (...) { rc = RGY_ERR_UNKNOWN; }
+            try {
+                req.args.insert(req.args.end(), { _T("-c"), _T("raw"), _T("--y4m-timestamp"), _T("-o"), _T("-") });
+                result = run(req.args, &abort);
+            } catch (...) { result = RGY_ERR_UNKNOWN; }
         }
+        if (result.cleanup) {
+            bool deferred = false;
+            try { deferred = cleanup.defer(result.cleanup, req.id); }
+            catch (...) { /* thread生成失敗等は関数を残したまま同期回収する。 */ }
+            if (!deferred) {
+                try {
+                    auto release = std::move(result.cleanup);
+                    release();
+                } catch (...) { cleanupFailure(req.id); }
+            }
+        }
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (cleanupFailed) result.rc = RGY_ERR_UNKNOWN;
+        }
+        const RGY_ERR rc = result.rc;
         fflush(stdout);
         fprintf(stdout, "RGYPREVIEW END id=%lld rc=%d\n", (long long)req.id, (int)rc);
         fflush(stdout);
@@ -165,6 +343,23 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
             active = false;
         }
     }
+#if defined(_WIN32)
+    // read直前の競合でも停止できるよう、終了まで同期I/Oのcancelを繰り返す。
+    // 通常quit/EOFではreader自体が終了しており、追加の読取threadは作らない。
+    bool cancelReader;
+    { std::lock_guard<std::mutex> lock(mutex); cancelReader = cleanupFailed; }
+    if (cancelReader) {
+        while (WaitForSingleObject(reader.native_handle(), 0) == WAIT_TIMEOUT) {
+            CancelSynchronousIo(reader.native_handle());
+            WaitForSingleObject(reader.native_handle(), 50);
+        }
+    }
+#endif
     reader.join();
+    const bool cleaned = cleanup.finish();
+    if (!cleaned || cleanupFailed) {
+        fprintf(stderr, "RGYPREVIEW: Deferred cleanup failed id=%lld\n", (long long)cleanupFailureId);
+        return 1;
+    }
     return 0;
 }
