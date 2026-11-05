@@ -37,9 +37,8 @@
 #include "rgy_avutil.h"
 
 void av_qsv_log_set(std::shared_ptr<RGYLog>& pQSVLog);
-void av_qsv_log_free();
-// 旧要求の後片付けが、新要求のグローバルなログ登録を解除しないよう所有者を確認する。
-void av_qsv_log_free_owner(const std::shared_ptr<RGYLog>& owner);
+// 所有者を指定すると一致する登録だけを解除し、省略時は従来どおり無条件で解除する。
+void av_qsv_log_free(const std::shared_ptr<RGYLog>& owner = {});
 
 #endif //ENABLE_AVSW_READER
 

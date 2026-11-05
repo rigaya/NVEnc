@@ -1209,13 +1209,7 @@ void CPerfMonitor::loader(void *prm) {
 
 void CPerfMonitor::run() {
     m_threadParam.apply(GetCurrentThread());
-#if ENCODER_QSV
-    // 常駐の旧loggerをquietへ変える時点では、workerがlevelを読まないようにする。
-    if (!rgy_output_is_preview_server_mode())
-#endif
-    {
-        AddMessage(RGY_LOG_DEBUG, _T("Set perf monitor thread param %s.\n"), m_threadParam.desc().c_str());
-    }
+    AddMessage(RGY_LOG_DEBUG, _T("Set perf monitor thread param %s.\n"), m_threadParam.desc().c_str());
     while (!m_bAbort) {
         auto timenow = std::chrono::system_clock::now();
         if (m_nInterval <= 100 || timenow - m_refreshedTime > std::chrono::milliseconds(m_nInterval)) {
