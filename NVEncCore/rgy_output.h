@@ -525,6 +525,9 @@ public:
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) override;
 
+    // 出力本体とUV読出用の領域を同じ確保に置き、解像度が変わっても容量を再利用する。
+    std::unique_ptr<uint8_t, aligned_malloc_deleter> m_frameBuffer;
+    size_t m_frameBufferCapacity = 0;
     bool m_bY4m;
     bool m_y4mTimestamp;
     rgy_rational<int> m_outputTimebase;

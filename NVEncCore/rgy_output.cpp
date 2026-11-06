@@ -1186,22 +1186,22 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         return RGY_ERR_NULL_PTR;
     }
 
+    const auto frame = pSurface->frameInfo();
+
 #if ENABLE_AVSW_READER
     // 暖機の入力は周期フィルタへ渡し、S未満の出力だけをパイプへ書く前に落とす。
-    if (m_previewCutoff && av_compare_ts(pSurface->timestamp(), av_make_q(m_outputTimebase), m_previewStart, av_make_q(m_previewTimebase)) < 0) {
+    if (m_previewCutoff && av_compare_ts(frame.timestamp, av_make_q(m_outputTimebase), m_previewStart, av_make_q(m_previewTimebase)) < 0) {
         return RGY_ERR_NONE;
     }
 #endif
 
-    if (m_sourceHWMem) {
-        if (m_readBuffer.get() == nullptr) {
-            m_readBuffer.reset((uint8_t *)_aligned_malloc(pSurface->pitch() + 128, 16));
-        }
+    if (frame.csp <= RGY_CSP_NA || frame.csp >= RGY_CSP_COUNT) {
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (m_bY4m) {
         if (!m_y4mHeaderWritten) {
-            auto csp = pSurface->csp();
+            auto csp = frame.csp;
             if (csp == RGY_CSP_NV12) {
                 csp = RGY_CSP_YV12;
             } else if (csp == RGY_CSP_P010) {
@@ -1213,8 +1213,8 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         if (m_y4mTimestamp) {
             char frameHeader[64] = { 0 };
             const double timebaseSec = (double)m_outputTimebase.n() / m_outputTimebase.d();
-            const double timestampSec = pSurface->timestamp() * timebaseSec;
-            const int64_t duration = pSurface->duration();
+            const double timestampSec = frame.timestamp * timebaseSec;
+            const int64_t duration = frame.duration;
             const int frameHeaderLen = (duration > 0)
                 ? snprintf(frameHeader, sizeof(frameHeader), "FRAME Xts=%.6f Xdur=%.6f\n", timestampSec, duration * timebaseSec)
                 : snprintf(frameHeader, sizeof(frameHeader), "FRAME Xts=%.6f\n", timestampSec);
@@ -1228,30 +1228,15 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         }
     }
 
-    auto loadLineToBuffer = [](uint8_t *ptrBuf, uint8_t *ptrSrc, const int pitch) {
-#if (defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)) && ENCODER_QSV
-        for (int i = 0; i < pitch; i += 128, ptrSrc += 128, ptrBuf += 128) {
-            __m128i x0 = _mm_stream_load_si128((__m128i *)(ptrSrc +   0));
-            __m128i x1 = _mm_stream_load_si128((__m128i *)(ptrSrc +  16));
-            __m128i x2 = _mm_stream_load_si128((__m128i *)(ptrSrc +  32));
-            __m128i x3 = _mm_stream_load_si128((__m128i *)(ptrSrc +  48));
-            __m128i x4 = _mm_stream_load_si128((__m128i *)(ptrSrc +  64));
-            __m128i x5 = _mm_stream_load_si128((__m128i *)(ptrSrc +  80));
-            __m128i x6 = _mm_stream_load_si128((__m128i *)(ptrSrc +  96));
-            __m128i x7 = _mm_stream_load_si128((__m128i *)(ptrSrc + 112));
-            _mm_store_si128((__m128i *)(ptrBuf +   0), x0);
-            _mm_store_si128((__m128i *)(ptrBuf +  16), x1);
-            _mm_store_si128((__m128i *)(ptrBuf +  32), x2);
-            _mm_store_si128((__m128i *)(ptrBuf +  48), x3);
-            _mm_store_si128((__m128i *)(ptrBuf +  64), x4);
-            _mm_store_si128((__m128i *)(ptrBuf +  80), x5);
-            _mm_store_si128((__m128i *)(ptrBuf +  96), x6);
-            _mm_store_si128((__m128i *)(ptrBuf + 112), x7);
-        }
-#else
-        memcpy(ptrBuf, ptrSrc, pitch);
-#endif
-    };
+    const auto csp = frame.csp;
+    const auto chromaFormat = RGY_CSP_CHROMA_FORMAT[csp];
+    if (chromaFormat != RGY_CHROMAFMT_YUV420 && chromaFormat != RGY_CHROMAFMT_YUV444) {
+        AddMessage(RGY_LOG_ERROR, _T("Unsupported colorspace %s.\n"), RGY_CSP_NAMES[csp]);
+        return RGY_ERR_INVALID_COLOR_FORMAT;
+    }
+    if (frame.width <= 0 || frame.height <= 0) {
+        return RGY_ERR_INVALID_PARAM;
+    }
 
     auto crop = initCrop();
 #if ENCODER_QSV
@@ -1259,115 +1244,162 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         crop = mfxsurf->crop();
     }
 #endif
-    const int pixSize = RGY_CSP_BIT_DEPTH[pSurface->csp()] > 8 ? 2 : 1;
-    // P010は10bitの値を16bitコンテナのMSB側に詰めて保持しているため、y4m(420p10)として出力するにはLSB詰めに戻す
-    // (RGY_CSP_BIT_DEPTH[RGY_CSP_P010]は16を返すため、シフト量は16-10=6を直接指定する)
-    const int lumaShiftDown = (pSurface->csp() == RGY_CSP_P010) ? RGY_CSP_P010_SHIFT_TO_10BIT : 0;
-    if (   RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV420
-        || RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV444) {
-        const uint32_t lumaWidthBytes = pSurface->width() * pixSize;
-        const uint32_t cropOffset = crop.e.up * pSurface->pitch() + crop.e.left * pixSize;
-        if (m_sourceHWMem || lumaShiftDown > 0) {
-            if (m_readBuffer.get() == nullptr) {
-                m_readBuffer.reset((uint8_t *)_aligned_malloc(pSurface->pitch() + 128, 16));
-            }
-            for (decltype(pSurface->height()) j = 0; j < pSurface->height(); j++) {
-                uint8_t *ptrBuf = m_readBuffer.get();
-                uint8_t *ptrSrc = pSurface->ptrY() + (crop.e.up + j) * pSurface->pitch();
-                if (m_sourceHWMem) {
-                    loadLineToBuffer(ptrBuf, ptrSrc, pSurface->pitch());
-                } else {
-                    memcpy(ptrBuf, ptrSrc, pSurface->pitch());
-                }
-                if (lumaShiftDown > 0) {
-                    uint16_t *ptrLine = (uint16_t *)(ptrBuf + crop.e.left * pixSize);
-                    for (decltype(pSurface->width()) i = 0; i < pSurface->width(); i++) {
-                        ptrLine[i] >>= lumaShiftDown;
-                    }
-                }
-                WRITE_CHECK(fwrite(ptrBuf + crop.e.left * pixSize, 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
-            }
-        } else {
-            for (decltype(pSurface->height()) j = 0; j < pSurface->height(); j++) {
-                WRITE_CHECK(fwrite(pSurface->ptrY() + cropOffset + j * pSurface->pitch(), 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
-            }
-        }
-    } else {
-        AddMessage(RGY_LOG_ERROR, _T("Unsupported colorspace %s.\n"), RGY_CSP_NAMES[pSurface->csp()]);
-        return RGY_ERR_INVALID_COLOR_FORMAT;
+    if (crop.e.left < 0 || crop.e.up < 0) {
+        return RGY_ERR_INVALID_PARAM;
     }
 
-    uint32_t frameSize = 0;
-    if (   pSurface->csp() == RGY_CSP_NV12
-        || pSurface->csp() == RGY_CSP_P010) {
-        const uint32_t widthUV = pSurface->width() >> 1;
-        const uint32_t heightUV = pSurface->height() >> 1;
-        const uint32_t planeOffsetUV = ALIGN32((widthUV * heightUV + 32) * pixSize);
-        if (!m_UVBuffer) {
-            m_UVBuffer.reset((uint8_t *)_aligned_malloc(planeOffsetUV * 2, 32));
+    const int pixSize = RGY_CSP_BIT_DEPTH[csp] > 8 ? 2 : 1;
+    const bool splitUV = csp == RGY_CSP_NV12 || csp == RGY_CSP_P010;
+    const int planeCount = splitUV ? 3 : RGY_CSP_PLANES[csp];
+    // getterはgetInfo()の変換・付加情報コピーを伴うため、行や画素のループへ持ち込まない。
+    struct OutputPlane {
+        const uint8_t *src = nullptr;
+        size_t pitch = 0;
+        size_t rowBytes = 0;
+        size_t rows = 0;
+        size_t offset = 0;
+    };
+    std::array<OutputPlane, RGY_MAX_PLANES> planes;
+    size_t frameBytes = 0;
+    const size_t cropLeftBytes = (size_t)crop.e.left * pixSize;
+    for (int iplane = 0; iplane < planeCount; iplane++) {
+        auto& outputPlane = planes[iplane];
+        const int subsample = iplane > 0 && chromaFormat == RGY_CHROMAFMT_YUV420 ? 1 : 0;
+        outputPlane.rows = (size_t)(frame.height >> subsample);
+        outputPlane.rowBytes = (size_t)(frame.width >> subsample) * pixSize;
+        outputPlane.offset = frameBytes;
+        frameBytes += outputPlane.rowBytes * outputPlane.rows;
+        if ((splitUV && iplane > 0) || outputPlane.rowBytes == 0 || outputPlane.rows == 0) continue;
+
+        const auto sourcePlane = getPlane(&frame, (RGY_PLANE)iplane);
+        outputPlane.pitch = sourcePlane.pitch[0];
+        // planarのchromaは444/alphaを含め、既存writerのcrop位置と行幅を維持する。
+        const size_t leftBytes = iplane == 0 ? cropLeftBytes : cropLeftBytes >> 1;
+        if (leftBytes + outputPlane.rowBytes > outputPlane.pitch) {
+            return RGY_ERR_INVALID_PARAM;
         }
+        outputPlane.src = sourcePlane.ptr[0] + (size_t)crop.e.up * outputPlane.pitch + leftBytes;
+    }
 
-        for (uint32_t j = 0; j < heightUV; j++) {
-            uint8_t *ptrSrc = pSurface->ptrUV() + (crop.e.up + j) * pSurface->pitch();
-            uint8_t *ptrBuf = ptrSrc;
-            if (m_sourceHWMem) {
-                loadLineToBuffer(m_readBuffer.get(), ptrSrc, pSurface->pitch());
-                ptrBuf = m_readBuffer.get();
+    size_t scratchOffset = frameBytes;
+    size_t scratchBytes = 0;
+    size_t allocationBytes = frameBytes;
+    const uint8_t *sourceUV = nullptr;
+    size_t pitchUV = 0;
+    const bool hasUV = splitUV && planes[1].rowBytes > 0 && planes[1].rows > 0;
+    if (hasUV) {
+        const auto uvPlane = getPlane(&frame, RGY_PLANE_C);
+        // NV12/P010のUVは既存と同じY pitchとcropを使う。
+        pitchUV = planes[0].pitch;
+        scratchBytes = planes[1].rowBytes * 2;
+        if (cropLeftBytes + scratchBytes > pitchUV) {
+            return RGY_ERR_INVALID_PARAM;
+        }
+        scratchOffset = (frameBytes + 31) & ~(size_t)31;
+        allocationBytes = scratchOffset + scratchBytes;
+        sourceUV = uvPlane.ptr[0] + (size_t)crop.e.up * pitchUV + cropLeftBytes;
+    }
+    if (allocationBytes > m_frameBufferCapacity) {
+        std::unique_ptr<uint8_t, aligned_malloc_deleter> buffer((uint8_t *)_aligned_malloc(allocationBytes, 32));
+        if (!buffer) return RGY_ERR_MEMORY_ALLOC;
+        m_frameBuffer = std::move(buffer);
+        m_frameBufferCapacity = allocationBytes;
+    }
+
+    auto copyLine = [this](uint8_t *dst, const uint8_t *src, size_t bytes) {
+#if (defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)) && ENCODER_QSV
+        if (m_sourceHWMem) {
+            // cropや行幅で非整列になっても、必要なbyteだけを読み出す。
+            const size_t prefix = std::min(bytes, (16 - ((uintptr_t)src & 15)) & 15);
+            if (prefix > 0) {
+                memcpy(dst, src, prefix);
+                dst += prefix;
+                src += prefix;
+                bytes -= prefix;
             }
+            for (; bytes >= 128; bytes -= 128, src += 128, dst += 128) {
+                const __m128i x0 = _mm_stream_load_si128((__m128i *)(src +   0));
+                const __m128i x1 = _mm_stream_load_si128((__m128i *)(src +  16));
+                const __m128i x2 = _mm_stream_load_si128((__m128i *)(src +  32));
+                const __m128i x3 = _mm_stream_load_si128((__m128i *)(src +  48));
+                const __m128i x4 = _mm_stream_load_si128((__m128i *)(src +  64));
+                const __m128i x5 = _mm_stream_load_si128((__m128i *)(src +  80));
+                const __m128i x6 = _mm_stream_load_si128((__m128i *)(src +  96));
+                const __m128i x7 = _mm_stream_load_si128((__m128i *)(src + 112));
+                _mm_storeu_si128((__m128i *)(dst +   0), x0);
+                _mm_storeu_si128((__m128i *)(dst +  16), x1);
+                _mm_storeu_si128((__m128i *)(dst +  32), x2);
+                _mm_storeu_si128((__m128i *)(dst +  48), x3);
+                _mm_storeu_si128((__m128i *)(dst +  64), x4);
+                _mm_storeu_si128((__m128i *)(dst +  80), x5);
+                _mm_storeu_si128((__m128i *)(dst +  96), x6);
+                _mm_storeu_si128((__m128i *)(dst + 112), x7);
+            }
+            for (; bytes >= 16; bytes -= 16, src += 16, dst += 16) {
+                _mm_storeu_si128((__m128i *)dst, _mm_stream_load_si128((__m128i *)src));
+            }
+        }
+#endif
+        if (bytes > 0) memcpy(dst, src, bytes);
+    };
 
-            const void *ptrLineUV = ptrBuf + crop.e.left * pixSize;
-            void *ptrLineU = m_UVBuffer.get() + j * widthUV * pixSize;
-            void *ptrLineV = m_UVBuffer.get() + j * widthUV * pixSize + planeOffsetUV;
-            if (pSurface->csp() == RGY_CSP_NV12) {
-                const uint8_t *ptrUV = (const uint8_t *)ptrLineUV;
-                uint8_t *ptrU = (uint8_t *)ptrLineU;
-                uint8_t *ptrV = (uint8_t *)ptrLineV;
+    const int lumaShiftDown = csp == RGY_CSP_P010 ? RGY_CSP_P010_SHIFT_TO_10BIT : 0;
+    const auto& luma = planes[0];
+    uint8_t *const frameBuffer = m_frameBuffer.get();
+    for (size_t j = 0; j < luma.rows; j++) {
+        uint8_t *const dst = frameBuffer + j * luma.rowBytes;
+        copyLine(dst, luma.src + j * luma.pitch, luma.rowBytes);
+        if (lumaShiftDown > 0) {
+            uint16_t *const line = (uint16_t *)dst;
+            for (int i = 0; i < frame.width; i++) line[i] >>= lumaShiftDown;
+        }
+    }
+    if (hasUV) {
+        uint8_t *const scratch = frameBuffer + scratchOffset;
+        const size_t widthUV = (size_t)frame.width >> 1;
+        for (size_t j = 0; j < planes[1].rows; j++) {
+            copyLine(scratch, sourceUV + j * pitchUV, scratchBytes);
+            uint8_t *const dstU = frameBuffer + planes[1].offset + j * planes[1].rowBytes;
+            uint8_t *const dstV = frameBuffer + planes[2].offset + j * planes[2].rowBytes;
+            if (csp == RGY_CSP_NV12) {
+                const uint8_t *ptrUV = scratch;
+                uint8_t *ptrU = dstU;
+                uint8_t *ptrV = dstV;
+                size_t i = 0;
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
                 alignas(16) static const uint16_t MASK_LOW8[] = {
                     0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff
                 };
                 const __m128i xMaskLow8 = _mm_load_si128((__m128i *)MASK_LOW8);
-
-                for (uint32_t i = 0; i < widthUV; i += 16, ptrUV += 32, ptrU += 16, ptrV += 16) {
-                    __m128i x0 = _mm_loadu_si128((const __m128i *)(ptrUV + 0));
-                    __m128i x1 = _mm_loadu_si128((const __m128i *)(ptrUV + 16));
+                // 既存のSIMD分離を維持し、16画素未満の末尾だけscalarで処理する。
+                for (; i + 16 <= widthUV; i += 16, ptrUV += 32, ptrU += 16, ptrV += 16) {
+                    const __m128i x0 = _mm_loadu_si128((const __m128i *)(ptrUV + 0));
+                    const __m128i x1 = _mm_loadu_si128((const __m128i *)(ptrUV + 16));
                     _mm_storeu_si128((__m128i *)ptrU, _mm_packus_epi16(_mm_and_si128(x0, xMaskLow8), _mm_and_si128(x1, xMaskLow8)));
                     _mm_storeu_si128((__m128i *)ptrV, _mm_packus_epi16(_mm_srli_epi16(x0, 8), _mm_srli_epi16(x1, 8)));
                 }
-#else
-                convert_nv12_to_yv12_line_c<uint8_t, 8, uint8_t, 8>(ptrU, ptrV, ptrUV, widthUV);
 #endif
-            } else if (pSurface->csp() == RGY_CSP_P010) {
-                const uint16_t *ptrUV = (const uint16_t *)ptrLineUV;
-                uint16_t *ptrU = (uint16_t *)ptrLineU;
-                uint16_t *ptrV = (uint16_t *)ptrLineV;
-                // P010は10bitの値を16bitコンテナのMSB側に詰めて保持しているため、
-                // 入力を16bitとして扱い、LSB詰め10bit(=y4mの420p10)へ変換する
-                // テンプレート引数は<Tout, out_bit_depth, Tin, in_bit_depth>の順
-                convert_nv12_to_yv12_line_c<uint16_t, 16 - RGY_CSP_P010_SHIFT_TO_10BIT, uint16_t, 16>(ptrU, ptrV, ptrUV, widthUV);
+                convert_nv12_to_yv12_line_c<uint8_t, 8, uint8_t, 8>(ptrU, ptrV, ptrUV, (int)(widthUV - i));
             } else {
-                return RGY_ERR_INVALID_COLOR_FORMAT;
+                // P010は従来と同じ丸めでMSB詰め16bitからLSB詰め10bitへ変換する。
+                convert_nv12_to_yv12_line_c<uint16_t, 16 - RGY_CSP_P010_SHIFT_TO_10BIT, uint16_t, 16>((uint16_t *)dstU, (uint16_t *)dstV, (const uint16_t *)scratch, (int)widthUV);
             }
         }
-        WRITE_CHECK(fwrite(m_UVBuffer.get(),                 1, widthUV * heightUV * pixSize, m_fDest.get()), widthUV * heightUV * pixSize);
-        WRITE_CHECK(fwrite(m_UVBuffer.get() + planeOffsetUV, 1, widthUV * heightUV * pixSize, m_fDest.get()), widthUV * heightUV * pixSize);
-    } else if (RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV420
-            || RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV444) {
-        uint8_t *const ptrBuf = m_readBuffer.get();
-
-        for (int iplane = 1; iplane < RGY_CSP_PLANES[pSurface->csp()]; iplane++) {
-            const uint32_t widthUV = pSurface->width() >> (RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV420 ? 1 : 0);
-            const uint32_t heightUV = pSurface->height() >> (RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV420 ? 1 : 0);
-            for (uint32_t i = 0; i < heightUV; i++) {
-                loadLineToBuffer(ptrBuf, pSurface->ptrPlane((RGY_PLANE)iplane) + (crop.e.up + i) * pSurface->pitch((RGY_PLANE)iplane), pSurface->pitch((RGY_PLANE)iplane));
-                WRITE_CHECK(fwrite(ptrBuf + (crop.e.left * pixSize >> 1), 1, widthUV * pixSize, m_fDest.get()), widthUV * pixSize);
+    } else if (!splitUV) {
+        for (int iplane = 1; iplane < planeCount; iplane++) {
+            const auto& plane = planes[iplane];
+            if (plane.rowBytes == 0) continue;
+            for (size_t j = 0; j < plane.rows; j++) {
+                copyLine(frameBuffer + plane.offset + j * plane.rowBytes, plane.src + j * plane.pitch, plane.rowBytes);
             }
         }
-    } else {
-        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
-    m_encSatusInfo->SetOutputData(RGY_FRAMETYPE_IDR, frameSize, 0);
+    WRITE_CHECK(fwrite(frameBuffer, 1, frameBytes, m_fDest.get()), frameBytes);
+    // 完成したframeをここで送り出し、バッファリングされた書込失敗も検出する。
+    WRITE_CHECK(fflush(m_fDest.get()), 0);
+    WRITE_CHECK(ferror(m_fDest.get()), 0);
+    m_encSatusInfo->SetOutputData(RGY_FRAMETYPE_IDR, 0, 0);
     return RGY_ERR_NONE;
 }
 
