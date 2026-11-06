@@ -32,6 +32,7 @@
 #include "rgy_input.h"
 #include "rgy_filesystem.h"
 #include "cpu_info.h"
+#include "rgy_avutil.h"
 
 static bool output_is_pipe(const RGYParamCommon *common) {
     return 0 == _tcscmp(common->outputFilename.c_str(), _T("-"))
@@ -234,7 +235,63 @@ std::vector<int> read_keyfile(tstring keyfile) {
     return vector<int>(s.begin(), s.end());
 }
 
+// serverのrunは直列。入力の非同期初期化にも設定を渡し、readerが自分の値へ取り込む。
+static std::atomic<bool> g_previewInputEnabled(false);
+static std::atomic<std::atomic<bool>*> g_previewInputAbort(nullptr);
+
+RGYPreviewInputScope::RGYPreviewInputScope(bool enabled, std::atomic<bool> *abort) :
+    m_previousEnabled(g_previewInputEnabled), m_previousAbort(g_previewInputAbort) {
+    g_previewInputEnabled = enabled;
+    g_previewInputAbort = enabled ? abort : nullptr;
+}
+RGYPreviewInputScope::~RGYPreviewInputScope() {
+    g_previewInputEnabled = m_previousEnabled;
+    g_previewInputAbort = m_previousAbort;
+}
+
+void RGYInput::configurePreviewWindow(int64_t frames) {
+    m_previewWindowEnabled = g_previewInputEnabled;
+    m_previewWindowAbort = g_previewInputAbort;
+    m_previewWindowLimit = frames;
+    m_previewWindowKeepHistory = false;
+    m_previewWindowReport = m_previewWindowEnabled;
+    m_previewWindowKey = INT64_MIN;
+    m_previewWindowPreS = m_previewWindowDroppedPreS = m_previewWindowAfterLimit = 0;
+    m_previewWindowAccepted.store(0);
+    m_previewWindowStart = INT64_MIN;
+    m_previewWindowTimebase = {};
+}
+
+RGY_ERR RGYInput::checkPreviewWindow(int64_t pts, rgy_rational<int> timebase, bool& keep) {
+    keep = true;
+    if (!m_previewWindowEnabled) return RGY_ERR_NONE;
+    keep = false;
+    if (previewWindowFinished()) { m_previewWindowAfterLimit++; return RGY_ERR_NONE; }
+    if (pts == INT64_MIN || !timebase.is_valid() || !m_previewWindowTimebase.is_valid()) return RGY_ERR_INVALID_PARAM;
+#if ENABLE_AVSW_READER
+    const bool beforeStart = av_compare_ts(pts, av_make_q(timebase), m_previewWindowStart, av_make_q(m_previewWindowTimebase)) < 0;
+#else
+    const bool beforeStart = rational_rescale(pts, timebase, m_previewWindowTimebase) < m_previewWindowStart;
+#endif
+    if (beforeStart) {
+        // 短いGOPは周期フィルタの起点を保ち、Sより前を有限枚数へ数えない。
+        m_previewWindowPreS++;
+        keep = m_previewWindowKeepHistory;
+        if (!keep) m_previewWindowDroppedPreS++;
+        return RGY_ERR_NONE;
+    }
+    m_previewWindowAccepted.fetch_add(1);
+    keep = true;
+    return RGY_ERR_NONE;
+}
+
 RGYInput::RGYInput() :
+    m_previewWindowEnabled(false),
+    m_previewWindowAbort(nullptr),
+    m_previewWindowStart(INT64_MIN),
+    m_previewWindowTimebase(),
+    m_previewWindowLimit(0),
+    m_previewWindowAccepted(0),
     m_encSatusInfo(),
     m_inputVideoInfo(),
     m_inputCsp(RGY_CSP_NA),

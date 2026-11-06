@@ -43,7 +43,7 @@
 #include <fcntl.h>
 #endif
 
-using RGYPreviewRunFunc = std::function<RGY_ERR(const std::vector<tstring>&, std::atomic<bool>*)>;
+using RGYPreviewRunFunc = std::function<RGY_ERR(const std::vector<tstring>&, std::atomic<bool>*, bool)>;
 using RGYPreviewProbeFunc = std::function<RGY_ERR(const std::vector<tstring>&, bool&)>;
 
 // 出力先の上書き、標準入力の横取り、制御用コマンドの混入を防ぐ。
@@ -63,11 +63,11 @@ static inline bool rgy_preview_valid_args(const std::vector<tstring>& args) {
     return true;
 }
 
-static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *encoder, const char *encver, RGYPreviewProbeFunc probe = {}) {
+static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *encoder, const char *encver, RGYPreviewProbeFunc probe = {}, bool windowSeek = false) {
 #if defined(_WIN32)
     if (_setmode(_fileno(stdin), _O_BINARY) < 0 || _setmode(_fileno(stdout), _O_BINARY) < 0) return 1;
 #endif
-    struct Request { int64_t id = 0; std::vector<tstring> args; bool probe = false; };
+    struct Request { int64_t id = 0; std::vector<tstring> args; bool probe = false; bool windowSeek = false; };
     std::mutex mutex;
     std::condition_variable cv;
     // probeは到着順を保ち、未実行runだけを最新要求へ置換する。新runはそれ以前のprobeを追い越さない。
@@ -75,7 +75,7 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
     bool quitting = false, active = false;
     int64_t activeId = 0;
     std::atomic<bool> abort(false);
-    fprintf(stdout, "RGYPREVIEW READY version=1 encoder=%s encver=%s%s\n", encoder, encver, probe ? " probe=1" : "");
+    fprintf(stdout, "RGYPREVIEW READY version=1 encoder=%s encver=%s%s%s\n", encoder, encver, probe ? " probe=1" : "", windowSeek ? " window_seek=1" : "");
     fflush(stdout);
     std::thread reader([&]() {
         std::string line;
@@ -90,6 +90,8 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
                 Request req;
                 req.id = json.at("id").get<int64_t>();
                 req.probe = cmd == "probe";
+                if (json.contains("window_seek") && !json.at("window_seek").is_boolean()) throw std::runtime_error("window_seek");
+                req.windowSeek = windowSeek && json.value("window_seek", false);
                 if (cmd == "run" || req.probe) {
                     if (!json.at("args").is_array()) throw std::runtime_error("args");
                     for (const auto& arg : json.at("args")) {
@@ -156,7 +158,7 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
         if (rgy_preview_valid_args(req.args)) {
             try {
                 req.args.insert(req.args.end(), { _T("-c"), _T("raw"), _T("--y4m-timestamp"), _T("-o"), _T("-") });
-                rc = run(req.args, &abort);
+                rc = run(req.args, &abort, req.windowSeek);
             } catch (...) { rc = RGY_ERR_UNKNOWN; }
         }
         fflush(stdout);

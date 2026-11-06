@@ -30,6 +30,7 @@
 #define __RGY_INPUT_H__
 
 #include <memory>
+#include <atomic>
 #include <thread>
 #include "rgy_osdep.h"
 #include "rgy_tchar.h"
@@ -166,6 +167,15 @@ public:
     int run(int interlaced, void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int *crop);
 };
 
+// serverのrunで明示された新窓だけを有効にし、通常経路とprobeへ漏らさない。
+class RGYPreviewInputScope {
+    bool m_previousEnabled;
+    std::atomic<bool> *m_previousAbort;
+public:
+    RGYPreviewInputScope(bool enabled, std::atomic<bool> *abort);
+    ~RGYPreviewInputScope();
+};
+
 class RGYInputPrm {
 public:
     int threadCsp;
@@ -226,6 +236,16 @@ public:
         return true;
     }
 #pragma warning(pop)
+
+    void configurePreviewWindow(int64_t frames);
+    bool previewWindowOutputCutoff() const { return m_previewWindowEnabled && m_previewWindowKeepHistory; }
+    int64_t previewWindowStart() const { return m_previewWindowStart; }
+    rgy_rational<int> previewWindowTimebase() const { return m_previewWindowTimebase; }
+    bool previewWindowEnabled() const { return m_previewWindowEnabled; }
+    bool previewWindowFinished() const { return m_previewWindowLimit > 0 && m_previewWindowAccepted.load() >= m_previewWindowLimit; }
+    bool previewAbortRequested() const { return m_previewWindowAbort && m_previewWindowAbort->load(); }
+    // 復号済みの入力フレームだけを数え、暖機より前とleadingで有限窓を消費しない。
+    RGY_ERR checkPreviewWindow(int64_t pts, rgy_rational<int> timebase, bool& keep);
 
     sInputCrop GetInputCropInfo() {
         return m_inputVideoInfo.crop;
@@ -340,6 +360,19 @@ protected:
         }
         return m_trimParam.list[m_trimParam.list.size()-1].fin;
     }
+
+    bool m_previewWindowKeepHistory = false;
+    bool m_previewWindowReport = false;
+    int64_t m_previewWindowKey = INT64_MIN;
+    int64_t m_previewWindowPreS = 0;
+    int64_t m_previewWindowDroppedPreS = 0;
+    int64_t m_previewWindowAfterLimit = 0;
+    bool m_previewWindowEnabled;
+    std::atomic<bool> *m_previewWindowAbort;
+    int64_t m_previewWindowStart;
+    rgy_rational<int> m_previewWindowTimebase;
+    int64_t m_previewWindowLimit;
+    std::atomic<int64_t> m_previewWindowAccepted;
 
     shared_ptr<EncodeStatus> m_encSatusInfo;
 

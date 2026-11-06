@@ -460,13 +460,16 @@ int _tmain(int argc, TCHAR **argv) {
             defaults.push_back(argv[++iarg]);
         }
         rgy_output_set_preview_server_mode(true);
-        auto callback = [defaults](const std::vector<tstring>& args, std::atomic<bool> *abort) -> RGY_ERR {
+        auto callback = [defaults](const std::vector<tstring>& args, std::atomic<bool> *abort, bool windowSeek) -> RGY_ERR {
+            RGYPreviewInputScope windowScope(windowSeek, abort);
             auto mergedArgs = defaults;
             mergedArgs.insert(mergedArgs.end(), args.begin(), args.end());
             auto previewArgv = rgy_cmd_selftest_argv(mergedArgs);
             InEncodeVideoParam params;
             if (parse_cmd(&params, (int)previewArgv.size() - 1, previewArgv.data()) != 0) return RGY_ERR_INVALID_PARAM;
-            return run_encode_params(params, abort);
+            const auto result = run_encode_params(params, abort);
+            // 入力初期化中の取消も、一般の入力エラーではなくrunの取消として返す。
+            return windowSeek && abort && abort->load() && result != RGY_ERR_NONE ? RGY_ERR_ABORTED : result;
         };
         auto probe = [defaults](const std::vector<tstring>& args, bool& history) -> RGY_ERR {
             history = true;
@@ -484,7 +487,7 @@ int _tmain(int argc, TCHAR **argv) {
             history = false;
             return RGY_ERR_NONE;
         };
-        return rgy_preview_server_main(callback, "NVEnc", VER_STR_FILEVERSION, probe);
+        return rgy_preview_server_main(callback, "NVEnc", VER_STR_FILEVERSION, probe, true);
     }
 
     if (argc == 1) {

@@ -29,6 +29,7 @@
 #ifndef __RGY_INPUT_AVCODEC_H__
 #define __RGY_INPUT_AVCODEC_H__
 
+#include <deque>
 #include "rgy_input.h"
 #include "rgy_version.h"
 
@@ -1036,6 +1037,9 @@ protected:
 
     RGY_ERR initFormatCtx(const TCHAR *strFileName, const RGYInputAvcodecPrm *input_prm, const int iretry);
     RGY_ERR initVideoBsfs();
+    RGY_ERR seekPreviewWindow(int64_t origin, int64_t target);
+    int readPreviewPacket(AVPacket *packet);
+    std::deque<std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> m_previewSeekPackets;
     int findStreamInProgram(const AVProgram *prog, AVMediaType type, int nth) const;
     const AVProgram *getFollowProgram() const;
     RGY_ERR initPmtFollow(const bool disableFollow);

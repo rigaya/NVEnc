@@ -2267,6 +2267,10 @@ public:
         }
         m_inFrames++;
         PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+        bool keepPreview = true;
+        const auto previewErr = m_input->checkPreviewWindow(taskSurf->surf().frame()->timestamp(), m_srcTimebase, keepPreview);
+        if (previewErr != RGY_ERR_NONE) return previewErr;
+        if (!keepPreview) return RGY_ERR_NONE;
         const auto trimSts = frame_inside_range(taskSurf->surf().frame()->inputFrameId(), m_trimParam.list);
         const auto inputFramePts = rational_rescale(taskSurf->surf().frame()->timestamp(), m_srcTimebase, m_outTimebase);
         if ((trimSts.second > 0) //check_pts内で最初のフレームのptsを0とするようnOutFirstPtsが設定されるので、先頭のtrim blockについてはここでは処理しない

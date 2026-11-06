@@ -1164,6 +1164,9 @@ RGY_ERR RGYOutFrame::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutpu
     m_bY4m = writerParam->bY4m;
     m_y4mTimestamp = writerParam->y4mTimestamp;
     m_outputTimebase = writerParam->outputTimebase;
+    m_previewCutoff = writerParam->previewCutoff;
+    m_previewStart = writerParam->previewStart;
+    m_previewTimebase = writerParam->previewTimebase;
     m_sourceHWMem = true;
     m_inited = true;
 
@@ -1182,6 +1185,13 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
     if (!m_fDest) {
         return RGY_ERR_NULL_PTR;
     }
+
+#if ENABLE_AVSW_READER
+    // 暖機の入力は周期フィルタへ渡し、S未満の出力だけをパイプへ書く前に落とす。
+    if (m_previewCutoff && av_compare_ts(pSurface->timestamp(), av_make_q(m_outputTimebase), m_previewStart, av_make_q(m_previewTimebase)) < 0) {
+        return RGY_ERR_NONE;
+    }
+#endif
 
     if (m_sourceHWMem) {
         if (m_readBuffer.get() == nullptr) {
@@ -1874,6 +1884,9 @@ RGY_ERR initWriters(
             param.bY4m = common->muxOutputFormat != _T("raw");
             param.y4mTimestamp = common->y4mTimestamp && param.bY4m;
             param.outputTimebase = outputTimebase;
+            param.previewCutoff = pFileReader->previewWindowOutputCutoff();
+            param.previewStart = pFileReader->previewWindowStart();
+            param.previewTimebase = pFileReader->previewWindowTimebase();
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &param, log, pStatus);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());
