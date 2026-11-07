@@ -1167,6 +1167,7 @@ RGY_ERR RGYOutFrame::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutpu
     m_previewCutoff = writerParam->previewCutoff;
     m_previewStart = writerParam->previewStart;
     m_previewTimebase = writerParam->previewTimebase;
+    m_previewOutputStartUs = writerParam->previewOutputStartUs;
     m_sourceHWMem = true;
     m_inited = true;
 
@@ -1189,7 +1190,19 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
     const auto frame = pSurface->frameInfo();
 
 #if ENABLE_AVSW_READER
-    // 暖機の入力は周期フィルタへ渡し、S未満の出力だけをパイプへ書く前に落とす。
+    // 暖機は従来どおりVPPへ通す。Viewerの絶対safe境界だけで、pipeへ出すprefixを省く。
+    if (m_previewOutputStartUs != INT64_MIN) {
+        if (frame.timestamp == AV_NOPTS_VALUE || !m_outputTimebase.is_valid() || m_previewOutputStartUs < INT64_MIN + 3) {
+            return RGY_ERR_INVALID_PARAM;
+        }
+        // Viewerは未調整のsafe境界をµsへ切捨てて送る。safeの2µsとXts小数6桁の最大0.5µsを、
+        // ここで一度だけ整数3µsへ切上げる。少数の余分なframeを残しても、旧safe候補は落とさない。
+        // 半durationによる選択・末尾guardには、この許容幅を適用しない。
+        if (av_compare_ts(frame.timestamp, av_make_q(m_outputTimebase), m_previewOutputStartUs - 3, AVRational{ 1, 1000000 }) < 0) {
+            return RGY_ERR_NONE;
+        }
+    }
+    // 旧短GOPのS未満の破棄も残す。新字段なしでは、この従来の比較だけが有効になる。
     if (m_previewCutoff && av_compare_ts(frame.timestamp, av_make_q(m_outputTimebase), m_previewStart, av_make_q(m_previewTimebase)) < 0) {
         return RGY_ERR_NONE;
     }
@@ -1919,6 +1932,7 @@ RGY_ERR initWriters(
             param.previewCutoff = pFileReader->previewWindowOutputCutoff();
             param.previewStart = pFileReader->previewWindowStart();
             param.previewTimebase = pFileReader->previewWindowTimebase();
+            param.previewOutputStartUs = pFileReader->previewWindowOutputStartUs();
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &param, log, pStatus);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());

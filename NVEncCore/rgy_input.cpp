@@ -238,20 +238,24 @@ std::vector<int> read_keyfile(tstring keyfile) {
 // serverのrunは直列。入力の非同期初期化にも設定を渡し、readerが自分の値へ取り込む。
 static std::atomic<bool> g_previewInputEnabled(false);
 static std::atomic<std::atomic<bool>*> g_previewInputAbort(nullptr);
+static std::atomic<int64_t> g_previewOutputStartUs(INT64_MIN);
 
-RGYPreviewInputScope::RGYPreviewInputScope(bool enabled, std::atomic<bool> *abort) :
-    m_previousEnabled(g_previewInputEnabled), m_previousAbort(g_previewInputAbort) {
+RGYPreviewInputScope::RGYPreviewInputScope(bool enabled, std::atomic<bool> *abort, int64_t outputStartUs) :
+    m_previousEnabled(g_previewInputEnabled), m_previousAbort(g_previewInputAbort), m_previousOutputStartUs(g_previewOutputStartUs) {
     g_previewInputEnabled = enabled;
     g_previewInputAbort = enabled ? abort : nullptr;
+    g_previewOutputStartUs = enabled ? outputStartUs : INT64_MIN;
 }
 RGYPreviewInputScope::~RGYPreviewInputScope() {
     g_previewInputEnabled = m_previousEnabled;
     g_previewInputAbort = m_previousAbort;
+    g_previewOutputStartUs = m_previousOutputStartUs;
 }
 
 void RGYInput::configurePreviewWindow(int64_t frames) {
     m_previewWindowEnabled = g_previewInputEnabled;
     m_previewWindowAbort = g_previewInputAbort;
+    m_previewOutputStartUs = g_previewOutputStartUs;
     m_previewWindowLimit = frames;
     m_previewWindowKeepHistory = false;
     m_previewWindowReport = m_previewWindowEnabled;
@@ -288,6 +292,7 @@ RGY_ERR RGYInput::checkPreviewWindow(int64_t pts, rgy_rational<int> timebase, bo
 RGYInput::RGYInput() :
     m_previewWindowEnabled(false),
     m_previewWindowAbort(nullptr),
+    m_previewOutputStartUs(INT64_MIN),
     m_previewWindowStart(INT64_MIN),
     m_previewWindowTimebase(),
     m_previewWindowLimit(0),

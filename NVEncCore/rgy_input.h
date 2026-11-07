@@ -171,8 +171,9 @@ public:
 class RGYPreviewInputScope {
     bool m_previousEnabled;
     std::atomic<bool> *m_previousAbort;
+    int64_t m_previousOutputStartUs;
 public:
-    RGYPreviewInputScope(bool enabled, std::atomic<bool> *abort);
+    RGYPreviewInputScope(bool enabled, std::atomic<bool> *abort, int64_t outputStartUs = INT64_MIN);
     ~RGYPreviewInputScope();
 };
 
@@ -239,6 +240,8 @@ public:
 
     void configurePreviewWindow(int64_t frames);
     bool previewWindowOutputCutoff() const { return m_previewWindowEnabled && m_previewWindowKeepHistory; }
+    // 入力のSとは別の絶対出力境界。legacyへのfallback時は絶対時刻を比較しない。
+    int64_t previewWindowOutputStartUs() const { return m_previewWindowEnabled ? m_previewOutputStartUs : INT64_MIN; }
     int64_t previewWindowStart() const { return m_previewWindowStart; }
     rgy_rational<int> previewWindowTimebase() const { return m_previewWindowTimebase; }
     bool previewWindowEnabled() const { return m_previewWindowEnabled; }
@@ -369,6 +372,7 @@ protected:
     int64_t m_previewWindowAfterLimit = 0;
     bool m_previewWindowEnabled;
     std::atomic<bool> *m_previewWindowAbort;
+    int64_t m_previewOutputStartUs;
     int64_t m_previewWindowStart;
     rgy_rational<int> m_previewWindowTimebase;
     int64_t m_previewWindowLimit;

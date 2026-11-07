@@ -512,6 +512,7 @@ struct YUVWriterParam {
     bool previewCutoff = false;
     int64_t previewStart = 0;
     rgy_rational<int> previewTimebase;
+    int64_t previewOutputStartUs = INT64_MIN;
 };
 
 class RGYOutFrame : public RGYOutput {
@@ -534,6 +535,7 @@ protected:
     bool m_previewCutoff = false;
     int64_t m_previewStart = 0;
     rgy_rational<int> m_previewTimebase;
+    int64_t m_previewOutputStartUs = INT64_MIN;
 };
 
 #endif //__RGY_OUTPUT_H__
