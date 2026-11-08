@@ -1898,6 +1898,32 @@ __device__ __forceinline__ uint32_t degrainMotionSearchSgblockSad(
             for (int y = lane / loadsPerRow; y < blockSize; y += subgroupSize / loadsPerRow) {
                 const uint8_t *ref = fastReferencePlane + (referenceY + y) * pitch + referenceX + x;
                 const uint32_t *src = reinterpret_cast<const uint32_t *>(sourceBlockPixels + y * blockSize + x);
+                // 末尾wordの追加最大3byteも可視領域内に限定し、最終行でもpitch外を読まない。
+                if (pitch >= width && (pitch & 3) == 0
+                    && referenceX + blockSize <= width - 3
+                    && (reinterpret_cast<uintptr_t>(fastReferencePlane) & 3) == 0) {
+                    const uintptr_t refAddress = reinterpret_cast<uintptr_t>(ref);
+                    const int byteOffset = (int)(refAddress & 3);
+                    const uint32_t *alignedRef = reinterpret_cast<const uint32_t *>(refAddress & ~uintptr_t(3));
+                    const uint32_t w0 = alignedRef[0];
+                    const uint32_t w1 = alignedRef[1];
+                    const uint32_t w2 = alignedRef[2];
+                    const uint32_t w3 = alignedRef[3];
+                    uint32_t p0 = w0, p1 = w1, p2 = w2, p3 = w3;
+                    if (byteOffset != 0) {
+                        const uint32_t w4 = alignedRef[4];
+                        const uint32_t selector = 0x3210u + byteOffset * 0x1111u;
+                        p0 = __byte_perm(w0, w1, selector);
+                        p1 = __byte_perm(w1, w2, selector);
+                        p2 = __byte_perm(w2, w3, selector);
+                        p3 = __byte_perm(w3, w4, selector);
+                    }
+                    sad += __vsadu4(src[0], p0);
+                    sad += __vsadu4(src[1], p1);
+                    sad += __vsadu4(src[2], p2);
+                    sad += __vsadu4(src[3], p3);
+                    continue;
+                }
                 // 参照MVは非整列になり得るので、16画素を4画素ずつ安全に読み出す。
                 #pragma unroll
                 for (int q = 0; q < 4; q++) {
