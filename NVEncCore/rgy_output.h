@@ -509,10 +509,7 @@ struct YUVWriterParam {
     bool bY4m;
     bool y4mTimestamp;
     rgy_rational<int> outputTimebase;
-    bool previewCutoff = false;
-    int64_t previewStart = 0;
-    rgy_rational<int> previewTimebase;
-    int64_t previewOutputStartUs = INT64_MIN;
+    RGYPreviewOutputCutoff previewCutoff; // --preview-serverで、pipeへ書く前に捨てるフレームの条件
 };
 
 class RGYOutFrame : public RGYOutput {
@@ -532,10 +529,7 @@ protected:
     bool m_bY4m;
     bool m_y4mTimestamp;
     rgy_rational<int> m_outputTimebase;
-    bool m_previewCutoff = false;
-    int64_t m_previewStart = 0;
-    rgy_rational<int> m_previewTimebase;
-    int64_t m_previewOutputStartUs = INT64_MIN;
+    RGYPreviewOutputCutoff m_previewCutoff; // --preview-serverで、pipeへ書く前に捨てるフレームの条件
 };
 
 #endif //__RGY_OUTPUT_H__

@@ -394,12 +394,16 @@ void RGYInputAvcodec::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     //リソースの解放
     CloseThread();
-    if (m_previewWindowReport) {
-        const TCHAR *path = !m_previewWindowEnabled ? _T("legacy") : m_previewWindowKey == INT64_MIN ? _T("pending") : m_previewWindowKeepHistory ? _T("short") : _T("long");
+    if (m_preview.report) {
+        // --preview-serverの窓をどう読んだかをDEBUGログへ出す。
+        // path: legacy=従来の--seekへ戻した、pending=キーフレーム未決定のまま終了、
+        //       short=開始時刻より前もフィルタへ渡した、long=開始時刻より前をフィルタへ渡さずに捨てた
+        // pre_s/dropped_pre_sは、開始時刻(start)より前に復号した枚数と、そのうち捨てた枚数。
+        const TCHAR *path = !m_preview.enabled ? _T("legacy") : m_preview.keyPts == INT64_MIN ? _T("pending") : m_preview.keepBeforeStart ? _T("short") : _T("long");
         AddMessage(RGY_LOG_DEBUG, _T("preview window result: path=%s start=%lld key=%lld accepted=%lld limit=%lld pre_s=%lld dropped_pre_s=%lld after_limit=%lld\n"),
-            path, (long long)m_previewWindowStart, (long long)m_previewWindowKey, (long long)m_previewWindowAccepted.load(),
-            (long long)m_previewWindowLimit, (long long)m_previewWindowPreS, (long long)m_previewWindowDroppedPreS, (long long)m_previewWindowAfterLimit);
-        m_previewWindowReport = false;
+            path, (long long)m_preview.start, (long long)m_preview.keyPts, (long long)m_preview.accepted.load(),
+            (long long)m_preview.limit, (long long)m_preview.beforeStart, (long long)m_preview.droppedBeforeStart, (long long)m_preview.afterLimit);
+        m_preview.report = false;
     }
     m_Demux.qVideoPkt.close([](AVPacket **pkt) { av_packet_free(pkt); });
     for (uint32_t i = 0; i < m_Demux.qStreamPktL1.size(); i++) {
@@ -1733,10 +1737,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     const RGYInputAvcodecPrm *input_prm = dynamic_cast<const RGYInputAvcodecPrm*>(prm);
 
     configurePreviewWindow(input_prm->readVideo ? inputInfo->frames : 0);
-    // TPなしは出力原点がCheckPTSで変わり絶対Sと比較できないため旧経路を保つ。
-    // 利用者が明示したtrim/割合seekは既存の入力単位の意味を保ち、新窓へ置き換えない。
-    if (!input_prm->readVideo || !input_prm->timestampPassThrough || input_prm->nTrimCount > 0 || input_prm->seekRatio > 0.0f) m_previewWindowEnabled = false;
-    if (!input_prm->readVideo) m_previewWindowReport = false;
+    // --preview-serverの窓(RGYPreviewWindow)は、次の場合には使わず、従来の--seekの動作にする。
+    // - --timestamp-passthroughがない場合: 出力の時刻は、CheckPTSの補正で原点が変わるため、
+    //   入力の絶対時刻で表した窓の開始時刻やViewerの出力開始時刻と比べられない。
+    // - --trimや割合指定の--seekを明示した場合: フレーム番号や割合で指定した範囲の意味を変えない。
+    if (!input_prm->readVideo || !input_prm->timestampPassThrough || input_prm->nTrimCount > 0 || input_prm->seekRatio > 0.0f) m_preview.enabled = false;
+    if (!input_prm->readVideo) m_preview.report = false;
     m_previewSeekPackets.clear();
 
     // Propagate the "detect but do not rewrite avgDuration" flag into the class
@@ -1757,7 +1763,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     m_Demux.thread.queueInfo = input_prm->queueInfo;
     if (input_prm->readVideo) {
         m_inputVideoInfo = *inputInfo;
-        if (m_previewWindowEnabled) m_inputVideoInfo.frames = 0;
+        // 窓では、--framesの枚数を開始時刻以降の入力フレームで数える(RGYInput::checkPreviewWindow)。
+        // 従来の--trimへの置き換えはseek位置から数えるので、ここでは使わない。
+        if (m_preview.enabled) m_inputVideoInfo.frames = 0;
     } else {
         m_inputVideoInfo = VideoInfo();
     }
@@ -2267,23 +2275,25 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             const auto seek_time = av_rescale_q(1, av_d2q(seek_sec, 1<<24), m_Demux.video.stream->time_base);
             // 基準は最初のキーフレームのpts (firstpktはヘッダ取得のために読んだパケットの後続である場合がある)
             const auto seek_target = m_Demux.video.streamFirstKeyPts + seek_time;
-            if (m_previewWindowEnabled) {
-                m_previewWindowStart = seek_target;
-                m_previewWindowTimebase = to_rgy(m_Demux.video.stream->time_base);
+            if (m_preview.enabled) {
+                // 窓の開始時刻はseekの目標時刻。開始時刻以前で最後のキーフレームを探して、そこへ移動する。
+                m_preview.start = seek_target;
+                m_preview.timebase = to_rgy(m_Demux.video.stream->time_base);
                 const auto previewSeek = seekPreviewWindow(m_Demux.video.streamFirstKeyPts, seek_target);
                 if (previewSeek == RGY_ERR_MORE_DATA) {
-                    // key未検出だけ旧seekへ戻し、有限枚数も新窓の変更前へ戻す。
-                    m_previewWindowEnabled = false;
-                    m_previewWindowKeepHistory = false;
-                    m_previewWindowStart = m_previewWindowKey = INT64_MIN;
-                    m_previewWindowTimebase = {};
+                    // キーフレームが見つからなかった場合だけ、従来の--seekへ戻す。
+                    // --framesの枚数も、従来どおりseek位置からの--trimで数える形に戻す。
+                    m_preview.enabled = false;
+                    m_preview.keepBeforeStart = false;
+                    m_preview.start = m_preview.keyPts = INT64_MIN;
+                    m_preview.timebase = {};
                     m_previewSeekPackets.clear();
                     m_inputVideoInfo.frames = inputInfo->frames;
                 } else if (previewSeek != RGY_ERR_NONE) {
                     return previewSeek;
                 }
             }
-            if (!m_previewWindowEnabled) {
+            if (!m_preview.enabled) {
             // mpegtsやmp4などはdtsでシークするため(mpegtsではキーフレームかどうかも考慮されない)、
             // 目標時刻に直接シークすると目標のキーフレームを飛ばして次のキーフレームから開始してしまう。
             // そこで、デコード遅延(pts-dts)より十分手前にシークし、目標時刻以降の最初のキーフレームまではgetSampleで読み捨てる。
@@ -2309,16 +2319,18 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_Demux.frames.clear();
             m_seek.first = (float)seek_sec;
             m_Demux.video.gotFirstKeyframe = false;
-            m_Demux.video.seekTargetPts = m_previewWindowEnabled ? AV_NOPTS_VALUE : seek_target;
+            // 窓では、開始時刻より前のフレームの扱いをcheckPreviewWindowで決めるので、ここでは捨てない。
+            m_Demux.video.seekTargetPts = m_preview.enabled ? AV_NOPTS_VALUE : seek_target;
             m_Demux.video.beforeSeekStreamFirstKeyPts = m_Demux.video.streamFirstKeyPts;
             m_Demux.video.streamFirstKeyPts = 0;
         }
 
-        if (m_previewWindowEnabled && m_previewWindowStart == AV_NOPTS_VALUE) {
-            m_previewWindowStart = m_Demux.video.streamFirstKeyPts;
-            m_previewWindowKey = m_previewWindowStart;
-            m_previewWindowKeepHistory = true;
-            m_previewWindowTimebase = to_rgy(m_Demux.video.stream->time_base);
+        if (m_preview.enabled && m_preview.start == AV_NOPTS_VALUE) {
+            // --seekなしで先頭から読む窓。最初のキーフレームを開始時刻とし、そこから復号する。
+            m_preview.start = m_Demux.video.streamFirstKeyPts;
+            m_preview.keyPts = m_preview.start;
+            m_preview.keepBeforeStart = true;
+            m_preview.timebase = to_rgy(m_Demux.video.stream->time_base);
         }
 
         // getFirstFramePosAndFrameRateで読み込んだ音声等のパケットもseektoで判定されるよう、ここで設定しておく
@@ -2349,7 +2361,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             return sts;
         }
 
-        if (m_previewWindowEnabled) {
+        if (m_preview.enabled) {
+            // 窓の枚数はcheckPreviewWindowで数えるので、--framesを--trimへ置き換えない。
             m_trimParam.list.clear();
         } else if (m_inputVideoInfo.frames > 0) {
             // avsw/avhwでは、--framesは--trimに置き換えて実現する
@@ -2371,7 +2384,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
         //キーフレームに到達するまでQSVではフレームが出てこない
         //そのぶんのずれを記録しておき、Trim値などに補正をかける
-        if (m_trimParam.offset && !m_previewWindowEnabled) {
+        if (m_trimParam.offset && !m_preview.enabled) {
             const bool trimSpecified = m_trimParam.list.size() > 0;
             for (int i = (int)m_trimParam.list.size() - 1; i >= 0; i--) {
                 if (m_trimParam.list[i].fin - m_trimParam.offset < 0) {
@@ -3448,6 +3461,8 @@ void RGYInputAvcodec::sortAndPushSubtitlePacket() {
     m_Demux.format.subPacketTemporalBufferIntervalCount = -1;
 }
 
+// seekPreviewWindow()がキーフレームの探索中に読んで保持したパケットを先に返し、
+// 使い切ったら通常どおりファイルから読む。
 int RGYInputAvcodec::readPreviewPacket(AVPacket *packet) {
     if (m_previewSeekPackets.empty()) return av_read_frame(m_Demux.format.formatCtx, packet);
     av_packet_move_ref(packet, m_previewSeekPackets.front().get());
@@ -3455,31 +3470,59 @@ int RGYInputAvcodec::readPreviewPacket(AVPacket *packet) {
     return 0;
 }
 
+// --preview-serverの窓で、開始時刻(target)以前で最後のキーフレームを探し、そこから読める状態にする。
+//
+// 背景: TSなどでは、av_seek_frame()がDTSやパケット位置で着地し、キーフレームかどうかも考慮しないため、
+// 着地した位置を信用すると、目標より後ろのキーフレームから復号してしまうことがある。
+// そこで、目標より少し手前へseekしてからパケットを読み進め、パケットのptsとキーフレームの印を見て、
+// 目標以前で最後のキーフレームを自分で探す。見つけたキーフレーム以降のパケットは、もう一度seekせずに
+// そのまま保持し(m_previewSeekPackets)、readPreviewPacket()で先に返す。再度のseekの着地も信用できないため。
+//
+// 手前へ戻る幅は、最初はPREVIEW_SEEK_INITIAL_BACK_SECとし、キーフレームが見つからなければ倍に広げて、
+// PREVIEW_SEEK_MAX_BACK_SECまで試す。ファイルの先頭(origin)まで戻っても見つからなければ諦める。
+// 各試行の読み進めは、目標よりPREVIEW_SEEK_REORDER_SECだけ先までで止める。キーフレームのない長いGOPで、
+// ファイルの最後まで読まないためで、この幅は、B-frameの並べ替えでptsが前後する分を見込んだもの。
+//
+// 戻り値: RGY_ERR_NONE=キーフレームを決めた、RGY_ERR_MORE_DATA=見つからない(呼び出し側で従来の--seekへ戻す)、
+//         RGY_ERR_ABORTED=Viewerの取消、それ以外=読み込みのエラーや保持量の上限超過。
 RGY_ERR RGYInputAvcodec::seekPreviewWindow(int64_t origin, int64_t target) {
+    // 最初に手前へ戻る幅。通常の--seekのSEEK_MARGIN_SECと同じ。
+    static const double PREVIEW_SEEK_INITIAL_BACK_SEC = 3.0;
+    // 戻る幅の上限。これより長い間隔でしかキーフレームがない入力は、従来の--seekで扱う。
+    static const double PREVIEW_SEEK_MAX_BACK_SEC = 96.0;
+    // 先頭から探すとき、originよりさらに手前を指定する幅。TSではDTSで着地するため、
+    // originちょうどを指定すると最初のキーフレームを飛ばして次から読むことがある。
+    static const int PREVIEW_SEEK_BEFORE_ORIGIN_SEC = 3;
+    // 目標より先をどこまで読むか。B-frameの並べ替えでptsが前後しても、目標以前のキーフレームを見落とさない幅。
+    static const int PREVIEW_SEEK_REORDER_SEC = 1;
+    // キーフレームから開始時刻までがこの秒数以内なら、開始時刻より前のフレームもフィルタへ渡す
+    // (RGYInput::checkPreviewWindowを参照)。それより遠ければ、フィルタへ渡さずに捨てる。
+    static const int PREVIEW_KEEP_BEFORE_START_MAX_SEC = 3;
+    // 保持するパケットの上限。極端に長いGOPでも、メモリを無制限には使わない。
+    static constexpr size_t PREVIEW_SEEK_MAX_BUFFER_BYTES = 256ull * 1024 * 1024;
+
     const auto timebase = m_Demux.video.stream->time_base;
-    double margin = 3.0;
+    double backSec = PREVIEW_SEEK_INITIAL_BACK_SEC;
     size_t scannedPackets = 0;
     for (;;) {
         if (previewAbortRequested()) return RGY_ERR_ABORTED;
         m_previewSeekPackets.clear();
-        const int64_t back = av_rescale_q(1, av_d2q(margin, 1 << 24), timebase);
+        const int64_t back = av_rescale_q(1, av_d2q(backSec, 1 << 24), timebase);
         const bool atStart = target - back <= origin;
-        // TSのDTS着地で最初のkeyを飛ばさないよう、先頭の試行も原点より手前を指定する。
-        const int64_t position = atStart ? origin - av_rescale_q(3, AVRational{ 1, 1 }, timebase) : target - back;
+        const int64_t position = atStart ? origin - av_rescale_q(PREVIEW_SEEK_BEFORE_ORIGIN_SEC, AVRational{ 1, 1 }, timebase) : target - back;
         int result = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, position, AVSEEK_FLAG_BACKWARD);
         if (result < 0) result = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, position, 0);
         if (result < 0) return RGY_ERR_INVALID_PARAM;
-        int64_t chosen = AV_NOPTS_VALUE;
+        int64_t chosen = AV_NOPTS_VALUE; // これまでに見つけた、目標以前で最後のキーフレームのpts
         size_t bufferedBytes = 0;
         size_t attemptPackets = 0;
         int64_t lastVideoPts = AV_NOPTS_VALUE;
-        // 再seekの着地を信頼せずpacketを保持する。極端な長GOPでも無制限には確保しない。
+        // キーフレーム以降のパケットを保持する。上限を超えたらエラーにする。
         auto retain = [&](std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>& packet) {
             size_t bytes = sizeof(AVPacket) + (size_t)std::max(0, packet->size);
             for (int i = 0; i < packet->side_data_elems; i++) bytes += sizeof(AVPacketSideData) + packet->side_data[i].size;
-            static constexpr size_t MAX_PREVIEW_KEY_BUFFER = 256ull * 1024 * 1024;
-            if (bytes > MAX_PREVIEW_KEY_BUFFER || bufferedBytes > MAX_PREVIEW_KEY_BUFFER - bytes) {
-                AddMessage(RGY_LOG_ERROR, _T("preview window keyframe buffer exceeds 256 MiB.\n"));
+            if (bytes > PREVIEW_SEEK_MAX_BUFFER_BYTES || bufferedBytes > PREVIEW_SEEK_MAX_BUFFER_BYTES - bytes) {
+                AddMessage(RGY_LOG_ERROR, _T("preview window keyframe buffer exceeds %zu MiB.\n"), PREVIEW_SEEK_MAX_BUFFER_BYTES >> 20);
                 return false;
             }
             bufferedBytes += bytes;
@@ -3497,15 +3540,17 @@ RGY_ERR RGYInputAvcodec::seekPreviewWindow(int64_t origin, int64_t target) {
             attemptPackets++;
             const bool video = packet->stream_index == m_Demux.video.index;
             if (video && packet->pts != AV_NOPTS_VALUE) lastVideoPts = packet->pts;
-            // 次のkeyがない長GOPでも、並べ替え用の1秒より先を全走査しない。
-            const bool beyondTarget = video && packet->pts != AV_NOPTS_VALUE && av_compare_ts(packet->pts - target, timebase, 1, AVRational{ 1, 1 }) > 0;
+            const bool beyondTarget = video && packet->pts != AV_NOPTS_VALUE
+                && av_compare_ts(packet->pts - target, timebase, PREVIEW_SEEK_REORDER_SEC, AVRational{ 1, 1 }) > 0;
             const bool key = video && (packet->flags & AV_PKT_FLAG_KEY) != 0;
             if (key && packet->pts != AV_NOPTS_VALUE) {
                 if (packet->pts <= target && (chosen == AV_NOPTS_VALUE || packet->pts >= chosen)) {
+                    // 目標以前で、より後ろのキーフレーム。ここから読み直すので、それまでの保持は捨てる。
                     chosen = packet->pts;
                     m_previewSeekPackets.clear();
                     bufferedBytes = 0;
                 } else if (packet->pts > target) {
+                    // 目標より後ろのキーフレームが来たら、それ以降に目標以前のキーフレームはない。
                     if (chosen != AV_NOPTS_VALUE && !retain(packet)) return RGY_ERR_MEMORY_ALLOC;
                     break;
                 }
@@ -3514,21 +3559,21 @@ RGY_ERR RGYInputAvcodec::seekPreviewWindow(int64_t origin, int64_t target) {
             if (beyondTarget) break;
         }
         AddMessage(RGY_LOG_DEBUG, _T("preview window search: margin=%.0f packets=%zu last=%lld target=%lld key=%lld\n"),
-            margin, attemptPackets, (long long)lastVideoPts, (long long)target, (long long)chosen);
+            backSec, attemptPackets, (long long)lastVideoPts, (long long)target, (long long)chosen);
         if (chosen != AV_NOPTS_VALUE) {
-            m_previewWindowKey = chosen;
-            // 3秒以内はkeyからの周期を保ち、長いGOPだけVPP前でS未満を捨てる。
-            m_previewWindowKeepHistory = av_compare_ts(target - chosen, timebase, 3, AVRational{ 1, 1 }) <= 0;
+            m_preview.keyPts = chosen;
+            m_preview.keepBeforeStart = av_compare_ts(target - chosen, timebase, PREVIEW_KEEP_BEFORE_START_MAX_SEC, AVRational{ 1, 1 }) <= 0;
             AddMessage(RGY_LOG_DEBUG, _T("preview window: target %lld, key %lld, search %.3f sec, buffered %zu packets.\n"),
-                (long long)target, (long long)chosen, margin, m_previewSeekPackets.size());
+                (long long)target, (long long)chosen, backSec, m_previewSeekPackets.size());
             return RGY_ERR_NONE;
         }
-        if (atStart || margin >= 96.0) {
-            // key未検出と保持上限超過を区別し、後者を黙って旧着地へ戻さない。
-            AddMessage(RGY_LOG_WARN, _T("preview window keyframe not found within %.0f seconds; falling back to legacy seek (scanned %zu packets).\n"), margin, scannedPackets);
+        if (atStart || backSec >= PREVIEW_SEEK_MAX_BACK_SEC) {
+            // キーフレームが見つからない場合だけ、呼び出し側で従来の--seekへ戻す。
+            // 保持量の上限を超えた場合は、上でエラーとして返しており、黙って従来の動作へは戻さない。
+            AddMessage(RGY_LOG_WARN, _T("preview window keyframe not found within %.0f seconds; falling back to legacy seek (scanned %zu packets).\n"), backSec, scannedPackets);
             return RGY_ERR_MORE_DATA;
         }
-        margin *= 2.0;
+        backSec *= 2.0;
     }
 }
 

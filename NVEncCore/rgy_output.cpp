@@ -1165,9 +1165,6 @@ RGY_ERR RGYOutFrame::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutpu
     m_y4mTimestamp = writerParam->y4mTimestamp;
     m_outputTimebase = writerParam->outputTimebase;
     m_previewCutoff = writerParam->previewCutoff;
-    m_previewStart = writerParam->previewStart;
-    m_previewTimebase = writerParam->previewTimebase;
-    m_previewOutputStartUs = writerParam->previewOutputStartUs;
     m_sourceHWMem = true;
     m_inited = true;
 
@@ -1190,20 +1187,29 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
     const auto frame = pSurface->frameInfo();
 
 #if ENABLE_AVSW_READER
-    // 暖機は従来どおりVPPへ通す。Viewerの絶対safe境界だけで、pipeへ出すprefixを省く。
-    if (m_previewOutputStartUs != INT64_MIN) {
-        if (frame.timestamp == AV_NOPTS_VALUE || !m_outputTimebase.is_valid() || m_previewOutputStartUs < INT64_MIN + 3) {
+    // --preview-serverでは、Viewerが表示に使わない先頭のフレームを、pipeへ書かずに捨てる。
+    // 背景: 時間方向のフィルタ(afs、decimate、nlmeansなど)は前のフレームを使うので、
+    // 表示したい位置より前から入力してフィルタの状態を作る(暖機する)必要がある。
+    // 暖機の分もフィルタには通すが、その出力はViewerに不要で、4Kでは1枚で10MB以上になり、
+    // pipeへの書き出しとViewerの受信の時間を無駄にする。そこで、書き出す直前に捨てる。
+    if (m_previewCutoff.outputStartUs != INT64_MIN) {
+        // Viewerが出力開始時刻を指定した場合: その時刻より前の出力を書かない。
+        // 時刻は入力の絶対時刻(--timestamp-passthrough)で比べる。
+        if (frame.timestamp == AV_NOPTS_VALUE || !m_outputTimebase.is_valid()
+            || m_previewCutoff.outputStartUs < INT64_MIN + RGY_PREVIEW_OUTPUT_START_TOLERANCE_US) {
             return RGY_ERR_INVALID_PARAM;
         }
-        // Viewerは未調整のsafe境界をµsへ切捨てて送る。safeの2µsとXts小数6桁の最大0.5µsを、
-        // ここで一度だけ整数3µsへ切上げる。少数の余分なframeを残しても、旧safe候補は落とさない。
-        // 半durationによる選択・末尾guardには、この許容幅を適用しない。
-        if (av_compare_ts(frame.timestamp, av_make_q(m_outputTimebase), m_previewOutputStartUs - 3, AVRational{ 1, 1000000 }) < 0) {
+        // 境界ちょうどのフレームを誤って捨てないよう、許容幅だけ手前のフレームまでは書く
+        // (許容幅の理由はRGY_PREVIEW_OUTPUT_START_TOLERANCE_USを参照)。
+        const int64_t outputStartUs = m_previewCutoff.outputStartUs - RGY_PREVIEW_OUTPUT_START_TOLERANCE_US;
+        if (av_compare_ts(frame.timestamp, av_make_q(m_outputTimebase), outputStartUs, AVRational{ 1, 1000000 }) < 0) {
             return RGY_ERR_NONE;
         }
     }
-    // 旧短GOPのS未満の破棄も残す。新字段なしでは、この従来の比較だけが有効になる。
-    if (m_previewCutoff && av_compare_ts(frame.timestamp, av_make_q(m_outputTimebase), m_previewStart, av_make_q(m_previewTimebase)) < 0) {
+    // 窓の開始時刻より前のフレームを、フィルタへは通した場合(RGYInput::checkPreviewWindowを参照)、
+    // その出力も書かない。出力開始時刻を送らない古いViewerでは、こちらの判定だけが働く。
+    if (m_previewCutoff.dropBeforeStart
+        && av_compare_ts(frame.timestamp, av_make_q(m_outputTimebase), m_previewCutoff.start, av_make_q(m_previewCutoff.timebase)) < 0) {
         return RGY_ERR_NONE;
     }
 #endif
@@ -1929,10 +1935,7 @@ RGY_ERR initWriters(
             param.bY4m = common->muxOutputFormat != _T("raw");
             param.y4mTimestamp = common->y4mTimestamp && param.bY4m;
             param.outputTimebase = outputTimebase;
-            param.previewCutoff = pFileReader->previewWindowOutputCutoff();
-            param.previewStart = pFileReader->previewWindowStart();
-            param.previewTimebase = pFileReader->previewWindowTimebase();
-            param.previewOutputStartUs = pFileReader->previewWindowOutputStartUs();
+            param.previewCutoff = pFileReader->previewOutputCutoff();
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &param, log, pStatus);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());

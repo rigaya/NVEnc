@@ -235,7 +235,8 @@ std::vector<int> read_keyfile(tstring keyfile) {
     return vector<int>(s.begin(), s.end());
 }
 
-// serverのrunは直列。入力の非同期初期化にも設定を渡し、readerが自分の値へ取り込む。
+// RGYPreviewInputScopeが設定し、RGYInput::configurePreviewWindow()が読む値。
+// 入力の初期化は別スレッドで行われることがあるため、atomicにしておく。
 static std::atomic<bool> g_previewInputEnabled(false);
 static std::atomic<std::atomic<bool>*> g_previewInputAbort(nullptr);
 static std::atomic<int64_t> g_previewOutputStartUs(INT64_MIN);
@@ -253,50 +254,71 @@ RGYPreviewInputScope::~RGYPreviewInputScope() {
 }
 
 void RGYInput::configurePreviewWindow(int64_t frames) {
-    m_previewWindowEnabled = g_previewInputEnabled;
-    m_previewWindowAbort = g_previewInputAbort;
-    m_previewOutputStartUs = g_previewOutputStartUs;
-    m_previewWindowLimit = frames;
-    m_previewWindowKeepHistory = false;
-    m_previewWindowReport = m_previewWindowEnabled;
-    m_previewWindowKey = INT64_MIN;
-    m_previewWindowPreS = m_previewWindowDroppedPreS = m_previewWindowAfterLimit = 0;
-    m_previewWindowAccepted.store(0);
-    m_previewWindowStart = INT64_MIN;
-    m_previewWindowTimebase = {};
+    // 要求の設定を取り込み、前回の結果を消す。
+    // 窓の開始時刻とキーフレームは、この後の入力の初期化(seek)の中で決まる。
+    m_preview.enabled = g_previewInputEnabled;
+    m_preview.abort = g_previewInputAbort;
+    m_preview.outputStartUs = g_previewOutputStartUs;
+    m_preview.limit = frames;
+    m_preview.start = INT64_MIN;
+    m_preview.timebase = {};
+    m_preview.keyPts = INT64_MIN;
+    m_preview.keepBeforeStart = false;
+    m_preview.accepted.store(0);
+    m_preview.report = m_preview.enabled;
+    m_preview.beforeStart = m_preview.droppedBeforeStart = m_preview.afterLimit = 0;
+}
+
+RGYPreviewOutputCutoff RGYInput::previewOutputCutoff() const {
+    RGYPreviewOutputCutoff cutoff;
+    if (!m_preview.enabled) {
+        // 窓を使わない(従来の--seekへ戻した)場合は、何も捨てない。
+        // outputStartUsは入力の絶対時刻なので、従来の--seekの出力時刻とは比べられない。
+        return cutoff;
+    }
+    cutoff.dropBeforeStart = m_preview.keepBeforeStart;
+    cutoff.start = m_preview.start;
+    cutoff.timebase = m_preview.timebase;
+    cutoff.outputStartUs = m_preview.outputStartUs;
+    return cutoff;
 }
 
 RGY_ERR RGYInput::checkPreviewWindow(int64_t pts, rgy_rational<int> timebase, bool& keep) {
     keep = true;
-    if (!m_previewWindowEnabled) return RGY_ERR_NONE;
+    if (!m_preview.enabled) return RGY_ERR_NONE;
     keep = false;
-    if (previewWindowFinished()) { m_previewWindowAfterLimit++; return RGY_ERR_NONE; }
-    if (pts == INT64_MIN || !timebase.is_valid() || !m_previewWindowTimebase.is_valid()) return RGY_ERR_INVALID_PARAM;
-#if ENABLE_AVSW_READER
-    const bool beforeStart = av_compare_ts(pts, av_make_q(timebase), m_previewWindowStart, av_make_q(m_previewWindowTimebase)) < 0;
-#else
-    const bool beforeStart = rational_rescale(pts, timebase, m_previewWindowTimebase) < m_previewWindowStart;
-#endif
-    if (beforeStart) {
-        // 短いGOPは周期フィルタの起点を保ち、Sより前を有限枚数へ数えない。
-        m_previewWindowPreS++;
-        keep = m_previewWindowKeepHistory;
-        if (!keep) m_previewWindowDroppedPreS++;
+    if (previewWindowFinished()) {
+        // 上限に達した後にデコーダから出てきたフレームは、窓の外なので捨てる。
+        m_preview.afterLimit++;
         return RGY_ERR_NONE;
     }
-    m_previewWindowAccepted.fetch_add(1);
+    if (pts == INT64_MIN || !timebase.is_valid() || !m_preview.timebase.is_valid()) return RGY_ERR_INVALID_PARAM;
+#if ENABLE_AVSW_READER
+    const bool beforeStart = av_compare_ts(pts, av_make_q(timebase), m_preview.start, av_make_q(m_preview.timebase)) < 0;
+#else
+    const bool beforeStart = rational_rescale(pts, timebase, m_preview.timebase) < m_preview.start;
+#endif
+    if (beforeStart) {
+        // キーフレームから窓の開始時刻までの間に復号したフレーム。窓の枚数には数えない。
+        // keepBeforeStartなら、フィルタへ渡して時間方向のフィルタの状態を作り、出力の直前で捨てる。
+        //   キーフレームが開始時刻に近いときの扱い。decimateなどの周期を持つフィルタは、
+        //   入力の最初のフレームから周期を数えるので、キーフレームから入力して周期の位置をそろえる。
+        // そうでなければ、ここで捨ててフィルタへ渡さない。
+        //   キーフレームが遠いときに、全部をフィルタへ通すと時間がかかりすぎるため。
+        //   この場合の暖機は、Viewerが窓を前へ広げて行う。
+        // どちらにするかは、RGYInputAvcodec::seekPreviewWindow()が決める。
+        m_preview.beforeStart++;
+        keep = m_preview.keepBeforeStart;
+        if (!keep) m_preview.droppedBeforeStart++;
+        return RGY_ERR_NONE;
+    }
+    m_preview.accepted.fetch_add(1);
     keep = true;
     return RGY_ERR_NONE;
 }
 
 RGYInput::RGYInput() :
-    m_previewWindowEnabled(false),
-    m_previewWindowAbort(nullptr),
-    m_previewOutputStartUs(INT64_MIN),
-    m_previewWindowStart(INT64_MIN),
-    m_previewWindowTimebase(),
-    m_previewWindowLimit(0),
-    m_previewWindowAccepted(0),
+    m_preview(),
     m_encSatusInfo(),
     m_inputVideoInfo(),
     m_inputCsp(RGY_CSP_NA),

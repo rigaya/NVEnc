@@ -467,7 +467,9 @@ int _tmain(int argc, TCHAR **argv) {
             auto previewArgv = rgy_cmd_selftest_argv(mergedArgs);
             InEncodeVideoParam params;
             if (parse_cmd(&params, (int)previewArgv.size() - 1, previewArgv.data()) != 0) return RGY_ERR_INVALID_PARAM;
-            // 絶対出力境界を相対時計や明示trimへ適用しない。先頭は既存SafeStart=0を保つ。
+            // 出力開始時刻(outputStartUs)は入力の絶対時刻なので、出力の時刻が入力の絶対時刻になる場合だけ受け付ける。
+            // 窓の読み込みと--timestamp-passthroughが必要で、--trimや割合指定の--seekとは組み合わせない。
+            // --seekなし(先頭から読む)の要求は、先頭のフレームから表示に使うので、出力開始時刻を指定する対象にしない。
             if (outputStartUs != INT64_MIN && (!windowSeek || !params.common.timestampPassThrough
                 || params.common.seekSec <= 0 || params.common.seekRatio > 0
                 || params.common.nTrimCount > 0)) return RGY_ERR_INVALID_PARAM;

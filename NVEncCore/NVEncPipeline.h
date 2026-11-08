@@ -2267,6 +2267,7 @@ public:
         }
         m_inFrames++;
         PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+        // --preview-serverの窓の外のフレーム(開始時刻より前で捨てる分、上限を超えた分)は、フィルタへ渡さない。
         bool keepPreview = true;
         const auto previewErr = m_input->checkPreviewWindow(taskSurf->surf().frame()->timestamp(), m_srcTimebase, keepPreview);
         if (previewErr != RGY_ERR_NONE) return previewErr;

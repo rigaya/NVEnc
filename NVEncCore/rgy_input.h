@@ -167,14 +167,74 @@ public:
     int run(int interlaced, void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int *crop);
 };
 
-// serverのrunで明示された新窓だけを有効にし、通常経路とprobeへ漏らさない。
+// --preview-serverで、Viewerが指定する出力開始時刻(output_start_us)と、実際の出力フレームの時刻を
+// 比べるときの許容幅(µs)。Viewerは開始時刻をµs単位に切り捨てて送ってくるうえ、Viewer側では
+// 範囲の判定に2µsの許容を持ち、y4mの時刻(Xts)も小数6桁へ丸めているため最大0.5µsずれる。
+// これらを合わせた2.5µsを整数に切り上げ、開始時刻よりこの幅だけ手前のフレームまでは書き出す。
+// 余分に数枚書いても、Viewerが不要な分を捨てるだけなので問題ない。
+static const int64_t RGY_PREVIEW_OUTPUT_START_TOLERANCE_US = 3;
+
+// --preview-serverの1回の要求(run)の間だけ、入力の読み込み方の設定を有効にする。
+//
+// 入力の初期化は、パイプラインの初期化の中から(場合によっては別スレッドで)呼ばれるため、
+// サーバの要求の情報を引数で直接渡す経路がない。そこで、このcppファイル内の変数を経由して渡し、
+// RGYInput::configurePreviewWindow()が入力の初期化時に自分の状態(m_preview)へ写し取る。
+// サーバは要求を1つずつ順に処理するので、複数のscopeが同時に有効になることはない。
+// 通常のエンコードや、probe要求ではscopeを作らないので、従来の動作は変わらない。
 class RGYPreviewInputScope {
     bool m_previousEnabled;
     std::atomic<bool> *m_previousAbort;
     int64_t m_previousOutputStartUs;
 public:
+    // 構築時に設定を有効にし、破棄時に構築前の値へ戻す。
+    // enabled       : Viewerが窓の読み込み(RGYPreviewWindowを参照)を要求したrunならtrue。
+    // abort         : Viewerがrunを取り消すとtrueになるフラグ。キーフレームの探索中も確認して中断する。
+    // outputStartUs : Viewerが指定した出力開始時刻(µs、入力の絶対時刻)。これより前の出力はpipeへ書かない。
+    //                 INT64_MINは指定なし。enabledがfalseのときは無視する。
     RGYPreviewInputScope(bool enabled, std::atomic<bool> *abort, int64_t outputStartUs = INT64_MIN);
     ~RGYPreviewInputScope();
+};
+
+// --preview-serverで、Viewerが要求した「窓」を読むための状態。
+// 窓は、入力の絶対時刻で表した開始時刻(start)から、指定した枚数(limit)の入力フレームの範囲。
+//
+// 背景: TSなどでは、av_seek_frame()の着地位置が目標より後ろのキーフレームになることがあり、
+// 従来の--seekでは窓の先頭が目標より後ろへずれて、Viewerが目標のフレームを得られないことがあった。
+// そこで、開始時刻以前で最後のキーフレームを自分で探してそこから復号し(RGYInputAvcodec::seekPreviewWindow)、
+// 開始時刻より前に復号されたフレームを判定して扱う(RGYInput::checkPreviewWindow)。
+// 有限の枚数は、開始時刻以降の入力フレームだけで数える。
+struct RGYPreviewWindow {
+    bool enabled;                   // 窓の読み込みを使うか。使えない入力や指定では、従来の--seekの動作に戻す。
+    std::atomic<bool> *abort;       // Viewerからの取消要求。
+    int64_t outputStartUs;          // Viewerが指定した出力開始時刻(µs、入力の絶対時刻)。INT64_MINは指定なし。
+    int64_t start;                  // 窓の開始時刻(timebase単位、入力の絶対時刻)。INT64_MINは未決定。
+    rgy_rational<int> timebase;     // startの単位。
+    int64_t keyPts;                 // 復号を始めたキーフレームの時刻(timebase単位)。INT64_MINは未決定。
+    bool keepBeforeStart;           // 開始時刻より前に復号したフレームも、フィルタへ渡すか(checkPreviewWindowを参照)。
+    int64_t limit;                  // 開始時刻以降に受け取る入力フレームの上限。0は上限なし。
+    std::atomic<int64_t> accepted;  // 開始時刻以降に受け取った入力フレームの数。
+    // 以下はDEBUGログ用の集計。
+    bool report;                    // 入力を閉じるときに集計をログへ出すか。
+    int64_t beforeStart;            // 開始時刻より前に復号したフレームの数。
+    int64_t droppedBeforeStart;     // そのうち、フィルタへ渡さずに捨てた数。
+    int64_t afterLimit;             // 上限に達した後に届いたフレームの数。
+
+    RGYPreviewWindow() :
+        enabled(false), abort(nullptr), outputStartUs(INT64_MIN), start(INT64_MIN), timebase(),
+        keyPts(INT64_MIN), keepBeforeStart(false), limit(0), accepted(0),
+        report(false), beforeStart(0), droppedBeforeStart(0), afterLimit(0) {}
+};
+
+// --preview-serverで、出力(RGYOutFrame)がpipeへ書く前に捨てるフレームの条件。
+// 窓の開始時刻より前のフレームも、時間方向のフィルタの状態を作るためにフィルタへは通すことがあるが、
+// その出力はViewerに不要なので、書き出す直前に捨てる。
+struct RGYPreviewOutputCutoff {
+    bool dropBeforeStart;           // 窓の開始時刻(start)より前の出力を書かない。
+    int64_t start;                  // 窓の開始時刻(timebase単位、入力の絶対時刻)。
+    rgy_rational<int> timebase;     // startの単位。
+    int64_t outputStartUs;          // Viewerが指定した出力開始時刻(µs)。これより前の出力を書かない。INT64_MINは指定なし。
+
+    RGYPreviewOutputCutoff() : dropBeforeStart(false), start(0), timebase(), outputStartUs(INT64_MIN) {}
 };
 
 class RGYInputPrm {
@@ -238,16 +298,17 @@ public:
     }
 #pragma warning(pop)
 
+    // 入力の初期化時に呼び、RGYPreviewInputScopeで有効にされた設定を取り込む。
+    // frames: --framesで指定された入力フレームの上限(0は上限なし)。窓では開始時刻以降の枚数として扱う。
     void configurePreviewWindow(int64_t frames);
-    bool previewWindowOutputCutoff() const { return m_previewWindowEnabled && m_previewWindowKeepHistory; }
-    // 入力のSとは別の絶対出力境界。legacyへのfallback時は絶対時刻を比較しない。
-    int64_t previewWindowOutputStartUs() const { return m_previewWindowEnabled ? m_previewOutputStartUs : INT64_MIN; }
-    int64_t previewWindowStart() const { return m_previewWindowStart; }
-    rgy_rational<int> previewWindowTimebase() const { return m_previewWindowTimebase; }
-    bool previewWindowEnabled() const { return m_previewWindowEnabled; }
-    bool previewWindowFinished() const { return m_previewWindowLimit > 0 && m_previewWindowAccepted.load() >= m_previewWindowLimit; }
-    bool previewAbortRequested() const { return m_previewWindowAbort && m_previewWindowAbort->load(); }
-    // 復号済みの入力フレームだけを数え、暖機より前とleadingで有限窓を消費しない。
+    // 出力(RGYOutFrame)がpipeへ書く前に捨てるフレームの条件を返す。
+    RGYPreviewOutputCutoff previewOutputCutoff() const;
+    bool previewWindowEnabled() const { return m_preview.enabled; }
+    // 開始時刻以降の入力フレームを上限まで受け取ったか。以降は読み込みを打ち切る。
+    bool previewWindowFinished() const { return m_preview.limit > 0 && m_preview.accepted.load() >= m_preview.limit; }
+    bool previewAbortRequested() const { return m_preview.abort && m_preview.abort->load(); }
+    // 復号したフレームを、フィルタへ渡すか(keep)を判定し、窓の枚数を数える。
+    // pts/timebase: 復号したフレームの時刻(入力の絶対時刻)。窓を使わない場合は常にkeep=trueを返す。
     RGY_ERR checkPreviewWindow(int64_t pts, rgy_rational<int> timebase, bool& keep);
 
     sInputCrop GetInputCropInfo() {
@@ -364,19 +425,7 @@ protected:
         return m_trimParam.list[m_trimParam.list.size()-1].fin;
     }
 
-    bool m_previewWindowKeepHistory = false;
-    bool m_previewWindowReport = false;
-    int64_t m_previewWindowKey = INT64_MIN;
-    int64_t m_previewWindowPreS = 0;
-    int64_t m_previewWindowDroppedPreS = 0;
-    int64_t m_previewWindowAfterLimit = 0;
-    bool m_previewWindowEnabled;
-    std::atomic<bool> *m_previewWindowAbort;
-    int64_t m_previewOutputStartUs;
-    int64_t m_previewWindowStart;
-    rgy_rational<int> m_previewWindowTimebase;
-    int64_t m_previewWindowLimit;
-    std::atomic<int64_t> m_previewWindowAccepted;
+    RGYPreviewWindow m_preview; // --preview-serverの窓の状態。
 
     shared_ptr<EncodeStatus> m_encSatusInfo;
 

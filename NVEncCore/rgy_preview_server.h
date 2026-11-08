@@ -36,6 +36,7 @@
 #include <utility>
 #include <stdexcept>
 #include "../json/json.hpp"
+#include "rgy_input.h"
 #include "rgy_util.h"
 #include "rgy_err.h"
 #if defined(_WIN32)
@@ -93,13 +94,17 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
                 if (json.contains("window_seek") && !json.at("window_seek").is_boolean()) throw std::runtime_error("window_seek");
                 req.windowSeek = windowSeek && json.value("window_seek", false);
                 if (json.contains("output_start_us")) {
+                    // Viewerが指定する出力開始時刻(µs、入力の絶対時刻)。これより前の出力はpipeへ書かない。
+                    // 窓の読み込み(window_seek)を使うrunだけで受け付ける。窓を使わない読み込みでは、
+                    // 出力の時刻が入力の絶対時刻にならないため比べられない。
+                    // 型が違う値や、int64に収まらない値は、丸めずにエラーにする。
                     const auto& value = json.at("output_start_us");
-                    // 絶対出力PTSはrun限定。型違い・未知能力・int64範囲外を黙って丸めない。
                     if (cmd != "run" || !outputStart || !req.windowSeek || !value.is_number_integer()
                         || (value.is_number_unsigned() && value.get<uint64_t>() > INT64_MAX)) throw std::runtime_error("output_start_us");
                     req.outputStartUs = value.get<int64_t>();
-                    // 3µsの境界調整でoverflowさせず、未指定の番兵とも区別する。0や負の絶対PTS自体は有効。
-                    if (req.outputStartUs < INT64_MIN + 3) throw std::runtime_error("output_start_us");
+                    // 出力側で許容幅を引いても桁あふれせず、「指定なし」を表すINT64_MINとも重ならない値だけ受け付ける。
+                    // 0や負の値は、入力の時刻として有効なので受け付ける。
+                    if (req.outputStartUs < INT64_MIN + RGY_PREVIEW_OUTPUT_START_TOLERANCE_US) throw std::runtime_error("output_start_us");
                 }
                 if (cmd == "run" || req.probe) {
                     if (!json.at("args").is_array()) throw std::runtime_error("args");
