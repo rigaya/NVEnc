@@ -775,7 +775,7 @@ protected:
     std::deque<KfmMainIntermediateGroup> m_deint60IntermediateQueue;
     std::deque<KfmCachedUcfNoise> m_ucfNoiseCache;
     std::deque<KfmPendingUcfNoiseResult> m_pendingUcfNoiseResults;
-    std::deque<std::unique_ptr<CUMemBuf>> m_fmCountBufPool;
+    std::deque<std::unique_ptr<CUMemBufPair>> m_fmCountBufPool;
     std::deque<std::unique_ptr<CUMemBufPair>> m_ucfNoiseResultBufPool;
     std::deque<KfmUcfNoiseDumpRecord> m_ucfNoiseResultCache;
     KfmUcfNoiseDumpRecord m_pendingUcfNoiseDump;

@@ -6991,11 +6991,18 @@ RGY_ERR NVEncFilterKfm::submitFMCounts(int cycle, bool drain, cudaStream_t strea
             pending.reusePrevious = src[i]->sourceIndex == previous.tailSourceIndices[i];
         }
     }
-    pending.countBuf = std::make_unique<CUMemBufPair>(countBytes);
-    auto sts = pending.countBuf->alloc();
-    if (sts != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM FMCount buffer: %s.\n"), get_err_mes(sts));
-        return sts;
+    if (!m_fmCountBufPool.empty()) {
+        pending.countBuf = std::move(m_fmCountBufPool.front());
+        m_fmCountBufPool.pop_front();
+    }
+    RGY_ERR sts = RGY_ERR_NONE;
+    if (!pending.countBuf) {
+        pending.countBuf = std::make_unique<CUMemBufPair>(countBytes);
+        sts = pending.countBuf->alloc();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM FMCount buffer: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
     }
     sts = err_to_rgy(cudaMemsetAsync(pending.countBuf->ptrDevice, 0, countBytes, stream));
     if (sts != RGY_ERR_NONE) {
@@ -7135,6 +7142,10 @@ RGY_ERR NVEncFilterKfm::readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts
     }
     m_previousFMCounts = counts;
     m_previousFMCountCycle = pending.cycle;
+    if (m_fmCountBufPool.size() < 4) {
+        // 読み戻しイベントの完了後なので、次の周期で安全に再利用できる。
+        m_fmCountBufPool.push_back(std::move(pending.countBuf));
+    }
     m_pendingFMCounts.pop_front();
     return RGY_ERR_NONE;
 }
