@@ -4003,7 +4003,7 @@ __device__ __forceinline__ void degrainDegrainOverlapPlaneRampGeneric(
     dst[y * dstPitch + x] = degrainClampPixel<TypePixel>(result);
 }
 
-template<typename TypePixel, int refs, bool useMixPlan>
+template<typename TypePixel, int refs, bool useMixPlan, bool fixedLayout = false>
 static __global__ void kernel_degrain_degrain_overlap_plane_ramp_cuda(
     TypePixel *dst,
     const int dst_pitch,
@@ -4052,13 +4052,13 @@ static __global__ void kernel_degrain_degrain_overlap_plane_ramp_cuda(
         width, height,
         mv,
         blocksX, blocksY,
-        blockSize, overlap, step,
+        fixedLayout ? 32 : blockSize, fixedLayout ? 16 : overlap, fixedLayout ? 16 : step,
         coveredWidth, coveredHeight,
-        planeScaleX, planeScaleY,
+        fixedLayout ? 1 : planeScaleX, fixedLayout ? 1 : planeScaleY,
         windowRamp, sad, temporalMixPrior, thsad, disableMask,
         0, 0, 0,
         globalX, globalY,
-        pel, subpelInterp, mixPlan);
+        fixedLayout ? 1 : pel, subpelInterp, mixPlan);
 }
 
 static RGY_ERR launchNVEncDegrainDegrainOverlapPlaneRampImpl(
@@ -4079,8 +4079,8 @@ static RGY_ERR launchNVEncDegrainDegrainOverlapPlaneRampImpl(
     const int refs, const int pel, const int subpelInterp, cudaStream_t stream) {
     const dim3 block(32, 8);
     const dim3 grid(divCeil(width, (int)block.x), divCeil(height, (int)block.y));
-#define LAUNCH_DEGRAIN_RAMP(TYPE, REFS, USE_PLAN) do { \
-    kernel_degrain_degrain_overlap_plane_ramp_cuda<TYPE, REFS, USE_PLAN><<<grid, block, 0, stream>>>( \
+#define LAUNCH_DEGRAIN_RAMP(TYPE, REFS, USE_PLAN, FIXED_LAYOUT) do { \
+    kernel_degrain_degrain_overlap_plane_ramp_cuda<TYPE, REFS, USE_PLAN, FIXED_LAYOUT><<<grid, block, 0, stream>>>( \
         reinterpret_cast<TYPE *>(dst), dstPitch, \
         cur, curPitch, \
         refBackward1, refForward1, \
@@ -4100,12 +4100,19 @@ static RGY_ERR launchNVEncDegrainDegrainOverlapPlaneRampImpl(
 } while (0)
 #define SWITCH_DEGRAIN_RAMP(TYPE, USE_PLAN) \
     switch (refs) { \
-    case 2: LAUNCH_DEGRAIN_RAMP(TYPE, 2, USE_PLAN); break; \
-    case 4: LAUNCH_DEGRAIN_RAMP(TYPE, 4, USE_PLAN); break; \
-    case 6: LAUNCH_DEGRAIN_RAMP(TYPE, 6, USE_PLAN); break; \
-    case 8: LAUNCH_DEGRAIN_RAMP(TYPE, 8, USE_PLAN); break; \
-    case 10: LAUNCH_DEGRAIN_RAMP(TYPE, 10, USE_PLAN); break; \
+    case 2: LAUNCH_DEGRAIN_RAMP(TYPE, 2, USE_PLAN, false); break; \
+    case 4: LAUNCH_DEGRAIN_RAMP(TYPE, 4, USE_PLAN, false); break; \
+    case 6: LAUNCH_DEGRAIN_RAMP(TYPE, 6, USE_PLAN, false); break; \
+    case 8: LAUNCH_DEGRAIN_RAMP(TYPE, 8, USE_PLAN, false); break; \
+    case 10: LAUNCH_DEGRAIN_RAMP(TYPE, 10, USE_PLAN, false); break; \
     default: return RGY_ERR_UNSUPPORTED; \
+    }
+    // 既定KFMの輝度だけを特殊化し、幾何とpelを定数伝播させる。
+    if (pixelBytes == 1 && refs == 2 && mixPlan && pel == 1
+        && layout.blockSize == 32 && layout.overlap == 16 && layout.step == 16
+        && planeScaleX == 1 && planeScaleY == 1) {
+        LAUNCH_DEGRAIN_RAMP(uint8_t, 2, true, true);
+        return err_to_rgy(cudaGetLastError());
     }
     if (pixelBytes > 1) {
         if (mixPlan) {
