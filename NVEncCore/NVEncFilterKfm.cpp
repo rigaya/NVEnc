@@ -367,6 +367,9 @@ NVEncFilterKfm::NVEncFilterKfm() :
     m_ucfNoiseResultCache(),
     m_pendingUcfNoiseDump(),
     m_staticFlag(),
+    m_staticFlagCacheKey(),
+    m_staticFlagCacheEvent(),
+    m_staticFlagCacheValid(false),
     m_staticWorkFrames(),
     m_analyzeFlags(),
     m_pendingFMCounts(),
@@ -1205,6 +1208,7 @@ RGYFrameInfo *NVEncFilterKfm::nextWorkFrame() {
 }
 
 RGY_ERR NVEncFilterKfm::initAnalyzer(const NVEncFilterParamKfm& prm) {
+    invalidateStaticFlagCache();
     flushUcfNoiseResultDump();
     RGYKFM::KFMAnalyzeParam analyzeParam;
     analyzeParam.pastCycles = prm.kfm.pastCycles;
@@ -3871,7 +3875,13 @@ int NVEncFilterKfm::telecine24FrameCount(bool drain) const {
     return readyFrames;
 }
 
+void NVEncFilterKfm::invalidateStaticFlagCache() {
+    m_staticFlagCacheValid = false;
+    m_staticFlagCacheEvent = RGYCudaEvent();
+}
+
 RGY_ERR NVEncFilterKfm::clearStaticFlag(cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    invalidateStaticFlagCache();
     if (!m_staticFlag) {
         return RGY_ERR_INVALID_CALL;
     }
@@ -3935,16 +3945,25 @@ RGY_ERR NVEncFilterKfm::analyzeStaticFlag(int sourceIndex, cudaStream_t stream, 
         }
     }
 
+    std::array<int, 3> cacheKey = { sourceIndex, 0, 0 };
     std::vector<RGYCudaEvent> sourceWaitEvents = wait_events;
     for (int offset = -3; offset <= 3; offset++) {
         const auto *src = findSourceByIndex(sourceIndex + offset);
         if (!src || !src->frame || !src->frame->frame.ptr[0]) {
             return clearStaticFlag(stream, wait_events, event);
         }
+        if (offset == -3) cacheKey[1] = src->sourceIndex;
+        if (offset == 3) cacheKey[2] = src->sourceIndex;
         if (src->event() != nullptr) {
             sourceWaitEvents.push_back(src->event);
         }
     }
+    if (m_staticFlagCacheValid && m_staticFlagCacheKey == cacheKey) {
+        if (event) *event = m_staticFlagCacheEvent;
+        return RGY_ERR_NONE;
+    }
+    // 途中で失敗した場合は上書き中の結果を再利用しない。
+    invalidateStaticFlagCache();
     if (cur->paddedEvent() != nullptr) {
         sourceWaitEvents.push_back(cur->paddedEvent);
     }
@@ -4150,8 +4169,18 @@ RGY_ERR NVEncFilterKfm::analyzeStaticFlag(int sourceIndex, cudaStream_t stream, 
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_apply_uv_coefs_420: %s.\n"), get_err_mes(sts));
             return sts;
         }
-        return kfmRecordEvent(stream, event);
+        RGYCudaEvent applyEvent;
+        sts = kfmRecordEvent(stream, &applyEvent);
+        if (sts != RGY_ERR_NONE) return sts;
+        m_staticFlagCacheKey = cacheKey;
+        m_staticFlagCacheEvent = applyEvent;
+        m_staticFlagCacheValid = true;
+        if (event) *event = applyEvent;
+        return RGY_ERR_NONE;
     }
+    m_staticFlagCacheKey = cacheKey;
+    m_staticFlagCacheEvent = andEvent;
+    m_staticFlagCacheValid = true;
     if (event && andEvent() != nullptr) {
         *event = andEvent;
     }
@@ -9315,6 +9344,7 @@ void NVEncFilterKfm::close() {
     m_ucfNoiseResultBufPool.clear();
     m_ucfNoiseResultCache.clear();
     m_pendingVfrOutputs.clear();
+    invalidateStaticFlagCache();
     m_staticFlag.reset();
     for (auto& frame : m_staticWorkFrames) {
         frame.reset();
