@@ -6,14 +6,14 @@
 
 RGY_ERR launchRtgmcSearchPrefilterScenechangeU8(
     const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
-    uint32_t *partial, const int groupCount, cudaStream_t stream) {
-    return launchRtgmcSearchPrefilterScenechangeTyped<uint8_t>(prev2, prev, cur, next, next2, partial, groupCount, stream);
+    uint32_t *partial, const int groupCount, const int smoothRadius, cudaStream_t stream) {
+    return launchRtgmcSearchPrefilterScenechangeTyped<uint8_t>(prev2, prev, cur, next, next2, partial, groupCount, smoothRadius, stream);
 }
 
 RGY_ERR launchRtgmcSearchPrefilterScenechangeU16(
     const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
-    uint32_t *partial, const int groupCount, cudaStream_t stream) {
-    return launchRtgmcSearchPrefilterScenechangeTyped<uint16_t>(prev2, prev, cur, next, next2, partial, groupCount, stream);
+    uint32_t *partial, const int groupCount, const int smoothRadius, cudaStream_t stream) {
+    return launchRtgmcSearchPrefilterScenechangeTyped<uint16_t>(prev2, prev, cur, next, next2, partial, groupCount, smoothRadius, stream);
 }
 
 RGY_ERR launchRtgmcSearchPrefilterRefine2TileU8(

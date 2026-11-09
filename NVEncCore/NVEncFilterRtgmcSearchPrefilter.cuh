@@ -67,7 +67,7 @@ static constexpr float RTGMC_SEARCH_REFINE2_GAUSS_W3 = 0.065223776f;
 static constexpr float RTGMC_SEARCH_REFINE2_GAUSS_W4 = 0.024685025f;
 
 struct NVEncRtgmcSearchPrefilterLaunchFuncs {
-    RGY_ERR (*scenechange)(const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, uint32_t *, int, cudaStream_t);
+    RGY_ERR (*scenechange)(const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, uint32_t *, int, int, cudaStream_t);
     RGY_ERR (*refine2Tile)(const RGYFrameInfo&, const RGYFrameInfo&, int, cudaStream_t);
     RGY_ERR (*edgeSoftenedSearch)(const RGYFrameInfo&, const RGYFrameInfo&, cudaStream_t);
     RGY_ERR (*searchSmoothed3x3)(const RGYFrameInfo&, const RGYFrameInfo&, cudaStream_t);
@@ -83,8 +83,8 @@ const NVEncRtgmcSearchPrefilterLaunchFuncs *getNVEncRtgmcSearchPrefilterU16TR0()
 const NVEncRtgmcSearchPrefilterLaunchFuncs *getNVEncRtgmcSearchPrefilterU16TRP();
 
 RGY_ERR launchRtgmcSearchPrefilterScenechangeReduce(uint32_t *state, int groupCount, uint64_t sceneThreshold, int smoothRadius, cudaStream_t stream);
-RGY_ERR launchRtgmcSearchPrefilterScenechangeU8(const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, uint32_t *, int, cudaStream_t);
-RGY_ERR launchRtgmcSearchPrefilterScenechangeU16(const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, uint32_t *, int, cudaStream_t);
+RGY_ERR launchRtgmcSearchPrefilterScenechangeU8(const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, uint32_t *, int, int, cudaStream_t);
+RGY_ERR launchRtgmcSearchPrefilterScenechangeU16(const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, const RGYFrameInfo&, uint32_t *, int, int, cudaStream_t);
 RGY_ERR launchRtgmcSearchPrefilterRefine2TileU8(const RGYFrameInfo&, const RGYFrameInfo&, int, cudaStream_t);
 RGY_ERR launchRtgmcSearchPrefilterRefine2TileU16(const RGYFrameInfo&, const RGYFrameInfo&, int, cudaStream_t);
 RGY_ERR launchRtgmcSearchPrefilterEdgeSoftenedSearchU8(const RGYFrameInfo&, const RGYFrameInfo&, cudaStream_t);
@@ -443,45 +443,40 @@ __device__ __forceinline__ int rtgmc_search_prefilter_to_full_range(const int va
     return value;
 }
 
-template<typename TypePixel>
+template<typename TypePixel, bool farFrames>
 __global__ void kernel_rtgmc_search_prefilter_scenechange_cuda(
     const uint8_t *prev2, const uint8_t *prev, const uint8_t *cur, const uint8_t *next, const uint8_t *next2,
     const int src_pitch, uint32_t *partial, const int groupCount, const int width, const int height) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
     const int lid = threadIdx.y * RTGMC_SEARCH_PREFILTER_BLOCK_X + threadIdx.x;
+    const int lane = lid & 31, warp = lid >> 5;
+    constexpr int warpCount = (RTGMC_SEARCH_PREFILTER_BLOCK_X * RTGMC_SEARCH_PREFILTER_BLOCK_Y + 31) / 32;
     const int groupIndex = blockIdx.y * gridDim.x + blockIdx.x;
-    __shared__ uint32_t sadPrev[RTGMC_SEARCH_PREFILTER_BLOCK_X * RTGMC_SEARCH_PREFILTER_BLOCK_Y];
-    __shared__ uint32_t sadNext[RTGMC_SEARCH_PREFILTER_BLOCK_X * RTGMC_SEARCH_PREFILTER_BLOCK_Y];
-    __shared__ uint32_t sadPrev2[RTGMC_SEARCH_PREFILTER_BLOCK_X * RTGMC_SEARCH_PREFILTER_BLOCK_Y];
-    __shared__ uint32_t sadNext2[RTGMC_SEARCH_PREFILTER_BLOCK_X * RTGMC_SEARCH_PREFILTER_BLOCK_Y];
-    uint32_t diffPrev = 0, diffNext = 0, diffPrev2 = 0, diffNext2 = 0;
+    __shared__ uint32_t sums[farFrames ? 4 : 2][warpCount];
+    uint32_t diff[4] = {};
     if (x < width && y < height) {
         const int value = rtgmc_search_prefilter_pixel_load<TypePixel>(cur, src_pitch, width, height, x, y);
-        diffPrev = (uint32_t)abs(value - rtgmc_search_prefilter_pixel_load<TypePixel>(prev, src_pitch, width, height, x, y));
-        diffNext = (uint32_t)abs(value - rtgmc_search_prefilter_pixel_load<TypePixel>(next, src_pitch, width, height, x, y));
-        diffPrev2 = (uint32_t)abs(value - rtgmc_search_prefilter_pixel_load<TypePixel>(prev2, src_pitch, width, height, x, y));
-        diffNext2 = (uint32_t)abs(value - rtgmc_search_prefilter_pixel_load<TypePixel>(next2, src_pitch, width, height, x, y));
-    }
-    sadPrev[lid] = diffPrev;
-    sadNext[lid] = diffNext;
-    sadPrev2[lid] = diffPrev2;
-    sadNext2[lid] = diffNext2;
-    __syncthreads();
-    for (int stride = (RTGMC_SEARCH_PREFILTER_BLOCK_X * RTGMC_SEARCH_PREFILTER_BLOCK_Y) >> 1; stride > 0; stride >>= 1) {
-        if (lid < stride) {
-            sadPrev[lid] += sadPrev[lid + stride];
-            sadNext[lid] += sadNext[lid + stride];
-            sadPrev2[lid] += sadPrev2[lid + stride];
-            sadNext2[lid] += sadNext2[lid + stride];
+        diff[0] = abs(value - rtgmc_search_prefilter_pixel_load<TypePixel>(prev, src_pitch, width, height, x, y));
+        diff[1] = abs(value - rtgmc_search_prefilter_pixel_load<TypePixel>(next, src_pitch, width, height, x, y));
+        if constexpr (farFrames) {
+            diff[2] = abs(value - rtgmc_search_prefilter_pixel_load<TypePixel>(prev2, src_pitch, width, height, x, y));
+            diff[3] = abs(value - rtgmc_search_prefilter_pixel_load<TypePixel>(next2, src_pitch, width, height, x, y));
         }
-        __syncthreads();
     }
-    if (lid == 0 && groupIndex < groupCount) {
-        partial[4 + groupIndex + groupCount * 0] = sadPrev[0];
-        partial[4 + groupIndex + groupCount * 1] = sadNext[0];
-        partial[4 + groupIndex + groupCount * 2] = sadPrev2[0];
-        partial[4 + groupIndex + groupCount * 3] = sadNext2[0];
+    #pragma unroll
+    for (int d = 0; d < (farFrames ? 4 : 2); d++) {
+        for (int offset = 16; offset > 0; offset >>= 1) diff[d] += __shfl_down_sync(0xffffffff, diff[d], offset);
+        if (lane == 0) sums[d][warp] = diff[d];
+    }
+    __syncthreads();
+    if (warp == 0) {
+        #pragma unroll
+        for (int d = 0; d < (farFrames ? 4 : 2); d++) {
+            uint32_t sum = lane < warpCount ? sums[d][lane] : 0;
+            for (int offset = 16; offset > 0; offset >>= 1) sum += __shfl_down_sync(0xffffffff, sum, offset);
+            if (lane == 0 && groupIndex < groupCount) partial[4 + groupIndex + groupCount * d] = sum;
+        }
     }
 }
 
@@ -1062,11 +1057,14 @@ static dim3 rtgmcSearchPrefilterGrid(const RGYFrameInfo &frame) {
 template<typename TypePixel>
 static RGY_ERR launchRtgmcSearchPrefilterScenechangeTyped(
     const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
-    uint32_t *partial, const int groupCount, cudaStream_t stream) {
+    uint32_t *partial, const int groupCount, const int smoothRadius, cudaStream_t stream) {
     const auto block = rtgmcSearchPrefilterBlock();
     const auto grid = rtgmcSearchPrefilterGrid(cur);
-    kernel_rtgmc_search_prefilter_scenechange_cuda<TypePixel><<<grid, block, 0, stream>>>(
-        prev2.ptr[0], prev.ptr[0], cur.ptr[0], next.ptr[0], next2.ptr[0], cur.pitch[0], partial, groupCount, cur.width, cur.height);
+    if (smoothRadius >= 2) {
+        kernel_rtgmc_search_prefilter_scenechange_cuda<TypePixel, true><<<grid, block, 0, stream>>>(prev2.ptr[0], prev.ptr[0], cur.ptr[0], next.ptr[0], next2.ptr[0], cur.pitch[0], partial, groupCount, cur.width, cur.height);
+    } else {
+        kernel_rtgmc_search_prefilter_scenechange_cuda<TypePixel, false><<<grid, block, 0, stream>>>(prev2.ptr[0], prev.ptr[0], cur.ptr[0], next.ptr[0], next2.ptr[0], cur.pitch[0], partial, groupCount, cur.width, cur.height);
+    }
     return err_to_rgy(cudaGetLastError());
 }
 

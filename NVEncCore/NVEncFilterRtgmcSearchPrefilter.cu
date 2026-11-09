@@ -896,7 +896,7 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::submitSceneChangePlane(PendingSceneChan
     auto err = err_to_rgy(cudaEventCreateWithFlags(ready.get(), cudaEventDisableTiming));
     if (err != RGY_ERR_NONE) return err;
     err = rtgmcSearchPrefilterLaunchFuncs(*cur, smoothRadius)->scenechange(*prev2, *prev, *cur, *next, *next2,
-        (uint32_t *)pending->partial->ptr, groupCount, stream);
+        (uint32_t *)pending->partial->ptr, groupCount, smoothRadius, stream);
     if (err == RGY_ERR_NONE) {
         err = launchRtgmcSearchPrefilterScenechangeReduce((uint32_t *)pending->partial->ptr, groupCount,
             pending->sceneThreshold, smoothRadius, stream);
