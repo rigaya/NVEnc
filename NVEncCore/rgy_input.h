@@ -32,6 +32,7 @@
 #include <memory>
 #include <atomic>
 #include <thread>
+#include <utility>
 #include "rgy_osdep.h"
 #include "rgy_tchar.h"
 #include "rgy_log.h"
@@ -246,11 +247,52 @@ public:
     RGYPoolAVFrame *poolFrame;
     tstring tcfileIn;
     rgy_rational<int> timebase;
+    double seekSec; // --seek で先頭を飛ばす秒数。フレーム入力(avi/avs/vpy)で使用
 
     RGYInputPrm() : threadCsp(-1), simdCsp(RGY_SIMD::NONE), threadParamCsp(), poolPkt(nullptr), poolFrame(nullptr),
-        tcfileIn(), timebase() {};
+        tcfileIn(), timebase(), seekSec(0.0) {};
     virtual ~RGYInputPrm() {};
 };
+
+// avi/avs/vpy のように任意フレームを読める入力の開始・終了位置。
+// userFrames は --frames (0は無指定)、srcFrames はソースの総フレーム数。
+// 戻り値は [開始フレーム, 終了フレーム)。終了フレームは含まない。
+// --seek なしのときは、従来どおり --frames で切った範囲を seekRatio で分割する。
+// --seek ありのときは、ソース先頭からの時刻をフレームに直し、その位置から --frames 枚まで読む。
+// seekRatio は並列エンコード用で、--seek 後に残った範囲をさらに分割する。
+inline std::pair<int, int> rgy_apply_frame_seek(const double seekSec, const float seekRatio, const int userFrames, const int srcFrames, const int fpsN, const int fpsD) {
+    const int src = (srcFrames > 0) ? srcFrames : 0;
+    if (seekSec > 0.0 && fpsN > 0 && fpsD > 0 && src > 0) {
+        // frame n の時刻は n * fpsD / fpsN 秒。時刻 >= seekSec になる最初のフレーム。
+        // 秒をマイクロ秒の整数にしてから切り上げ、fps が割り切れないときの端数で1フレームずれないようにする。
+        const int64_t seekUs = (int64_t)(seekSec * 1000000.0 + 0.5);
+        const int64_t den = (int64_t)fpsD * 1000000;
+        const int64_t num = seekUs * (int64_t)fpsN;
+        int64_t start64 = (den > 0) ? (num + den - 1) / den : 0;
+        if (start64 < 0) start64 = 0;
+        if (start64 > src) start64 = src;
+        int start = (int)start64;
+        if (seekRatio > 0.0f && src > start) {
+            start += (int)(seekRatio * (float)(src - start));
+            if (start > src) start = src;
+        }
+        int end = src;
+        if (userFrames > 0) {
+            const int64_t limited = (int64_t)start + (int64_t)userFrames;
+            if (limited < (int64_t)end) end = (int)limited;
+        }
+        return std::make_pair(start, end);
+    }
+    int end = src;
+    if (userFrames > 0 && userFrames < end) end = userFrames;
+    int start = 0;
+    if (seekRatio > 0.0f && end > 0) {
+        start = (int)(seekRatio * (float)end);
+        if (start < 0) start = 0;
+        if (start > end) start = end;
+    }
+    return std::make_pair(start, end);
+}
 
 class RGYInput {
 public:
@@ -415,6 +457,8 @@ public:
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) = 0;
     virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm);
+    // CreateInputInfo の後に呼ぶ。開始フレームの時刻を入力情報へ足す。
+    void addSeekToInputInfo(int startFrame);
     virtual RGY_ERR LoadNextFrameInternal(RGYFrame *surface) = 0;
 
     //trim listを参照し、動画の最大フレームインデックスを取得する
@@ -438,7 +482,7 @@ protected:
     tstring m_inputInfo;
     tstring m_readerName;    //読み込みの名前
 
-    std::pair<float, double> m_seek;
+    std::pair<double, double> m_seek;
     sTrimParam m_trimParam;
     RGYPoolAVPacket *m_poolPkt; //AVPacketのpool
     RGYPoolAVFrame *m_poolFrame; //AVFrameのpool

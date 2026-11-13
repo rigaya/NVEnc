@@ -337,12 +337,19 @@ std::vector<AVPacket*> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
 
     const auto samplerate = av_make_q(m_sAVSinfo->audio_samples_per_second, 1);
     const auto fps = av_make_q(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
-    auto samples = (int)(av_rescale_q(m_encSatusInfo->m_sData.frameIn, samplerate, fps) - m_audioCurrentSample);
+    // 映像は --seek 後のフレームから読む。音声も同じ位置から読み、pts はシーク位置を 0 にする。
+    // 映像の出力時刻は先頭フレームを 0 に揃えるため、音声をソース先頭の絶対時刻のまま出すとずれる。
+    const int64_t audioOrigin = av_rescale_q(m_startFrame, samplerate, fps);
+    const int64_t targetSample = av_rescale_q((int64_t)m_startFrame + m_encSatusInfo->m_sData.frameIn, samplerate, fps);
+    auto samples = (int)(targetSample - m_audioCurrentSample);
     if (samples <= 0) {
         return pkts;
     }
     if (m_audioCurrentSample + samples > m_sAVSinfo->num_audio_samples) {
         samples = (int)(m_sAVSinfo->num_audio_samples - m_audioCurrentSample);
+    }
+    if (samples <= 0) {
+        return pkts;
     }
 
     const int size = avs_bytes_per_channel_sample(m_sAVSinfo) * samples * m_sAVSinfo->nchannels;
@@ -350,8 +357,8 @@ std::vector<AVPacket*> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
     if (av_new_packet(pkt.get(), size) < 0) {
         return pkts;
     }
-    pkt->pts = m_audioCurrentSample;
-    pkt->dts = m_audioCurrentSample;
+    pkt->pts = m_audioCurrentSample - audioOrigin;
+    pkt->dts = pkt->pts;
     pkt->duration = samples;
     pkt->stream_index = m_audio.begin()->index;
     pkt->flags = (pkt->flags & 0xffff) | ((uint32_t)m_audio.begin()->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
@@ -511,18 +518,21 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         m_inputVideoInfo.fpsN = m_sAVSinfo->fps_numerator;
         m_inputVideoInfo.fpsD = m_sAVSinfo->fps_denominator;
     }
-    if (m_inputVideoInfo.frames == 0) {
-        m_inputVideoInfo.frames = std::numeric_limits<decltype(m_inputVideoInfo.frames)>::max();
-    }
-    m_inputVideoInfo.frames = std::min(m_inputVideoInfo.frames, m_sAVSinfo->num_frames);
     m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
     if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
         m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
     }
     rgy_reduce(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
 
-    if (avsPrm->seekRatio > 0.0f) {
-        m_startFrame = (int)(avsPrm->seekRatio * m_inputVideoInfo.frames);
+    if (avsPrm->seekSec > 0.0f && !rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).is_valid()) {
+        AddMessage(RGY_LOG_ERROR, _T("--seek requires a valid framerate.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    const auto seekRange = rgy_apply_frame_seek(avsPrm->seekSec, avsPrm->seekRatio, m_inputVideoInfo.frames, m_sAVSinfo->num_frames, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+    m_startFrame = seekRange.first;
+    m_inputVideoInfo.frames = seekRange.second;
+    if (avsPrm->seekSec > 0.0f && m_startFrame >= m_inputVideoInfo.frames) {
+        AddMessage(RGY_LOG_WARN, _T("--seek %s is outside the input.\n"), print_time(avsPrm->seekSec).c_str());
     }
 
     if (avsPrm != nullptr && avsPrm->nAudioSelectCount > 0) {
@@ -533,6 +543,16 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_DEBUG, _T("failed to initialize audio.\n"));
                 return err;
+            }
+            if (m_audio.size() > 0 && m_startFrame > 0) {
+                const auto samplerate = av_make_q(m_sAVSinfo->audio_samples_per_second, 1);
+                const auto fps = av_make_q(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+                m_audioCurrentSample = av_rescale_q(m_startFrame, samplerate, fps);
+                if (m_audioCurrentSample < m_sAVSinfo->num_audio_samples) {
+                    m_audio.front().stream->duration = m_sAVSinfo->num_audio_samples - m_audioCurrentSample;
+                } else {
+                    m_audio.front().stream->duration = 0;
+                }
             }
         }
     }
@@ -561,8 +581,15 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_sAvisynth->f_release_value(val_version);
 
     CreateInputInfo(avisynth_version.c_str(), RGY_CSP_NAMES[m_convert->getFunc()->csp_from], RGY_CSP_NAMES[m_convert->getFunc()->csp_to], get_simd_str(m_convert->getFunc()->simd), &m_inputVideoInfo);
+    if (avsPrm->seekSec > 0.0f) {
+        addSeekToInputInfo(m_startFrame);
+    }
     AddMessage(RGY_LOG_DEBUG, m_inputInfo);
     *pInputInfo = m_inputVideoInfo;
+    if (avsPrm->seekSec > 0.0f) {
+        // 内部の frames はソース上の終了位置。進捗に渡すのは実際に読む枚数。
+        pInputInfo->frames = (std::max)(0, m_inputVideoInfo.frames - m_startFrame);
+    }
     return RGY_ERR_NONE;
 }
 #pragma warning(pop)
@@ -595,7 +622,8 @@ RGY_ERR RGYInputAvs::LoadNextFrameInternal(RGYFrame *pSurface) {
     if ((int)(m_startFrame + m_encSatusInfo->m_sData.frameIn) >= m_inputVideoInfo.frames
         //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-        || getVideoTrimMaxFramIdx() < (int)(m_startFrame + m_encSatusInfo->m_sData.frameIn) - TRIM_OVERREAD_FRAMES) {
+        // trim はリーダーが返した枚数(frameIn)基準。--seek で読み飛ばした分は含めない。
+        || getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
     if (pSurface) {

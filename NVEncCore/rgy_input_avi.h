@@ -53,6 +53,7 @@ protected:
     PGETFRAME m_pGetFrame;
     LPBITMAPINFOHEADER m_pBitmapInfoHeader;
     int m_nYPitchMultiplizer;
+    int m_startFrame;
 
     uint32_t m_nBufSize;
     shared_ptr<uint8_t> m_pBuffer;

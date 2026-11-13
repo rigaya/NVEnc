@@ -46,6 +46,7 @@ RGYInputAvi::RGYInputAvi() :
     m_pGetFrame(nullptr),
     m_pBitmapInfoHeader(nullptr),
     m_nYPitchMultiplizer(1),
+    m_startFrame(0),
     m_nBufSize(0),
     m_pBuffer() {
     m_readerName = _T("avi");
@@ -87,10 +88,17 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 m_inputVideoInfo.fpsN = sinfo.dwRate;
                 m_inputVideoInfo.fpsD = sinfo.dwScale;
             }
-            if (m_inputVideoInfo.frames == 0) {
-                m_inputVideoInfo.frames = std::numeric_limits<decltype(m_inputVideoInfo.frames)>::max();
+            if (prm->seekSec > 0.0f && !rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).is_valid()) {
+                AddMessage(RGY_LOG_ERROR, _T("--seek requires a valid framerate.\n"));
+                return RGY_ERR_UNSUPPORTED;
             }
-            m_inputVideoInfo.frames = std::min(m_inputVideoInfo.frames, (int)(sinfo.dwLength - sinfo.dwStart));
+            const int srcFrames = (int)(sinfo.dwLength - sinfo.dwStart);
+            const auto seekRange = rgy_apply_frame_seek(prm->seekSec, 0.0f, m_inputVideoInfo.frames, srcFrames, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+            m_startFrame = seekRange.first;
+            m_inputVideoInfo.frames = seekRange.second;
+            if (prm->seekSec > 0.0f && m_startFrame >= m_inputVideoInfo.frames) {
+                AddMessage(RGY_LOG_WARN, _T("--seek %s is outside the input.\n"), print_time(prm->seekSec).c_str());
+            }
 
             m_inputCsp = codec_fcc_to_rgy(sinfo.fccHandler);
 
@@ -171,8 +179,15 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     CreateInputInfo(tstring(_T("avi: ") + strFcc).c_str(), RGY_CSP_NAMES[m_convert->getFunc()->csp_from], RGY_CSP_NAMES[m_convert->getFunc()->csp_to], get_simd_str(m_convert->getFunc()->simd), &m_inputVideoInfo);
+    if (prm->seekSec > 0.0f) {
+        addSeekToInputInfo(m_startFrame);
+    }
     AddMessage(RGY_LOG_DEBUG, m_inputInfo);
     *pInputInfo = m_inputVideoInfo;
+    if (prm->seekSec > 0.0f) {
+        // 内部の frames はソース上の終了位置。進捗に渡すのは実際に読む枚数。
+        pInputInfo->frames = (std::max)(0, m_inputVideoInfo.frames - m_startFrame);
+    }
     return RGY_ERR_NONE;
 }
 
@@ -194,6 +209,7 @@ void RGYInputAvi::Close() {
     m_pGetFrame = nullptr;
     m_pBitmapInfoHeader = nullptr;
     m_nYPitchMultiplizer = 1;
+    m_startFrame = 0;
     m_nBufSize = 0;
     m_pBuffer.reset();
 
@@ -202,16 +218,18 @@ void RGYInputAvi::Close() {
 }
 
 RGY_ERR RGYInputAvi::LoadNextFrameInternal(RGYFrame *pSurface) {
-    if ((int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
+    if ((int)(m_startFrame + m_encSatusInfo->m_sData.frameIn) >= m_inputVideoInfo.frames
         //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
+        // trim はリーダーが返した枚数(frameIn)基準。--seek で読み飛ばした分は含めない。
         || getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
+    const int frameIndex = m_startFrame + m_encSatusInfo->m_sData.frameIn;
 
     uint8_t *ptr_src = nullptr;
     if (m_pGetFrame) {
-        if (nullptr == (ptr_src = (uint8_t *)AVIStreamGetFrame(m_pGetFrame, m_encSatusInfo->m_sData.frameIn))) {
+        if (nullptr == (ptr_src = (uint8_t *)AVIStreamGetFrame(m_pGetFrame, frameIndex))) {
             return RGY_ERR_MORE_DATA;
         }
         ptr_src += sizeof(BITMAPINFOHEADER);
@@ -226,7 +244,7 @@ RGY_ERR RGYInputAvi::LoadNextFrameInternal(RGYFrame *pSurface) {
             m_nBufSize = required_bufsize;
         }
         LONG sizeRead = 0;
-        if (0 != AVIStreamRead(m_pAviStream, m_encSatusInfo->m_sData.frameIn, 1, m_pBuffer.get(), (LONG)m_nBufSize, &sizeRead, NULL))
+        if (0 != AVIStreamRead(m_pAviStream, frameIndex, 1, m_pBuffer.get(), (LONG)m_nBufSize, &sizeRead, NULL))
             return RGY_ERR_MORE_DATA;
         ptr_src = m_pBuffer.get();
     }

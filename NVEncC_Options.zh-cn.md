@@ -1248,7 +1248,7 @@ avhw 读取器的限制：该选项使用时间戳将帧从解码顺序重排为
 
 格式为 hh:mm:ss.ms。"hh" 或 "mm" 可以省略。转码将从这一指定的视频时间开始。
 
-与[--trim](#--trim-intintintintintint)相比，这一设置不那么精确但更快。如果你需要精确，请使用[--trim](#--trim-intintintintintint)。
+avhw/avsw 会跳到附近的关键帧，因此速度快但不精确。avi/avs/vpy 则从该时刻对应的帧开始。如果需要精确的帧范围，请使用[--trim](#--trim-intintintintintint)。
 
 ```
 示例 1: --seek 0:01:15.400

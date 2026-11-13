@@ -11231,7 +11231,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         if (seekTo) {
             common->seekToSec = sec + mm * 60;
         } else {
-            common->seekSec = (float)sec + mm * 60;
+            common->seekSec = sec + (double)mm * 60.0;
         }
         return 0;
     }
@@ -16729,8 +16729,9 @@ tstring gen_cmd_help_common() {
         _T("                                trim video for the frame range specified.\n")
         _T("                                 frame range should not overlap each other.\n")
         _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
-        _T("                                skip video for the time specified,\n")
-        _T("                                 seek will be inaccurate but fast.\n")
+        _T("                                skip video for the time specified.\n")
+        _T("                                 avhw/avsw: fast keyframe seek.\n")
+        _T("                                 avi/avs/vpy: frame accurate.\n")
         _T("   --seekto [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
         _T("                                time to end encoding.\n")
         _T("   --input-format <string>      set input format of input file.\n")

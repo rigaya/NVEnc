@@ -253,20 +253,23 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         m_inputVideoInfo.fpsN = (int)(vsvideoinfo.fpsNum / fps_gcd);
         m_inputVideoInfo.fpsD = (int)(vsvideoinfo.fpsDen / fps_gcd);
     }
-    if (m_inputVideoInfo.frames == 0) {
-        m_inputVideoInfo.frames = std::numeric_limits<decltype(m_inputVideoInfo.frames)>::max();
-    }
-    m_inputVideoInfo.frames = std::min(m_inputVideoInfo.frames, vsvideoinfo.numFrames);
     m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
     if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
         m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
     }
 
-    m_startFrame = 0;
-    if (vpyPrm->seekRatio > 0.0f) {
-        m_startFrame = (int)(vpyPrm->seekRatio * m_inputVideoInfo.frames);
+    if (vpyPrm->seekSec > 0.0f && !rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).is_valid()) {
+        AddMessage(RGY_LOG_ERROR, _T("--seek requires a valid framerate.\n"));
+        return RGY_ERR_UNSUPPORTED;
     }
-    m_asyncThreads = vsvideoinfo.numFrames - m_startFrame;
+    const auto seekRange = rgy_apply_frame_seek(vpyPrm->seekSec, vpyPrm->seekRatio, m_inputVideoInfo.frames, vsvideoinfo.numFrames, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+    m_startFrame = seekRange.first;
+    m_inputVideoInfo.frames = seekRange.second;
+    if (vpyPrm->seekSec > 0.0f && m_startFrame >= m_inputVideoInfo.frames) {
+        AddMessage(RGY_LOG_WARN, _T("--seek %s is outside the input.\n"), print_time(vpyPrm->seekSec).c_str());
+    }
+    // frames は読み終わりのソース位置。--frames や --seek で末尾より前で止めるとき、そこを超えて先読みしない。
+    m_asyncThreads = m_inputVideoInfo.frames - m_startFrame;
     m_asyncThreads = (std::min)(m_asyncThreads, vsvideoinfo.numThreads);
     m_asyncThreads = (std::min)(m_asyncThreads, ASYNC_BUFFER_SIZE-1);
     if (m_inputVideoInfo.type != RGY_INPUT_FMT_VPY_MT) {
@@ -283,8 +286,15 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_VPY_MT) vs_ver += _T("MT");
 
     CreateInputInfo(vs_ver.c_str(), RGY_CSP_NAMES[m_convert->getFunc()->csp_from], RGY_CSP_NAMES[m_convert->getFunc()->csp_to], get_simd_str(m_convert->getFunc()->simd), &m_inputVideoInfo);
+    if (vpyPrm->seekSec > 0.0f) {
+        addSeekToInputInfo(m_startFrame);
+    }
     AddMessage(RGY_LOG_DEBUG, m_inputInfo);
     *pInputInfo = m_inputVideoInfo;
+    if (vpyPrm->seekSec > 0.0f) {
+        // 内部の frames はソース上の終了位置。進捗に渡すのは実際に読む枚数。
+        pInputInfo->frames = (std::max)(0, m_inputVideoInfo.frames - m_startFrame);
+    }
     return RGY_ERR_NONE;
 }
 #pragma warning(pop)
@@ -315,7 +325,8 @@ RGY_ERR RGYInputVpy::LoadNextFrameInternal(RGYFrame *pSurface) {
     if ((int)(m_encSatusInfo->m_sData.frameIn + m_startFrame) >= m_inputVideoInfo.frames
         //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-        || getVideoTrimMaxFramIdx() < (int)(m_encSatusInfo->m_sData.frameIn + m_startFrame) - TRIM_OVERREAD_FRAMES) {
+        // trim はリーダーが返した枚数(frameIn)基準。--seek で読み飛ばした分は含めない。
+        || getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
 

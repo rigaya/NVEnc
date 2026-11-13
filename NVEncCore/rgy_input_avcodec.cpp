@@ -303,7 +303,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     AVSyncMode(RGY_AVSYNC_AUTO),
     procSpeedLimit(0),
     seekRatio(0.0f),
-    seekSec(0.0f),
+    seekSec(0.0),
     seekToSec(0.0f),
     logFramePosList(),
     logCopyFrameData(),
@@ -1757,7 +1757,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     } else {
         m_readerName = _T("avsw");
     }
-    m_seek = std::pair<float, double>(0.0f, 0.0);
+    m_seek = std::pair<double, double>(0.0, 0.0);
     m_Demux.video.readVideo = input_prm->readVideo;
     m_Demux.video.hevcbsf = input_prm->hevcbsf;
     m_Demux.thread.queueInfo = input_prm->queueInfo;
@@ -2317,7 +2317,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_Demux.qVideoPkt.clear();
             //seekのために行ったgetSampleの結果は破棄する
             m_Demux.frames.clear();
-            m_seek.first = (float)seek_sec;
+            m_seek.first = seek_sec;
             m_Demux.video.gotFirstKeyframe = false;
             // 窓では、開始時刻より前のフレームの扱いをcheckPreviewWindowで決めるので、ここでは捨てない。
             m_Demux.video.seekTargetPts = m_preview.enabled ? AV_NOPTS_VALUE : seek_target;

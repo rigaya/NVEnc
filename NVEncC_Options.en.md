@@ -1192,7 +1192,7 @@ Encode only frames in the specified range.
 ### --seek [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 The format is hh:mm:ss.ms. "hh" or "mm" could be omitted. The transcode will start from the time specified.
 
-Seeking by this option is not exact but fast, compared to [--trim](#--trim-intintintintintint). If you require exact seek, use [--trim](#--trim-intintintintintint).
+avhw/avsw seeks to a nearby keyframe, so it is fast but not exact. avi/avs/vpy starts at the frame for that time. If you require an exact frame range, use [--trim](#--trim-intintintintintint).
 
 - Examples
   ```

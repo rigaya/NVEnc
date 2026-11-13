@@ -4357,7 +4357,7 @@ struct RGYParamCommon {
     std::vector<tstring> videoMetadata;
     std::vector<tstring> formatMetadata;
     float seekRatio;               //指定された秒数分先頭を飛ばす
-    float seekSec;               //指定された秒数分先頭を飛ばす
+    double seekSec;              //指定された秒数分先頭を飛ばす
     double seekToSec;
     int nSubtitleSelectCount;
     SubtitleSelect **ppSubtitleSelectList;

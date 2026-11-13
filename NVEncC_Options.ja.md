@@ -1205,7 +1205,7 @@ libavが読み込み時に解析する最大のサイズをbyte単位で指定�
 
 ### --seek [[&lt;int&gt;:]&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 書式は、hh:mm:ss.ms。"hh"や"mm"は省略可。
-高速だが不正確なシークをしてからエンコードを開始する。正確な範囲指定を行いたい場合は[--trim](#--trim-intintintintintint)で行う。
+指定時刻からエンコードを開始する。avhw/avswではキーフレーム単位の高速なシークになる。avi/avs/vpyではその時刻のフレームから読む。正確な範囲指定を行いたい場合は[--trim](#--trim-intintintintintint)で行う。
 
 - 使用例
   ```

@@ -326,7 +326,7 @@ RGYInput::RGYInput() :
     m_printMes(),
     m_inputInfo(),
     m_readerName(_T("unknown")),
-    m_seek(std::make_pair(0.0f, 0.0f)),
+    m_seek(std::make_pair(0.0, 0.0)),
     m_trimParam(),
     m_poolPkt(nullptr),
     m_poolFrame(nullptr),
@@ -436,6 +436,15 @@ void RGYInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSp
     }
 
     m_inputInfo = ss.str();
+}
+
+void RGYInput::addSeekToInputInfo(int startFrame) {
+    if (startFrame <= 0 || m_inputVideoInfo.fpsN <= 0 || m_inputVideoInfo.fpsD <= 0) {
+        return;
+    }
+    const double sec = (double)startFrame * (double)m_inputVideoInfo.fpsD / (double)m_inputVideoInfo.fpsN;
+    m_seek.first = sec;
+    m_inputInfo += strsprintf(_T("\n         seek: %s"), print_time(sec).c_str());
 }
 
 #include "rgy_avutil.h"
@@ -653,6 +662,13 @@ RGY_ERR initReaders(
     inputPrm.poolFrame = poolFrame;
     inputPrm.tcfileIn = common->tcfileIn;
     inputPrm.timebase = common->timebase;
+    inputPrm.seekSec = common->seekSec;
+    if (common->seekSec > 0.0f && common->tcfileIn.length() > 0
+        && (input->type == RGY_INPUT_FMT_AVI || input->type == RGY_INPUT_FMT_AVS
+            || input->type == RGY_INPUT_FMT_VPY || input->type == RGY_INPUT_FMT_VPY_MT)) {
+        log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("--seek not supported with --tcfile-in.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
     log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("Set csp thread param: %s.\n"), inputPrm.threadParamCsp.desc().c_str());
     RGYInputPrm *pInputPrm = &inputPrm;
 
