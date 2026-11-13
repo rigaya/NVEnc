@@ -262,6 +262,7 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         AddMessage(RGY_LOG_ERROR, _T("--seek requires a valid framerate.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+    logSourceFrames(vsvideoinfo.numFrames);
     const auto seekRange = rgy_apply_frame_seek(vpyPrm->seekSec, vpyPrm->seekRatio, m_inputVideoInfo.frames, vsvideoinfo.numFrames, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
     m_startFrame = seekRange.first;
     m_inputVideoInfo.frames = seekRange.second;

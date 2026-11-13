@@ -461,6 +461,12 @@ protected:
     virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm);
     // CreateInputInfo の後に呼ぶ。開始フレームの時刻を入力情報へ足す。
     void addSeekToInputInfo(int startFrame);
+    // 入力全体のフレーム数とfpsをdebugログへ出す。--seek/--framesで切り詰める前の値を渡す。
+    // avs/vpy/aviはlibavformatのDuration行を出さないため、HWEncVppPreviewが
+    // --log-level input=debugでこの行を読み、入力の長さを求める。書式を変えるときはビューワー側も合わせる。
+    void logSourceFrames(int srcFrames) {
+        AddMessage(RGY_LOG_DEBUG, _T("source: %d frames, %d/%d fps\n"), srcFrames, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+    }
     virtual RGY_ERR LoadNextFrameInternal(RGYFrame *surface) = 0;
 
     //trim listを参照し、動画の最大フレームインデックスを取得する

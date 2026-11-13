@@ -93,6 +93,7 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 return RGY_ERR_UNSUPPORTED;
             }
             const int srcFrames = (int)(sinfo.dwLength - sinfo.dwStart);
+            logSourceFrames(srcFrames);
             const auto seekRange = rgy_apply_frame_seek(prm->seekSec, 0.0f, m_inputVideoInfo.frames, srcFrames, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
             m_startFrame = seekRange.first;
             m_inputVideoInfo.frames = seekRange.second;

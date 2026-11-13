@@ -528,6 +528,7 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         AddMessage(RGY_LOG_ERROR, _T("--seek requires a valid framerate.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+    logSourceFrames(m_sAVSinfo->num_frames);
     const auto seekRange = rgy_apply_frame_seek(avsPrm->seekSec, avsPrm->seekRatio, m_inputVideoInfo.frames, m_sAVSinfo->num_frames, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
     m_startFrame = seekRange.first;
     m_inputVideoInfo.frames = seekRange.second;
