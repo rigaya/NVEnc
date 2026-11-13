@@ -210,6 +210,18 @@ jobs:
           set CUDA_PATH_V11_8=%CUDA_PATH%
           msbuild NVEnc.sln /t:build /p:configuration=Release /p:Platform=${{ matrix.platform }} -maxcpucount
 
+      # 本体と同じフォルダにあるエンコーダをビューワーが自動で見つけるので、CLI版のx64パッケージにexeを並べて入れる。
+      # AviUtl向けのパッケージは、x64パッケージを展開するときに-x!HWEncVppPreview.exeで除いている。
+      - name: Download HWEncVppPreview
+        if: matrix.platform == 'x64'
+        env:
+          # 同梱するビューワーの版。ビューワーを更新したらここを書き換える。
+          HWENCVPPPREVIEW_VERSION: "0.01"
+        run: |
+          curl -s -f -o HWEncVppPreview.zip -L https://github.com/rigaya/HWEncVppPreview/releases/download/%HWENCVPPPREVIEW_VERSION%/HWEncVppPreview_%HWENCVPPPREVIEW_VERSION%_win-x64.zip || exit /b 1
+          7z x -oHWEncVppPreviewBin -y HWEncVppPreview.zip || exit /b 1
+          if not exist HWEncVppPreviewBin\HWEncVppPreview.exe exit /b 1
+
       - name: Create Archieve
         id: archieve
         run: |
@@ -222,6 +234,10 @@ jobs:
           if "${{ matrix.arch }}" == "x64" copy NVEncNVOFFRUCBin\*.dll NVEncC_Release
           if "${{ matrix.arch }}" == "x64" copy NVEncNVSDKNGXBin\*.dll NVEncC_Release
           if "${{ matrix.arch }}" == "x64" copy libvship_nvidia_5_0\*.dll NVEncC_Release
+          if "${{ matrix.platform }}" == "x64" (
+            copy HWEncVppPreviewBin\HWEncVppPreview.exe NVEncC_Release
+            if not exist NVEncC_Release\HWEncVppPreview.exe exit /b 1
+          )
           7z a -mx9 NVEncC_${{ needs.prepare.outputs.version_name }}_${{ matrix.platform }}.7z .\NVEncC_Release\*
 
       - name: Check dll
@@ -361,7 +377,7 @@ jobs:
           mkdir Aviutl_NVEnc_release\exe_files\NVEncC\x86
           mkdir Aviutl_NVEnc_release\exe_files\NVEncC\x64
           7z x -oAviutl_NVEnc_release\exe_files\NVEncC\x86\ NVEncC_${{ needs.prepare.outputs.version_name }}_Win32.7z
-          7z x -oAviutl_NVEnc_release\exe_files\NVEncC\x64\ NVEncC_${{ needs.prepare.outputs.version_name }}_x64.7z
+          7z x -oAviutl_NVEnc_release\exe_files\NVEncC\x64\ NVEncC_${{ needs.prepare.outputs.version_name }}_x64.7z -x!HWEncVppPreview.exe
           copy /y plugin_win32\NVEnc.auo Aviutl_NVEnc_release\plugins\
           copy /y NVEnc\NVEnc.ini Aviutl_NVEnc_release\plugins\
           copy /y NVEnc\NVEnc.en.ini Aviutl_NVEnc_release\plugins\
@@ -382,7 +398,7 @@ jobs:
           7z x -oAviutl_NVEnc_release\ auo_setup.zip
           mkdir Aviutl_NVEnc_release\Plugin\exe_files\NVEncC
           mkdir Aviutl_NVEnc_release\Plugin\exe_files\NVEncC\x64
-          7z x -oAviutl_NVEnc_release\Plugin\exe_files\NVEncC\x64\ NVEncC_${{ needs.prepare.outputs.version_name }}_x64.7z
+          7z x -oAviutl_NVEnc_release\Plugin\exe_files\NVEncC\x64\ NVEncC_${{ needs.prepare.outputs.version_name }}_x64.7z -x!HWEncVppPreview.exe
           copy /y plugin_x64\NVEnc.auo2 Aviutl_NVEnc_release\Plugin\
           copy /y NVEnc\NVEnc.ini Aviutl_NVEnc_release\Plugin\
           copy /y NVEnc\NVEnc.en.ini Aviutl_NVEnc_release\Plugin\
