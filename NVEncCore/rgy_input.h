@@ -265,9 +265,11 @@ inline std::pair<int, int> rgy_apply_frame_seek(const double seekSec, const floa
     if (seekSec > 0.0 && fpsN > 0 && fpsD > 0 && src > 0) {
         // frame n の時刻は n * fpsD / fpsN 秒。時刻 >= seekSec になる最初のフレーム。
         // 秒をマイクロ秒の整数にしてから切り上げ、fps が割り切れないときの端数で1フレームずれないようにする。
+        // ちょうどフレームの時刻 (例: 30fpsで17/30秒) はマイクロ秒への丸めで最大0.5us後ろへずれ、
+        // そのまま切り上げると次のフレームになる。1us以内の差は同じ時刻とみなすため、1us引いてから切り上げる。
         const int64_t seekUs = (int64_t)(seekSec * 1000000.0 + 0.5);
         const int64_t den = (int64_t)fpsD * 1000000;
-        const int64_t num = seekUs * (int64_t)fpsN;
+        const int64_t num = (seekUs - 1) * (int64_t)fpsN;
         int64_t start64 = (den > 0) ? (num + den - 1) / den : 0;
         if (start64 < 0) start64 = 0;
         if (start64 > src) start64 = src;
