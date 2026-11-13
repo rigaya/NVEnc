@@ -263,6 +263,12 @@ RGY_ERR RGYInputAvi::LoadNextFrameInternal(RGYFrame *pSurface) {
         m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcWidth * m_nYPitchMultiplizer, m_inputVideoInfo.srcWidth/2, pSurface->pitch(), pSurface->pitch(RGY_PLANE_C), 
         m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
+    // avs/vpyと同じく、フレーム番号とfpsから時刻を付ける。付けないと後段が既定の時刻で扱い、
+    // --timestamp-passthroughやy4mの時刻がフレームの位置と合わなくなる。
+    auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+    pSurface->setDuration(rational_rescale(1, getInputTimebase().inv(), inputFps));
+    pSurface->setTimestamp(rational_rescale(frameIndex, getInputTimebase().inv(), inputFps));
+
     m_encSatusInfo->m_sData.frameIn++;
     // display update
     return m_encSatusInfo->UpdateDisplay();
