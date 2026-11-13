@@ -39,8 +39,12 @@
 #include "rgy_input.h"
 #include "rgy_util.h"
 #include "rgy_err.h"
+#include <cerrno>
 #if defined(_WIN32)
 #include <io.h>
+#include <fcntl.h>
+#else
+#include <unistd.h>
 #include <fcntl.h>
 #endif
 
@@ -64,10 +68,69 @@ static inline bool rgy_preview_valid_args(const std::vector<tstring>& args) {
     return true;
 }
 
+// 要求を読むためのfdをstdinから切り離し、fd 0はNUL(/dev/null)に差し替える。戻り値は要求を読むfd。
+// Windowsでは、読み取りスレッドがパイプのfd 0で次の要求を待つあいだ、CRTがfd 0のロックを持ち続ける。
+// vpy入力ではVSScriptがPythonを初期化してsys.stdinを作るときにfd 0へ触れるため、
+// 次の要求行が届くまでrunが止まっていた(BEGINの後に何も出ない)。
+// 要求用のfdをエンコーダのほかの処理から見えなくし、入力の読み込み側が要求のバイト列を読む事故も防ぐ。
+// 差し替えに失敗したときは、従来どおりfd 0から読む。
+static inline int rgy_preview_detach_stdin() {
+#if defined(_WIN32)
+    const int stdinFd = _fileno(stdin);
+    const int requestFd = _dup(stdinFd);
+    if (requestFd < 0) return stdinFd;
+    const int nullFd = _open("NUL", _O_RDONLY | _O_BINARY);
+    if (nullFd < 0) { _close(requestFd); return stdinFd; }
+    const int ret = _dup2(nullFd, stdinFd);
+    _close(nullFd);
+    if (ret != 0) { _close(requestFd); return stdinFd; }
+    // _dup2はfd 0のハンドルを差し替えるが、GetStdHandleで取る処理のために明示的にも合わせる。
+    SetStdHandle(STD_INPUT_HANDLE, (HANDLE)_get_osfhandle(stdinFd));
+    _setmode(requestFd, _O_BINARY);
+    return requestFd;
+#else
+    const int requestFd = dup(STDIN_FILENO);
+    if (requestFd < 0) return STDIN_FILENO;
+    const int nullFd = open("/dev/null", O_RDONLY);
+    if (nullFd < 0) { close(requestFd); return STDIN_FILENO; }
+    const int ret = dup2(nullFd, STDIN_FILENO);
+    close(nullFd);
+    if (ret < 0) { close(requestFd); return STDIN_FILENO; }
+    return requestFd;
+#endif
+}
+
+// fdから1行読む。改行を含めずに返し、改行のない最後の行もstd::getlineと同じく1行として返す。
+static inline bool rgy_preview_read_line(const int fd, std::string& buffer, std::string& line) {
+    for (;;) {
+        const auto pos = buffer.find('\n');
+        if (pos != std::string::npos) {
+            line.assign(buffer, 0, pos);
+            buffer.erase(0, pos + 1);
+            return true;
+        }
+        char chunk[4096];
+#if defined(_WIN32)
+        const int got = _read(fd, chunk, (unsigned int)sizeof(chunk));
+#else
+        const ssize_t got = ::read(fd, chunk, sizeof(chunk));
+        if (got < 0 && errno == EINTR) continue;
+#endif
+        if (got <= 0) {
+            if (buffer.empty()) return false;
+            line.swap(buffer);
+            buffer.clear();
+            return true;
+        }
+        buffer.append(chunk, (size_t)got);
+    }
+}
+
 static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *encoder, const char *encver, RGYPreviewProbeFunc probe = {}, bool windowSeek = false, bool outputStart = false) {
 #if defined(_WIN32)
     if (_setmode(_fileno(stdin), _O_BINARY) < 0 || _setmode(_fileno(stdout), _O_BINARY) < 0) return 1;
 #endif
+    const int requestFd = rgy_preview_detach_stdin();
     struct Request { int64_t id = 0; std::vector<tstring> args; bool probe = false; bool windowSeek = false; int64_t outputStartUs = INT64_MIN; };
     std::mutex mutex;
     std::condition_variable cv;
@@ -79,8 +142,8 @@ static inline int rgy_preview_server_main(RGYPreviewRunFunc run, const char *enc
     fprintf(stdout, "RGYPREVIEW READY version=1 encoder=%s encver=%s%s%s%s\n", encoder, encver, probe ? " probe=1" : "", windowSeek ? " window_seek=1" : "", outputStart ? " output_start=1" : "");
     fflush(stdout);
     std::thread reader([&]() {
-        std::string line;
-        while (std::getline(std::cin, line)) {
+        std::string line, buffer;
+        while (rgy_preview_read_line(requestFd, buffer, line)) {
             if (!line.empty() && line.back() == '\r') line.pop_back();
             try {
                 const auto json = nlohmann::json::parse(line);
