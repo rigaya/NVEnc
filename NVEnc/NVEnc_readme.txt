@@ -214,6 +214,21 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2026.11.13 (9.41)
+- VPPフィルタのプレビューを可能に。(HWEncVppPreview)
+- --vpp-kfmを高速化。
+- --vpp-rtgmcのsearch prefilterを高速化。
+- --vpp-degrainを高速化。
+- - --seekをavi/avs/vpy読み込みに対応。
+- y4m/raw出力の書き出しを高速化。
+- --vpp-onnxのprovider=autoをTensorRT優先(使えなければCUDAへフォールバック)に変更。 ( #791 )
+- --vpp-afsと--vpp-kfm mode=24でのtimestamp出力を改善。
+- --vpp-afsで--avsync vfrや独自の--timebaseで時刻がずれる問題を修正。
+- --vpp-colorspaceでrangeと行列などを同時に変えるとno pathになる問題を修正。
+- flush中の中断で終了せずメモリが増え続ける問題を修正。
+- デコードスレッドが正常終了したときに「Decode thread is not responding」となる競合を修正。
+- GPUカウンタのスレッド終了処理を修正。 ( #809 )
+
 2026.10.31 (9.40)
 - --vpp-kfmの高速化。
 - --vpp-onnxでONNXの単一フレーム・マスク・複数フレームの前後処理をCUDAに統一。

@@ -1,5 +1,21 @@
 # NVEnc Release Notes
 
+## 9.41
+
+- Add VPP filter preview. ( With [HWEncVppPreview](https://github.com/rigaya/HWEncVppPreview) )
+- Add [--seek](./QSVEncC_Options.en.md#--seek-intintintint) support for avi/avs/vpy input.
+- Speed up [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2).
+- Speed up the search prefilter of [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Speed up [--vpp-degrain](./NVEncC_Options.en.md#--vpp-degrain-param1value1).
+- Speed up y4m/raw output writes.
+- Prefer TensorRT for [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) `provider=auto`, falling back to CUDA. ( #791 )
+- Improve timestamp output of [--vpp-afs](./NVEncC_Options.en.md#--vpp-afs-param1value1param2value2) and [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) `mode=24`.
+- Fix [--vpp-afs](./NVEncC_Options.en.md#--vpp-afs-param1value1param2value2) timestamps drifting with [--avsync](./NVEncC_Options.en.md#--avsync-string) `vfr` or a custom [--timebase](./NVEncC_Options.en.md#--timebase-intint).
+- Fix [--vpp-colorspace](./NVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2) reporting no path when range and matrix (or similar) change in the same stage.
+- Fix a hang and growing memory when aborting during pipeline flush.
+- Fix a race that reported "Decode thread is not responding" when the decode thread exited normally while waiting.
+- Fix forced termination of the GPU counter thread. ( #809 )
+
 ## 9.40
 
 - Speed up [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2).

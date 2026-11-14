@@ -110,6 +110,11 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
   | フレーム補間 | fruc, rife-ov |
   | その他 | delogo, subburn, pad, overlay, rotate, transform, stab, deflicker, deblock, libplacebo-shader, onnx, anime4k-shader |
 
+## VPPフィルタのプレビュー
+
+同梱の[HWEncVppPreview](https://github.com/rigaya/HWEncVppPreview)を使用してVPPフィルタのプレビューが可能です。
+
+<img src="https://github.com/rigaya/HWEncVppPreview/data/HWEncVppPreview_20261107_02.jpg" width="600">
 
 ## マルチGPU環境でのGPU自動選択
 

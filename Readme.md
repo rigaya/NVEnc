@@ -109,6 +109,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
 ![NVEnc.auo](./data/NVEnc_auo_stg_window_en.png)
 
+## Preview of VPP filters
+
+VPP filters can be previewed using the bundled [HWEncVppPreview](https://github.com/rigaya/HWEncVppPreview).
+
+<img src="https://github.com/rigaya/HWEncVppPreview/data/HWEncVppPreview_20261107_02.jpg" width="600">
+
 ## Auto GPU selection in multi GPU envinronment
 
 NVEncC will automatically select a GPU depending on the options used,
