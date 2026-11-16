@@ -480,7 +480,11 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rat
     prmParallel.common.outReplayCodec = RGY_CODEC_UNKNOWN;
     prmParallel.common.outReplayFile.clear();
     prmParallel.common.seekRatio = ip / (float)prmParallel.ctrl.parallelEnc.chunks;
-    prmParallel.common.timebase = outputTimebase; // timebaseがずれると致命的なので、強制的に上書きする
+    // AFS+tcfile-in では子が入力timebaseから出力timebaseを再計算し、1/4する。
+    // 親の出力timebase(1/4済み)を渡すと子で再度1/4され、映像時間が4倍になる。
+    if (!(prm->vpp.afs.enable && prm->common.tcfileIn.length() > 0)) {
+        prmParallel.common.timebase = outputTimebase; // timebaseがずれると致命的なので、強制的に上書きする
+    }
     prmParallel.common.dynamicHdr10plusJson.clear(); // hdr10plusのファイルからの読み込みは親プロセスでmux時に行う
     prmParallel.common.doviRpuFile.clear(); // doviRpuのファイルからの読み込みは親プロセスでmux時に行う
     prmParallel.common.masterDisplay.clear(); // 親プロセスでmux時に行う
