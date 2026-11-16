@@ -131,7 +131,10 @@ protected:
 
     // previous frame input; m_srcImg and m_dstImg are provided by the base class
     std::unique_ptr<NvCVImage> m_prevImg;
+    std::unique_ptr<NvCVImage> m_hdrYuvIn;
+    std::unique_ptr<NvCVImage> m_hdrYuvOut;
 #endif
+    bool m_hdr10;
     std::vector<std::unique_ptr<CUFrameBuf>> m_outFrameBuf;
     rgy_rational<int> m_targetFps;
     int64_t m_prevTimestamp;
