@@ -1898,6 +1898,40 @@ __device__ __forceinline__ uint32_t degrainMotionSearchSgblockSad(
             for (int y = lane / loadsPerRow; y < blockSize; y += subgroupSize / loadsPerRow) {
                 const uint8_t *ref = fastReferencePlane + (referenceY + y) * pitch + referenceX + x;
                 const uint32_t *src = reinterpret_cast<const uint32_t *>(sourceBlockPixels + y * blockSize + x);
+                const uint4 src4 = *reinterpret_cast<const uint4 *>(sourceBlockPixels + y * blockSize + x);
+                // 16byte整列の2区間が同じ行内に収まる場合だけ、参照ロードをまとめる。
+                // 4byte単位の位置合わせは分岐で行い、可変添字の配列によるlocalメモリ化を避ける。
+                if (pitch >= width && (pitch & 15) == 0
+                    && ((referenceX + x) & ~15) <= pitch - 32
+                    && (reinterpret_cast<uintptr_t>(fastReferencePlane) & 15) == 0) {
+                    const uintptr_t refAddress = reinterpret_cast<uintptr_t>(ref);
+                    const int byteOffset = (int)(refAddress & 15);
+                    const uint4 *alignedRef = reinterpret_cast<const uint4 *>(refAddress & ~uintptr_t(15));
+                    const uint4 first = alignedRef[0];
+                    uint4 packed = first;
+                    if (byteOffset != 0) {
+                        const uint4 second = alignedRef[1];
+                        uint32_t tail;
+                        switch (byteOffset >> 2) {
+                        case 0: tail = second.x; break;
+                        case 1: packed = make_uint4(first.y, first.z, first.w, second.x); tail = second.y; break;
+                        case 2: packed = make_uint4(first.z, first.w, second.x, second.y); tail = second.z; break;
+                        default: packed = make_uint4(first.w, second.x, second.y, second.z); tail = second.w; break;
+                        }
+                        if ((byteOffset & 3) != 0) {
+                            const uint32_t selector = 0x3210u + (byteOffset & 3) * 0x1111u;
+                            packed = make_uint4(__byte_perm(packed.x, packed.y, selector),
+                                __byte_perm(packed.y, packed.z, selector),
+                                __byte_perm(packed.z, packed.w, selector),
+                                __byte_perm(packed.w, tail, selector));
+                        }
+                    }
+                    sad += __vsadu4(src4.x, packed.x);
+                    sad += __vsadu4(src4.y, packed.y);
+                    sad += __vsadu4(src4.z, packed.z);
+                    sad += __vsadu4(src4.w, packed.w);
+                    continue;
+                }
                 // 末尾wordの追加最大3byteも可視領域内に限定し、最終行でもpitch外を読まない。
                 if (pitch >= width && (pitch & 3) == 0
                     && referenceX + blockSize <= width - 3
@@ -1918,10 +1952,10 @@ __device__ __forceinline__ uint32_t degrainMotionSearchSgblockSad(
                         p2 = __byte_perm(w2, w3, selector);
                         p3 = __byte_perm(w3, w4, selector);
                     }
-                    sad += __vsadu4(src[0], p0);
-                    sad += __vsadu4(src[1], p1);
-                    sad += __vsadu4(src[2], p2);
-                    sad += __vsadu4(src[3], p3);
+                    sad += __vsadu4(src4.x, p0);
+                    sad += __vsadu4(src4.y, p1);
+                    sad += __vsadu4(src4.z, p2);
+                    sad += __vsadu4(src4.w, p3);
                     continue;
                 }
                 // 参照MVは非整列になり得るので、16画素を4画素ずつ安全に読み出す。
