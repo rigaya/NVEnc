@@ -599,14 +599,8 @@ __device__ __forceinline__ int2 rtgmcRetouchCompensateOverlapPixelValuePair(
     const int usePrevBlockY = planeOverlapY > 0 && primaryBlockY > 0 && primaryLocalY < planeOverlapY;
     const float wxPrev = usePrevBlockX ? windowRamp[primaryLocalX] : 0.0f;
     const float wyPrev = usePrevBlockY ? windowRamp[planeOverlapX + primaryLocalY] : 0.0f;
-    const float wx[2] = { 1.0f - wxPrev, wxPrev };
-    const float wy[2] = { 1.0f - wyPrev, wyPrev };
-
-    const int blockXs[2] = { primaryBlockX, primaryBlockX - 1 };
-    const int blockYs[2] = { primaryBlockY, primaryBlockY - 1 };
-    const int localXs[2] = { primaryLocalX, primaryLocalX + planeStepX };
-    const int localYs[2] = { primaryLocalY, primaryLocalY + planeStepY };
-    const int blockRows[2] = { primaryBlock, primaryBlock - renderBlocksX };
+    const float wxCurrent = 1.0f - wxPrev;
+    const float wyCurrent = 1.0f - wyPrev;
     const int blockCountX = usePrevBlockX ? 2 : 1;
     const int blockCountY = usePrevBlockY ? 2 : 1;
     const int directionDisabledBack = degrainRefDirectionDisabled(disableMask, refDirectionBack);
@@ -614,19 +608,25 @@ __device__ __forceinline__ int2 rtgmcRetouchCompensateOverlapPixelValuePair(
 
     float sampleSumBack = 0.0f, weightSumBack = 0.0f;
     float sampleSumForw = 0.0f, weightSumForw = 0.0f;
+    // 動的添字の配列をなくし、補償処理の複製によるコード増大も避ける。
+    // Y→Xの走査順と方向別のFMA・重み和の順序は元のままにする。
+    #pragma unroll 1
     for (int byIndex = 0; byIndex < blockCountY; byIndex++) {
-        const int blockY = blockYs[byIndex];
-        const int localY = localYs[byIndex];
-        const int blockRow = blockRows[byIndex];
+        const int blockY = primaryBlockY - byIndex;
+        const int localY = primaryLocalY + byIndex * planeStepY;
+        const int blockRow = primaryBlock - byIndex * renderBlocksX;
+        const float weightY = byIndex == 0 ? wyCurrent : wyPrev;
+        #pragma unroll 1
         for (int bxIndex = 0; bxIndex < blockCountX; bxIndex++) {
-            const int blockX = blockXs[bxIndex];
-            const int localX = localXs[bxIndex];
+            const int blockX = primaryBlockX - bxIndex;
+            const int localX = primaryLocalX + bxIndex * planeStepX;
             if (localX < 0 || localX >= planeBlockSizeX || localY < 0 || localY >= planeBlockSizeY
                 || blockX < 0 || blockX >= renderBlocksX || blockY < 0 || blockY >= renderBlocksY) {
                 continue;
             }
             const int block = blockRow - bxIndex;
-            const float weight = wx[bxIndex] * wy[byIndex];
+            const float weightX = bxIndex == 0 ? wxCurrent : wxPrev;
+            const float weight = weightX * weightY;
             const int sampleBack = degrainCompensateBlockSample<TypePixel>(
                 cur, refBack, cur_pitch,
                 width, height,
