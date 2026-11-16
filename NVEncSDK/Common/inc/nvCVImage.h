@@ -58,6 +58,7 @@ typedef enum NvCVImage_PixelFormat {
   NVCV_YUV422          = 11,   //!< Luminance and subsampled Chrominance { Y, Cb, Cr }
 #endif // !RTX_CAMERA_IMAGE
   NVCV_YUV444          = 12,   //!< Luminance and full bandwidth Chrominance { Y, Cb, Cr }
+  NVCV_RGB10A2         = 13,   //!< RGB10A2, packed 10-bit RGB and 2-bit alpha (VFX SDK 1.3).
 } NvCVImage_PixelFormat;
 
 
@@ -74,6 +75,7 @@ typedef enum NvCVImage_ComponentType {
   NVCV_U64           = 8,      //!< Unsigned 64-bit integer.
   NVCV_S64           = 9,      //!< Signed 64-bit integer.
   NVCV_F64           = 10,     //!< 64-bit floating-point (double).
+  NVCV_P32           = 11,     //!< Packed RGB10A2 component (VFX SDK 1.3).
 } NvCVImage_ComponentType;
 
 
