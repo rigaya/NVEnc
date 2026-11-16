@@ -160,6 +160,7 @@ protected:
         uint32_t scaledThSCD1;
         uint64_t scaledThSCD2;
         uint32_t disableMask;
+        std::shared_ptr<uint32_t> readbackHost;
         CUMemBuf *sad;
         RGYCudaEvent mapEvent;
         std::vector<RGYDegrainSAD> *sadHost;
@@ -180,6 +181,7 @@ protected:
             scaledThSCD1(0),
             scaledThSCD2(0),
             disableMask(0),
+            readbackHost(),
             sad(nullptr),
             mapEvent(),
             sadHost(nullptr),
@@ -285,6 +287,7 @@ protected:
     std::deque<std::unique_ptr<PendingSceneChange>> m_pendingSceneChange;
     std::shared_ptr<RGYDegrainBufferPool> m_sideDataBufferPool;
     std::array<std::vector<RGYDegrainSAD>, SCENE_CHANGE_READBACK_POOL_SIZE> m_sceneChangeReadbackSAD;
+    std::vector<std::shared_ptr<uint32_t>> m_sceneChangeReadbackPool;
     std::unique_ptr<CUMemBuf> m_sceneChangeCounts;
     std::unique_ptr<CUMemBuf> m_sceneChangeDisableMask;
     int m_sceneChangeReadbackSADIndex;

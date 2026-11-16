@@ -306,10 +306,11 @@ protected:
     };
     struct KfmContainsCombeReadback {
         uint32_t count;
+        std::shared_ptr<uint32_t> countHost;
         RGYCudaEvent event;
         bool submitted;
 
-        KfmContainsCombeReadback() : count(0), event(), submitted(false) {};
+        KfmContainsCombeReadback() : count(0), countHost(), event(), submitted(false) {};
     };
     struct KfmCachedDeint60 {
         int n60;
@@ -810,6 +811,7 @@ protected:
     std::array<std::unique_ptr<CUMemBuf>, 4> m_switchFlagWork;
     RGYCudaEvent m_switchFlagWorkEvent;
     std::unique_ptr<CUMemBuf> m_containsCombeCount;
+    std::vector<std::shared_ptr<uint32_t>> m_containsCombeReadbackPool;
     FILE *m_fpResult;
     FILE *m_fpFMCount;
     FILE *m_fpTimecode;

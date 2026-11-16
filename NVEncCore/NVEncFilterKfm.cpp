@@ -393,6 +393,7 @@ NVEncFilterKfm::NVEncFilterKfm() :
     m_switchFlagWork(),
     m_switchFlagWorkEvent(),
     m_containsCombeCount(),
+    m_containsCombeReadbackPool(),
     m_fpResult(nullptr),
     m_fpFMCount(nullptr),
     m_fpTimecode(nullptr),
@@ -5095,6 +5096,8 @@ RGY_ERR NVEncFilterKfm::resolveContainsCombeCount(KfmContainsCombeReadback& read
             return waitSts;
         }
     }
+    readback.count = *readback.countHost;
+    readback.countHost.reset();
     if (containsCombeCount) {
         *containsCombeCount = readback.count;
     }
@@ -5431,7 +5434,22 @@ RGY_ERR NVEncFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFram
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        sts = err_to_rgy(cudaMemcpyAsync(&containsCombeReadback->count, m_containsCombeCount->ptr, sizeof(uint32_t), cudaMemcpyDeviceToHost, stream));
+        // 読み戻しが未解決のバッファを避け、pinnedメモリの毎フレーム確保も避ける。
+        const auto hostIt = std::find_if(m_containsCombeReadbackPool.begin(), m_containsCombeReadbackPool.end(),
+            [](const std::shared_ptr<uint32_t>& buf) { return buf.use_count() == 1; });
+        if (hostIt != m_containsCombeReadbackPool.end()) {
+            containsCombeReadback->countHost = *hostIt;
+        } else {
+            uint32_t *host = nullptr;
+            sts = err_to_rgy(cudaMallocHost(reinterpret_cast<void **>(&host), sizeof(uint32_t)));
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("KFMのコーム数読み戻し用ホストメモリを確保できません: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
+            containsCombeReadback->countHost = std::shared_ptr<uint32_t>(host, cudahost_deleter());
+            m_containsCombeReadbackPool.push_back(containsCombeReadback->countHost);
+        }
+        sts = err_to_rgy(cudaMemcpyAsync(containsCombeReadback->countHost.get(), m_containsCombeCount->ptr, sizeof(uint32_t), cudaMemcpyDeviceToHost, stream));
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to submit KFM contains-combe count readback: %s.\n"), get_err_mes(sts));
             return sts;
@@ -9401,6 +9419,7 @@ void NVEncFilterKfm::close() {
     }
     m_switchFlagWorkEvent = RGYCudaEvent();
     m_containsCombeCount.reset();
+    m_containsCombeReadbackPool.clear();
     if (m_fpResult) {
         fclose(m_fpResult);
         m_fpResult = nullptr;

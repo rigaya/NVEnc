@@ -626,6 +626,7 @@ NVEncFilterDegrain::NVEncFilterDegrain() :
     m_pendingSceneChange(),
     m_sideDataBufferPool(std::make_shared<RGYDegrainBufferPool>()),
     m_sceneChangeReadbackSAD(),
+    m_sceneChangeReadbackPool(),
     m_sceneChangeCounts(),
     m_sceneChangeDisableMask(),
     m_sceneChangeReadbackSADIndex(0),
@@ -1866,6 +1867,7 @@ void NVEncFilterDegrain::close() {
         sad.clear();
         sad.shrink_to_fit();
     }
+    m_sceneChangeReadbackPool.clear();
     m_sceneChangeCounts.reset();
     m_sceneChangeDisableMask.reset();
     m_sceneChangeReadbackSADIndex = 0;
@@ -3678,6 +3680,21 @@ RGY_ERR NVEncFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<NVEn
     }
 
     const auto countBytes = sizeof(uint32_t) * RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS;
+    // pendingが保持している読み戻し先は再利用せず、完了したバッファだけを使い回す。
+    const auto hostIt = std::find_if(m_sceneChangeReadbackPool.begin(), m_sceneChangeReadbackPool.end(),
+        [](const std::shared_ptr<uint32_t>& buf) { return buf.use_count() == 1; });
+    if (hostIt != m_sceneChangeReadbackPool.end()) {
+        pending->readbackHost = *hostIt;
+    } else {
+        uint32_t *host = nullptr;
+        const auto allocErr = err_to_rgy(cudaMallocHost(reinterpret_cast<void **>(&host), countBytes + sizeof(uint32_t)));
+        if (allocErr != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("degrainのシーンチェンジ読み戻し用ホストメモリを確保できません: %s.\n"), get_err_mes(allocErr));
+            return allocErr;
+        }
+        pending->readbackHost = std::shared_ptr<uint32_t>(host, cudahost_deleter());
+        m_sceneChangeReadbackPool.push_back(pending->readbackHost);
+    }
     if (!m_sceneChangeCounts || m_sceneChangeCounts->nSize != countBytes) {
         m_sceneChangeCounts = std::make_unique<CUMemBuf>(countBytes);
         auto err = m_sceneChangeCounts->alloc();
@@ -3707,21 +3724,23 @@ RGY_ERR NVEncFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<NVEn
         AddMessage(RGY_LOG_ERROR, _T("failed to build degrain scene change mask: %s.\n"), get_err_mes(err));
         return err;
     }
-    err = err_to_rgy(cudaMemcpyAsync(pending->sceneChangeBlockCounts.data(), m_sceneChangeCounts->ptr,
+    err = err_to_rgy(cudaMemcpyAsync(pending->readbackHost.get(), m_sceneChangeCounts->ptr,
         sizeof(uint32_t) * pending->sceneChangeBlockCounts.size(), cudaMemcpyDeviceToHost, stream));
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy degrain scene change counts: %s.\n"), get_err_mes(err));
         return err;
     }
-    err = err_to_rgy(cudaMemcpyAsync(&pending->disableMask, m_sceneChangeDisableMask->ptr,
+    err = err_to_rgy(cudaMemcpyAsync(pending->readbackHost.get() + RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS, m_sceneChangeDisableMask->ptr,
         sizeof(pending->disableMask), cudaMemcpyDeviceToHost, stream));
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy degrain scene change mask: %s.\n"), get_err_mes(err));
+        cudaStreamSynchronize(stream);
         return err;
     }
     err = degrainRecordEvent(stream, &pending->mapEvent);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to record degrain scene change readback event: %s.\n"), get_err_mes(err));
+        cudaStreamSynchronize(stream);
         return err;
     }
     pending->mapSubmitted = true;
@@ -3761,6 +3780,10 @@ RGY_ERR NVEncFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pendi
             return err;
         }
     }
+    // event完了後にだけpinnedメモリを読み、既存の判定用データへ反映する。
+    std::copy_n(pending.readbackHost.get(), pending.sceneChangeBlockCounts.size(), pending.sceneChangeBlockCounts.begin());
+    pending.disableMask = pending.readbackHost.get()[RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS];
+    pending.readbackHost.reset();
     std::array<size_t, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> sceneChangeBlockCounts = {};
     for (int refDirection = 0; refDirection < RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS; refDirection++) {
         sceneChangeBlockCounts[refDirection] = pending.sceneChangeBlockCounts[refDirection];
