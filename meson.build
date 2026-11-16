@@ -14,6 +14,14 @@ project('nvencc', ['cpp', 'cuda'],
 # ==============================================================================
 cpp = meson.get_compiler('cpp')
 cuda = meson.get_compiler('cuda')
+# meson 1.4.0未満はnvccに依存ファイル生成オプション(-MD -MT -MF)を渡さないため、
+# .cuがincludeするヘッダーを変更してもインクリメンタルビルドで再コンパイルされない。
+# if の条件に meson.version().version_compare() を直接書くと、その中で使う機能が
+# 古い meson 向けとして判定されて余計な警告が出るため、一度変数に受ける。
+cuda_header_deps_tracked = meson.version().version_compare('>=1.4.0')
+if not cuda_header_deps_tracked
+  warning('meson @0@ では .cu のヘッダー依存が追跡されません。ヘッダー変更時はビルドディレクトリを作り直すか、meson 1.4.0 以降を使ってください。'.format(meson.version()))
+endif
 fs = import('fs')
 source_root = meson.project_source_root()
 build_root = meson.project_build_root()
