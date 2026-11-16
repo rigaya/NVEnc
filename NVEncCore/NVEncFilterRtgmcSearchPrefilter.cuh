@@ -376,6 +376,22 @@ __device__ int rtgmc_search_prefilter_search_smoothed3x3_value(
     if (x <= 0 || y <= 0 || x >= width - 1 || y >= height - 1) {
         return rtgmc_search_prefilter_pixel_load<TypePixel>(src, pitch, width, height, x, y);
     }
+    if constexpr (sizeof(TypePixel) == 1) {
+        const int alignedX = (x - 1) & ~3;
+        if ((((uintptr_t)src | (uintptr_t)pitch) & 3) == 0 && alignedX + 8 <= pitch) {
+            // 可視域の3画素を、行内に収まる整列wordから元の順序で取り出す。
+            uint32_t rows[3];
+            #pragma unroll
+            for (int dy = 0; dy < 3; dy++) {
+                const uint32_t *row = (const uint32_t *)(src + (y + dy - 1) * pitch + alignedX);
+                rows[dy] = __funnelshift_r(row[0], row[1], ((x - 1) & 3) * 8);
+            }
+            return rtgmc_search_prefilter_blur3x3_weighted(
+                rows[0] & 255, (rows[0] >> 8) & 255, (rows[0] >> 16) & 255,
+                rows[1] & 255, (rows[1] >> 8) & 255, (rows[1] >> 16) & 255,
+                rows[2] & 255, (rows[2] >> 8) & 255, (rows[2] >> 16) & 255);
+        }
+    }
     const int p00 = rtgmc_search_prefilter_pixel_load<TypePixel>(src, pitch, width, height, x - 1, y - 1);
     const int p10 = rtgmc_search_prefilter_pixel_load<TypePixel>(src, pitch, width, height, x,     y - 1);
     const int p20 = rtgmc_search_prefilter_pixel_load<TypePixel>(src, pitch, width, height, x + 1, y - 1);
