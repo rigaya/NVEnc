@@ -37,6 +37,18 @@
 
 char *g_nvVFXSDKPath = nullptr;
 
+// Implemented alongside the existing GPU CSP kernels in NVEncFilterCrop.cu.
+// Operates on BT.2020 NCL P010 and PQ-encoded RGB10A2 without an 8-bit path.
+#if ENABLE_NVVFX
+cudaError_t runNvvfxP010ToRGB10A2(
+    const uint8_t* y, const uint8_t* uv, int srcPitch,
+    uint8_t* rgb, int rgbPitch, int width, int height, cudaStream_t stream);
+cudaError_t runNvvfxRGB10A2ToP010(
+    const uint8_t* rgb, int rgbPitch,
+    uint8_t* y, uint8_t* uv, int dstPitch,
+    int width, int height, cudaStream_t stream);
+#endif
+
 #if ENABLE_NVVFX
 // Video Frame Generation (VFG) interface.
 // Not every nvVideoEffects.h shipped with the SDK carries these definitions,
@@ -991,10 +1003,17 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::convertToNvCVImage(const RGYFrameInfo *
             AddMessage(RGY_LOG_ERROR, _T("P010 upload failed: %s.\n"), char_to_tstring(cudaGetErrorString(status)).c_str());
             return RGY_ERR_INVALID_PARAM;
         }
-        const auto err = err_to_rgy(NvCVImage_Transfer(m_hdrYuvIn.get(), dst, 1.f, stream, nullptr));
-        if (err != RGY_ERR_NONE) AddMessage(RGY_LOG_ERROR,
-            _T("P010 -> RGB10A2 transfer failed: %s.\n"), get_err_mes(err));
-        return err;
+        const auto kernelErr = runNvvfxP010ToRGB10A2(
+            static_cast<const uint8_t*>(m_hdrYuvIn->pixels),
+            static_cast<const uint8_t*>(m_hdrYuvIn->pixels) + pitch * height,
+            m_hdrYuvIn->pitch, static_cast<uint8_t*>(dst->pixels), dst->pitch,
+            input->width, input->height, stream);
+        if (kernelErr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("P010 -> RGB10A2 CUDA kernel failed: %s.\n"),
+                char_to_tstring(cudaGetErrorString(kernelErr)).c_str());
+            return err_to_rgy(kernelErr);
+        }
+        return RGY_ERR_NONE;
     }
     RGYFrameInfo srcImgInfo = m_srcCrop->GetFilterParam()->frameOut;
     srcImgInfo.singleAlloc = true;
@@ -1039,14 +1058,19 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::genFrame(RGYFrameInfo *outFrame, const 
 
     if (m_hdr10) {
         if (!m_hdrYuvOut || !outFrame->ptr[0] || !outFrame->ptr[1]) return RGY_ERR_INVALID_PARAM;
-        const auto err = err_to_rgy(NvCVImage_Transfer(m_dstImg.get(), m_hdrYuvOut.get(), 1.f, stream, nullptr));
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("RGB10A2 -> P010 transfer failed: %s.\n"), get_err_mes(err));
-            return err;
-        }
         const size_t rowBytes = size_t(outFrame->width) * sizeof(uint16_t);
         const int height = outFrame->height;
         const size_t pitch = size_t(m_hdrYuvOut->pitch);
+        const auto kernelErr = runNvvfxRGB10A2ToP010(
+            static_cast<const uint8_t*>(m_dstImg->pixels), m_dstImg->pitch,
+            static_cast<uint8_t*>(m_hdrYuvOut->pixels),
+            static_cast<uint8_t*>(m_hdrYuvOut->pixels) + pitch * height,
+            m_hdrYuvOut->pitch, outFrame->width, outFrame->height, stream);
+        if (kernelErr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("RGB10A2 -> P010 CUDA kernel failed: %s.\n"),
+                char_to_tstring(cudaGetErrorString(kernelErr)).c_str());
+            return err_to_rgy(kernelErr);
+        }
         if (m_dstCrop) {
             // Use the packed P010 GPU surface directly as the input to the CSP conversion.
             RGYFrameInfo p010Frame = m_dstCrop->GetFilterParam()->frameIn;
