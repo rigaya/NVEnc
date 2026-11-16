@@ -205,14 +205,29 @@ static __device__ __forceinline__ float2 nnedi_predictor_lane_vote_device(
     const float2 *neuronBiasPtr = weightsBias + q * NNS + tx;
     for (int neuronGroup = 0; neuronGroup < PRED_GROUPS; neuronGroup++) {
         const float2 *sampleWeights = neuronBlockWeights + tx;
-        const Type *patchPtr = patch;
         float2 weightedPatchSums = make_float2(0.0f, 0.0f);
-        for (int sampleIndex = 0; sampleIndex < PRED_K; sampleIndex++) {
-            const int patchPixelValue = (int)(*patchPtr);
-            weightedPatchSums.x = fmaf((float)patchPixelValue, sampleWeights->x, weightedPatchSums.x);
-            weightedPatchSums.y = fmaf((float)patchPixelValue, sampleWeights->y, weightedPatchSums.y);
-            patchPtr++;
-            sampleWeights += LOCAL_X;
+        if constexpr (sizeof(Type) == 1 && PRED_K % 4 == 0) {
+            // 整列済みsharedから4画素をまとめて読み、FMAは元の画素順で行う。
+            const uint32_t *patchWords = reinterpret_cast<const uint32_t *>(patch);
+            for (int sampleIndex = 0; sampleIndex < PRED_K; sampleIndex += 4) {
+                const uint32_t pixels = patchWords[sampleIndex / 4];
+                #pragma unroll
+                for (int i = 0; i < 4; i++) {
+                    const int patchPixelValue = (int)((pixels >> (i * 8)) & 0xffu);
+                    weightedPatchSums.x = fmaf((float)patchPixelValue, sampleWeights->x, weightedPatchSums.x);
+                    weightedPatchSums.y = fmaf((float)patchPixelValue, sampleWeights->y, weightedPatchSums.y);
+                    sampleWeights += LOCAL_X;
+                }
+            }
+        } else {
+            const Type *patchPtr = patch;
+            for (int sampleIndex = 0; sampleIndex < PRED_K; sampleIndex++) {
+                const int patchPixelValue = (int)(*patchPtr);
+                weightedPatchSums.x = fmaf((float)patchPixelValue, sampleWeights->x, weightedPatchSums.x);
+                weightedPatchSums.y = fmaf((float)patchPixelValue, sampleWeights->y, weightedPatchSums.y);
+                patchPtr++;
+                sampleWeights += LOCAL_X;
+            }
         }
 
         const float2 neuronBias = *neuronBiasPtr;
@@ -290,7 +305,8 @@ __global__ void kernel_nnedi_predictor_network_cuda(
     const int xbase = blockIdx.x * NNEDI_TILE_PIXELS_X;
     const int ybase = blockIdx.y * NNEDI_TILE_ROWS;
 
-    __shared__ Type patchPixels[LOCAL_Y * PRED_K];
+    // u8の32bitロードを保証する。各行もPRED_Kが4の倍数なら整列を保つ。
+    __shared__ __align__(4) Type patchPixels[LOCAL_Y * PRED_K];
     __shared__ unsigned short candidateQueue[NNEDI_TILE_MAX_CANDIDATES];
     __shared__ int candidatePrefix[NNEDI_TILE_MASK_COUNT];
     __shared__ int sumPart[LOCAL_Y * LOCAL_X];
