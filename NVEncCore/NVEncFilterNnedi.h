@@ -72,6 +72,7 @@ public:
     std::pair<int, int> compute_capability;
     HMODULE hModule;
     rgy_rational<int> timebase;
+    bool skipUnprocessedChromaCopy;
 
     NVEncFilterParamNnedi();
     virtual ~NVEncFilterParamNnedi() {};

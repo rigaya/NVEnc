@@ -819,6 +819,9 @@ RGY_ERR NVEncFilterRtgmcEdi::initNnediAdapterState(NnediAdapterState &state, con
     } else {
         state.outputCsp.reset();
     }
+    // CSP変換がなく、Yだけを採用する内部mainアダプターに限る。
+    nnedi->skipUnprocessedChromaCopy = !chroma && !state.outputCsp
+        && nnedi->frameIn.csp == nnedi->frameOut.csp;
     state.filter = std::move(filter);
     state.cachedFrames = { nullptr, nullptr };
     state.cachedKey = FrameKey();

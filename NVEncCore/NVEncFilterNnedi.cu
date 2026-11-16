@@ -575,7 +575,8 @@ NVEncFilterParamNnedi::NVEncFilterParamNnedi() :
     nnedi(),
     compute_capability(std::make_pair(0, 0)),
     hModule(NULL),
-    timebase() {
+    timebase(),
+    skipUnprocessedChromaCopy(false) {
 }
 
 NVEncFilterNnedi::NVEncFilterNnedi() :
@@ -1109,7 +1110,9 @@ RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
             // 処理するplaneの残すフィールドはprepareFieldReferenceでコピーする。
             // 生成側は全画素が書かれるため、ここでは処理しないplaneだけを初期化する。
             for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
-                if (nnediPlaneEnabled(prm->nnedi, iplane)) {
+                // 内部アダプターで採用しないUVだけを省き、単独使用時は従来どおり保持する。
+                if (nnediPlaneEnabled(prm->nnedi, iplane)
+                    || (prm->skipUnprocessedChromaCopy && (iplane == (int)RGY_PLANE_U || iplane == (int)RGY_PLANE_V))) {
                     continue;
                 }
                 auto dstPlane = getPlane(&m_frameBuf[i]->frame, (RGY_PLANE)iplane);
