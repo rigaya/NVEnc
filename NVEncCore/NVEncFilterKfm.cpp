@@ -8303,7 +8303,6 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 std::vector<RGYCudaEvent> copyWaitEvents;
                 const bool patchCombe30Enabled = kfmDeint60BranchEnabled() && m_deint60Rtgmc;
                 bool patched30 = false;
-                bool baseCopyQueued30 = false;
                 if (superSts == RGY_ERR_NONE) {
                     std::vector<RGYCudaEvent> maskWaitEvents;
                     if (superEvent() != nullptr) {
@@ -8385,15 +8384,6 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                     if (deintEvent() != nullptr) {
                         copyWaitEvents.push_back(deintEvent);
                     }
-                    if (!prm->kfm.ucf) {
-                        sts = copyFrameWithEvent(out, deint30, copyWaitEvents, &outputEvent, _T("deint30 output"));
-                        if (sts != RGY_ERR_NONE) {
-                            resolveContainsCombeCount(containsCombeReadback, nullptr);
-                            return sts;
-                        }
-                        copyFramePropWithoutRes(out, deint30);
-                        baseCopyQueued30 = true;
-                    }
                     sts = resolveContainsCombeCount(containsCombeReadback, needsContainsCombeCount ? &containsCombeCount : nullptr);
                     if (sts != RGY_ERR_NONE) {
                         return sts;
@@ -8403,6 +8393,7 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                         applyCombedSingleFrameDuration(outputTiming);
                     }
                     if (patchCombe30Enabled && containsCombeCount > 0) {
+                        // patchCombeは全planeを描画するため、出力の事前コピーは不要。
                         std::vector<RGYCudaEvent> patchWaitEvents = copyWaitEvents;
                         if (outputEvent() != nullptr) {
                             patchWaitEvents.push_back(outputEvent);
@@ -8465,11 +8456,11 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                         }
                         ucf30 = selectUcfDecomb30Frame(outputTiming.sourceIndex, deint30, &copyWaitEvents);
                     }
-                    if (!baseCopyQueued30 && ucf30 == deint30) {
+                    if (ucf30 == deint30) {
                         // 完成済みの同じwork画像はコピーせず、既存のpending/output枠へ移管する。
                         out = deint30;
                         outputEvent = deintEvent;
-                    } else if (!baseCopyQueued30) {
+                    } else {
                         sts = copyFrameWithEvent(out, ucf30, copyWaitEvents, &outputEvent, _T("deint30 output"));
                         if (sts != RGY_ERR_NONE) {
                             return sts;
