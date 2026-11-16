@@ -403,7 +403,12 @@ __device__ Type kfm_telecine_weave_pixel_cuda(
         if (count == 0) {
             sum = v;
         } else {
-            sum = (Type)(((int)sum + (int)v) >> 1);
+            if constexpr (sizeof(Type) == 4) {
+                // uint32_tでは横4画素を扱い、byte間の桁上がりを避けて切り捨て平均する。
+                sum = (sum & v) + (((sum ^ v) & 0xfefefefeU) >> 1);
+            } else {
+                sum = (Type)(((int)sum + (int)v) >> 1);
+            }
         }
         count++;
     }
@@ -1647,12 +1652,20 @@ RGY_ERR run_kfm_telecine_weave_plane(
     return dispatch_kfm_depth(pOutputFrame,
         [&]() {
             const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
-            const dim3 grid(divCeil(pOutputFrame->width, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
-            kernel_kfm_telecine_weave<uint8_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
-                (const uint8_t *)src0->ptr[0], src0->pitch[0],
-                (const uint8_t *)src1->ptr[0], src1->pitch[0],
-                (const uint8_t *)src2->ptr[0], src2->pitch[0],
-                pOutputFrame->width, pOutputFrame->height, srcYOffset, fieldStart, fieldCount, parity);
+            const bool pack4 = ((((uintptr_t)pOutputFrame->ptr[0] | (uintptr_t)src0->ptr[0]
+                | (uintptr_t)src1->ptr[0] | (uintptr_t)src2->ptr[0] | pOutputFrame->pitch[0]
+                | src0->pitch[0] | src1->pitch[0] | src2->pitch[0] | pOutputFrame->width) & 3) == 0);
+            const int width = pOutputFrame->width / (pack4 ? 4 : 1);
+            const dim3 grid(divCeil(width, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            // 全ポインタ・pitch・幅が4byte単位なら、横4画素をuint32_tとして1スレッドで処理する。
+            const auto launch = [&](auto sample) {
+                kernel_kfm_telecine_weave<decltype(sample)><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+                    (const uint8_t *)src0->ptr[0], src0->pitch[0],
+                    (const uint8_t *)src1->ptr[0], src1->pitch[0],
+                    (const uint8_t *)src2->ptr[0], src2->pitch[0],
+                    width, pOutputFrame->height, srcYOffset, fieldStart, fieldCount, parity);
+            };
+            if (pack4) launch(uint32_t{}); else launch(uint8_t{});
             return err_to_rgy(cudaGetLastError());
         },
         [&]() {
