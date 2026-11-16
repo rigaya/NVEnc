@@ -568,7 +568,10 @@ tstring NVEncFilterParamNvvfxFrameGen::print() const {
 NVEncFilterNvvfxFrameGeneration::NVEncFilterNvvfxFrameGeneration() :
 #if ENABLE_NVVFX
     m_prevImg(),
+    m_hdrYuvIn(),
+    m_hdrYuvOut(),
 #endif
+    m_hdr10(false),
     m_outFrameBuf(),
     m_targetFps(),
     m_prevTimestamp(-1),
@@ -593,8 +596,11 @@ int NVEncFilterNvvfxFrameGeneration::requiredOutputFrames() const {
 void NVEncFilterNvvfxFrameGeneration::close() {
     m_outFrameBuf.clear();
 #if ENABLE_NVVFX
+    m_hdrYuvIn.reset();
+    m_hdrYuvOut.reset();
     m_prevImg.reset();
 #endif
+    m_hdr10 = false;
     NVEncFilterNvvfxEffect::close();
 }
 
@@ -687,6 +693,16 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen does not support interlaced input.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+    // Never silently convert high-bit-depth input through the 8-bit SDR path.
+    m_hdr10 = pParam->frameIn.csp == RGY_CSP_P010;
+    if (RGY_CSP_BIT_DEPTH[pParam->frameIn.csp] > 8 && !m_hdr10) {
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen 10-bit input currently requires P010.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (m_hdr10 && ((pParam->frameIn.width | pParam->frameIn.height) & 1)) {
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen P010 requires even dimensions.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
     if (pParam->frameIn.width != pParam->frameOut.width
         || pParam->frameIn.height != pParam->frameOut.height) {
         AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen does not change the resolution.\n"));
@@ -708,13 +724,14 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         return err;
     }
 
-    // VFG takes RGBA8 interleaved images. The base class provides m_srcImg and m_dstImg,
-    // m_prevImg is added here for the second (previous frame) input.
+    // Keep SDR RGBA8 unchanged; P010 uses packed RGB10A2 end-to-end inside VFG.
+    const auto vfgFormat = m_hdr10 ? NVCV_RGB10A2 : NVCV_RGBA;
+    const auto vfgType   = m_hdr10 ? NVCV_P32 : NVCV_U8;
     if (!m_prevImg || (int)m_prevImg->width != pParam->frameIn.width || (int)m_prevImg->height != pParam->frameIn.height) {
         AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx previous frame image %dx%d.\n"), pParam->frameIn.width, pParam->frameIn.height);
         m_prevImg = std::make_unique<NvCVImage>();
         err = err_to_rgy(NvCVImage_Alloc(m_prevImg.get(), pParam->frameIn.width, pParam->frameIn.height,
-            NVCV_RGBA, NVCV_U8, NVCV_CHUNKY, NVCV_GPU, 1));
+            vfgFormat, vfgType, NVCV_CHUNKY, NVCV_GPU, 1));
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx previous frame image %dx%d: %s.\n"),
                 pParam->frameIn.width, pParam->frameIn.height, get_err_mes(err));
@@ -730,7 +747,7 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx input image %dx%d.\n"), pParam->frameIn.width, pParam->frameIn.height);
         m_srcImg = std::make_unique<NvCVImage>();
         err = err_to_rgy(NvCVImage_Alloc(m_srcImg.get(), pParam->frameIn.width, pParam->frameIn.height,
-            NVCV_RGBA, NVCV_U8, NVCV_CHUNKY, NVCV_GPU, 1));
+            vfgFormat, vfgType, NVCV_CHUNKY, NVCV_GPU, 1));
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx input image %dx%d: %s.\n"),
                 pParam->frameIn.width, pParam->frameIn.height, get_err_mes(err));
@@ -746,7 +763,7 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx output image %dx%d.\n"), pParam->frameIn.width, pParam->frameIn.height);
         m_dstImg = std::make_unique<NvCVImage>();
         err = err_to_rgy(NvCVImage_Alloc(m_dstImg.get(), pParam->frameIn.width, pParam->frameIn.height,
-            NVCV_RGBA, NVCV_U8, NVCV_CHUNKY, NVCV_GPU, 1));
+            vfgFormat, vfgType, NVCV_CHUNKY, NVCV_GPU, 1));
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx output image %dx%d: %s.\n"),
                 pParam->frameIn.width, pParam->frameIn.height, get_err_mes(err));
@@ -779,9 +796,31 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         prm->vuiInfo.matrix = (CspMatrix)COLOR_VALUE_AUTO_RESOLUTION;
     }
     prm->vuiInfo.apply_auto(prm->vuiInfo, pParam->frameIn.height);
-    if (!m_srcCrop
+    if (m_hdr10) {
+        // Preserve the P010 16-bit storage (10 effective bits) and BT.2020 NCL.
+        // NvCVImage_Transfer converts between YUV420/U16 and RGB10A2/P32 on GPU.
+        if (prm->vuiInfo.matrix != RGY_MATRIX_BT2020_NCL) {
+            AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen 10-bit path requires BT.2020 NCL.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const auto allocYuv = [&](std::unique_ptr<NvCVImage>& img) -> RGY_ERR {
+            if (!img) img = std::make_unique<NvCVImage>();
+            const auto status = err_to_rgy(NvCVImage_Alloc(img.get(),
+                pParam->frameIn.width, pParam->frameIn.height,
+                NVCV_YUV420, NVCV_U16, NVCV_NV12, NVCV_GPU, 1));
+            if (status == RGY_ERR_NONE)
+                img->colorspace = NVCV_2020 | NVCV_VIDEO_RANGE | NVCV_CHROMA_COSITED;
+            return status;
+        };
+        if ((sts = allocYuv(m_hdrYuvIn)) != RGY_ERR_NONE ||
+            (sts = allocYuv(m_hdrYuvOut)) != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate P010 NvCVImage surfaces: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+    }
+    if (!m_hdr10 && (!m_srcCrop
         || m_srcCrop->GetFilterParam()->frameIn.width  != pParam->frameIn.width
-        || m_srcCrop->GetFilterParam()->frameIn.height != pParam->frameIn.height) {
+        || m_srcCrop->GetFilterParam()->frameIn.height != pParam->frameIn.height)) {
         AddMessage(RGY_LOG_DEBUG, _T("Create input csp conversion filter.\n"));
         unique_ptr<NVEncFilterCspCrop> filter(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
@@ -800,9 +839,9 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         m_srcCrop = std::move(filter);
         AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_srcCrop->GetInputMessage().c_str());
     }
-    if (!m_dstCrop
+    if (!m_hdr10 && (!m_dstCrop
         || m_dstCrop->GetFilterParam()->frameOut.width  != pParam->frameOut.width
-        || m_dstCrop->GetFilterParam()->frameOut.height != pParam->frameOut.height) {
+        || m_dstCrop->GetFilterParam()->frameOut.height != pParam->frameOut.height)) {
         AddMessage(RGY_LOG_DEBUG, _T("Create output csp conversion filter.\n"));
         unique_ptr<NVEncFilterCspCrop> filter(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
@@ -880,6 +919,25 @@ RGYFrameInfo *NVEncFilterNvvfxFrameGeneration::getNextOutFrame(RGYFrameInfo **pp
 
 #if ENABLE_NVVFX
 RGY_ERR NVEncFilterNvvfxFrameGeneration::convertToNvCVImage(const RGYFrameInfo *src, NvCVImage *dst, cudaStream_t stream) {
+    if (m_hdr10) {
+        if (!m_hdrYuvIn || !src->ptr[0] || !src->ptr[1]) return RGY_ERR_INVALID_PARAM;
+        const size_t rowBytes = size_t(src->width) * sizeof(uint16_t);
+        const int height = src->height;
+        const size_t pitch = size_t(m_hdrYuvIn->pitch);
+        auto status = cudaMemcpy2DAsync(m_hdrYuvIn->pixels, pitch,
+            src->ptr[0], src->pitch[0], rowBytes, height, cudaMemcpyDeviceToDevice, stream);
+        if (status == cudaSuccess)
+            status = cudaMemcpy2DAsync(static_cast<uint8_t*>(m_hdrYuvIn->pixels) + pitch * height, pitch,
+                src->ptr[1], src->pitch[1], rowBytes, height / 2, cudaMemcpyDeviceToDevice, stream);
+        if (status != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("P010 upload failed: %s.\n"), char_to_tstring(cudaGetErrorString(status)).c_str());
+            return RGY_ERR_INVALID_PARAM;
+        }
+        const auto err = err_to_rgy(NvCVImage_Transfer(m_hdrYuvIn.get(), dst, 1.f, stream, nullptr));
+        if (err != RGY_ERR_NONE) AddMessage(RGY_LOG_ERROR,
+            _T("P010 -> RGB10A2 transfer failed: %s.\n"), get_err_mes(err));
+        return err;
+    }
     RGYFrameInfo srcImgInfo = m_srcCrop->GetFilterParam()->frameOut;
     srcImgInfo.singleAlloc = true;
     srcImgInfo.ptr[0] = (uint8_t *)dst->pixels;
@@ -921,7 +979,27 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::genFrame(RGYFrameInfo *outFrame, const 
         return RGY_ERR_INVALID_PARAM;
     }
 
-    {
+    if (m_hdr10) {
+        if (!m_hdrYuvOut || !outFrame->ptr[0] || !outFrame->ptr[1]) return RGY_ERR_INVALID_PARAM;
+        const auto err = err_to_rgy(NvCVImage_Transfer(m_dstImg.get(), m_hdrYuvOut.get(), 1.f, stream, nullptr));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("RGB10A2 -> P010 transfer failed: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        const size_t rowBytes = size_t(outFrame->width) * sizeof(uint16_t);
+        const int height = outFrame->height;
+        const size_t pitch = size_t(m_hdrYuvOut->pitch);
+        auto status = cudaMemcpy2DAsync(outFrame->ptr[0], outFrame->pitch[0],
+            m_hdrYuvOut->pixels, pitch, rowBytes, height, cudaMemcpyDeviceToDevice, stream);
+        if (status == cudaSuccess)
+            status = cudaMemcpy2DAsync(outFrame->ptr[1], outFrame->pitch[1],
+                static_cast<uint8_t*>(m_hdrYuvOut->pixels) + pitch * height, pitch,
+                rowBytes, height / 2, cudaMemcpyDeviceToDevice, stream);
+        if (status != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("P010 download failed: %s.\n"), char_to_tstring(cudaGetErrorString(status)).c_str());
+            return RGY_ERR_INVALID_PARAM;
+        }
+    } else {
         RGYFrameInfo dstImgInfo = m_dstCrop->GetFilterParam()->frameIn;
         dstImgInfo.singleAlloc = true;
         dstImgInfo.ptr[0] = (uint8_t *)m_dstImg->pixels;
