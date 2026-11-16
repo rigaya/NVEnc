@@ -1445,8 +1445,11 @@ RGY_ERR NVEncFilterKfm::initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& pr
     rtgmcParam->timebase = prm->timebase;
     rtgmcParam->bOutOverwrite = false;
     rtgmcParam->sharedAnalysisMode = sharedAnalysisMode;
-    // 有限窓の再投入で返却済みEDI画像を再利用する。
-    rtgmcParam->ediPoolResetRetainFrames = branchNrEnabled(*prm) ? 16 : 0;
+    // 有限窓の再投入(deint60のreset)で返却済みEDI画像を再利用する。
+    // 0(全解放)だとresetのたびに定常分(17画像x3プレーン)をcudaFree/cudaMallocPitchし直し、
+    // cudaFreeの暗黙同期も加わって遅くなる。reset時は17画像中15画像が返却済みなので、
+    // 上限16で定常分は残り、それを超える高水位の余剰だけがtrimされる。
+    rtgmcParam->ediPoolResetRetainFrames = 16;
 
     rtgmc = std::make_unique<NVEncFilterRtgmc>();
     auto sts = rtgmc->init(rtgmcParam, m_pLog);
