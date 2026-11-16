@@ -693,12 +693,14 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen does not support interlaced input.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    // Decoders may expose 10-bit 4:2:0 as planar YV12_10 or semi-planar P010.
-    // Do not silently route high-bit-depth input through the SDR RGBA8 path.
+    // Decoder/VPP pipelines can normalize 10-bit 4:2:0 to 16-bit planar YV12_16.
+    // All accepted high-depth formats have a GPU path to P010; never fall back to RGBA8.
     const auto inputCsp = pParam->frameIn.csp;
-    m_hdr10 = inputCsp == RGY_CSP_P010 || inputCsp == RGY_CSP_YV12_10;
+    m_hdr10 = inputCsp == RGY_CSP_P010
+        || inputCsp == RGY_CSP_YV12_10
+        || inputCsp == RGY_CSP_YV12_16;
     if (RGY_CSP_BIT_DEPTH[inputCsp] > 8 && !m_hdr10) {
-        AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen unsupported high-bit-depth input CSP: %s (expected P010 or YV12_10).\n"), RGY_CSP_NAMES[inputCsp]);
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen unsupported high-bit-depth input CSP: %s (expected P010, YV12_10, or YV12_16).\n"), RGY_CSP_NAMES[inputCsp]);
         return RGY_ERR_UNSUPPORTED;
     }
     if (m_hdr10 && ((pParam->frameIn.width | pParam->frameIn.height) & 1)) {
@@ -799,7 +801,7 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
     }
     prm->vuiInfo.apply_auto(prm->vuiInfo, pParam->frameIn.height);
     if (m_hdr10 && pParam->frameIn.csp != RGY_CSP_P010) {
-        // Preserve 10-bit while normalizing planar YV12_10 to P010 on GPU.
+        // Preserve high-depth samples while normalizing YV12_10 / YV12_16 to P010 on GPU.
         auto filter = std::make_unique<NVEncFilterCspCrop>();
         auto param = std::make_shared<NVEncFilterParamCrop>();
         param->frameIn = pParam->frameIn;
@@ -812,7 +814,7 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         param->bOutOverwrite = false;
         if ((sts = filter->init(param, m_pLog)) != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to initialize 10-bit YV12_10-to-P010 conversion.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to initialize high-depth YV12-to-P010 conversion.\n"));
             return sts;
         }
         m_srcCrop = std::move(filter);
@@ -831,7 +833,7 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         param->bOutOverwrite = false;
         if ((sts = filter->init(param, m_pLog)) != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to initialize 10-bit P010-to-YV12_10 conversion.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to initialize high-depth P010-to-YV12 conversion.\n"));
             return sts;
         }
         m_dstCrop = std::move(filter);
