@@ -693,10 +693,12 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen does not support interlaced input.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    // Never silently convert high-bit-depth input through the 8-bit SDR path.
-    m_hdr10 = pParam->frameIn.csp == RGY_CSP_P010;
-    if (RGY_CSP_BIT_DEPTH[pParam->frameIn.csp] > 8 && !m_hdr10) {
-        AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen 10-bit input currently requires P010.\n"));
+    // Decoders may expose 10-bit 4:2:0 as planar YV12_10 or semi-planar P010.
+    // Do not silently route high-bit-depth input through the SDR RGBA8 path.
+    const auto inputCsp = pParam->frameIn.csp;
+    m_hdr10 = inputCsp == RGY_CSP_P010 || inputCsp == RGY_CSP_YV12_10;
+    if (RGY_CSP_BIT_DEPTH[inputCsp] > 8 && !m_hdr10) {
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx-framegen unsupported high-bit-depth input CSP: %s (expected P010 or YV12_10).\n"), RGY_CSP_NAMES[inputCsp]);
         return RGY_ERR_UNSUPPORTED;
     }
     if (m_hdr10 && ((pParam->frameIn.width | pParam->frameIn.height) & 1)) {
@@ -796,6 +798,44 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::init(shared_ptr<NVEncFilterParam> pPara
         prm->vuiInfo.matrix = (CspMatrix)COLOR_VALUE_AUTO_RESOLUTION;
     }
     prm->vuiInfo.apply_auto(prm->vuiInfo, pParam->frameIn.height);
+    if (m_hdr10 && pParam->frameIn.csp != RGY_CSP_P010) {
+        // Preserve 10-bit while normalizing planar YV12_10 to P010 on GPU.
+        auto filter = std::make_unique<NVEncFilterCspCrop>();
+        auto param = std::make_shared<NVEncFilterParamCrop>();
+        param->frameIn = pParam->frameIn;
+        param->frameOut = param->frameIn;
+        param->frameOut.csp = RGY_CSP_P010;
+        param->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[RGY_CSP_P010];
+        param->matrix = prm->vuiInfo.matrix;
+        param->baseFps = pParam->baseFps;
+        param->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+        param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
+        param->bOutOverwrite = false;
+        if ((sts = filter->init(param, m_pLog)) != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to initialize 10-bit YV12_10-to-P010 conversion.\n"));
+            return sts;
+        }
+        m_srcCrop = std::move(filter);
+    }
+    if (m_hdr10 && pParam->frameOut.csp != RGY_CSP_P010) {
+        // Convert generated P010 back to the downstream 10-bit frame format.
+        auto filter = std::make_unique<NVEncFilterCspCrop>();
+        auto param = std::make_shared<NVEncFilterParamCrop>();
+        param->frameIn = pParam->frameOut;
+        param->frameIn.csp = RGY_CSP_P010;
+        param->frameIn.bitdepth = RGY_CSP_BIT_DEPTH[RGY_CSP_P010];
+        param->frameOut = pParam->frameOut;
+        param->matrix = prm->vuiInfo.matrix;
+        param->baseFps = pParam->baseFps;
+        param->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+        param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
+        param->bOutOverwrite = false;
+        if ((sts = filter->init(param, m_pLog)) != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to initialize 10-bit P010-to-YV12_10 conversion.\n"));
+            return sts;
+        }
+        m_dstCrop = std::move(filter);
+    }
     if (m_hdr10) {
         // Preserve the P010 16-bit storage (10 effective bits) and BT.2020 NCL.
         // NvCVImage_Transfer converts between YUV420/U16 and RGB10A2/P32 on GPU.
@@ -920,15 +960,31 @@ RGYFrameInfo *NVEncFilterNvvfxFrameGeneration::getNextOutFrame(RGYFrameInfo **pp
 #if ENABLE_NVVFX
 RGY_ERR NVEncFilterNvvfxFrameGeneration::convertToNvCVImage(const RGYFrameInfo *src, NvCVImage *dst, cudaStream_t stream) {
     if (m_hdr10) {
-        if (!m_hdrYuvIn || !src->ptr[0] || !src->ptr[1]) return RGY_ERR_INVALID_PARAM;
-        const size_t rowBytes = size_t(src->width) * sizeof(uint16_t);
-        const int height = src->height;
+        if (!m_hdrYuvIn) return RGY_ERR_INVALID_PARAM;
+        const RGYFrameInfo *input = src;
+        if (m_srcCrop) {
+            RGYFrameInfo cropInput = *src;
+            RGYFrameInfo *converted[1] = { nullptr };
+            int nConverted = 0;
+            const auto result = m_srcCrop->filter(&cropInput, converted, &nConverted, stream);
+            if (result != RGY_ERR_NONE || nConverted != 1 || !converted[0]) {
+                AddMessage(RGY_LOG_ERROR, _T("10-bit input conversion to P010 failed.\n"));
+                return result != RGY_ERR_NONE ? result : RGY_ERR_INVALID_PARAM;
+            }
+            input = converted[0];
+        }
+        if (input->csp != RGY_CSP_P010 || !input->ptr[0] || !input->ptr[1]) {
+            AddMessage(RGY_LOG_ERROR, _T("10-bit VFG input is not P010 after GPU conversion.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        const size_t rowBytes = size_t(input->width) * sizeof(uint16_t);
+        const int height = input->height;
         const size_t pitch = size_t(m_hdrYuvIn->pitch);
         auto status = cudaMemcpy2DAsync(m_hdrYuvIn->pixels, pitch,
-            src->ptr[0], src->pitch[0], rowBytes, height, cudaMemcpyDeviceToDevice, stream);
+            input->ptr[0], input->pitch[0], rowBytes, height, cudaMemcpyDeviceToDevice, stream);
         if (status == cudaSuccess)
             status = cudaMemcpy2DAsync(static_cast<uint8_t*>(m_hdrYuvIn->pixels) + pitch * height, pitch,
-                src->ptr[1], src->pitch[1], rowBytes, height / 2, cudaMemcpyDeviceToDevice, stream);
+                input->ptr[1], input->pitch[1], rowBytes, height / 2, cudaMemcpyDeviceToDevice, stream);
         if (status != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("P010 upload failed: %s.\n"), char_to_tstring(cudaGetErrorString(status)).c_str());
             return RGY_ERR_INVALID_PARAM;
@@ -989,15 +1045,32 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::genFrame(RGYFrameInfo *outFrame, const 
         const size_t rowBytes = size_t(outFrame->width) * sizeof(uint16_t);
         const int height = outFrame->height;
         const size_t pitch = size_t(m_hdrYuvOut->pitch);
-        auto status = cudaMemcpy2DAsync(outFrame->ptr[0], outFrame->pitch[0],
-            m_hdrYuvOut->pixels, pitch, rowBytes, height, cudaMemcpyDeviceToDevice, stream);
-        if (status == cudaSuccess)
-            status = cudaMemcpy2DAsync(outFrame->ptr[1], outFrame->pitch[1],
-                static_cast<uint8_t*>(m_hdrYuvOut->pixels) + pitch * height, pitch,
-                rowBytes, height / 2, cudaMemcpyDeviceToDevice, stream);
-        if (status != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("P010 download failed: %s.\n"), char_to_tstring(cudaGetErrorString(status)).c_str());
-            return RGY_ERR_INVALID_PARAM;
+        if (m_dstCrop) {
+            // Use the packed P010 GPU surface directly as the input to the CSP conversion.
+            RGYFrameInfo p010Frame = m_dstCrop->GetFilterParam()->frameIn;
+            p010Frame.mem_type = RGY_MEM_TYPE_GPU;
+            p010Frame.ptr[0] = static_cast<uint8_t*>(m_hdrYuvOut->pixels);
+            p010Frame.ptr[1] = p010Frame.ptr[0] + pitch * height;
+            p010Frame.pitch[0] = (int)pitch;
+            p010Frame.pitch[1] = (int)pitch;
+            RGYFrameInfo *converted[1] = { outFrame };
+            int nConverted = 0;
+            const auto result = m_dstCrop->filter(&p010Frame, converted, &nConverted, stream);
+            if (result != RGY_ERR_NONE || nConverted != 1 || !converted[0]) {
+                AddMessage(RGY_LOG_ERROR, _T("10-bit output conversion from P010 failed.\n"));
+                return result != RGY_ERR_NONE ? result : RGY_ERR_INVALID_PARAM;
+            }
+        } else {
+            auto status = cudaMemcpy2DAsync(outFrame->ptr[0], outFrame->pitch[0],
+                m_hdrYuvOut->pixels, pitch, rowBytes, height, cudaMemcpyDeviceToDevice, stream);
+            if (status == cudaSuccess)
+                status = cudaMemcpy2DAsync(outFrame->ptr[1], outFrame->pitch[1],
+                    static_cast<uint8_t*>(m_hdrYuvOut->pixels) + pitch * height, pitch,
+                    rowBytes, height / 2, cudaMemcpyDeviceToDevice, stream);
+            if (status != cudaSuccess) {
+                AddMessage(RGY_LOG_ERROR, _T("P010 output copy failed: %s.\n"), char_to_tstring(cudaGetErrorString(status)).c_str());
+                return RGY_ERR_INVALID_PARAM;
+            }
         }
     } else {
         RGYFrameInfo dstImgInfo = m_dstCrop->GetFilterParam()->frameIn;
