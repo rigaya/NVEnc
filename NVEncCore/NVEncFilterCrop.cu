@@ -128,6 +128,32 @@ __global__ void kernel_crop_plane_from_yuv444_f32(TypeOut *__restrict__ dst, con
     }
 }
 
+// 420色差を画素中心に合わせて双線形補間し、画像端では端の値を使う。
+template<typename TypeIn, bool interleaved>
+__device__ __forceinline__ float sample_chroma420(const TypeIn *src, int srcPitch,
+    int srcWidth, int srcHeight, int x, int y, int component) {
+    const float srcX = ((float)x + 0.5f) * 0.5f - 0.5f;
+    const float srcY = ((float)y + 0.5f) * 0.5f - 0.5f;
+    const int x0 = (int)floorf(srcX);
+    const int y0 = (int)floorf(srcY);
+    const float fx = srcX - (float)x0;
+    const float fy = srcY - (float)y0;
+    const int sx0 = max(0, min(x0, srcWidth - 1));
+    const int sx1 = max(0, min(x0 + 1, srcWidth - 1));
+    const int sy0 = max(0, min(y0, srcHeight - 1));
+    const int sy1 = max(0, min(y0 + 1, srcHeight - 1));
+    const auto row0 = (const TypeIn *)((const uint8_t *)src + sy0 * srcPitch);
+    const auto row1 = (const TypeIn *)((const uint8_t *)src + sy1 * srcPitch);
+    const int stride = interleaved ? 2 : 1;
+    const float v00 = (float)row0[sx0 * stride + component];
+    const float v01 = (float)row0[sx1 * stride + component];
+    const float v10 = (float)row1[sx0 * stride + component];
+    const float v11 = (float)row1[sx1 * stride + component];
+    const float top = v00 + (v01 - v00) * fx;
+    const float bottom = v10 + (v11 - v10) * fx;
+    return top + (bottom - top) * fy;
+}
+
 template<typename TypeIn, int inBitDepth, bool interleaved>
 __global__ void kernel_crop_yuv420_to_yuv444_f32(float *__restrict__ dst, const int dstPitch,
     const TypeIn *__restrict__ src, const int srcPitch, const int dstWidth, const int dstHeight,
@@ -135,27 +161,8 @@ __global__ void kernel_crop_yuv420_to_yuv444_f32(float *__restrict__ dst, const 
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x < dstWidth && y < dstHeight) {
-        const float srcX = ((float)(x + cropX) + 0.5f) * 0.5f - 0.5f;
-        const float srcY = ((float)(y + cropY) + 0.5f) * 0.5f - 0.5f;
-        const int x0 = (int)floorf(srcX);
-        const int y0 = (int)floorf(srcY);
-        const float fx = srcX - (float)x0;
-        const float fy = srcY - (float)y0;
-        const int sx0 = max(0, min(x0, srcWidth - 1));
-        const int sx1 = max(0, min(x0 + 1, srcWidth - 1));
-        const int sy0 = max(0, min(y0, srcHeight - 1));
-        const int sy1 = max(0, min(y0 + 1, srcHeight - 1));
-        const auto row0 = (const TypeIn *)((const uint8_t *)src + sy0 * srcPitch);
-        const auto row1 = (const TypeIn *)((const uint8_t *)src + sy1 * srcPitch);
-        const int stride = interleaved ? 2 : 1;
-        const float v00 = (float)row0[sx0 * stride + component];
-        const float v01 = (float)row0[sx1 * stride + component];
-        const float v10 = (float)row1[sx0 * stride + component];
-        const float v11 = (float)row1[sx1 * stride + component];
-        const float top = v00 + (v01 - v00) * fx;
-        const float bottom = v10 + (v11 - v10) * fx;
         auto dstRow = (float *)((uint8_t *)dst + y * dstPitch);
-        dstRow[x] = (top + (bottom - top) * fy) / (float)((1u << inBitDepth) - 1u);
+        dstRow[x] = sample_chroma420<TypeIn, interleaved>(src, srcPitch, srcWidth, srcHeight, x + cropX, y + cropY, component) / (float)((1u << inBitDepth) - 1u);
     }
 }
 
@@ -3774,10 +3781,10 @@ __global__ void p010ToRgbKernel(const uint8_t* srcY, const uint8_t* srcUV, int s
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= width || y >= height) return;
     const auto yRow = reinterpret_cast<const uint16_t*>(srcY + (size_t)y * srcPitch);
-    const auto uvRow = reinterpret_cast<const uint16_t*>(srcUV + (size_t)(y >> 1) * srcPitch);
     const unsigned y10 = yRow[x] >> 6;
-    const unsigned cb = uvRow[(x >> 1) * 2] >> 6;
-    const unsigned cr = uvRow[(x >> 1) * 2 + 1] >> 6;
+    const auto uv = reinterpret_cast<const uint16_t*>(srcUV);
+    const float cb = sample_chroma420<uint16_t, true>(uv, srcPitch, width / 2, height / 2, x, y, 0) * (1.0f / 64.0f);
+    const float cr = sample_chroma420<uint16_t, true>(uv, srcPitch, width / 2, height / 2, x, y, 1) * (1.0f / 64.0f);
     float r, g, b;
     yuvToRgb(y10, cb, cr, fullrange, r, g, b);
     reinterpret_cast<uint32_t*>(dstRgb + (size_t)y * dstPitch)[x] = packRgb(r, g, b);
