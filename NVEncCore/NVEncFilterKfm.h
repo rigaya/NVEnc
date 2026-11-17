@@ -575,8 +575,9 @@ protected:
         int64_t timestamp;
         std::shared_ptr<CUFrameBuf> frame;
         RGYCudaEvent event;
+        bool constantNoise; // frameを確保せず、noiseが中間値Nで一定であることを表す。
 
-        KfmCachedUcfNoise() : fieldIndex(-1), inputFrameId(-1), timestamp(0), frame(), event() {};
+        KfmCachedUcfNoise() : fieldIndex(-1), inputFrameId(-1), timestamp(0), frame(), event(), constantNoise(false) {};
     };
 
     struct KfmUcfNoiseDumpRecord {

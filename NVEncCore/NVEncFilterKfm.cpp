@@ -1989,6 +1989,30 @@ RGY_ERR NVEncFilterKfm::runUcfNoiseAnalysisFromSource(const RGYFrameInfo *frame,
     for (int parity = 0; parity < 2; parity++) {
         const int fieldIndex = sourceIndex * 2 + parity;
         const bool useFusedUcfPreprocess = kfmUseFusedUcfPreprocess() && !stageDumpRequested(fieldIndex);
+        if (useFusedUcfPreprocess && kfmUcfNoGaussForTest()) {
+            // Gaussなしではsrc=noiseなので、noise limitの出力は(s-s+2N)>>1=Nで一定になる。
+            // フィールド画像の生成を省き、解析順序とソースの対応だけをキャッシュに残す。
+            const int width = frame->width - 8;
+            const int height = (frame->height >> 1) - 8;
+            if (width <= 0 || height <= 0 || (width & 1) || (height & 1)) {
+                AddMessage(RGY_LOG_ERROR, _T("invalid KFM UCF field/crop size from %dx%d.\n"), frame->width, frame->height);
+                return RGY_ERR_INVALID_PARAM;
+            }
+            KfmCachedUcfNoise entry;
+            entry.fieldIndex = fieldIndex;
+            entry.inputFrameId = frame->inputFrameId;
+            entry.timestamp = frame->timestamp;
+            entry.constantNoise = true;
+            m_ucfNoiseCache.push_back(std::move(entry));
+            while (m_ucfNoiseCache.size() > sourceCacheLimit()) {
+                m_ucfNoiseCache.pop_front();
+            }
+            sts = analyzeUcfNoiseDebug(stream);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            continue;
+        }
         RGYFrameInfo *gaussFrame = nullptr;
         RGYCudaEvent gaussEvent;
         RGYFrameInfo *fieldFrame = nullptr;
@@ -6675,7 +6699,8 @@ RGY_ERR NVEncFilterKfm::analyzeUcfNoiseDebug(cudaStream_t stream) {
 
 RGY_ERR NVEncFilterKfm::submitUcfNoiseResult(const KfmCachedUcfNoise& noise0, const KfmCachedUcfNoise& noise1, const KfmCachedUcfNoise& noise2,
     const KfmCachedSource& source0, const KfmCachedSource& source1, cudaStream_t stream) {
-    if (!noise0.frame || !noise1.frame || !noise2.frame || !source0.paddedFrame || !source1.paddedFrame) {
+    if ((!noise0.frame && !noise0.constantNoise) || (!noise1.frame && !noise1.constantNoise)
+        || (!noise2.frame && !noise2.constantNoise) || !source0.paddedFrame || !source1.paddedFrame) {
         return RGY_ERR_INVALID_CALL;
     }
 
@@ -6685,20 +6710,40 @@ RGY_ERR NVEncFilterKfm::submitUcfNoiseResult(const KfmCachedUcfNoise& noise0, co
     pending.meta.srch = source0.frame->frame.height;
     pending.meta.srcUVw = pending.meta.srcw >> 1;
     pending.meta.srcUVh = pending.meta.srch >> 1;
-    const auto noiseY = getPlane(&noise0.frame->frame, RGY_PLANE_Y);
-    const auto noiseUV = (RGY_CSP_PLANES[noise0.frame->frame.csp] > 1) ? getPlane(&noise0.frame->frame, RGY_PLANE_U) : RGYFrameInfo();
+    // 定数noiseでも、判定の正規化とデバッグ出力に使うcrop後の寸法は従来どおり保持する。
+    auto noiseInfo = noise0.frame ? noise0.frame->frame : source0.frame->frame;
+    if (noise0.constantNoise) {
+        noiseInfo.width -= 8;
+        noiseInfo.height = (noiseInfo.height >> 1) - 8;
+        noiseInfo.singleAlloc = false;
+    }
+    const auto noiseY = getPlane(&noiseInfo, RGY_PLANE_Y);
+    const auto noiseUV = (RGY_CSP_PLANES[noiseInfo.csp] > 1) ? getPlane(&noiseInfo, RGY_PLANE_U) : RGYFrameInfo();
     pending.meta.noisew = noiseY.width;
     pending.meta.noiseh = noiseY.height;
-    pending.meta.noiseUVw = noiseUV.ptr[0] ? (kfmCspHasInterleavedUV(noise0.frame->frame.csp) ? (noiseUV.width >> 1) : noiseUV.width) : 0;
+    pending.meta.noiseUVw = noiseUV.ptr[0] ? (kfmCspHasInterleavedUV(noiseInfo.csp) ? (noiseUV.width >> 1) : noiseUV.width) : 0;
     pending.meta.noiseUVh = noiseUV.ptr[0] ? noiseUV.height : 0;
 
-    if (kfmUseFusedUcfPreprocess() && !stageDumpRequested(noise0.fieldIndex)) {
-        const int planes = RGY_CSP_PLANES[noise0.frame->frame.csp];
+    // ダンプ対象の境界で実画像と定数のエントリが混在しても、Gaussなしのnoise和はすべて0。
+    const bool constantNoise = noise0.constantNoise || noise1.constantNoise || noise2.constantNoise;
+    if (constantNoise || (kfmUseFusedUcfPreprocess() && !stageDumpRequested(noise0.fieldIndex))) {
+        const int planes = RGY_CSP_PLANES[noiseInfo.csp];
+        const auto noisePlane = [&](const KfmCachedUcfNoise& noise, RGY_PLANE plane) {
+            RGYFrameInfo info;
+            info.csp = noiseInfo.csp;
+            return constantNoise ? info : getPlane(&noise.frame->frame, plane);
+        };
         int capacity = 0;
         for (int i = 0; i < planes; i++) {
-            const auto n = getPlane(&noise0.frame->frame, (RGY_PLANE)i);
+            const auto n = noisePlane(noise0, (RGY_PLANE)i);
             const auto d = getPlane(&source0.paddedFrame->frame, (RGY_PLANE)i);
-            capacity += divCeil(std::max(n.width, d.width) >> 2, 128) * divCeil(std::max(n.height, d.height), 8);
+            const int vpad = KFM_SOURCE_VPAD >> ((i != 0 && RGY_CSP_CHROMA_FORMAT[d.csp] == RGY_CHROMAFMT_YUV420) ? 1 : 0);
+            const int height = d.height - 2 * vpad;
+            const int nw4 = (n.width & 3) ? 0 : n.width >> 2;
+            const int dw4 = (d.width & 3) ? 0 : d.width >> 2;
+            if (std::max(nw4, dw4) > 0 && std::max(n.height, height) > 0) {
+                capacity += divCeil(std::max(nw4, dw4), 128) * divCeil(std::max(n.height, height), 8);
+            }
         }
         pending.partialBuf = acquireUcfNoiseResultBuf(sizeof(RGYKFM::NoiseResult) * capacity);
         pending.resultBuf = acquireUcfNoiseResultBuf(sizeof(RGYKFM::NoiseResult) * 2);
@@ -6708,9 +6753,9 @@ RGY_ERR NVEncFilterKfm::submitUcfNoiseResult(const KfmCachedUcfNoise& noise0, co
         int offset = 0, lumaCount = 0;
         for (int i = 0; i < planes; i++) {
             const auto plane = (RGY_PLANE)i;
-            const auto n0 = getPlane(&noise0.frame->frame, plane);
-            const auto n1 = getPlane(&noise1.frame->frame, plane);
-            const auto n2 = getPlane(&noise2.frame->frame, plane);
+            const auto n0 = noisePlane(noise0, plane);
+            const auto n1 = noisePlane(noise1, plane);
+            const auto n2 = noisePlane(noise2, plane);
             const auto d0 = getPlane(&source0.paddedFrame->frame, plane);
             const auto d1 = getPlane(&source1.paddedFrame->frame, plane);
             const int vpad = KFM_SOURCE_VPAD >> ((i != 0 && RGY_CSP_CHROMA_FORMAT[d0.csp] == RGY_CHROMAFMT_YUV420) ? 1 : 0);
