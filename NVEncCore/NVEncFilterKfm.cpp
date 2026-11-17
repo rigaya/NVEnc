@@ -151,6 +151,36 @@ static bool kfmUcfNoGaussForTest() {
     return !(env != nullptr && env[0] == '0' && env[1] == '\0');
 }
 
+static bool kfmUcfConstantNoiseNeedsNoRtgmc() {
+    // Gaussなしではnoiseが定数Nとなり、noise和は0でUCFの前後レーンを選ばない。
+    // field_diffによるCLEAN_1への上書きに隠れない大きなdiffも与え、将来の判定変更時は省略を止める。
+    RGYKFM::UCFNoiseMeta meta;
+    meta.srcw = meta.srch = 64;
+    meta.srcUVw = meta.srcUVh = 32;
+    meta.noisew = 56;
+    meta.noiseh = 24;
+    meta.noiseUVw = 28;
+    meta.noiseUVh = 12;
+    RGYKFM::DecombUCFParam param;
+    for (const auto diff : { uint64_t(0), std::numeric_limits<uint64_t>::max() / 4 }) {
+        RGYKFM::NoiseResult results[2] = {};
+        for (auto& result : results) {
+            result.diff0 = result.diff1 = diff;
+        }
+        for (const bool second : { false, true }) {
+            try {
+                const auto result = RGYKFM::CalcDecombUCF(&meta, &param, results, results, second);
+                if (result != RGYKFM::DECOMB_UCF_CLEAN_1 && result != RGYKFM::DECOMB_UCF_CLEAN_2) {
+                    return false;
+                }
+            } catch (...) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 static bool kfmUseFusedUcfPreprocess() {
     const char *env = std::getenv("NVENC_KFM_UCF_PREPROCESS_FUSED");
     if (env == nullptr || env[0] == '\0') {
@@ -1673,13 +1703,19 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     m_before60Lane.init(this, nullptr, "before60", _T("before60"), false);
     m_after60Lane.init(this, nullptr, "after60", _T("after60"), false);
 
+    // 定数noiseで前後レーンが不要な場合、中間データの長期保持とプール拡張も不要になる。
+    // ステージダンプや融合の有無によらず成り立つが、実際のUCF判定で確認できた場合だけ省略する。
+    const bool needUcfRtgmc = prm->kfm.ucf && !(kfmUcfNoGaussForTest() && kfmUcfConstantNoiseNeedsNoRtgmc());
+    if (prm->kfm.ucf && !needUcfRtgmc) {
+        AddMessage(RGY_LOG_DEBUG, _T("KFM UCF: noise is constant without Gauss; skip before60/after60 RTGMC lanes and intermediate capture.\n"));
+    }
     auto sts = RGY_ERR_NONE;
     if (prm->kfm.mode == VppKfmMode::P60) {
         sts = initRtgmc(prm, m_rtgmc, true);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        if (prm->kfm.ucf) {
+        if (needUcfRtgmc) {
             m_rtgmc->enableIntermediateCapture(true);
             sts = initRtgmc(prm, m_before60Rtgmc, false, 1, true);
             if (sts != RGY_ERR_NONE) {
@@ -1735,7 +1771,7 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
             return sts;
         }
     }
-    if (prm->kfm.mode != VppKfmMode::P60 && prm->kfm.ucf) {
+    if (prm->kfm.mode != VppKfmMode::P60 && needUcfRtgmc) {
         NVEncFilterRtgmc::RtgmcSharedAnalysisData sharedData;
         bool useSharedAnalysisMode = false;
         if (m_deint60Rtgmc) {
