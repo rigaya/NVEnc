@@ -2694,6 +2694,18 @@ __global__ void kernel_kfm_ucf_preprocess(
     const int tileWidth = endH * channels - origin;
     const int maxValue = (1 << bitDepth) - 1;
     __shared__ Type vertical[4][152];
+    __shared__ int horizontalOffset[128 / channels];
+    __shared__ float horizontalCoeff[128 / channels * 9];
+    // 横係数は全行で共通なので、協調ロードして既存のV段完了同期で共有する。
+    // 係数値とH段の加算順序は変えず、同じ係数を各行がglobalから繰り返し読むのを避ける。
+    const int localLinear = ly * 32 + lx;
+    for (int i = localLinear; i < 128 / channels; i += 128) {
+        horizontalOffset[i] = offsetH[min((baseX >> shift) + i, planeWidth - 1)];
+    }
+    for (int i = localLinear; i < 128 / channels * 9; i += 128) {
+        const int hx = min((baseX >> shift) + i / 9, planeWidth - 1);
+        horizontalCoeff[i] = coeffH[hx * 9 + i % 9];
+    }
     if (y < height) {
         const int begin = offsetV[y];
         for (int tx = lx * 4; tx < tileWidth; tx += 128) {
@@ -2729,12 +2741,13 @@ __global__ void kernel_kfm_ucf_preprocess(
     for (int j = 0; j < 4; j++) {
         const int xx = min(x + j, width - 1);
         const int hx = xx >> shift, channel = xx & (channels - 1);
-        const int begin = offsetH[hx];
+        const int localHx = hx - (baseX >> shift);
+        const int begin = horizontalOffset[localHx];
         float result = 0.0f;
         #pragma unroll
         for (int i = 0; i < 9; i++) {
             const int ix = planeWidth >= 9 ? begin + i : min(begin + i, planeWidth - 1);
-            result += float(vertical[ly][ix * channels + channel - origin]) * coeffH[hx * 9 + i];
+            result += float(vertical[ly][ix * channels + channel - origin]) * horizontalCoeff[localHx * 9 + i];
         }
         const int noise = int(clamp(result, 0.0f, float(maxValue)) + 0.5f);
         const int value = (int(original[xx]) - noise + neutral * 2) >> 1;
