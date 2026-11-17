@@ -2763,7 +2763,7 @@ __global__ void kernel_kfm_ucf_analyze_partial(
     const uint8_t *src0, const uint8_t *src1,
     const int diffPitch, const int diffWidth4, const int diffHeight, const int srcYOffset, const int bitDepth) {
     using Type4 = typename KfmVec4Traits<Type>::Type4;
-    const int baseX = (blockIdx.x * blockDim.x + threadIdx.x) * 4;
+    const int baseX = blockIdx.x * 128 + threadIdx.x;
     const int y = (blockIdx.y * blockDim.y + threadIdx.y);
     const int localLinear = threadIdx.x + 32 * threadIdx.y;
     const int groupLinear = blockIdx.x + gridDim.x * blockIdx.y;
@@ -2772,7 +2772,7 @@ __global__ void kernel_kfm_ucf_analyze_partial(
     unsigned int sums[6] = { 0, 0, 0, 0, 0, 0 };
     #pragma unroll
     for (int j = 0; j < 4; j++) {
-    const int x = baseX + j;
+    const int x = baseX + j * 32;
     if (x < noiseWidth4 && y < noiseHeight) {
         const int pitch4 = noisePitch / (int)sizeof(Type4);
         const int off = x + y * pitch4;
