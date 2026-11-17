@@ -2750,9 +2750,19 @@ RGY_ERR NVEncFilterKfm::runUcfNoisePreprocessFromSource(int sourceIndex, int par
             return sts;
         }
         if (progV.filterSize != 9 || progH.filterSize != 9) return RGY_ERR_UNSUPPORTED;
+        RGYFrameInfo dstPair, srcPair;
+        bool pairChroma = false;
+        if (iplane == 1 && planes == 3 && !interleavedUV
+            && (chromaFmt == RGY_CHROMAFMT_YUV420 || chromaFmt == RGY_CHROMAFMT_YUV422 || chromaFmt == RGY_CHROMAFMT_YUV444)) {
+            dstPair = getPlane(pGaussFrame, RGY_PLANE_V);
+            srcPair = getPlane(pInputFrame, RGY_PLANE_V);
+            pairChroma = dstPair.ptr[0] && srcPair.ptr[0]
+                && dstPair.width == dst.width && dstPair.height == dst.height
+                && srcPair.width == src.width && srcPair.height == src.height;
+        }
         sts = run_kfm_ucf_preprocess(&dst, &src, srcXOffset, srcYOffset, srcYStep, interleavedUVPlane ? 2 : 1,
             (const int *)progV.offset->ptr, (const float *)progV.coeff->ptr, (const int *)progH.offset->ptr, (const float *)progH.coeff->ptr,
-            KFM_UCF_NOISE_LIMIT_NMIN, KFM_UCF_NOISE_LIMIT_RANGE, stream);
+            KFM_UCF_NOISE_LIMIT_NMIN, KFM_UCF_NOISE_LIMIT_RANGE, stream, pairChroma ? &dstPair : nullptr, pairChroma ? &srcPair : nullptr);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_ucf_field_crop_gaussresize_v (plane %d): %s.\n"), iplane, get_err_mes(sts));
             return sts;
@@ -2761,6 +2771,7 @@ RGY_ERR NVEncFilterKfm::runUcfNoisePreprocessFromSource(int sourceIndex, int par
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
+        if (pairChroma) iplane++;
     }
 
     copyFramePropWithoutRes(pGaussFrame, &fieldInfo);
