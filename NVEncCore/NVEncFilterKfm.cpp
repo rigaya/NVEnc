@@ -147,8 +147,10 @@ static bool kfmUseLazyCombeMask() {
 }
 
 static bool kfmUcfNoGaussForTest() {
+    // 既定はGaussあり (QSVEnc/VCEEncと同じ)。Gaussなしはnoise和が常に0になり、
+    // UCFのnoise判定が働かなくなるため、テスト時に NVENC_KFM_UCF_NO_GAUSS=1 で明示した場合だけ使う。
     const char *env = std::getenv("NVENC_KFM_UCF_NO_GAUSS");
-    return !(env != nullptr && env[0] == '0' && env[1] == '\0');
+    return env != nullptr && env[0] == '1' && env[1] == '\0';
 }
 
 static bool kfmUcfConstantNoiseNeedsNoRtgmc() {
