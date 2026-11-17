@@ -61,6 +61,8 @@ static constexpr int KFM_MAX_OUTPUT_FRAMES = 16;
 static constexpr int KFM_UCF_NOISE_LIMIT_NMIN = 1;
 static constexpr int KFM_UCF_NOISE_LIMIT_RANGE = 128;
 static constexpr int KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY = 2;
+// UCFのbefore60/after60レーンが要求範囲の後ろに投入するsource数 (レーンの出力の遅延)。
+static constexpr int KFM_UCF_LANE_FEED_LOOKAHEAD = 2;
 // UCFの需要駆動RTGMCが短い巻き戻しを行える余裕を残す。
 // 512フレーム保持は1080iで数GBの常駐を招くため、realtime+の履歴余裕2個分に抑える。
 static constexpr int KFM_UCF_LAZY_SOURCE_CACHE_MARGIN = KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN * 2;
@@ -734,10 +736,23 @@ RGY_ERR NVEncFilterKfm::KfmRtgmcLane::feedIntermediatesOnly(int sourceBegin, int
             return RGY_ERR_NONE;
         }
     }
+    // 中間データは解析段の遅延分(KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY)だけ遅れて出る。また、before60/after60レーンは
+    // 出力の遅延のため、要求範囲の後ろKFM_UCF_LANE_FEED_LOOKAHEAD個のsourceまで投入し、その中間データも要求する。
+    // sourceEndで止めると、これらの中間データが出ず、従来経路(ensureDeint60IntermediateForSource)が
+    // deint60をcoldからpriming込みで通常実行して作り直すことになり、Gaussありで大きく低速化していた。
+    // 後続のsourceがそろっている分だけ、解析段のみで先まで投入しておく (そろわない分は従来経路で作られる)。
+    int feedEnd = sourceEnd;
+    while (feedEnd < sourceEnd + KFM_UCF_LANE_FEED_LOOKAHEAD + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY) {
+        const auto *source = m_owner->findSourceByIndexExact(feedEnd);
+        if (!source || !source->frame || !source->frame->frame.ptr[0]) {
+            break;
+        }
+        feedEnd++;
+    }
     m_rtgmc->resetTemporalState();
     m_rtgmc->setAnalysisOnly(true);
     auto sts = RGY_ERR_NONE;
-    for (int sourceIndex = primeStart; sourceIndex < sourceEnd && sts == RGY_ERR_NONE; sourceIndex++) {
+    for (int sourceIndex = primeStart; sourceIndex < feedEnd && sts == RGY_ERR_NONE; sourceIndex++) {
         const auto *source = m_owner->findSourceByIndexExact(sourceIndex);
         std::vector<RGYCudaEvent> waitEvents;
         if (source->event() != nullptr) {
