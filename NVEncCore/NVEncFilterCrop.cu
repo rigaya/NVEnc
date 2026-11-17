@@ -3726,7 +3726,7 @@ void NVEncFilterCspCrop::close() {
 
 
 // VFG HDR10: GPU-only BT.2020 non-constant-luminance Y'CbCr <-> R10G10B10A2.
-// P010 stores 10-bit limited-range codes in the most significant bits of U16.
+// P010の上位10bitを入力のレンジに応じて正規化する。
 // RGB10A2 stores full-range PQ-coded RGB' (R in bits 0-9, G 10-19,
 // B 20-29, opaque alpha 30-31). No SDR tonemapping or 8-bit intermediate.
 // Keep this adjacent to the existing CUDA colorspace kernels.
@@ -3745,11 +3745,11 @@ __device__ __forceinline__ unsigned video10(float v, float center, float scale, 
     return (unsigned)min(max(q, minimum), maximum);
 }
 
-__device__ __forceinline__ void yuvToRgb(unsigned y, unsigned cb, unsigned cr,
+__device__ __forceinline__ void yuvToRgb(float y, float cb, float cr, bool fullrange,
                                          float& r, float& g, float& b) {
-    const float yp = ((float)y - 64.0f) * (1.0f / 876.0f);
-    const float u = ((float)cb - 512.0f) * (1.0f / 896.0f);
-    const float v = ((float)cr - 512.0f) * (1.0f / 896.0f);
+    const float yp = (y - (fullrange ? 0.0f : 64.0f)) / (fullrange ? 1023.0f : 876.0f);
+    const float u = (cb - 512.0f) / (fullrange ? 1023.0f : 896.0f);
+    const float v = (cr - 512.0f) / (fullrange ? 1023.0f : 896.0f);
     r = saturate01(yp + 1.4746f * v);
     g = saturate01(yp - 0.16455312684f * u - 0.57135312684f * v);
     b = saturate01(yp + 1.8814f * u);
@@ -3769,7 +3769,7 @@ __device__ __forceinline__ void rgbToYuv(uint32_t packed, float& y, float& u, fl
 }
 
 __global__ void p010ToRgbKernel(const uint8_t* srcY, const uint8_t* srcUV, int srcPitch,
-                                uint8_t* dstRgb, int dstPitch, int width, int height) {
+                                uint8_t* dstRgb, int dstPitch, int width, int height, bool fullrange) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= width || y >= height) return;
@@ -3779,13 +3779,13 @@ __global__ void p010ToRgbKernel(const uint8_t* srcY, const uint8_t* srcUV, int s
     const unsigned cb = uvRow[(x >> 1) * 2] >> 6;
     const unsigned cr = uvRow[(x >> 1) * 2 + 1] >> 6;
     float r, g, b;
-    yuvToRgb(y10, cb, cr, r, g, b);
+    yuvToRgb(y10, cb, cr, fullrange, r, g, b);
     reinterpret_cast<uint32_t*>(dstRgb + (size_t)y * dstPitch)[x] = packRgb(r, g, b);
 }
 
 __global__ void rgbToP010Kernel(const uint8_t* srcRgb, int srcPitch,
                                 uint8_t* dstY, uint8_t* dstUV, int dstPitch,
-                                int width, int height) {
+                                int width, int height, bool fullrange) {
     const int bx = blockIdx.x * blockDim.x + threadIdx.x;
     const int by = blockIdx.y * blockDim.y + threadIdx.y;
     const int x = bx * 2, y = by * 2;
@@ -3797,35 +3797,35 @@ __global__ void rgbToP010Kernel(const uint8_t* srcRgb, int srcPitch,
         for (int dx = 0; dx < 2; ++dx) {
             float yp, u, v;
             rgbToYuv(in[x + dx], yp, u, v);
-            outY[x + dx] = (uint16_t)(video10(yp, 64.f, 876.f, 64, 940) << 6);
+            outY[x + dx] = (uint16_t)(video10(yp, fullrange ? 0.f : 64.f, fullrange ? 1023.f : 876.f, fullrange ? 0 : 64, fullrange ? 1023 : 940) << 6);
             avgU += u;
             avgV += v;
         }
     }
     auto outUV = reinterpret_cast<uint16_t*>(dstUV + (size_t)by * dstPitch);
-    outUV[bx * 2]     = (uint16_t)(video10(avgU * .25f, 512.f, 896.f, 64, 960) << 6);
-    outUV[bx * 2 + 1] = (uint16_t)(video10(avgV * .25f, 512.f, 896.f, 64, 960) << 6);
+    outUV[bx * 2]     = (uint16_t)(video10(avgU * .25f, 512.f, fullrange ? 1023.f : 896.f, fullrange ? 0 : 64, fullrange ? 1023 : 960) << 6);
+    outUV[bx * 2 + 1] = (uint16_t)(video10(avgV * .25f, 512.f, fullrange ? 1023.f : 896.f, fullrange ? 0 : 64, fullrange ? 1023 : 960) << 6);
 }
 } // namespace nvvfx_hdr10
 
 cudaError_t runNvvfxP010ToRGB10A2(
     const uint8_t* y, const uint8_t* uv, int srcPitch,
-    uint8_t* rgb, int rgbPitch, int width, int height, cudaStream_t stream) {
+    uint8_t* rgb, int rgbPitch, int width, int height, bool fullrange, cudaStream_t stream) {
     const dim3 block(32, 8);
     const dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
     nvvfx_hdr10::p010ToRgbKernel<<<grid, block, 0, stream>>>(
-        y, uv, srcPitch, rgb, rgbPitch, width, height);
+        y, uv, srcPitch, rgb, rgbPitch, width, height, fullrange);
     return cudaPeekAtLastError();
 }
 
 cudaError_t runNvvfxRGB10A2ToP010(
     const uint8_t* rgb, int rgbPitch,
     uint8_t* y, uint8_t* uv, int dstPitch,
-    int width, int height, cudaStream_t stream) {
+    int width, int height, bool fullrange, cudaStream_t stream) {
     const dim3 block(32, 8);
     const dim3 grid(((width / 2) + block.x - 1) / block.x,
                     ((height / 2) + block.y - 1) / block.y);
     nvvfx_hdr10::rgbToP010Kernel<<<grid, block, 0, stream>>>(
-        rgb, rgbPitch, y, uv, dstPitch, width, height);
+        rgb, rgbPitch, y, uv, dstPitch, width, height, fullrange);
     return cudaPeekAtLastError();
 }

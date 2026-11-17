@@ -42,11 +42,11 @@ char *g_nvVFXSDKPath = nullptr;
 #if ENABLE_NVVFX
 cudaError_t runNvvfxP010ToRGB10A2(
     const uint8_t* y, const uint8_t* uv, int srcPitch,
-    uint8_t* rgb, int rgbPitch, int width, int height, cudaStream_t stream);
+    uint8_t* rgb, int rgbPitch, int width, int height, bool fullrange, cudaStream_t stream);
 cudaError_t runNvvfxRGB10A2ToP010(
     const uint8_t* rgb, int rgbPitch,
     uint8_t* y, uint8_t* uv, int dstPitch,
-    int width, int height, cudaStream_t stream);
+    int width, int height, bool fullrange, cudaStream_t stream);
 #endif
 
 #if ENABLE_NVVFX
@@ -1007,7 +1007,8 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::convertToNvCVImage(const RGYFrameInfo *
             static_cast<const uint8_t*>(m_hdrYuvIn->pixels),
             static_cast<const uint8_t*>(m_hdrYuvIn->pixels) + pitch * height,
             m_hdrYuvIn->pitch, static_cast<uint8_t*>(dst->pixels), dst->pitch,
-            input->width, input->height, stream);
+            input->width, input->height,
+            std::static_pointer_cast<NVEncFilterParamNvvfxFrameGen>(m_param)->vuiInfo.colorrange == RGY_COLORRANGE_FULL, stream);
         if (kernelErr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("P010 -> RGB10A2 CUDA kernel failed: %s.\n"),
                 char_to_tstring(cudaGetErrorString(kernelErr)).c_str());
@@ -1065,7 +1066,8 @@ RGY_ERR NVEncFilterNvvfxFrameGeneration::genFrame(RGYFrameInfo *outFrame, const 
             static_cast<const uint8_t*>(m_dstImg->pixels), m_dstImg->pitch,
             static_cast<uint8_t*>(m_hdrYuvOut->pixels),
             static_cast<uint8_t*>(m_hdrYuvOut->pixels) + pitch * height,
-            m_hdrYuvOut->pitch, outFrame->width, outFrame->height, stream);
+            m_hdrYuvOut->pitch, outFrame->width, outFrame->height,
+            std::static_pointer_cast<NVEncFilterParamNvvfxFrameGen>(m_param)->vuiInfo.colorrange == RGY_COLORRANGE_FULL, stream);
         if (kernelErr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("RGB10A2 -> P010 CUDA kernel failed: %s.\n"),
                 char_to_tstring(cudaGetErrorString(kernelErr)).c_str());
