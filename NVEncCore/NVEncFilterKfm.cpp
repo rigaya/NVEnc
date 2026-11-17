@@ -2053,10 +2053,11 @@ RGY_ERR NVEncFilterKfm::runUcfNoiseAnalysisFromSource(const RGYFrameInfo *frame,
         RGYCudaEvent gaussEvent;
         RGYFrameInfo *fieldFrame = nullptr;
         if (useFusedUcfPreprocess && !kfmUcfNoGaussForTest()) {
-            sts = prepareUcfNoiseGaussFrameFromSource(&gaussFrame, sourceIndex, parity, frame, stream, wait_events, &gaussEvent);
+            sts = runUcfNoisePreprocessFromSource(sourceIndex, parity, frame, stream, wait_events);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
+            continue;
         } else {
             RGYCudaEvent fieldEvent;
             sts = prepareUcfNoiseFieldCropFrame(&fieldFrame, sourceIndex, parity, frame, stream, wait_events, &fieldEvent);
@@ -2086,9 +2087,7 @@ RGY_ERR NVEncFilterKfm::runUcfNoiseAnalysisFromSource(const RGYFrameInfo *frame,
         if (gaussEvent() != nullptr) {
             deintWaitEvents.push_back(gaussEvent);
         }
-        sts = (useFusedUcfPreprocess && fieldFrame == nullptr)
-            ? runUcfNoiseLimitStageFromSource(*prm, frame, gaussFrame, fieldIndex, parity, stream, deintWaitEvents)
-            : runUcfNoiseLimitStage(*prm, fieldFrame, gaussFrame, fieldIndex, stream, deintWaitEvents);
+        sts = runUcfNoiseLimitStage(*prm, fieldFrame, gaussFrame, fieldIndex, stream, deintWaitEvents);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -2646,12 +2645,11 @@ RGY_ERR NVEncFilterKfm::prepareUcfNoiseGaussFrame(RGYFrameInfo **ppGaussFrame, i
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGaussFrame, int sourceIndex, int parity, const RGYFrameInfo *pInputFrame,
-    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
-    if (!ppGaussFrame || !pInputFrame || !pInputFrame->ptr[0]) {
+RGY_ERR NVEncFilterKfm::runUcfNoisePreprocessFromSource(int sourceIndex, int parity, const RGYFrameInfo *pInputFrame,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events) {
+    if (!pInputFrame || !pInputFrame->ptr[0]) {
         return RGY_ERR_INVALID_CALL;
     }
-    *ppGaussFrame = nullptr;
     const int cropX = 4;
     const int cropY = 4;
     RGYFrameInfo fieldInfo = *pInputFrame;
@@ -2674,32 +2672,17 @@ RGY_ERR NVEncFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGau
         gaussInfo.ptr[i] = nullptr;
         gaussInfo.pitch[i] = 0;
     }
-    auto allocFrame = [&](std::unique_ptr<CUFrameBuf>& frame, const TCHAR *label) -> RGY_ERR {
-        if (!frame
-            || frame->frame.width != gaussInfo.width
-            || frame->frame.height != gaussInfo.height
-            || frame->frame.csp != gaussInfo.csp) {
-            frame = std::make_unique<CUFrameBuf>(gaussInfo);
-            frame->releasePtr();
-            const auto allocSts = frame->alloc();
-            if (allocSts != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM UCF %s frame: %s.\n"), label, get_err_mes(allocSts));
-                return allocSts;
-            }
-        }
-        return RGY_ERR_NONE;
-    };
-    auto sts = allocFrame(m_ucfNoiseGaussTmpFrames[frameIndex], _T("gauss temporary"));
-    if (sts != RGY_ERR_NONE) {
-        return sts;
+    // 融合前処理はnoise limitまで完了するので、キャッシュへ直接書いて中間画像のコピーを省く。
+    KfmCachedUcfNoise entry;
+    entry.fieldIndex = sourceIndex * 2 + frameIndex;
+    entry.inputFrameId = pInputFrame->inputFrameId;
+    entry.timestamp = pInputFrame->timestamp;
+    entry.frame = acquireKfmFrame(gaussInfo, _T("UCF fused noise limit"));
+    if (!entry.frame) {
+        return RGY_ERR_MEMORY_ALLOC;
     }
-    sts = allocFrame(m_ucfNoiseGaussFrames[frameIndex], _T("gauss output"));
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-
-    auto *pTmpFrame = &m_ucfNoiseGaussTmpFrames[frameIndex]->frame;
-    auto *pGaussFrame = &m_ucfNoiseGaussFrames[frameIndex]->frame;
+    auto sts = RGY_ERR_NONE;
+    auto *pGaussFrame = &entry.frame->frame;
     const int planes = RGY_CSP_PLANES[pInputFrame->csp];
     const bool interleavedUV = kfmCspHasInterleavedUV(pInputFrame->csp);
     const auto chromaFmt = RGY_CSP_CHROMA_FORMAT[pInputFrame->csp];
@@ -2708,9 +2691,8 @@ RGY_ERR NVEncFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGau
     for (int iplane = 0; iplane < planes; iplane++) {
         const auto planeType = (RGY_PLANE)iplane;
         auto src = getPlane(pInputFrame, planeType);
-        auto tmp = getPlane(pTmpFrame, planeType);
         auto dst = getPlane(pGaussFrame, planeType);
-        if (!src.ptr[0] || !tmp.ptr[0] || !dst.ptr[0]) {
+        if (!src.ptr[0] || !dst.ptr[0]) {
             continue;
         }
         const bool chromaPlane = planeType != RGY_PLANE_Y && chromaFmt != RGY_CHROMAFMT_MONOCHROME;
@@ -2773,85 +2755,7 @@ RGY_ERR NVEncFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGau
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    if (event && prevEvent() != nullptr) {
-        *event = prevEvent;
-    }
-    *ppGaussFrame = pGaussFrame;
-    return RGY_ERR_NONE;
-}
-
-RGY_ERR NVEncFilterKfm::runUcfNoiseLimitStageFromSource(const NVEncFilterParamKfm& prm, const RGYFrameInfo *pSrcFrame, const RGYFrameInfo *pNoiseFrame,
-    int fieldIndex, int parity, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events) {
-    UNREFERENCED_PARAMETER(prm);
-    if (!pSrcFrame || !pNoiseFrame || !pSrcFrame->ptr[0] || !pNoiseFrame->ptr[0]) {
-        return RGY_ERR_NONE;
-    }
-    const int cropX = 4;
-    const int cropY = 4;
-    if (pSrcFrame->width - cropX * 2 != pNoiseFrame->width || (pSrcFrame->height >> 1) - cropY * 2 != pNoiseFrame->height
-        || pSrcFrame->csp != pNoiseFrame->csp) {
-        AddMessage(RGY_LOG_ERROR, _T("invalid KFM UCF fused noise limit input pair (src %dx%d %s, noise %dx%d %s).\n"),
-            pSrcFrame->width, pSrcFrame->height, RGY_CSP_NAMES[pSrcFrame->csp],
-            pNoiseFrame->width, pNoiseFrame->height, RGY_CSP_NAMES[pNoiseFrame->csp]);
-        return RGY_ERR_INVALID_PARAM;
-    }
-    KfmCachedUcfNoise entry;
-    entry.fieldIndex = fieldIndex;
-    entry.inputFrameId = pSrcFrame->inputFrameId;
-    entry.timestamp = pSrcFrame->timestamp;
-    entry.frame = acquireKfmFrame(*pNoiseFrame, _T("UCF fused noise limit"));
-    if (!entry.frame) {
-        return RGY_ERR_MEMORY_ALLOC;
-    }
-
-    auto *pOutputFrame = &entry.frame->frame;
-    const auto planes = RGY_CSP_PLANES[pOutputFrame->csp];
-    const bool interleavedUV = kfmCspHasInterleavedUV(pSrcFrame->csp);
-    const auto chromaFmt = RGY_CSP_CHROMA_FORMAT[pSrcFrame->csp];
-    const int fieldParity = parity & 1;
-    RGYCudaEvent prevEvent;
-    for (int iplane = 0; iplane < planes; iplane++) {
-        const auto planeType = (RGY_PLANE)iplane;
-        auto dst = getPlane(pOutputFrame, planeType);
-        auto src = getPlane(pSrcFrame, planeType);
-        auto noise = getPlane(pNoiseFrame, planeType);
-        if (!dst.ptr[0] || !src.ptr[0] || !noise.ptr[0]) {
-            continue;
-        }
-        const bool chromaPlane = planeType != RGY_PLANE_Y && chromaFmt != RGY_CHROMAFMT_MONOCHROME;
-        const int xShift = (chromaPlane && !interleavedUV
-            && (chromaFmt == RGY_CHROMAFMT_YUV420 || chromaFmt == RGY_CHROMAFMT_YUV422)) ? 1 : 0;
-        const int yShift = (chromaPlane && chromaFmt == RGY_CHROMAFMT_YUV420) ? 1 : 0;
-        const int srcXOffset = cropX >> xShift;
-        const int srcYOffset = ((cropY >> yShift) << 1) + fieldParity;
-        const int srcYStep = 2;
-        const auto waitHere = (iplane == 0)
-            ? wait_events
-            : (prevEvent() != nullptr ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
-        auto sts = kfmWaitEvents(stream, waitHere);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-        sts = run_kfm_ucf_copy_plane(&dst, &noise, stream);
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_ucf_source_crop_noise_limit (plane %d): %s.\n"), iplane, get_err_mes(sts));
-            return sts;
-        }
-        sts = kfmRecordEvent(stream, &prevEvent);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-    }
-
-    copyFramePropWithoutRes(pOutputFrame, pNoiseFrame);
-    pOutputFrame->dataList = pSrcFrame->dataList;
-    kfmEraseRtgmcSearchLumaFrameData(pOutputFrame);
-    writeFrameInfoDump("ucf-noise-clip", pOutputFrame);
-    auto sts = dumpStageFrame("ucf-noise-clip", pOutputFrame, fieldIndex, stream,
-        (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
+    writeFrameInfoDump("ucf-noise-clip", pGaussFrame);
     if (prevEvent() != nullptr) {
         entry.event = prevEvent;
     }

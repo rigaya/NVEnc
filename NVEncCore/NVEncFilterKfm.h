@@ -435,12 +435,10 @@ protected:
     RGY_ERR createUcfGaussProgram(KfmUcfGaussProgram& program, int sourceSize, double cropSize, int targetSize, double p);
     RGY_ERR prepareUcfNoiseFieldCropFrame(RGYFrameInfo **ppFieldFrame, int sourceIndex, int parity, const RGYFrameInfo *pInputFrame,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
-    RGY_ERR prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGaussFrame, int sourceIndex, int parity, const RGYFrameInfo *pInputFrame,
-        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR runUcfNoisePreprocessFromSource(int sourceIndex, int parity, const RGYFrameInfo *pInputFrame,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR prepareUcfNoiseGaussFrame(RGYFrameInfo **ppGaussFrame, int parity, const RGYFrameInfo *pInputFrame,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
-    RGY_ERR runUcfNoiseLimitStageFromSource(const NVEncFilterParamKfm& prm, const RGYFrameInfo *pSrcFrame, const RGYFrameInfo *pNoiseFrame,
-        int fieldIndex, int parity, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR runUcfNoiseLimitStage(const NVEncFilterParamKfm& prm, const RGYFrameInfo *pSrcFrame, const RGYFrameInfo *pNoiseFrame,
         int fieldIndex, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR analyzeUcfNoiseDebug(cudaStream_t stream);
