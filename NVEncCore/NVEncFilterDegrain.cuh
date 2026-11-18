@@ -1978,18 +1978,6 @@ __device__ __forceinline__ uint32_t degrainMotionSearchSgblockSad(
     return degrainMotionSearchWarpReduceAdd(sad);
 }
 
-// candidate_cost_prefersで添字順に最小を選ぶ (select_lowest_candidate_costと同じ結果)。
-__device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSearchSgblockSelectLowest(
-    const RGYDegrainMotionSearchCandidateCost *candidateCosts) {
-    RGYDegrainMotionSearchCandidateCost best = candidateCosts[0];
-    for (int i = 1; i < DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS; i++) {
-        if (degrainMotionSearchCandidateCostPrefers(candidateCosts[i], best)) {
-            best = candidateCosts[i];
-        }
-    }
-    return best;
-}
-
 // wide6 (offsetCount=6) / square8 (offsetCount=8) のrefineを1回行う。
 // refine_prepare_offset_candidate + refine_evaluate_candidates と同じ判定・コスト式。
 template<typename TypePixel, int blockSize, int pel, int subpelInterp, int offsetCount>
@@ -2009,34 +1997,33 @@ __device__ __forceinline__ RGYDegrainMotionSearchCandidateCost degrainMotionSear
     const int lane,
     const int subgroupSize,
     const int newCandidateCostScale) {
-    RGYDegrainMotionSearchCandidateCost candidateCosts[DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS];
+    const auto skipped = degrainMotionSearchMakeCandidateCost(0, 0, 0u, DEGRAIN_MOTION_SEARCH_LARGE_COST);
+    auto lowest = skipped;
     const int baseX = best.pos_x;
     const int baseY = best.pos_y;
     for (int i = 0; i < DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS; i++) {
-        candidateCosts[i] = degrainMotionSearchMakeCandidateCost(0, 0, 0u, DEGRAIN_MOTION_SEARCH_LARGE_COST);
-        if (i >= offsetCount) {
-            continue;
+        auto cost = skipped;
+        if (i < offsetCount) {
+            const int2 offset = (offsetCount == 6) ? degrainMotionSearchRefineWide6Offset(i) : degrainMotionSearchRefineSquareOffset(i);
+            const int motionOffsetX = baseX + offset.x;
+            const int motionOffsetY = baseY + offset.y;
+            const auto candidate = degrainMotionSearchMakeCandidate(motionOffsetX, motionOffsetY, 0u, 0u);
+            const uint32_t motionCost = degrainMotionSearchCalcMotionCost(candidate, baseX, baseY, context);
+            // 探索窓と足切りにはこのrefineの開始時点の最良候補を使う。
+            if (degrainMotionSearchMotionInsideSearchWindow(motionOffsetX, motionOffsetY, context) && motionCost < best.score_primary) {
+                // 候補をまとめて評価する形 (候補ごとの参照ポインタを配列に持つ) も試したが、レジスタが溢れて遅くなったため、1候補ずつ評価する。
+                const uint32_t sad = degrainMotionSearchSgblockSad<TypePixel, blockSize, pel, subpelInterp>(
+                    sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, pitch, width, height,
+                    blockGridX, blockGridY, step, motionOffsetX, motionOffsetY, lane, subgroupSize);
+                cost = degrainMotionSearchMakeCandidateCost(motionOffsetX, motionOffsetY, sad,
+                    motionCost + sad + degrainMotionSearchScaledSadPenalty(sad, newCandidateCostScale * DEGRAIN_MOTION_SEARCH_COST_INPUT_SCALE));
+            }
         }
-        const int2 offset = (offsetCount == 6) ? degrainMotionSearchRefineWide6Offset(i) : degrainMotionSearchRefineSquareOffset(i);
-        const int motionOffsetX = baseX + offset.x;
-        const int motionOffsetY = baseY + offset.y;
-        const RGYDegrainMotionSearchCandidate candidate = degrainMotionSearchMakeCandidate(motionOffsetX, motionOffsetY, 0u, 0u);
-        const uint32_t motionCost = degrainMotionSearchCalcMotionCost(candidate, baseX, baseY, context);
-        // refine_prepare_offset_candidateと同じ条件で、評価する候補を決める。
-        if (!degrainMotionSearchMotionInsideSearchWindow(motionOffsetX, motionOffsetY, context) || motionCost >= best.score_primary) {
-            continue;
+        // 無効な候補も元の添字順で比較する。同点なら先の候補を維持する。
+        if (i == 0 || degrainMotionSearchCandidateCostPrefers(cost, lowest)) {
+            lowest = cost;
         }
-        // 候補をまとめて評価する形 (候補ごとの参照ポインタを配列に持つ) も試したが、レジスタが溢れて遅くなったため、1候補ずつ評価する。
-        const uint32_t sad = degrainMotionSearchSgblockSad<TypePixel, blockSize, pel, subpelInterp>(
-            sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, pitch, width, height,
-            blockGridX, blockGridY, step, motionOffsetX, motionOffsetY, lane, subgroupSize);
-        candidateCosts[i].pos_x = (short)motionOffsetX;
-        candidateCosts[i].pos_y = (short)motionOffsetY;
-        candidateCosts[i].sad_metric = sad;
-        candidateCosts[i].score_primary = motionCost + sad
-            + degrainMotionSearchScaledSadPenalty(sad, newCandidateCostScale * DEGRAIN_MOTION_SEARCH_COST_INPUT_SCALE);
     }
-    const RGYDegrainMotionSearchCandidateCost lowest = degrainMotionSearchSgblockSelectLowest(candidateCosts);
     return degrainMotionSearchCandidateCostPrefers(lowest, best) ? lowest : best;
 }
 
@@ -2147,32 +2134,38 @@ static __global__ void kernel_degrain_mv_search_sgblock_cuda(
     }
     __syncwarp();
 
-    // 初期候補 (zero / frame average / seed)。重複する候補は先に評価した同一位置のSADを使う。
-    RGYDegrainMotionSearchCandidate candidate[DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES];
-    RGYDegrainMotionSearchCandidateCost candidateCosts[DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS];
-    for (int i = 0; i < DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS; i++) {
-        candidateCosts[i] = degrainMotionSearchMakeCandidateCost(0, 0, 0u, DEGRAIN_MOTION_SEARCH_LARGE_COST);
-    }
+    // 初期候補の位置とSADを保持し、重複時は最初に評価した候補のSADを再利用する。
+    static_assert(DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES == 3);
+    RGYDegrainMotionSearchCandidateCost first = {};
+    RGYDegrainMotionSearchCandidateCost second = {};
+    RGYDegrainMotionSearchCandidateCost best = {};
+    #pragma unroll
     for (int c = 0; c < DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES; c++) {
-        candidate[c] = degrainMotionSearchLoadBaseCandidate(vectors, context, c, planeBase, blockCount, block);
-        int canonical = c;
-        for (int i = 0; i < c; i++) {
-            if (candidate[i].pos_x == candidate[c].pos_x && candidate[i].pos_y == candidate[c].pos_y) {
-                canonical = i;
-                break;
-            }
-        }
-        const uint32_t sad = (canonical == c)
-            ? degrainMotionSearchSgblockSad<TypePixel, blockSize, pel, subpelInterp>(
+        const auto candidate = degrainMotionSearchLoadBaseCandidate(vectors, context, c, planeBase, blockCount, block);
+        uint32_t sad;
+        if (c > 0 && candidate.pos_x == first.pos_x && candidate.pos_y == first.pos_y) {
+            sad = first.sad_metric;
+        } else if (c > 1 && candidate.pos_x == second.pos_x && candidate.pos_y == second.pos_y) {
+            sad = second.sad_metric;
+        } else {
+            sad = degrainMotionSearchSgblockSad<TypePixel, blockSize, pel, subpelInterp>(
                 sourceBlockPixels, referencePlane, subpelPlanes, subpelPlaneStride, pitch, kernelWidth, kernelHeight,
-                blockGridX, blockGridY, kernelStep, candidate[c].pos_x, candidate[c].pos_y, lane, subgroupSize)
-            : candidateCosts[canonical].sad_metric;
-        candidateCosts[c].pos_x = candidate[c].pos_x;
-        candidateCosts[c].pos_y = candidate[c].pos_y;
-        candidateCosts[c].sad_metric = sad;
-        candidateCosts[c].score_primary = sad + degrainMotionSearchScaledSadPenalty(sad, degrainMotionSearchInitialCostScale(c, level, zeroCandidateCostScale, frameAverageCandidateCostScale, newCandidateCostScale));
+                blockGridX, blockGridY, kernelStep, candidate.pos_x, candidate.pos_y, lane, subgroupSize);
+        }
+        const auto cost = degrainMotionSearchMakeCandidateCost(candidate.pos_x, candidate.pos_y, sad,
+            sad + degrainMotionSearchScaledSadPenalty(sad, degrainMotionSearchInitialCostScale(c, level,
+                zeroCandidateCostScale, frameAverageCandidateCostScale, newCandidateCostScale)));
+        if (c == 0) first = cost;
+        if (c == 1) second = cost;
+        if (c == 0 || degrainMotionSearchCandidateCostPrefers(cost, best)) {
+            best = cost;
+        }
     }
-    RGYDegrainMotionSearchCandidateCost best = degrainMotionSearchSgblockSelectLowest(candidateCosts);
+    // 未使用の添字はすべて同じ無効候補なので、先頭の1件で同じ比較結果になる。
+    const auto skipped = degrainMotionSearchMakeCandidateCost(0, 0, 0u, DEGRAIN_MOTION_SEARCH_LARGE_COST);
+    if (degrainMotionSearchCandidateCostPrefers(skipped, best)) {
+        best = skipped;
+    }
 
     if (searchParam >= 2) {
         best = degrainMotionSearchSgblockRefine<TypePixel, blockSize, pel, subpelInterp, 6>(
