@@ -1757,6 +1757,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             || inputParam->vpp.decimate.enable
             || inputParam->vpp.mpdecimate.enable
             || inputParam->vpp.overlay.size() > 0
+            || inputParam->vpp.descale.enable
             || inputParam->vppnv.ngxTrueHDR.enable
             || inputParam->vpp.fruc.enable);
 }
@@ -3241,8 +3242,12 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 #else
     const bool ngxVsrSameRes = false;
 #endif
+    // --vpp-descale changes resolution before resize. If --output-res matches the
+    // input size, the normal size check would skip resize and leave descale output as-is.
+    const bool descaleWithOutputRes = inputParam->vpp.descale.enable
+        && resizeWidth > 0 && resizeHeight > 0;
     if ((resizeWidth > 0 && resizeHeight > 0) &&
-        (croppedWidth != resizeWidth || croppedHeight != resizeHeight || ngxVsrSameRes)) {
+        (croppedWidth != resizeWidth || croppedHeight != resizeHeight || ngxVsrSameRes || descaleWithOutputRes)) {
         resizeRequired = getVppResizeType(inputParam->vpp.resize_algo);
         if (resizeRequired == RGY_VPP_RESIZE_TYPE_UNKNOWN) {
             PrintMes(RGY_LOG_ERROR, _T("Unknown resize type.\n"));
