@@ -1284,7 +1284,7 @@ __device__ __forceinline__ float degrainTemporalMixPlanRef(
 
 template<typename TypePixel, int refs>
 __device__ __forceinline__ int degrainApplyTemporalMixPlanSamePitch(
-    const uint8_t *cur,
+    const int srcSample,
     const int pitch,
     const uint8_t *refBackward1,
     const uint8_t *refForward1,
@@ -1307,7 +1307,6 @@ __device__ __forceinline__ int degrainApplyTemporalMixPlanSamePitch(
     const int y,
     const int pel,
     const int subpelInterp) {
-    const int srcSample = degrainPixelLoad<TypePixel>(cur, pitch, width, height, x, y);
     const int planOffset = degrainTemporalMixPlanOffset(block, refs);
     float value = (float)srcSample * degrainTemporalMixPlanSrc(temporalMixPlan, planOffset);
     for (int refDirection = 0; refDirection < refs; refDirection++) {
@@ -3729,7 +3728,7 @@ __device__ __forceinline__ void degrainDegrainOverlapPlanePreweightedRampGeneric
             }
             const int block = blockRow - bxIndex;
             const int sample = degrainApplyTemporalMixPlanSamePitch<TypePixel, refs>(
-                cur, cur_pitch,
+                fallback, cur_pitch,
                 refBackward1, refForward1,
                 refBackward2, refForward2,
                 refBackward3, refForward3,
@@ -4056,7 +4055,7 @@ __device__ __forceinline__ void degrainDegrainOverlapPlaneRampGeneric(
             // 参照の合成順と整数丸めは旧経路のまま、ブロック単位の重みだけ前計算する。
             const int sample = useMixPlan
                 ? degrainApplyTemporalMixPlanSamePitch<TypePixel, refs>(
-                    cur, cur_pitch,
+                    fallback, cur_pitch,
                     refBackward1, refForward1,
                     refBackward2, refForward2,
                     refBackward3, refForward3,
@@ -4085,6 +4084,100 @@ __device__ __forceinline__ void degrainDegrainOverlapPlaneRampGeneric(
 
     const int result = degrainFinalizeWeightedSampleFp32(sampleSum, weightSum, fallback);
     dst[y * dstPitch + x] = degrainClampPixel<TypePixel>(result);
+}
+
+// 行内に収まる4画素は、ポインタが整列している場合にまとめて読み書きする。
+__device__ __forceinline__ uint32_t degrainLoadFourU8(const uint8_t *src) {
+    if ((reinterpret_cast<uintptr_t>(src) & 3u) == 0u) {
+        return *reinterpret_cast<const uint32_t *>(src);
+    }
+    return (uint32_t)src[0] | ((uint32_t)src[1] << 8)
+        | ((uint32_t)src[2] << 16) | ((uint32_t)src[3] << 24);
+}
+
+__device__ __forceinline__ void degrainDegrainOverlapPlaneRampFixedU8x4(
+    uint8_t *dst, const int dstPitch,
+    const uint8_t *cur, const int pitch,
+    const uint8_t *refBackward, const uint8_t *refForward,
+    const int width, const int height, const int x, const int y,
+    const RGYDegrainMV *mv, const int blocksX, const int blocksY,
+    const float *windowRamp, const float *mixPlan) {
+    constexpr int step = 16;
+    constexpr int blockSize = 32;
+    constexpr int refs = 2;
+    const int primaryX = min(x / step, blocksX - 1);
+    const int primaryY = min(y / step, blocksY - 1);
+    const int localX = x - primaryX * step;
+    const int localY = y - primaryY * step;
+    const bool usePrevX = primaryX > 0 && localX < step;
+    const bool usePrevY = primaryY > 0 && localY < step;
+    const float wyPrev = usePrevY ? windowRamp[step + localY] : 0.0f;
+    const uint32_t src = degrainLoadFourU8(cur + y * pitch + x);
+
+    int srcSample[4];
+    float wxPrev[4];
+    float sampleSum[4] = {};
+    float weightSum[4] = {};
+    #pragma unroll
+    for (int px = 0; px < 4; ++px) {
+        srcSample[px] = (int)((src >> (px * 8)) & 0xffu);
+        wxPrev[px] = usePrevX ? windowRamp[localX + px] : 0.0f;
+    }
+
+    // xは4の倍数、stepとblockSizeは4の倍数なので、候補ブロックは4画素で共通。
+    for (int by = 0; by < (usePrevY ? 2 : 1); ++by) {
+        if (localY + by * step >= blockSize) continue;
+        const float wy = by == 0 ? 1.0f - wyPrev : wyPrev;
+        const int blockRow = (primaryY - by) * blocksX;
+        for (int bx = 0; bx < (usePrevX ? 2 : 1); ++bx) {
+            if (localX + bx * step + 3 >= blockSize) continue;
+            const int block = blockRow + primaryX - bx;
+            const int planOffset = degrainTemporalMixPlanOffset(block, refs);
+            const float srcWeight = degrainTemporalMixPlanSrc(mixPlan, planOffset);
+            float value[4];
+            #pragma unroll
+            for (int px = 0; px < 4; ++px) {
+                value[px] = (float)srcSample[px] * srcWeight;
+            }
+            #pragma unroll
+            for (int refDirection = 0; refDirection < refs; ++refDirection) {
+                const float refWeight = degrainTemporalMixPlanRef(mixPlan, planOffset, refDirection);
+                if (refWeight <= 0.0f) continue;
+                const auto *ref = refDirection == 0 ? refBackward : refForward;
+                const auto motion = mv[degrainRefIndex(block, refDirection, refs)];
+                const int refX = x + motion.dx;
+                const int refY = degrainMirrorCoord(y + motion.dy, height);
+                const auto *refRow = ref + refY * pitch;
+                const bool rowInBounds = refX >= 0 && refX <= width - 4;
+                #pragma unroll
+                for (int px = 0; px < 4; ++px) {
+                    const int sampleX = rowInBounds ? refX + px : degrainMirrorCoord(refX + px, width);
+                    value[px] = __fmaf_rn((float)refRow[sampleX], refWeight, value[px]);
+                }
+            }
+            #pragma unroll
+            for (int px = 0; px < 4; ++px) {
+                const int sample = degrainClampPixel<uint8_t>(degrainRoundFloatToInt(value[px]));
+                const float wx = bx == 0 ? 1.0f - wxPrev[px] : wxPrev[px];
+                degrainAccumulateWeightedSampleFp32(&sampleSum[px], &weightSum[px], sample, wx * wy);
+            }
+        }
+    }
+    uint32_t packed = 0;
+    #pragma unroll
+    for (int px = 0; px < 4; ++px) {
+        const int result = degrainFinalizeWeightedSampleFp32(sampleSum[px], weightSum[px], srcSample[px]);
+        packed |= (uint32_t)degrainClampPixel<uint8_t>(result) << (px * 8);
+    }
+    auto *dstRow = dst + y * dstPitch + x;
+    if ((reinterpret_cast<uintptr_t>(dstRow) & 3u) == 0u) {
+        *reinterpret_cast<uint32_t *>(dstRow) = packed;
+    } else {
+        #pragma unroll
+        for (int px = 0; px < 4; ++px) {
+            dstRow[px] = (uint8_t)(packed >> (px * 8));
+        }
+    }
 }
 
 template<typename TypePixel, int refs, bool useMixPlan, bool fixedLayout = false>
@@ -4123,26 +4216,41 @@ static __global__ void kernel_degrain_degrain_overlap_plane_ramp_cuda(
     const int pel,
     const int subpelInterp,
     const float *mixPlan) {
-    const int globalX = (int)blockIdx.x * blockDim.x + threadIdx.x;
+    constexpr bool useFourPixels = fixedLayout && sizeof(TypePixel) == 1 && refs == 2 && useMixPlan;
+    constexpr int pixelsPerThread = useFourPixels ? 4 : 1;
+    const int globalX = ((int)blockIdx.x * blockDim.x + threadIdx.x) * pixelsPerThread;
     const int globalY = (int)blockIdx.y * blockDim.y + threadIdx.y;
-    degrainDegrainOverlapPlaneRampGeneric<TypePixel, refs, useMixPlan>(
-        dst, dst_pitch,
-        cur, cur_pitch,
-        refBackward1, refForward1,
-        refBackward2, refForward2,
-        refBackward3, refForward3,
-        refBackward4, refForward4,
-        refBackward5, refForward5,
-        width, height,
-        mv,
-        blocksX, blocksY,
-        fixedLayout ? 32 : blockSize, fixedLayout ? 16 : overlap, fixedLayout ? 16 : step,
-        coveredWidth, coveredHeight,
-        fixedLayout ? 1 : planeScaleX, fixedLayout ? 1 : planeScaleY,
-        windowRamp, sad, temporalMixPrior, thsad, disableMask,
-        0, 0, 0,
-        globalX, globalY,
-        fixedLayout ? 1 : pel, subpelInterp, mixPlan);
+    if constexpr (useFourPixels) {
+        if (globalX >= width || globalY >= height) return;
+        if (globalX <= min(width, coveredWidth) - 4 && globalY < coveredHeight
+            && blocksX > 0 && blocksY > 0) {
+            degrainDegrainOverlapPlaneRampFixedU8x4(reinterpret_cast<uint8_t *>(dst), dst_pitch, cur, cur_pitch,
+                refBackward1, refForward1, width, height, globalX, globalY, mv, blocksX, blocksY, windowRamp, mixPlan);
+            return;
+        }
+    }
+    // 右端や合成範囲外のグループは画素ごとに従来の処理を行う。
+    #pragma unroll 1
+    for (int px = 0; px < pixelsPerThread; ++px) {
+        degrainDegrainOverlapPlaneRampGeneric<TypePixel, refs, useMixPlan>(
+            dst, dst_pitch,
+            cur, cur_pitch,
+            refBackward1, refForward1,
+            refBackward2, refForward2,
+            refBackward3, refForward3,
+            refBackward4, refForward4,
+            refBackward5, refForward5,
+            width, height,
+            mv,
+            blocksX, blocksY,
+            fixedLayout ? 32 : blockSize, fixedLayout ? 16 : overlap, fixedLayout ? 16 : step,
+            coveredWidth, coveredHeight,
+            fixedLayout ? 1 : planeScaleX, fixedLayout ? 1 : planeScaleY,
+            windowRamp, sad, temporalMixPrior, thsad, disableMask,
+            0, 0, 0,
+            globalX + px, globalY,
+            fixedLayout ? 1 : pel, subpelInterp, mixPlan);
+    }
 }
 
 static RGY_ERR launchNVEncDegrainDegrainOverlapPlaneRampImpl(
@@ -4163,8 +4271,10 @@ static RGY_ERR launchNVEncDegrainDegrainOverlapPlaneRampImpl(
     const int refs, const int pel, const int subpelInterp, cudaStream_t stream) {
     const dim3 block(32, 8);
     const dim3 grid(divCeil(width, (int)block.x), divCeil(height, (int)block.y));
+    // カーネル側のuseFourPixelsと同じ条件のときだけ、1スレッド4画素のgridにする。
+    const dim3 grid4(divCeil(width, (int)block.x * 4), grid.y);
 #define LAUNCH_DEGRAIN_RAMP(TYPE, REFS, USE_PLAN, FIXED_LAYOUT) do { \
-    kernel_degrain_degrain_overlap_plane_ramp_cuda<TYPE, REFS, USE_PLAN, FIXED_LAYOUT><<<grid, block, 0, stream>>>( \
+    kernel_degrain_degrain_overlap_plane_ramp_cuda<TYPE, REFS, USE_PLAN, FIXED_LAYOUT><<<(FIXED_LAYOUT && sizeof(TYPE) == 1 && REFS == 2 && USE_PLAN) ? grid4 : grid, block, 0, stream>>>( \
         reinterpret_cast<TYPE *>(dst), dstPitch, \
         cur, curPitch, \
         refBackward1, refForward1, \
