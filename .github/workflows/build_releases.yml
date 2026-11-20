@@ -26,7 +26,7 @@ jobs:
       tag: ${{ steps.rev.outputs.tag }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         ref: ${{ github.sha }}
         fetch-depth: 0
@@ -68,7 +68,7 @@ jobs:
 
     - name: Check release preconditions
       if: github.event_name == 'workflow_dispatch'
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       env:
         RELEASE_SHA: ${{ steps.rev.outputs.release_sha }}
         TAG: ${{ steps.rev.outputs.tag }}
@@ -147,7 +147,7 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare.outputs.release_sha }}
           submodules: true
@@ -177,7 +177,7 @@ jobs:
           if "${{ matrix.arch }}" == "x64" 7z x -olibvship_nvidia_5_0 -y libvship_nvidia_5_0.7z
 
       - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
         with:
           msbuild-architecture: ${{ matrix.arch }}
           
@@ -271,14 +271,14 @@ jobs:
           7z h -scrc* NVEncC_${{ needs.prepare.outputs.version_name }}_${{ matrix.platform }}.7z
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: NVEncC_release_${{ needs.prepare.outputs.version_name }}_${{ matrix.platform }}
           path: NVEncC_${{ needs.prepare.outputs.version_name }}_${{ matrix.platform }}.7z
           retention-days: 30
 
       - name: Upload plugin artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: NVEnc_plugin_release_${{ needs.prepare.outputs.version_name }}_${{ matrix.platform }}
           path: _build\${{ matrix.platform }}\Release\NVEnc.${{ matrix.outext }}
@@ -314,7 +314,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare.outputs.release_sha }}
           submodules: true
@@ -341,28 +341,28 @@ jobs:
           curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.04/auo_setup_2.04_x64.zip
 
       - name: Download plugin Win32
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         if: matrix.platform == 'Win32'
         with:
           name: NVEnc_plugin_release_${{ needs.prepare.outputs.version_name }}_Win32
           path: plugin_win32
 
       - name: Download plugin x64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         if: matrix.platform == 'x64'
         with:
           name: NVEnc_plugin_release_${{ needs.prepare.outputs.version_name }}_x64
           path: plugin_x64
 
       - name: Download NVEncC Win32
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         if: matrix.platform == 'Win32'
         with:
           name: NVEncC_release_${{ needs.prepare.outputs.version_name }}_Win32
           path: .
 
       - name: Download NVEncC x64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: NVEncC_release_${{ needs.prepare.outputs.version_name }}_x64
           path: .
@@ -448,7 +448,7 @@ jobs:
           7z h -scrc* Aviutl2_NVEnc_${{ needs.prepare.outputs.version_name }}_install.exe
 
       - name: Upload artifact Win32
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: matrix.platform == 'Win32'
         with:
           name: Aviutl_NVEnc_${{ needs.prepare.outputs.version_name }}
@@ -456,7 +456,7 @@ jobs:
           retention-days: 30
 
       - name: Upload artifact x64
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: matrix.platform == 'x64'
         with:
           name: Aviutl2_NVEnc_${{ needs.prepare.outputs.version_name }}_install
@@ -477,25 +477,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download NVEncC assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: NVEncC_release_${{ needs.prepare.outputs.version_name }}_*
           path: downloaded-assets
 
       - name: Download AviUtl asset
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Aviutl_NVEnc_${{ needs.prepare.outputs.version_name }}
           path: downloaded-assets/Aviutl
 
       - name: Download AviUtl2 asset
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Aviutl2_NVEnc_${{ needs.prepare.outputs.version_name }}_install
           path: downloaded-assets/Aviutl2
 
       - name: Download Linux assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: nvencc_*
           path: downloaded-assets

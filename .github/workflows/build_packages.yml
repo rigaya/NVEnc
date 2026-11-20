@@ -58,7 +58,7 @@ jobs:
           echo "local_group_id=${LOCAL_GROUP_ID}" >> $GITHUB_OUTPUT
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.release_sha || github.sha }}
           submodules: true
@@ -84,7 +84,7 @@ jobs:
 
       - name: Set up QEMU
         if: matrix.arch != 'x86_64'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Build Exec
         id: build_exec
@@ -141,7 +141,7 @@ jobs:
           7z h -scrc* ${{ steps.build_exec.outputs.pkgfile }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nvencc_${{ matrix.dockerimg }}_${{ matrix.pkgtype }}
           path: ${{ steps.build_exec.outputs.pkgfile }}
