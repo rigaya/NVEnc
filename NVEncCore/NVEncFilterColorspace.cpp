@@ -523,6 +523,30 @@ public:
 protected:
 };
 
+class ColorspaceOpHDR2SDRBT2446A : public ColorspaceOpHDR2SDR {
+public:
+    ColorspaceOpHDR2SDRBT2446A() : ColorspaceOpHDR2SDR(HDR2SDR_BT2446A),
+        m_preview(false), m_exposure(0.0f), m_input_info(), m_output_info() {};
+    ColorspaceOpHDR2SDRBT2446A(bool preview, double source_peak, double ldr_nits,
+        const std::string& input_info, const std::string& output_info) :
+        ColorspaceOpHDR2SDR(preview ? HDR2SDR_BT2446A_PREVIEW : HDR2SDR_BT2446A, source_peak, ldr_nits, 0.0, 0.0, 0.0),
+        m_preview(preview),
+        m_exposure(preview ? bt2446a_preview_exposure() : 0.0f),
+        m_input_info(input_info),
+        m_output_info(output_info) {
+        m_type = COLORSPACE_OP_TYPE_HDR2SDR;
+    };
+    virtual ~ColorspaceOpHDR2SDRBT2446A() {};
+    virtual std::string print() override;
+    virtual std::string printInfo() override;
+    virtual bool add(const ColorspaceOp *op) override { UNREFERENCED_PARAMETER(op); return false; }
+protected:
+    bool m_preview;
+    float m_exposure;
+    std::string m_input_info;
+    std::string m_output_info;
+};
+
 class ColorspaceOpRange : public ColorspaceOp {
 public:
     ColorspaceOpRange() : m_scale_y(0), m_offset_y(0), m_scale_uv(0), m_offset_uv(0), m_int2float(false) {};
@@ -1030,6 +1054,25 @@ std::string ColorspaceOpHDR2SDRBT2390::printInfo() {
         + printDesatInfo();
 }
 
+std::string ColorspaceOpHDR2SDRBT2446A::print() {
+    return strsprintf(R"(
+    { //hdr2sdr bt2446a
+        x = hdr2sdr_bt2446a(x, %d, %.16ef);
+    })",
+        m_preview ? 1 : 0, m_exposure);
+}
+
+std::string ColorspaceOpHDR2SDRBT2446A::printInfo() {
+    return strsprintf("hdr2sdr(%s): source_peak=%.2f ldr_nits=%.2f\n"
+        "                             input %s\n"
+        "                             output %s\n"
+        "                             reference white correction %s",
+        m_preview ? "bt2446a-preview" : "bt2446a",
+        m_source_peak, m_ldr_nits,
+        m_input_info.c_str(), m_output_info.c_str(),
+        m_preview ? "on" : "off");
+}
+
 std::string ColorspaceOpRange::print() {
     return strsprintf(R"(
     { //range %s
@@ -1081,6 +1124,12 @@ tstring ColorspaceOpCtrl::printInfoAll() const {
                 str += _T("\n                           ");
             }
             str += op_str.substr(1);
+            // 方式Aは入出力の色情報も変えるため、経路表示に加えて方式名を残す。
+            if (op.ops->getType() == COLORSPACE_OP_TYPE_HDR2SDR
+                || op.ops->getType() == COLORSPACE_OP_TYPE_LUT3D) {
+                str += _T("\n                           ");
+                str += char_to_tstring(op.ops->printInfo());
+            }
         } else if (op.ops->getType() == COLORSPACE_OP_TYPE_HDR2SDR
                 || op.ops->getType() == COLORSPACE_OP_TYPE_LUT3D) {
             if (str.length() > 0) {
@@ -1443,7 +1492,63 @@ RGY_ERR ColorspaceOpCtrl::setLUT3D(const VideoVUIInfo &in, const VideoVUIInfo &o
     return RGY_ERR_NONE;
 }
 
+RGY_ERR ColorspaceOpCtrl::setHDR2SDRBT2446A(const VideoVUIInfo &in, const VideoVUIInfo &out, bool approx_gamma, bool scene_ref, const HDR2SDRParams& prm, int height) {
+    const bool preview = prm.tonemap == HDR2SDR_BT2446A_PREVIEW;
+    const TCHAR *mode_name = preview ? _T("bt2446a-preview") : _T("bt2446a");
+    if (std::abs(prm.hdr_source_peak - 1000.0) > 1e-3 || std::abs(prm.ldr_nits - 100.0) > 1e-3) {
+        AddMessage(RGY_LOG_ERROR, _T("hdr2sdr=%s supports only source_peak=1000 and ldr_nits=100.\n"), mode_name);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (approx_gamma || scene_ref) {
+        AddMessage(RGY_LOG_ERROR, _T("hdr2sdr=%s does not support approx_gamma or scene_ref.\n"), mode_name);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (std::abs(prm.desat_base - FILTER_DEFAULT_HDR2SDR_DESAT_BASE) > 1e-4
+        || std::abs(prm.desat_strength - FILTER_DEFAULT_HDR2SDR_DESAT_STRENGTH) > 1e-4
+        || std::abs(prm.desat_exp - FILTER_DEFAULT_HDR2SDR_DESAT_EXP) > 1e-4) {
+        AddMessage(RGY_LOG_WARN, _T("desat_* is not applied to hdr2sdr=%s.\n"), mode_name);
+    }
+    if (in.matrix != RGY_MATRIX_BT2020_NCL || in.transfer != RGY_TRANSFER_ARIB_B67 || in.colorprim != RGY_PRIM_BT2020) {
+        AddMessage(RGY_LOG_ERROR, _T("hdr2sdr=%s requires BT.2020 non-constant luminance HLG input (matrix=bt2020nc, colorprim=bt2020, transfer=arib-std-b67).\n"), mode_name);
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    auto color_is_bt709 = [](int value, int bt709) {
+        return value == bt709;
+    };
+    auto color_is_unset = [](int value) {
+        return value == COLOR_VALUE_AUTO || value == COLOR_VALUE_AUTO_RESOLUTION;
+    };
+    if (!(color_is_bt709(out.matrix, RGY_MATRIX_BT709) || out.matrix == RGY_MATRIX_UNSPECIFIED || color_is_unset(out.matrix))
+        || !(color_is_bt709(out.transfer, RGY_TRANSFER_BT709) || out.transfer == RGY_TRANSFER_UNSPECIFIED || out.transfer == RGY_TRANSFER_UNKNOWN || color_is_unset(out.transfer))
+        || !(color_is_bt709(out.colorprim, RGY_PRIM_BT709) || out.colorprim == RGY_PRIM_UNSPECIFIED || out.colorprim == RGY_PRIM_UNKNOWN || color_is_unset(out.colorprim))) {
+        AddMessage(RGY_LOG_ERROR, _T("hdr2sdr=%s outputs BT.709. Leave matrix, colorprim, and transfer unset or set them to bt709.\n"), mode_name);
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    auto csp_signal_rgb = in.to(RGY_MATRIX_RGB);
+    CHECK(setPath(in, csp_signal_rgb, 100.0, false, false, height));
+
+    auto csp_linear_709 = csp_signal_rgb.to(RGY_TRANSFER_LINEAR).to(RGY_PRIM_BT709);
+    auto csp_to = out;
+    csp_to.matrix = RGY_MATRIX_BT709;
+    csp_to.transfer = RGY_TRANSFER_BT709;
+    csp_to.colorprim = RGY_PRIM_BT709;
+    if (csp_to.colorrange == RGY_COLORRANGE_UNSPECIFIED || csp_to.colorrange == RGY_COLORRANGE_AUTO) {
+        csp_to.colorrange = in.colorrange;
+    }
+    m_path.push_back(ColorspaceOpInfo(csp_signal_rgb, csp_linear_709, make_unique<ColorspaceOpHDR2SDRBT2446A>(
+        preview, prm.hdr_source_peak, prm.ldr_nits, tchar_to_string(in.print_main()), tchar_to_string(csp_to.print_main()))));
+    CHECK(setPath(csp_linear_709, csp_to, 100.0, false, false, height));
+    AddMessage(RGY_LOG_INFO, _T("hdr2sdr=%s: input %s -> output %s, reference white correction %s.\n"),
+        mode_name, in.print_main().c_str(), csp_to.print_main().c_str(), preview ? _T("on") : _T("off"));
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double sdr_source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams& prm, int height) {
+    if (hdr2sdr_is_bt2446a(prm.tonemap)) {
+        return setHDR2SDRBT2446A(in, out, approx_gamma, scene_ref, prm, height);
+    }
     auto csp_from1 = in;
     if (csp_from1.matrix == RGY_MATRIX_UNSPECIFIED) {
         csp_from1 = csp_from1.to(RGY_MATRIX_BT2020_NCL);

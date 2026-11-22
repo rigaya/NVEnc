@@ -5672,6 +5672,79 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         return sts;
     }
 
+    if (hdr2sdr_is_bt2446a(inputParam->vpp.colorspace.hdr2sdr.tonemap)) {
+        if (inputParam->vpp.libplacebo_tonemapping.enable) {
+            PrintMes(RGY_LOG_ERROR, _T("hdr2sdr=bt2446a and --vpp-libplacebo-tonemapping both tone-map the same frames.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        auto suppressOrReject = [&](std::string &value, const TCHAR *optionName) -> bool {
+            if (value == maxCLLSource) {
+                PrintMes(RGY_LOG_INFO, _T("%s copy is not applied because hdr2sdr=bt2446a writes SDR.\n"), optionName);
+                value.clear();
+                return true;
+            }
+            if (!value.empty()) {
+                PrintMes(RGY_LOG_ERROR, _T("%s conflicts with hdr2sdr=bt2446a SDR output.\n"), optionName);
+                return false;
+            }
+            return true;
+        };
+        if (!suppressOrReject(inputParam->common.maxCll, _T("--max-cll"))) return RGY_ERR_INVALID_PARAM;
+        if (!suppressOrReject(inputParam->common.masterDisplay, _T("--master-display"))) return RGY_ERR_INVALID_PARAM;
+        if (inputParam->common.hdr10plusMetadataCopy) {
+            PrintMes(RGY_LOG_INFO, _T("HDR10+ metadata copy is not applied because hdr2sdr=bt2446a writes SDR.\n"));
+            inputParam->common.hdr10plusMetadataCopy = false;
+            m_hdr10plusMetadataCopy = false;
+        }
+        if (!inputParam->common.dynamicHdr10plusJson.empty()) {
+            PrintMes(RGY_LOG_ERROR, _T("--dhdr10-info conflicts with hdr2sdr=bt2446a SDR output.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (inputParam->common.doviRpuMetadataCopy) {
+            PrintMes(RGY_LOG_INFO, _T("Dolby Vision RPU copy is not applied because hdr2sdr=bt2446a writes SDR.\n"));
+            inputParam->common.doviRpuMetadataCopy = false;
+            m_dovirpuMetadataCopy = false;
+        }
+        if (!inputParam->common.doviRpuFile.empty()) {
+            PrintMes(RGY_LOG_ERROR, _T("--dolby-vision-rpu conflicts with hdr2sdr=bt2446a SDR output.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (inputParam->common.doviProfile == RGY_DOVI_PROFILE_COPY) {
+            PrintMes(RGY_LOG_INFO, _T("Dolby Vision profile copy is not applied because hdr2sdr=bt2446a writes SDR.\n"));
+            inputParam->common.doviProfile = RGY_DOVI_PROFILE_UNSET;
+            m_doviProfile = RGY_DOVI_PROFILE_UNSET;
+        } else if (inputParam->common.doviProfile != RGY_DOVI_PROFILE_UNSET) {
+            PrintMes(RGY_LOG_ERROR, _T("--dolby-vision-profile conflicts with hdr2sdr=bt2446a SDR output.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (inputParam->common.atcSei != RGY_TRANSFER_UNKNOWN) {
+            PrintMes(RGY_LOG_ERROR, _T("--atc-sei conflicts with hdr2sdr=bt2446a SDR output.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        auto forceBt709 = [&](int value, int bt709, int unspecified, int unknown, const TCHAR *optionName) -> int {
+            if (value == unspecified || value == unknown || value == COLOR_VALUE_AUTO || value == COLOR_VALUE_AUTO_RESOLUTION) {
+                if (value == COLOR_VALUE_AUTO_RESOLUTION) {
+                    PrintMes(RGY_LOG_INFO, _T("%s auto_res is set to bt709 because hdr2sdr=bt2446a writes BT.709.\n"), optionName);
+                }
+                return bt709;
+            }
+            if (value != bt709) {
+                PrintMes(RGY_LOG_ERROR, _T("%s must be bt709 when using hdr2sdr=bt2446a.\n"), optionName);
+                return -2;
+            }
+            return value;
+        };
+        const int matrix = forceBt709(inputParam->common.out_vui.matrix, RGY_MATRIX_BT709, RGY_MATRIX_UNSPECIFIED, RGY_MATRIX_UNSPECIFIED, _T("--colormatrix"));
+        const int colorprim = forceBt709(inputParam->common.out_vui.colorprim, RGY_PRIM_BT709, RGY_PRIM_UNSPECIFIED, RGY_PRIM_UNKNOWN, _T("--colorprim"));
+        const int transfer = forceBt709(inputParam->common.out_vui.transfer, RGY_TRANSFER_BT709, RGY_TRANSFER_UNSPECIFIED, RGY_TRANSFER_UNKNOWN, _T("--transfer"));
+        if (matrix < 0 || colorprim < 0 || transfer < 0) {
+            return RGY_ERR_INVALID_PARAM;
+        }
+        inputParam->common.out_vui.matrix = (CspMatrix)matrix;
+        inputParam->common.out_vui.colorprim = (CspColorprim)colorprim;
+        inputParam->common.out_vui.transfer = (CspTransfer)transfer;
+    }
+
 #if ENABLE_VULKAN
     if (inputParam->ctrl.enableVulkan == RGYParamInitVulkan::TargetVendor) {
         setenv("VK_LOADER_DRIVERS_SELECT", "*nvidia*", 1);

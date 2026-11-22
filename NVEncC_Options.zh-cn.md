@@ -2093,6 +2093,14 @@ vpp过滤器的应用顺序是固定的，与命令行的顺序无关，将按�
     - bt2390  
       BT.2390中规定的色调映射(EETF)
   
+    - bt2446a  
+      使用ITU-R BT.2446方式A将BT.2020非恒定亮度HLG转换为BT.709。  
+      仅支持source_peak=1000和ldr_nits=100。approx_gamma、scene_ref和desat_*不用于此转换。  
+      与--vpp-libplacebo-tonemapping同时使用或显式指定与SDR输出矛盾的HDR元数据会报错；copy指定的HDR元数据不会传递到输出。
+
+    - bt2446a-preview  
+      在bt2446a基础上进行固定校正，将HLG 75%参考白映射到90 nit，并在80 nit以上应用肩部处理。
+
   - source_peak=&lt;float&gt;  (默认: 1000.0)  
   
   - ldr_nits=&lt;float&gt;  (默认: 100.0)  
@@ -2118,8 +2126,15 @@ vpp过滤器的应用顺序是固定的，与命令行的顺序无关，将按�
   
 例3: 使用 hdr2sdr (hable色调映射) 并设定coefs (例子中的参数是默认参数)
 --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
+
+例4: 使用参考白校正的BT.2446方式A
+--vpp-colorspace hdr2sdr=bt2446a-preview
+
+例5: 显式指定输入颜色信息
+--vpp-colorspace hdr2sdr=bt2446a-preview,matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=arib-std-b67:bt709,range=limited:limited
+
   
-例4: 使用 lut3d
+例6: 使用 lut3d
 --vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
 ```
 

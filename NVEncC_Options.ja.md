@@ -2034,6 +2034,16 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
       BT.2390で規定されるtone mapping。
   
   
+    - bt2446a  
+      BT.2020非一定輝度のHLGを、ITU-R BT.2446方式AでBT.709へ変換する。  
+      source_peak=1000、ldr_nits=100だけに対応し、それ以外はエラーになる。  
+      approx_gamma、scene_ref、desat_*は使わない。desat_*を指定しても色補正には反映されない。  
+      --vpp-libplacebo-tonemappingとの併用、およびSDR出力と矛盾するHDRメタデータの明示指定はエラーになる。copy指定のHDRメタデータは出力へ引き継がない。
+
+    - bt2446a-preview  
+      bt2446aに、HLGの75%基準白がSDRの90nitになる固定の明るさ補正と、80nit以上の肩処理を加える。
+  
+  
   - source_peak=&lt;float&gt;  (デフォルト: 1000.0)  
   
   - ldr_nits=&lt;float&gt;  (デフォルト: 100.0)  
@@ -2058,8 +2068,15 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   
   例3: hdr2sdr使用時の追加パラメータの指定例 (下記例ではデフォルトと同じ意味)
   --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
+
+  例4: BT.2446方式Aに基準白補正を付けてHLGをBT.709へ変換する
+  --vpp-colorspace hdr2sdr=bt2446a-preview
+
+  例5: 入力の色情報を明示する
+  --vpp-colorspace hdr2sdr=bt2446a-preview,matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=arib-std-b67:bt709,range=limited:limited
+
   
-  例4: lut3dの使用
+  例6: lut3dの使用
   --vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
   ```
 

@@ -2032,6 +2032,15 @@ Values for parameters will be copied from input file for "input" when using avhw
     - bt2390  
       Perceptual tone mapping curve (EETF) specified in BT.2390.
   
+    - bt2446a  
+      Converts BT.2020 non-constant-luminance HLG to BT.709 with ITU-R BT.2446 method A.  
+      Only source_peak=1000 and ldr_nits=100 are accepted.  
+      approx_gamma, scene_ref, and desat_* are not used. desat_* does not change this conversion.  
+      Combining it with --vpp-libplacebo-tonemapping, or explicitly attaching HDR metadata that contradicts the SDR output, is an error. HDR metadata requested with copy is not passed through.
+
+    - bt2446a-preview  
+      Applies bt2446a, then the fixed correction that maps HLG 75% reference white to 90 nits, with a shoulder above 80 nits.
+  
   - source_peak=&lt;float&gt;  (default: 1000.0)  
   
   - ldr_nits=&lt;float&gt;  (default: 100.0)  
@@ -2059,8 +2068,15 @@ Values for parameters will be copied from input file for "input" when using avhw
   
   example3: using hdr2sdr (hable tone-mapping) and setting the coefs (this is example for the default settings)
   --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
+
+  example4: BT.2446 method A with the reference-white correction
+  --vpp-colorspace hdr2sdr=bt2446a-preview
+
+  example5: specify the input color information explicitly
+  --vpp-colorspace hdr2sdr=bt2446a-preview,matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=arib-std-b67:bt709,range=limited:limited
+
   
-  example4: using lut3d
+  example6: using lut3d
   --vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
   ```
 

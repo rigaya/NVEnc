@@ -617,6 +617,177 @@ COLORSPACE_FUNC float3 lut3d_interp_prism(float3 in, const LUTVEC *lut, const in
     return c;
 }
 
+// BT.2446方式A。入力はHLG信号RGB、出力は100nit正規化のBT.709線形光。
+// 既存のaribB67InvOpsは信号値へ輝度ゲインを掛けてから逆OETFするが、
+// 方式Aは逆OETFのあと、線形輝度に基づくOOTFを掛ける。ここは後者だけを使う。
+COLORSPACE_FUNC float bt2446a_clamp(float x, float low, float high) {
+    return (x < low) ? low : ((x > high) ? high : x);
+}
+
+COLORSPACE_FUNC int bt2446a_finite(float v) {
+#ifdef __CUDACC_RTC__
+    return isfinite(v);
+#else
+    return std::isfinite(v);
+#endif
+}
+
+COLORSPACE_FUNC float bt2446a_luma2020(float r, float g, float b) {
+    return 0.2627f * r + 0.6780f * g + 0.0593f * b;
+}
+
+// 移植元LUTと同じく、逆OETFの入力だけを[0,1]へ収める。
+COLORSPACE_FUNC float bt2446a_hlg_inverse_oetf(float x) {
+    x = bt2446a_clamp(x, 0.0f, 1.0f);
+    if (x <= 0.5f) {
+        return (x * x) * (1.0f / 3.0f);
+    }
+    return (expf((x - ARIB_B67_C) / ARIB_B67_A) + ARIB_B67_B) * (1.0f / 12.0f);
+}
+
+COLORSPACE_FUNC float bt2446a_gamma24(float x) {
+    x = bt2446a_clamp(x, 0.0f, 1.0f);
+    return (x <= 0.0f) ? 0.0f : powf(x, 1.0f / 2.4f);
+}
+
+// 色補正後の範囲外は符号を保って線形へ戻す。
+COLORSPACE_FUNC float bt2446a_linear24(float x) {
+    const float ax = fabsf(x);
+    const float y = (ax <= 0.0f) ? 0.0f : powf(ax, 2.4f);
+    return (x < 0.0f) ? -y : y;
+}
+
+COLORSPACE_FUNC float bt2446a_rho(float peak_nits) {
+    return 1.0f + 32.0f * powf(peak_nits / 10000.0f, 1.0f / 2.4f);
+}
+
+// ITU-R BT.2446-1 4.1 表2。入力は1000nit基準のガンマ2.4輝度。
+COLORSPACE_FUNC float bt2446a_tone_map_y(float y) {
+    const float rho_hdr = bt2446a_rho(1000.0f);
+    const float rho_sdr = bt2446a_rho(100.0f);
+    y = bt2446a_clamp(y, 0.0f, 1.0f);
+    const float yp = logf(1.0f + (rho_hdr - 1.0f) * y) / logf(rho_hdr);
+    float yc;
+    if (yp <= 0.7399f) {
+        yc = 1.0770f * yp;
+    } else if (yp < 0.9909f) {
+        yc = (-1.1510f * yp + 2.7811f) * yp - 0.6302f;
+    } else {
+        yc = 0.5f * yp + 0.5f;
+    }
+    return (powf(rho_sdr, yc) - 1.0f) / (rho_sdr - 1.0f);
+}
+
+// HLG75%をSDR90nitへ寄せ、80nit以上へ肩を付ける。1.0は100nitのまま。
+COLORSPACE_FUNC float bt2446a_exposure_shoulder(float x, float exposure) {
+    const float scaled = exposure * x;
+    if (scaled <= 0.8f) {
+        return scaled;
+    }
+    const float curvature = (exposure - 1.0f) / ((1.0f - 0.8f) * (exposure - 0.8f));
+    return 0.8f + (scaled - 0.8f) / (1.0f + curvature * (scaled - 0.8f));
+}
+
+COLORSPACE_FUNC float bt2446a_reference_white_linear(void) {
+    const float scene = bt2446a_hlg_inverse_oetf(0.75f);
+    const float display = scene * powf(scene, 0.2f);
+    return bt2446a_linear24(bt2446a_tone_map_y(bt2446a_gamma24(display)));
+}
+
+COLORSPACE_FUNC float bt2446a_preview_exposure(void) {
+    const float sdr_white = bt2446a_reference_white_linear();
+    float min_exposure = 1.0f;
+    float max_exposure = 8.0f;
+    for (int i = 0; i < 32; i++) {
+        const float candidate = (min_exposure + max_exposure) * 0.5f;
+        if (bt2446a_exposure_shoulder(sdr_white, candidate) < 0.9f) {
+            min_exposure = candidate;
+        } else {
+            max_exposure = candidate;
+        }
+    }
+    return (min_exposure + max_exposure) * 0.5f;
+}
+
+COLORSPACE_FUNC float bt2446a_preview_gain(float y, float exposure) {
+    y = bt2446a_clamp(y, 0.0f, 1.0f);
+    if (y <= 0.0f) {
+        return exposure;
+    }
+    return bt2446a_exposure_shoulder(y, exposure) / y;
+}
+
+// 線形BT.2020をBT.709へ変換し、輝度を保って無彩色方向へ圧縮する。
+COLORSPACE_FUNC float3 bt2446a_gamut709(float3 rgb) {
+    const float r = 1.660491f * rgb.x - 0.587641f * rgb.y - 0.072850f * rgb.z;
+    const float g = -0.124550f * rgb.x + 1.132900f * rgb.y - 0.008350f * rgb.z;
+    const float b = -0.018151f * rgb.x - 0.100579f * rgb.y + 1.118730f * rgb.z;
+    float y = bt2446a_clamp(0.2126f * r + 0.7152f * g + 0.0722f * b, 0.0f, 1.0f);
+    float scale = 1.0f;
+    const float channels[3] = { r, g, b };
+    for (int i = 0; i < 3; i++) {
+        const float channel = channels[i];
+        if (channel < 0.0f) {
+            const float den = y - channel;
+            if (den > 0.0f) {
+                const float candidate = y / den;
+                if (candidate < scale) scale = candidate;
+            }
+        } else if (channel > 1.0f) {
+            const float den = channel - y;
+            if (den > 0.0f) {
+                const float candidate = (1.0f - y) / den;
+                if (candidate < scale) scale = candidate;
+            }
+        }
+    }
+    float3 out;
+    out.x = y + scale * (r - y);
+    out.y = y + scale * (g - y);
+    out.z = y + scale * (b - y);
+    return out;
+}
+
+COLORSPACE_FUNC float3 hdr2sdr_bt2446a(float3 x, int preview, float exposure) {
+    x.x = bt2446a_hlg_inverse_oetf(x.x);
+    x.y = bt2446a_hlg_inverse_oetf(x.y);
+    x.z = bt2446a_hlg_inverse_oetf(x.z);
+
+    const float scene_y = bt2446a_clamp(bt2446a_luma2020(x.x, x.y, x.z), 0.0f, 1.0f);
+    const float ootf_gain = (scene_y <= 0.0f) ? 0.0f : powf(scene_y, 0.2f);
+    x.x *= ootf_gain;
+    x.y *= ootf_gain;
+    x.z *= ootf_gain;
+
+    const float r = bt2446a_gamma24(x.x);
+    const float g = bt2446a_gamma24(x.y);
+    const float b = bt2446a_gamma24(x.z);
+    const float y = bt2446a_luma2020(r, g, b);
+    const float sdr_y = bt2446a_tone_map_y(y);
+    const float chroma_scale = (y > 0.0f) ? sdr_y / (1.1f * y) : 0.0f;
+    const float cb = chroma_scale * (b - y) / 1.8814f;
+    const float cr = chroma_scale * (r - y) / 1.4746f;
+    const float corrected_y = sdr_y - fmaxf(0.1f * cr, 0.0f);
+    x.x = corrected_y + 1.4746f * cr;
+    x.z = corrected_y + 1.8814f * cb;
+    x.y = (corrected_y - 0.2627f * x.x - 0.0593f * x.z) / 0.6780f;
+    x.x = bt2446a_linear24(x.x);
+    x.y = bt2446a_linear24(x.y);
+    x.z = bt2446a_linear24(x.z);
+
+    if (preview) {
+        const float gain = bt2446a_preview_gain(bt2446a_luma2020(x.x, x.y, x.z), exposure);
+        x.x *= gain;
+        x.y *= gain;
+        x.z *= gain;
+    }
+    x = bt2446a_gamut709(x);
+    if (!bt2446a_finite(x.x)) x.x = 0.0f;
+    if (!bt2446a_finite(x.y)) x.y = 0.0f;
+    if (!bt2446a_finite(x.z)) x.z = 0.0f;
+    return x;
+}
+
 struct RGYColorspaceDevParams {
     int lut_offset;
     int prelut_offset;

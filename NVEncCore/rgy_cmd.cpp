@@ -17040,18 +17040,22 @@ tstring gen_cmd_help_vpp() {
     str += _T("      lut3d_interp=<string>       3D LUT interpolation. (default: tetrahedral)\n");
     str += rgy_cmd_help_values(list_vpp_colorspace_lut3d_interp);
     str += _T("        when: lut3d\n");
-    str += _T("      hdr2sdr=<string>            HDR10-to-SDR tone-mapping operator. (default: none)\n");
+    str += _T("      hdr2sdr=<string>            HDR-to-SDR tone-mapping operator. (default: none)\n");
     str += rgy_cmd_help_values(list_vpp_hdr2sdr);
+    str += _T("        bt2446a converts BT.2020 HLG to BT.709 with ITU-R BT.2446 method A.\n");
+    str += _T("        bt2446a-preview also applies the fixed HLG 75% reference-white correction.\n");
+    str += _T("        bt2446a requires source_peak=1000 and ldr_nits=100, and does not use desat_*, approx_gamma, or scene_ref.\n");
     str += strsprintf(_T("      source_peak=<float>         HDR source peak luminance in nits. (default: %.1f)\n"), FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK);
     str += _T("        when: hdr2sdr!=none\n");
     str += strsprintf(_T("      ldr_nits=<float>            Target SDR peak luminance in nits. (default: %.1f)\n"), FILTER_DEFAULT_COLORSPACE_LDRNITS);
     str += _T("        when: hdr2sdr!=none\n");
     str += strsprintf(_T("      desat_base=<float>          Base luminance for highlight desaturation. (default: %.2f)\n"), FILTER_DEFAULT_HDR2SDR_DESAT_BASE);
-    str += _T("        when: hdr2sdr!=none\n");
+    str += _T("        when: hdr2sdr=hable,mobius,reinhard,bt2390\n");
+    str += _T("        bt2446a and bt2446a-preview ignore desat_*.\n");
     str += strsprintf(_T("      desat_strength=<float>      Highlight desaturation strength. (default: %.2f)\n"), FILTER_DEFAULT_HDR2SDR_DESAT_STRENGTH);
-    str += _T("        when: hdr2sdr!=none\n");
+    str += _T("        when: hdr2sdr=hable,mobius,reinhard,bt2390\n");
     str += strsprintf(_T("      desat_exp=<float>           Highlight desaturation exponent. (default: %.2f)\n"), FILTER_DEFAULT_HDR2SDR_DESAT_EXP);
-    str += _T("        when: hdr2sdr!=none\n");
+    str += _T("        when: hdr2sdr=hable,mobius,reinhard,bt2390\n");
 #endif
 #if ENABLE_LIBPLACEBO
     str += _T("\n  [color] Color adjustment\n");

@@ -86,6 +86,7 @@ private:
     RGY_ERR addColorspaceOpHDR2SDRMobius(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
     RGY_ERR addColorspaceOpHDR2SDRReinhard(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
     RGY_ERR addColorspaceOpHDR2SDRBT2390(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
+    RGY_ERR setHDR2SDRBT2446A(const VideoVUIInfo &in, const VideoVUIInfo &out, bool approx_gamma, bool scene_ref, const HDR2SDRParams &prm, int height);
     RGY_ERR addColorspaceOpLUT3D(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const LUT3DParams &prm, std::vector<uint8_t>& additionalParams);
     RGY_ERR addColorspaceOpNclYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR addColorspaceOpNclRGB2YUV(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
