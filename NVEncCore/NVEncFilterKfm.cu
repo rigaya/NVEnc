@@ -855,8 +855,9 @@ __global__ void kernel_kfm_merge_static(
     uint8_t *dst,
     const int dstPitch,
     const uint8_t *src60,
+    const int src60Pitch,
     const uint8_t *src30,
-    const int srcPitch,
+    const int src30Pitch,
     const uint8_t *flag,
     const int flagPitch,
     const int width4,
@@ -867,11 +868,13 @@ __global__ void kernel_kfm_merge_static(
 
     using Type4 = typename KfmVec4Traits<Type>::Type4;
     const int dstPitch4 = dstPitch / (int)sizeof(Type4);
-    const int srcPitch4 = srcPitch / (int)sizeof(Type4);
+    // 原画キャッシュとRTGMC出力は独立したピッチを持つ。
+    const int src60Pitch4 = src60Pitch / (int)sizeof(Type4);
+    const int src30Pitch4 = src30Pitch / (int)sizeof(Type4);
     const int flagPitch4 = flagPitch / (int)sizeof(Type4);
     const int4 coef = KfmVec4Traits<Type>::to_int4(((const Type4 *)flag)[x + y * flagPitch4]);
-    const int4 v30 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src30)[x + y * srcPitch4]);
-    const int4 v60 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src60)[x + y * srcPitch4]);
+    const int4 v30 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src30)[x + y * src30Pitch4]);
+    const int4 v60 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src60)[x + y * src60Pitch4]);
     const int4 outv = make_int4(
         (coef.x * v30.x + (128 - coef.x) * v60.x + 64) >> 7,
         (coef.y * v30.y + (128 - coef.y) * v60.y + 64) >> 7,
@@ -1622,7 +1625,8 @@ RGY_ERR run_kfm_merge_static_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInf
             const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
             const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
             kernel_kfm_merge_static<uint8_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
-                (const uint8_t *)pDeint60Frame->ptr[0], (const uint8_t *)pSourceFrame->ptr[0], pSourceFrame->pitch[0],
+                (const uint8_t *)pDeint60Frame->ptr[0], pDeint60Frame->pitch[0],
+                (const uint8_t *)pSourceFrame->ptr[0], pSourceFrame->pitch[0],
                 (const uint8_t *)pFlagFrame->ptr[0], pFlagFrame->pitch[0], width4, pOutputFrame->height);
             return err_to_rgy(cudaGetLastError());
         },
@@ -1630,7 +1634,8 @@ RGY_ERR run_kfm_merge_static_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInf
             const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
             const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
             kernel_kfm_merge_static<uint16_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
-                (const uint8_t *)pDeint60Frame->ptr[0], (const uint8_t *)pSourceFrame->ptr[0], pSourceFrame->pitch[0],
+                (const uint8_t *)pDeint60Frame->ptr[0], pDeint60Frame->pitch[0],
+                (const uint8_t *)pSourceFrame->ptr[0], pSourceFrame->pitch[0],
                 (const uint8_t *)pFlagFrame->ptr[0], pFlagFrame->pitch[0], width4, pOutputFrame->height);
             return err_to_rgy(cudaGetLastError());
         });
