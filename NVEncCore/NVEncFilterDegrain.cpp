@@ -618,6 +618,7 @@ NVEncFilterDegrain::NVEncFilterDegrain() :
     m_degrainChroma(),
     m_degrainPel1(),
     m_degrainMotionSearchPrograms(),
+    m_analysisLumaCacheFrames(RGY_DEGRAIN_ANALYSIS_LUMA_CACHE_SIZE),
     m_analysis(),
     m_directAnalyzeResultSet(),
     m_boundAnalyzeResult(),
@@ -946,7 +947,7 @@ const RGYFrameInfo *NVEncFilterDegrain::cacheFrame(int frame) const {
 }
 
 int NVEncFilterDegrain::analysisCacheIndex(int frame) const {
-    return frame % RGY_DEGRAIN_ANALYSIS_LUMA_CACHE_SIZE;
+    return frame % m_analysisLumaCacheFrames;
 }
 
 bool NVEncFilterDegrain::useAnalysisLumaCache() const {
@@ -4035,8 +4036,15 @@ RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilt
         m_analysis.analysisLumaPitch = m_analysis.analysisLumaWidth * pixelBytes;
         m_analysis.analysisLumaBytes = (size_t)m_analysis.analysisLumaPitch * (size_t)m_analysis.analysisLumaHeight;
         const auto analysisCsp = degrainAnalysisLumaCsp(prm->frameOut);
+        // 平滑化済み輝度の最新画像は解析中心+delta。参照する最古の画像は中心-delta。
+        m_analysisLumaCacheFrames = prm->compactAnalysisLuma ? 2 * prm->degrain.delta + 1 : RGY_DEGRAIN_ANALYSIS_LUMA_CACHE_SIZE;
         for (int i = 0; i < (int)m_analysis.analysisLuma.size(); i++) {
             auto &luma = m_analysis.analysisLuma[i];
+            if (i >= m_analysisLumaCacheFrames) {
+                luma.reset();
+                m_analysis.analysisLumaFrame[i] = {};
+                continue;
+            }
             if (!luma || luma->nSize != m_analysis.analysisLumaBytes) {
                 luma = std::make_unique<CUMemBuf>(m_analysis.analysisLumaBytes, "degrain analysis luma");
                 err = luma->alloc();

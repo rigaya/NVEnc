@@ -74,8 +74,9 @@ public:
     // 内部利用時のresetで残す返却済みEDI画像数。通常経路は従来どおり全解放する。
     size_t ediPoolResetRetainFrames;
     size_t sourceCacheFrames;
+    bool reuseOutputFrames;
 
-    NVEncFilterParamRtgmc() : rtgmc(), timebase(), sharedAnalysisMode(false), ediPoolResetRetainFrames(0), sourceCacheFrames(256) {}
+    NVEncFilterParamRtgmc() : rtgmc(), timebase(), sharedAnalysisMode(false), ediPoolResetRetainFrames(0), sourceCacheFrames(256), reuseOutputFrames(false) {}
     virtual ~NVEncFilterParamRtgmc() {}
     virtual tstring print() const override { return rtgmc.print(); }
 };
@@ -231,6 +232,7 @@ protected:
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, bool storePending, bool finalOutputWritten = false);
     RGY_ERR drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream, RGYCudaEvent *event);
+    RGYFrameInfo *getOutputFrame(int index);
     RGY_ERR returnPendingFrames(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
     RGY_ERR initBorderFrame(const RGYFrameInfo &frameInfo);
     RGY_ERR buildBorderCopyProgram(const RGYFrameInfo &frameInfo);

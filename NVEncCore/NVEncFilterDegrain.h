@@ -56,12 +56,13 @@ public:
     VppDegrain degrain;
     bool attachAnalysisData;
     bool zeroCopyCache;
+    bool compactAnalysisLuma;
     // 有限窓の内部呼出しは中央画像を直ちに返すため、SC判定の追加出力遅延を無効にする。
     bool deferSceneChange;
     // 内部呼出側が必要な時間窓に絞る場合のみ指定する。通常のストリームは16枚。
     int inputCacheSize;
 
-    NVEncFilterParamDegrain() : degrain(), attachAnalysisData(true), zeroCopyCache(false), deferSceneChange(true), inputCacheSize(16) {};
+    NVEncFilterParamDegrain() : degrain(), attachAnalysisData(true), zeroCopyCache(false), compactAnalysisLuma(false), deferSceneChange(true), inputCacheSize(16) {};
     virtual ~NVEncFilterParamDegrain() {};
     virtual tstring print() const override {
         auto str = degrain.print();
@@ -279,6 +280,7 @@ protected:
     NVEncDegrainKernelProgram m_degrainChroma;
     NVEncDegrainKernelProgram m_degrainPel1;
     std::unordered_map<std::string, NVEncDegrainKernelProgram> m_degrainMotionSearchPrograms;
+    int m_analysisLumaCacheFrames;
     RGYDegrainAnalysisState m_analysis;
     RGYDegrainAnalyzeResultSet m_directAnalyzeResultSet;
     RGYDegrainAnalyzeResult m_boundAnalyzeResult;

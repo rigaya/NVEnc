@@ -1545,6 +1545,7 @@ RGY_ERR NVEncFilterKfm::initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& pr
     rtgmcParam->timebase = prm->timebase;
     rtgmcParam->bOutOverwrite = false;
     rtgmcParam->sharedAnalysisMode = sharedAnalysisMode;
+    rtgmcParam->reuseOutputFrames = prm->kfm.ucf;
     if (rtgmcParam->rtgmc.noise.noiseProcess == 0 && rtgmcParam->rtgmc.sourceMatch == 0
         && rtgmcParam->rtgmc.inputType == 0 && rtgmcParam->rtgmc.lossless == 0) {
         // 原画を参照するのはEDIまで。KFMのプリセットでは手前の探索前処理と動き解析の半径が
@@ -1969,7 +1970,11 @@ int NVEncFilterKfm::sourceCacheTrimFloor() const {
             lazyLookbehind = m_deint60Rtgmc->requiredPrimingSourceFrames();
             if (prm->kfm.ucf && (m_before60Rtgmc || m_after60Rtgmc)) {
                 lazyLookbehind += std::max(m_before60Lane.requiredPrimingSourceFrames(), m_after60Lane.requiredPrimingSourceFrames())
-                    + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY + 4 + KFM_UCF_LAZY_SOURCE_CACHE_MARGIN;
+                    + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY + 4;
+                if (branchNrEnabled(*prm)) {
+                    // 枝NRは24p・30pの隣接出力も前後にたどる。
+                    lazyLookbehind += KFM_UCF_LAZY_SOURCE_CACHE_MARGIN;
+                }
             }
         }
         trimFloor = std::max(0, (m_nextSwitchN60 >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND - lazyLookbehind);
@@ -2374,11 +2379,14 @@ void NVEncFilterKfm::purgeDeint60Intermediates(int sourceBegin, int sourceEnd) {
     }
 }
 
-void NVEncFilterKfm::trimDeint60Intermediates() {
+void NVEncFilterKfm::trimDeint60Intermediates(int outputFloor) {
+    if (m_deint60IntermediateQueue.empty()) return;
     const int keepSourceFrames = std::max<int>(32, (int)sourceCacheLimit());
-    while (!m_deint60IntermediateQueue.empty() && m_deint60IntermediateQueue.front().sourceIndex + keepSourceFrames < m_cachedSourceFrames) {
-        m_deint60IntermediateQueue.pop_front();
-    }
+    const int trimFloor = std::max(outputFloor, m_cachedSourceFrames - keepSourceFrames);
+    // 巻き戻しで後から追加された古い中間画像も回収する。
+    m_deint60IntermediateQueue.erase(std::remove_if(m_deint60IntermediateQueue.begin(), m_deint60IntermediateQueue.end(),
+        [trimFloor](const KfmMainIntermediateGroup& group) { return group.sourceIndex < trimFloor; }),
+        m_deint60IntermediateQueue.end());
 }
 
 RGY_ERR NVEncFilterKfm::runUcfRtgmcBranch(KfmRtgmcLane& lane, const RGYFrameInfo *frame,
@@ -7766,6 +7774,13 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     }
 
     if (prm->kfm.mode == VppKfmMode::VFR) {
+        if (!m_deint60IntermediateQueue.empty() && lazyDeint60Enabled(*prm) && !branchNrEnabled(*prm)) {
+            // 出力済み区間は前後レーンの巻き戻しに使う近傍だけを残す。
+            // その場で作り直した古い画像を消費前に捨てないよう、入力呼び出しの境界で回収する。
+            const int priming = std::max(m_before60Lane.requiredPrimingSourceFrames(), m_after60Lane.requiredPrimingSourceFrames());
+            const int lookbehind = KFM_VFR_SOURCE_TRIM_LOOKBEHIND + priming + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY;
+            trimDeint60Intermediates((m_nextSwitchN60 >> 1) - lookbehind);
+        }
         auto sts = RGY_ERR_NONE;
         if (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) {
             sts = analyzeAvailableSource(true, stream);

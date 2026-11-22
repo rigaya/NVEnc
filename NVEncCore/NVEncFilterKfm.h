@@ -400,7 +400,7 @@ protected:
     RGY_ERR ensureDeint60IntermediateForSource(int sourceIndex, cudaStream_t stream);
     bool pushDeint60Intermediates(NVEncFilterRtgmc *rtgmc, int sourceIndex, uint64_t *generation = nullptr);
     void purgeDeint60Intermediates(int sourceBegin, int sourceEnd);
-    void trimDeint60Intermediates();
+    void trimDeint60Intermediates(int outputFloor = 0);
     std::shared_ptr<CUFrameBuf> acquireKfmFrame(const RGYFrameInfo& info, const TCHAR *label);
     RGY_ERR allocWorkFrameBuf(const RGYFrameInfo& frame, int frames);
     RGYFrameInfo *nextOutputFrame();

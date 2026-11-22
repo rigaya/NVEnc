@@ -584,6 +584,7 @@ RGY_ERR NVEncFilterRtgmc::initRetouchCompFilters(const std::shared_ptr<NVEncFilt
         param->degrain.mode = modes[i];
         param->degrain.stage = VppDegrainStage::TR1;
         param->zeroCopyCache = true;
+        param->compactAnalysisLuma = prm->reuseOutputFrames;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to initialize retouch helper %s: %s.\n"),
@@ -1480,6 +1481,9 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
         childParam->frameOut = currentFrame;
         childParam->baseFps = currentFps;
         childParam->bOutOverwrite = false;
+        if (auto degrain = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(childParam)) {
+            degrain->compactAnalysisLuma = prm->reuseOutputFrames;
+        }
         auto sts = filter->init(childParam, m_pLog);
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -1801,10 +1805,13 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
         prm->frameOut.height = prm->frameIn.height;
     }
     prm->baseFps = currentFps;
-    auto sts = AllocFrameBuf(prm->frameOut, RGY_RTGMC_MAX_OUT_FRAMES);
+    auto sts = AllocFrameBuf(prm->frameOut, prm->reuseOutputFrames ? 1 : RGY_RTGMC_MAX_OUT_FRAMES);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocateoutput buffer: %s.\n"), get_err_mes(sts));
         return sts;
+    }
+    if (prm->reuseOutputFrames) {
+        m_frameBuf.resize(RGY_RTGMC_MAX_OUT_FRAMES);
     }
     for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
@@ -2372,16 +2379,46 @@ void NVEncFilterRtgmc::eraseAnalyzeOutputUnusedFrameData(RGYFrameInfo *frame) {
 RGY_ERR NVEncFilterRtgmc::captureIntermediateFrame(const RGYFrameInfo *frame, cudaStream_t stream,
     const std::vector<RGYCudaEvent>& waitEvents) {
     if (!m_captureIntermediate || !frame || !frame->ptr[0]) return RGY_ERR_NONE;
-    auto buf = getSharedFrameBuffer(frame);
-    if (!buf) return RGY_ERR_MEMORY_ALLOC;
+    std::shared_ptr<CUFrameBuf> buf;
     RGYCudaEvent captured;
-    const auto sts = rtgmcCopyFrameWithEvent(&buf->frame, frame, stream, waitEvents, &captured);
-    if (sts != RGY_ERR_NONE) return sts;
-    copyFramePropWithoutRes(&buf->frame, frame);
+    const auto edi = rtgmcGetAttachedEdi(frame);
+    if (edi && edi->sourcePtr0() == frame->ptr[0] && edi->frame() && edi->frame()->ptr[0]
+        && !cmpFrameInfoCspResolution(edi->frame(), frame) && edi->frame()->bitdepth == frame->bitdepth
+        && edi->frame()->inputFrameId == frame->inputFrameId && edi->frame()->timestamp == frame->timestamp) {
+        // EDI出力と同じ画素を保持するバッファをUCFの中間画像にも使う。
+        buf = edi->frameRef();
+        auto sts = rtgmcWaitEvents(stream, waitEvents);
+        if (sts != RGY_ERR_NONE) return sts;
+        sts = rtgmcRecordEvent(stream, &captured);
+        if (sts != RGY_ERR_NONE) return sts;
+    } else {
+        buf = getSharedFrameBuffer(frame);
+        if (!buf) return RGY_ERR_MEMORY_ALLOC;
+        const auto sts = rtgmcCopyFrameWithEvent(&buf->frame, frame, stream, waitEvents, &captured);
+        if (sts != RGY_ERR_NONE) return sts;
+    }
+    // EDIの実体へ参照を戻すと自己参照になるため、捕捉時の付帯情報は別に持つ。
     auto info = buf->frame;
+    copyFramePropWithoutRes(&info, frame);
     info.dataList.push_back(std::make_shared<RGYFrameDataRtgmcFrameRef>(buf));
-    m_capturedIntermediates.push_back({ buf, info, captured });
+    m_capturedIntermediates.push_back({ buf, std::move(info), captured });
     return RGY_ERR_NONE;
+}
+
+RGYFrameInfo *NVEncFilterRtgmc::getOutputFrame(int index) {
+    auto& slot = m_frameBuf[index];
+    if (!slot) {
+        auto frame = std::make_unique<CUFrameBuf>(m_frameBuf.front()->frame);
+        frame->releasePtr();
+        frame->frame.dataList.clear();
+        const auto sts = frame->alloc();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate RTGMC output frame: %s.\n"), get_err_mes(sts));
+            return nullptr;
+        }
+        slot = std::move(frame);
+    }
+    return &slot->frame;
 }
 
 RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
@@ -2396,8 +2433,9 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
             return RGY_ERR_UNKNOWN;
         }
         const int outputIndex = m_outputBufferIndex;
+        auto pOut = getOutputFrame(outputIndex);
+        if (!pOut) return RGY_ERR_MEMORY_ALLOC;
         m_outputBufferIndex = (m_outputBufferIndex + 1) % (int)m_frameBuf.size();
-        auto pOut = &m_frameBuf[outputIndex]->frame;
         auto err = finalOutputWritten ? RGY_ERR_NONE : copyFinalOutput(pOut, pInputFrame, stream, wait_events, event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copyfinal output: %s.\n"), get_err_mes(err));
@@ -2429,12 +2467,13 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
 
     const auto prm = std::dynamic_pointer_cast<NVEncFilterParamRtgmc>(m_param);
     // TR2有効時の遅延/drain経路は今回の対象外とし、末尾がRep2だけの場合に限定する。
-    auto directOutput = filterIdx == RTGMC_FILTER_POST_TR2_SHIMMER_REPAIR && prm && !prm->rtgmc.border
+    const bool canWriteDirect = filterIdx == RTGMC_FILTER_POST_TR2_SHIMMER_REPAIR && prm && !prm->rtgmc.border
         && prm->rtgmc.tr2.delta <= 0 && !m_filters[RTGMC_FILTER_POST_TR2_LIMIT]
         && prm->rtgmc.lossless != 1 && !m_filters[RTGMC_FILTER_ADD_NOISE2]
         && m_pendingOutputFrames.size() < m_frameBuf.size()
-        && (storePending || *pOutputFrameNum < RGY_RTGMC_MAX_OUT_FRAMES)
-        ? &m_frameBuf[m_outputBufferIndex]->frame : nullptr;
+        && (storePending || *pOutputFrameNum < RGY_RTGMC_MAX_OUT_FRAMES);
+    auto directOutput = canWriteDirect ? getOutputFrame(m_outputBufferIndex) : nullptr;
+    if (canWriteDirect && !directOutput) return RGY_ERR_MEMORY_ALLOC;
     int childOutFrameNum = 0;
     RGYFrameInfo *childOutFrames[RGY_RTGMC_MAX_OUT_FRAMES] = { 0 };
     childOutFrames[0] = directOutput;
@@ -2690,6 +2729,12 @@ RGY_ERR NVEncFilterRtgmc::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOut
 RGY_ERR NVEncFilterRtgmc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
     *pOutputFrameNum = 0;
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamRtgmc>(m_param);
+    if (prm && prm->reuseOutputFrames && m_pendingOutputFrames.empty()) {
+        // KFMは次回の呼び出し前に同じストリームで出力の消費を投入する。
+        // 未返却のドレイン出力がないときは先頭から再利用できる。
+        m_outputBufferIndex = 0;
+    }
     if (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) {
         m_draining = true;
         if (!m_pendingOutputFrames.empty()) {
