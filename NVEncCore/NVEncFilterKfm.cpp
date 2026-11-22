@@ -388,6 +388,8 @@ NVEncFilterKfm::NVEncFilterKfm() :
     m_nrFilter(),
     m_analyzer(),
     m_kfmFramePool(),
+    m_kfmSourceSlab(),
+    m_kfmSourceSlabUsed(0),
     m_kfmSourceSlotFree(),
     m_kfmSourceSlotRetired(),
     m_sourceCache(),
@@ -1049,6 +1051,55 @@ std::shared_ptr<CUFrameBuf> NVEncFilterKfm::acquireKfmFrame(const RGYFrameInfo& 
     return frame;
 }
 
+std::shared_ptr<CUFrameBuf> NVEncFilterKfm::allocKfmSourceFrame(RGYFrameInfo info) {
+    int deviceId = 0;
+    int textureAlignment = 0;
+    int texturePitchAlignment = 0;
+    if (cudaGetDevice(&deviceId) != cudaSuccess
+        || cudaDeviceGetAttribute(&textureAlignment, cudaDevAttrTextureAlignment, deviceId) != cudaSuccess
+        || cudaDeviceGetAttribute(&texturePitchAlignment, cudaDevAttrTexturePitchAlignment, deviceId) != cudaSuccess
+        || textureAlignment <= 0 || texturePitchAlignment <= 0) {
+        return acquireKfmFrame(info, _T("padded source cache"));
+    }
+
+    info.mem_type = RGY_MEM_TYPE_GPU;
+    info.singleAlloc = false;
+    // 4:2:0の色差は上下2行の余白を持つため、中央のviewもテクスチャ境界に揃える。
+    const int pitchAlignment = std::max({ 128, texturePitchAlignment, textureAlignment / 2 });
+    size_t offsets[RGY_MAX_PLANES] = {};
+    size_t frameBytes = 0;
+    const int planes = RGY_CSP_PLANES[info.csp];
+    for (int i = 0; i < planes; i++) {
+        const auto plane = getPlane(&info, (RGY_PLANE)i);
+        info.pitch[i] = ALIGN(plane.width * bytesPerPix(info.csp), pitchAlignment);
+        offsets[i] = ALIGN(frameBytes, (size_t)textureAlignment);
+        frameBytes = offsets[i] + (size_t)info.pitch[i] * plane.height;
+    }
+    frameBytes = ALIGN(frameBytes, (size_t)textureAlignment);
+
+    // WDDMでは確保単位の端数が積み重なるため、複数フレームの全平面を同じ領域に詰める。
+    constexpr size_t framesPerSlab = 8;
+    if (!m_kfmSourceSlab || m_kfmSourceSlabUsed + frameBytes > m_kfmSourceSlab->nSize - (textureAlignment - 1)) {
+        auto slab = std::make_shared<CUMemBuf>(framesPerSlab * frameBytes + textureAlignment - 1, "KfmSourceSlot");
+        if (slab->alloc() != RGY_ERR_NONE) {
+            return acquireKfmFrame(info, _T("padded source cache"));
+        }
+        m_kfmSourceSlabUsed = 0;
+        m_kfmSourceSlab = std::move(slab);
+    }
+
+    const auto slabBase = ALIGN(reinterpret_cast<uintptr_t>(m_kfmSourceSlab->ptr), (uintptr_t)textureAlignment);
+    auto *base = reinterpret_cast<uint8_t *>(slabBase) + m_kfmSourceSlabUsed;
+    for (int i = 0; i < planes; i++) {
+        info.ptr[i] = base + offsets[i];
+    }
+    m_kfmSourceSlabUsed += frameBytes;
+    return std::shared_ptr<CUFrameBuf>(new CUFrameBuf(info), [slab = m_kfmSourceSlab](CUFrameBuf *frame) {
+        frame->releasePtr();
+        delete frame;
+    });
+}
+
 std::shared_ptr<NVEncFilterKfm::KfmSourceSlot> NVEncFilterKfm::acquireKfmSourceSlot(const RGYFrameInfo& sourceInfo) {
     collectRetiredKfmSourceSlots();
     auto matchSlot = [&sourceInfo](const std::shared_ptr<KfmSourceSlot>& slot) {
@@ -1068,7 +1119,7 @@ std::shared_ptr<NVEncFilterKfm::KfmSourceSlot> NVEncFilterKfm::acquireKfmSourceS
 
     auto paddedInfo = sourceInfo;
     paddedInfo.height += KFM_SOURCE_VPAD * 2;
-    auto paddedFrame = acquireKfmFrame(paddedInfo, _T("padded source cache"));
+    auto paddedFrame = allocKfmSourceFrame(paddedInfo);
     if (!paddedFrame) {
         return nullptr;
     }
@@ -1158,6 +1209,8 @@ void NVEncFilterKfm::clearKfmSourceSlotPool(bool wait) {
     }
     m_kfmSourceSlotRetired.clear();
     m_kfmSourceSlotFree.clear();
+    m_kfmSourceSlab.reset();
+    m_kfmSourceSlabUsed = 0;
 }
 
 RGY_ERR NVEncFilterKfm::trimSourceCache(cudaStream_t stream) {
@@ -1492,6 +1545,12 @@ RGY_ERR NVEncFilterKfm::initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& pr
     rtgmcParam->timebase = prm->timebase;
     rtgmcParam->bOutOverwrite = false;
     rtgmcParam->sharedAnalysisMode = sharedAnalysisMode;
+    if (rtgmcParam->rtgmc.noise.noiseProcess == 0 && rtgmcParam->rtgmc.sourceMatch == 0
+        && rtgmcParam->rtgmc.inputType == 0 && rtgmcParam->rtgmc.lossless == 0) {
+        // 原画を参照するのはEDIまで。KFMのプリセットでは手前の探索前処理と動き解析の半径が
+        // それぞれ最大2フィールドなので、ドレインと非同期判定の余裕を含めても16入力で収まる。
+        rtgmcParam->sourceCacheFrames = 16;
+    }
     // 有限窓の再投入(deint60のreset)で返却済みEDI画像を再利用する。
     // 0(全解放)だとresetのたびに定常分(17画像x3プレーン)をcudaFree/cudaMallocPitchし直し、
     // cudaFreeの暗黙同期も加わって遅くなる。reset時は17画像中15画像が返却済みなので、

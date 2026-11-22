@@ -819,31 +819,13 @@ static RGYDegrainLevel1LumaKey degrainOwnedAnalysisLumaKey(const RGYDegrainAnaly
     return {};
 }
 
-RGY_ERR NVEncFilterDegrain::allocCacheFrames(const RGYFrameInfo &frameInfo, int cacheSize) {
-    bool reuse = (int)m_cacheFrames.size() == cacheSize;
-    for (const auto &frame : m_cacheFrames) {
-        if (!frame || cmpFrameInfoCspResolution(&frame->frame, &frameInfo)) {
-            reuse = false;
-            break;
-        }
-        for (int i = 0; i < RGY_CSP_PLANES[frame->frame.csp]; i++) {
-            if (frame->frame.ptr[i] == nullptr) {
-                reuse = false;
-                break;
-            }
-        }
-        if (!reuse) {
-            break;
-        }
-    }
-    if (reuse) {
+RGY_ERR NVEncFilterDegrain::allocCacheFrames(const RGYFrameInfo &frameInfo, int cacheSize, bool zeroCopy) {
+    m_cacheFrames.clear();
+    m_cacheFrames.resize(cacheSize);
+    // 借用できる入力が多いRTGMC等では、コピーが必要な枠だけを実行時に確保する。
+    if (zeroCopy) {
         return RGY_ERR_NONE;
     }
-
-    for (auto &frame : m_cacheFrames) {
-        frame.reset();
-    }
-    m_cacheFrames.resize(cacheSize);
     for (auto &frame : m_cacheFrames) {
         frame = std::make_unique<CUFrameBuf>(frameInfo);
         if (!frame || frame->alloc() != RGY_ERR_NONE) {
@@ -1211,6 +1193,9 @@ RGY_ERR NVEncFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, cuda
         if (zeroCopyOwner) {
             // 解析lumaやNR出力がdataListをコピーしても、baseを長期pinしない。
             clearInputOwner(zeroCopyRef);
+            if (m_cacheFrames[index]) {
+                m_cacheFrames[index]->frame.dataList.clear();
+            }
             m_cacheFrameRefs[index] = zeroCopyRef;
             m_cacheFrameOwners[index] = zeroCopyOwner;
             err = degrainRecordEvent(stream, event);
@@ -1223,7 +1208,18 @@ RGY_ERR NVEncFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, cuda
     }
     m_cacheFrameRefs[index] = RGYFrameInfo();
     m_cacheFrameOwners[index].reset();
-    auto pCacheFrame = &m_cacheFrames[index]->frame;
+    auto& cache = m_cacheFrames[index];
+    if (!cache) {
+        auto frame = std::make_unique<CUFrameBuf>(*pInputFrame);
+        frame->releasePtr();
+        err = frame->alloc();
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain cache slot %d: %s.\n"), index, get_err_mes(err));
+            return err;
+        }
+        cache = std::move(frame);
+    }
+    auto pCacheFrame = &cache->frame;
     err = copyFrameAsync(pCacheFrame, pInputFrame, stream);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy input to degrain cache slot %d: %s.\n"),
@@ -1248,7 +1244,7 @@ RGY_ERR NVEncFilterDegrain::feedFrameOnly(const RGYFrameInfo *pInputFrame, cudaS
     if (!prm) {
         return RGY_ERR_INVALID_PARAM;
     }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_cacheFrames[0]->frame.mem_type);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, RGY_MEM_TYPE_GPU);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         return RGY_ERR_UNSUPPORTED;
     }
@@ -1667,7 +1663,7 @@ RGY_ERR NVEncFilterDegrain::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return sts;
     }
 
-    sts = allocCacheFrames(prm->frameIn, prm->inputCacheSize);
+    sts = allocCacheFrames(prm->frameIn, prm->inputCacheSize, prm->zeroCopyCache);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain cache: %s.\n"), get_err_mes(sts));
         return sts;
@@ -1757,7 +1753,7 @@ RGY_ERR NVEncFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
             m_bInterlacedWarn = true;
         }
 
-        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_cacheFrames[0]->frame.mem_type);
+        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, RGY_MEM_TYPE_GPU);
         if (memcpyKind != cudaMemcpyDeviceToDevice) {
             AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -1842,6 +1838,11 @@ void NVEncFilterDegrain::resetTemporalState() {
     }
     for (auto &owner : m_cacheFrameOwners) {
         owner.reset();
+    }
+    for (auto& frame : m_cacheFrames) {
+        if (frame) {
+            frame->frame.dataList.clear();
+        }
     }
     // input/output counters
     m_inputCount = 0;

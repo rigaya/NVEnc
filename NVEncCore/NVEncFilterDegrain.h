@@ -106,7 +106,7 @@ public:
 protected:
 
     RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamDegrain> &prm);
-    RGY_ERR allocCacheFrames(const RGYFrameInfo &frameInfo, int cacheSize);
+    RGY_ERR allocCacheFrames(const RGYFrameInfo &frameInfo, int cacheSize, bool zeroCopy);
     RGY_ERR pushCacheFrame(const RGYFrameInfo *pInputFrame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event = nullptr);
     const RGYFrameInfo *cacheFrame(int frame) const;
     RGY_ERR emitSourceFrame(const RGYFrameInfo *pCurrentFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,

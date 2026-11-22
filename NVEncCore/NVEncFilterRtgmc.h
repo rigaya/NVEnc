@@ -73,8 +73,9 @@ public:
     bool sharedAnalysisMode;
     // 内部利用時のresetで残す返却済みEDI画像数。通常経路は従来どおり全解放する。
     size_t ediPoolResetRetainFrames;
+    size_t sourceCacheFrames;
 
-    NVEncFilterParamRtgmc() : rtgmc(), timebase(), sharedAnalysisMode(false), ediPoolResetRetainFrames(0) {}
+    NVEncFilterParamRtgmc() : rtgmc(), timebase(), sharedAnalysisMode(false), ediPoolResetRetainFrames(0), sourceCacheFrames(256) {}
     virtual ~NVEncFilterParamRtgmc() {}
     virtual tstring print() const override { return rtgmc.print(); }
 };
@@ -172,7 +173,7 @@ public:
     struct RtgmcSharedAnalysisData {
         NVEncFilterDegrain *analyzeFilter;
         std::deque<RtgmcPendingEdiRef> *pendingEdiRefs;
-        std::array<RtgmcSourceCacheFrame, 256> *sourceCache;
+        std::vector<RtgmcSourceCacheFrame> *sourceCache;
         std::deque<RtgmcPendingCompRef> *pendingCompRefs;
         std::deque<RtgmcPendingFrameRef> *pendingNoiseRefs;
         std::shared_ptr<NVRtgmcSharedFramePool> sharedFramePool;
@@ -278,7 +279,7 @@ protected:
     std::deque<RtgmcPendingCompRef> m_pendingCompRefs;
     std::deque<RtgmcPendingFrameRef> m_pendingPostLimitBaseRefs;
     std::deque<int> m_pendingOutputFrames;
-    std::array<RtgmcSourceCacheFrame, 256> m_sourceCache;
+    std::vector<RtgmcSourceCacheFrame> m_sourceCache;
     std::shared_ptr<NVRtgmcSharedFramePool> m_sharedFramePool;
     std::shared_ptr<NVRtgmcSharedFramePool> m_ediSideDataFramePool;
     std::unique_ptr<CUFrameBuf> m_borderFrame;

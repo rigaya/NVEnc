@@ -468,6 +468,7 @@ protected:
     bool deriveTelecine24TimingAt(KfmSwitchTiming& timing, int n60, int total60, bool afterRff) const;
     int64_t sourceFrameDuration(const KfmCachedSource *source) const;
     struct KfmSourceSlot;
+    std::shared_ptr<CUFrameBuf> allocKfmSourceFrame(RGYFrameInfo info);
     std::shared_ptr<KfmSourceSlot> acquireKfmSourceSlot(const RGYFrameInfo& sourceInfo);
     RGY_ERR retireKfmSourceSlot(std::shared_ptr<KfmSourceSlot>&& slot, cudaStream_t stream);
     void collectRetiredKfmSourceSlots();
@@ -767,6 +768,8 @@ protected:
 
     std::unique_ptr<RGYKFM::KFMAnalyze> m_analyzer;
     std::shared_ptr<SharedFramePool> m_kfmFramePool;
+    std::shared_ptr<CUMemBuf> m_kfmSourceSlab;
+    size_t m_kfmSourceSlabUsed;
     std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotFree;
     std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotRetired;
     std::deque<KfmCachedSource> m_sourceCache;

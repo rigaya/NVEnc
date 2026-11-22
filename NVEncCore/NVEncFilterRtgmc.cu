@@ -1822,6 +1822,7 @@ RGY_ERR NVEncFilterRtgmc::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
     m_sharedAnalysisMode = prm->sharedAnalysisMode;
     close();
     m_param = prm;
+    m_sourceCache.resize(std::max<size_t>(1, prm->sourceCacheFrames));
     sts = initFilters(prm);
     if (sts != RGY_ERR_NONE) {
         close();
