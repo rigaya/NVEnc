@@ -35,7 +35,11 @@
 #if ENABLE_LIBPLACEBO
 
 #if defined(_WIN32) || defined(_WIN64)
+#if PL_API_VER >= 387
+const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo-387.dll");
+#else
 const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo-360.dll");
+#endif
 #elif LIBPLACEBO_STATIC_LINK
 const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo (static)");
 #else
@@ -182,6 +186,9 @@ bool RGYLibplaceboLoader::load() {
 
 #if defined(_WIN32) || defined(_WIN64)
     const TCHAR *libraryNames[] = {
+#if PL_API_VER >= 387
+        _T("libplacebo-387.dll"),
+#endif
 #if PL_API_VER >= 360
         _T("libplacebo-360.dll"),
 #endif
@@ -195,6 +202,9 @@ bool RGYLibplaceboLoader::load() {
     };
 #else
     const TCHAR *libraryNames[] = {
+#if PL_API_VER >= 387
+        _T("libplacebo.so.387"),
+#endif
 #if PL_API_VER >= 360
         _T("libplacebo.so.360"),
 #endif
@@ -209,6 +219,9 @@ bool RGYLibplaceboLoader::load() {
     };
 #endif
     const int apiVersions[] = {
+#if PL_API_VER >= 387
+        387,
+#endif
 #if PL_API_VER >= 360
         360,
 #endif
@@ -340,7 +353,14 @@ void RGYLibplaceboLoader::close() {
 #endif
 namespace {
 
-// API 360の公開構造体を、動的ロードした旧APIが期待するABI配置へ詰め替える。
+// ビルド時に使用したヘッダーの描画ABIを示す。
+constexpr int nativeRenderApi =
+#if PL_API_VER >= 387
+    387;
+#else
+    360;
+#endif
+
 struct PLPeakDetectParams338 {
     float smoothing_period;
     float scene_threshold_low;
@@ -362,11 +382,10 @@ struct PLRenderBackground338 {
 };
 
 struct alignas(pl_render_params) PLRenderParamsLegacy {
-    std::array<uint8_t, sizeof(pl_render_params) - sizeof(float)> data;
+    std::array<uint8_t, sizeof(pl_render_params)> data;
 };
 
 static_assert(sizeof(PLPeakDetectParams338) == sizeof(pl_peak_detect_params));
-static_assert(sizeof(PLRenderBackground338) == offsetof(pl_render_params, skip_anti_aliasing) - offsetof(pl_render_params, background) - sizeof(float));
 
 static PLPeakDetectParams338 peak_detect_params_to_338(const pl_peak_detect_params& params) {
     PLPeakDetectParams338 legacy = {};
@@ -391,71 +410,144 @@ static pl_peak_detect_params peak_detect_params_from_338(const PLPeakDetectParam
     return params;
 }
 
+static constexpr size_t align_up(const size_t offset, const size_t alignment) {
+    return (offset + alignment - 1) / alignment * alignment;
+}
+
+// bool群の追加・削除で後続ポインターまでのパディングも変わる。
+static void copy_render_params_suffix(uint8_t *dst, const size_t dstFlagsOffset,
+    const uint8_t *src, const size_t srcFlagsOffset, const size_t sizeAfterCallback) {
+    constexpr auto flagsSize = offsetof(pl_render_params, dynamic_constants) + sizeof(bool)
+        - offsetof(pl_render_params, skip_anti_aliasing);
+    constexpr auto callbackAlignment = alignof(decltype(pl_render_params::info_callback));
+    std::memcpy(dst + dstFlagsOffset, src + srcFlagsOffset, flagsSize);
+    std::memcpy(dst + align_up(dstFlagsOffset + flagsSize, callbackAlignment),
+        src + align_up(srcFlagsOffset + flagsSize, callbackAlignment), sizeAfterCallback);
+}
+
+static size_t render_params_legacy_flags_offset(const int apiVersion) {
+    if (apiVersion >= 360) {
+        return offsetof(pl_render_params, corner_rounding) + sizeof(float);
+    }
+    if (apiVersion >= 349) {
+        return offsetof(pl_render_params, blur_radius) + sizeof(float);
+    }
+    return offsetof(pl_render_params, background) + sizeof(PLRenderBackground338);
+}
+
+static size_t render_params_legacy_tail_size(const int apiVersion) {
+    const auto end = (apiVersion >= 349)
+        ? offsetof(pl_render_params, blend_against_tiles) + sizeof(bool)
+        : offsetof(pl_render_params, skip_target_clearing);
+    return end - offsetof(pl_render_params, info_callback);
+}
+
 static PLRenderParamsLegacy render_params_to_legacy(const pl_render_params& params, const int apiVersion) {
     PLRenderParamsLegacy legacy = {};
-    if (apiVersion >= 349) {
+    const auto src = reinterpret_cast<const uint8_t *>(&params);
+    if (apiVersion >= 360) {
+        std::memcpy(legacy.data.data(), src, render_params_legacy_flags_offset(apiVersion));
+    } else if (apiVersion >= 349) {
         constexpr auto prefixSize = offsetof(pl_render_params, blur_radius);
-        constexpr auto suffixOffset = offsetof(pl_render_params, corner_rounding);
-        std::memcpy(legacy.data.data(), &params, prefixSize);
-        std::memcpy(legacy.data.data() + prefixSize,
-            reinterpret_cast<const uint8_t *>(&params) + suffixOffset,
-            sizeof(pl_render_params) - suffixOffset);
-        return legacy;
+        std::memcpy(legacy.data.data(), src, prefixSize);
+        std::memcpy(legacy.data.data() + prefixSize, &params.corner_rounding, sizeof(float));
+    } else {
+        constexpr auto prefixSize = offsetof(pl_render_params, background);
+        std::memcpy(legacy.data.data(), src, prefixSize);
+        PLRenderBackground338 background = {};
+        std::memcpy(background.background_color, params.background_color, sizeof(background.background_color));
+        background.background_transparency = params.background_transparency;
+        background.skip_target_clearing = params.skip_target_clearing || params.border == PL_CLEAR_SKIP;
+        background.corner_rounding = params.corner_rounding;
+        background.blend_against_tiles = params.blend_against_tiles || params.background == PL_CLEAR_TILES;
+        std::memcpy(background.tile_colors, params.tile_colors, sizeof(background.tile_colors));
+        background.tile_size = params.tile_size;
+        std::memcpy(legacy.data.data() + prefixSize, &background, sizeof(background));
     }
-
-    constexpr auto prefixSize = offsetof(pl_render_params, background);
-    constexpr auto suffixOffset = offsetof(pl_render_params, skip_anti_aliasing);
-    constexpr auto suffixSize = offsetof(pl_render_params, skip_target_clearing) - suffixOffset;
-    std::memcpy(legacy.data.data(), &params, prefixSize);
-
-    PLRenderBackground338 background = {};
-    std::memcpy(background.background_color, params.background_color, sizeof(background.background_color));
-    background.background_transparency = params.background_transparency;
-    background.skip_target_clearing = params.skip_target_clearing || params.border == PL_CLEAR_SKIP;
-    background.corner_rounding = params.corner_rounding;
-    background.blend_against_tiles = params.blend_against_tiles || params.background == PL_CLEAR_TILES;
-    std::memcpy(background.tile_colors, params.tile_colors, sizeof(background.tile_colors));
-    background.tile_size = params.tile_size;
-    std::memcpy(legacy.data.data() + prefixSize, &background, sizeof(background));
-    std::memcpy(legacy.data.data() + prefixSize + sizeof(background),
-        reinterpret_cast<const uint8_t *>(&params) + suffixOffset, suffixSize);
+    copy_render_params_suffix(legacy.data.data(), render_params_legacy_flags_offset(apiVersion),
+        src, offsetof(pl_render_params, skip_anti_aliasing), render_params_legacy_tail_size(apiVersion));
     return legacy;
 }
 
 static pl_render_params render_params_from_legacy(const void *legacyPtr, const int apiVersion) {
     pl_render_params params = {};
     const auto legacy = reinterpret_cast<const uint8_t *>(legacyPtr);
-    if (apiVersion >= 349) {
+    auto dst = reinterpret_cast<uint8_t *>(&params);
+    if (apiVersion >= 360) {
+        std::memcpy(dst, legacy, render_params_legacy_flags_offset(apiVersion));
+    } else if (apiVersion >= 349) {
         constexpr auto prefixSize = offsetof(pl_render_params, blur_radius);
-        constexpr auto suffixOffset = offsetof(pl_render_params, corner_rounding);
-        std::memcpy(&params, legacy, prefixSize);
+        std::memcpy(dst, legacy, prefixSize);
+        std::memcpy(&params.corner_rounding, legacy + prefixSize, sizeof(float));
         params.blur_radius = 16.0f;
-        std::memcpy(reinterpret_cast<uint8_t *>(&params) + suffixOffset,
-            legacy + prefixSize, sizeof(pl_render_params) - suffixOffset);
-        return params;
+    } else {
+        constexpr auto prefixSize = offsetof(pl_render_params, background);
+        std::memcpy(dst, legacy, prefixSize);
+        PLRenderBackground338 background = {};
+        std::memcpy(&background, legacy + prefixSize, sizeof(background));
+        params.background = background.blend_against_tiles ? PL_CLEAR_TILES : PL_CLEAR_COLOR;
+        params.border = background.skip_target_clearing ? PL_CLEAR_SKIP : PL_CLEAR_COLOR;
+        std::memcpy(params.background_color, background.background_color, sizeof(params.background_color));
+        params.background_transparency = background.background_transparency;
+        std::memcpy(params.tile_colors, background.tile_colors, sizeof(params.tile_colors));
+        params.tile_size = background.tile_size;
+        params.blur_radius = 16.0f;
+        params.corner_rounding = background.corner_rounding;
+        params.skip_target_clearing = background.skip_target_clearing;
+        params.blend_against_tiles = background.blend_against_tiles;
     }
-
-    constexpr auto prefixSize = offsetof(pl_render_params, background);
-    constexpr auto suffixOffset = offsetof(pl_render_params, skip_anti_aliasing);
-    constexpr auto suffixSize = offsetof(pl_render_params, skip_target_clearing) - suffixOffset;
-    std::memcpy(&params, legacy, prefixSize);
-
-    PLRenderBackground338 background = {};
-    std::memcpy(&background, legacy + prefixSize, sizeof(background));
-    params.background = background.blend_against_tiles ? PL_CLEAR_TILES : PL_CLEAR_COLOR;
-    params.border = background.skip_target_clearing ? PL_CLEAR_SKIP : PL_CLEAR_COLOR;
-    std::memcpy(params.background_color, background.background_color, sizeof(params.background_color));
-    params.background_transparency = background.background_transparency;
-    std::memcpy(params.tile_colors, background.tile_colors, sizeof(params.tile_colors));
-    params.tile_size = background.tile_size;
-    params.blur_radius = 16.0f;
-    params.corner_rounding = background.corner_rounding;
-    std::memcpy(reinterpret_cast<uint8_t *>(&params) + suffixOffset,
-        legacy + prefixSize + sizeof(background), suffixSize);
-    params.skip_target_clearing = background.skip_target_clearing;
-    params.blend_against_tiles = background.blend_against_tiles;
+    copy_render_params_suffix(dst, offsetof(pl_render_params, skip_anti_aliasing),
+        legacy, render_params_legacy_flags_offset(apiVersion), render_params_legacy_tail_size(apiVersion));
     return params;
 }
+
+#if PL_API_VER >= 387
+// API 360以前のフレームにはenhancement_layerとpixel_aspect_ratioがない。
+struct alignas(pl_frame) PLFrameLegacy {
+    std::array<uint8_t, sizeof(pl_frame)> data;
+};
+
+static PLFrameLegacy frame_to_legacy(const pl_frame& frame) {
+    constexpr auto prefixSize = offsetof(pl_frame, enhancement_layer);
+    constexpr auto middleOffset = offsetof(pl_frame, field);
+    constexpr auto middleSize = offsetof(pl_frame, pixel_aspect_ratio) - middleOffset;
+    constexpr auto overlaysOffset = offsetof(pl_frame, overlays);
+    constexpr auto legacyOverlaysOffset = align_up(prefixSize + middleSize, alignof(decltype(pl_frame::overlays)));
+    PLFrameLegacy legacy = {};
+    const auto src = reinterpret_cast<const uint8_t *>(&frame);
+    std::memcpy(legacy.data.data(), src, prefixSize);
+    std::memcpy(legacy.data.data() + prefixSize, src + middleOffset, middleSize);
+    std::memcpy(legacy.data.data() + legacyOverlaysOffset, src + overlaysOffset, sizeof(pl_frame) - overlaysOffset);
+    return legacy;
+}
+
+struct alignas(pl_color_map_params) PLColorMapParamsLegacy {
+    std::array<uint8_t, sizeof(pl_color_map_params) - 2 * sizeof(float)> data;
+};
+
+static constexpr auto colorMapPrefixSize = offsetof(pl_color_map_params, mastering_clip);
+static constexpr auto colorMapSuffixOffset = offsetof(pl_color_map_params, lut_size);
+static_assert(colorMapSuffixOffset - colorMapPrefixSize == 2 * sizeof(float));
+
+static PLColorMapParamsLegacy color_map_params_to_legacy(const pl_color_map_params& params) {
+    PLColorMapParamsLegacy legacy = {};
+    const auto src = reinterpret_cast<const uint8_t *>(&params);
+    std::memcpy(legacy.data.data(), src, colorMapPrefixSize);
+    std::memcpy(legacy.data.data() + colorMapPrefixSize,
+        src + colorMapSuffixOffset, sizeof(pl_color_map_params) - colorMapSuffixOffset);
+    return legacy;
+}
+
+static pl_color_map_params color_map_params_from_legacy(const void *legacyPtr) {
+    pl_color_map_params params = {};
+    auto dst = reinterpret_cast<uint8_t *>(&params);
+    const auto legacy = reinterpret_cast<const uint8_t *>(legacyPtr);
+    std::memcpy(dst, legacy, colorMapPrefixSize);
+    std::memcpy(dst + colorMapSuffixOffset,
+        legacy + colorMapPrefixSize, sizeof(pl_color_map_params) - colorMapSuffixOffset);
+    return params;
+}
+#endif
 
 static pl_color_system color_system_to_legacy(const pl_color_system colorSystem, const int apiVersion) {
     if (apiVersion >= 360 || colorSystem < PL_COLOR_SYSTEM_YCGCO_RE) {
@@ -467,14 +559,6 @@ static pl_color_system color_system_to_legacy(const pl_color_system colorSystem,
     return static_cast<pl_color_system>(static_cast<int>(colorSystem) - 2);
 }
 
-static pl_color_system color_system_from_legacy(const pl_color_system colorSystem, const int apiVersion) {
-    constexpr auto legacyRgb = static_cast<int>(PL_COLOR_SYSTEM_RGB) - 2;
-    if (apiVersion >= 360 || static_cast<int>(colorSystem) < legacyRgb) {
-        return colorSystem;
-    }
-    return static_cast<pl_color_system>(static_cast<int>(colorSystem) + 2);
-}
-
 } // 無名名前空間
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
@@ -483,7 +567,7 @@ static pl_color_system color_system_from_legacy(const pl_color_system colorSyste
 
 pl_render_params RGYLibplaceboLoader::p_render_default_params() const {
 #if PL_API_VER >= 360
-    if (m_apiVersion < 360) {
+    if (m_apiVersion < nativeRenderApi) {
         return render_params_from_legacy(m_pl_render_default_params, m_apiVersion);
     }
 #endif
@@ -497,6 +581,15 @@ pl_peak_detect_params RGYLibplaceboLoader::p_peak_detect_default_params() const 
     }
 #endif
     return *m_pl_peak_detect_default_params;
+}
+
+pl_color_map_params RGYLibplaceboLoader::p_color_map_default_params() const {
+#if PL_API_VER >= 387
+    if (m_apiVersion < 387) {
+        return color_map_params_from_legacy(m_pl_color_map_default_params);
+    }
+#endif
+    return *m_pl_color_map_default_params;
 }
 
 #if ENABLE_D3D11
@@ -526,21 +619,35 @@ pl_vulkan RGYLibplaceboLoader::create_vulkan(pl_log log, const pl_vulkan_params 
 
 bool RGYLibplaceboLoader::render_image(pl_renderer renderer, const pl_frame *image, const pl_frame *target, const pl_render_params *params) const {
 #if PL_API_VER >= 360
-    if (m_apiVersion < 360) {
-        auto imageLegacy = *image;
+    if (m_apiVersion < nativeRenderApi) {
+        auto imageLegacy = image ? *image : pl_frame{};
         auto targetLegacy = *target;
         imageLegacy.repr.sys = color_system_to_legacy(imageLegacy.repr.sys, m_apiVersion);
         targetLegacy.repr.sys = color_system_to_legacy(targetLegacy.repr.sys, m_apiVersion);
 
-        auto paramsCopy = *params;
+        auto paramsCopy = params ? *params : pl_render_params{};
         PLPeakDetectParams338 peakDetectLegacy = {};
         if (m_apiVersion < 349 && paramsCopy.peak_detect_params != nullptr) {
             peakDetectLegacy = peak_detect_params_to_338(*paramsCopy.peak_detect_params);
             paramsCopy.peak_detect_params = reinterpret_cast<const pl_peak_detect_params *>(&peakDetectLegacy);
         }
+#if PL_API_VER >= 387
+        PLColorMapParamsLegacy colorMapLegacy = {};
+        if (paramsCopy.color_map_params != nullptr && paramsCopy.color_map_params != m_pl_color_map_default_params) {
+            colorMapLegacy = color_map_params_to_legacy(*paramsCopy.color_map_params);
+            paramsCopy.color_map_params = reinterpret_cast<const pl_color_map_params *>(colorMapLegacy.data.data());
+        }
+        const auto imageABI = frame_to_legacy(imageLegacy);
+        const auto targetABI = frame_to_legacy(targetLegacy);
+        const auto imagePtr = reinterpret_cast<const pl_frame *>(imageABI.data.data());
+        const auto targetPtr = reinterpret_cast<const pl_frame *>(targetABI.data.data());
+#else
+        const auto imagePtr = &imageLegacy;
+        const auto targetPtr = &targetLegacy;
+#endif
         const auto paramsLegacy = render_params_to_legacy(paramsCopy, m_apiVersion);
-        return m_pl_render_image(renderer, &imageLegacy, &targetLegacy,
-            reinterpret_cast<const pl_render_params *>(paramsLegacy.data.data()));
+        return m_pl_render_image(renderer, image ? imagePtr : nullptr, targetPtr,
+            params ? reinterpret_cast<const pl_render_params *>(paramsLegacy.data.data()) : nullptr);
     }
 #endif
     return m_pl_render_image(renderer, image, target, params);
@@ -548,12 +655,17 @@ bool RGYLibplaceboLoader::render_image(pl_renderer renderer, const pl_frame *ima
 
 void RGYLibplaceboLoader::frame_set_chroma_location(pl_frame *frame, pl_chroma_location chroma_location) const {
 #if PL_API_VER >= 360
-    if (m_apiVersion < 360) {
+    if (m_apiVersion < nativeRenderApi) {
         auto legacy = *frame;
         legacy.repr.sys = color_system_to_legacy(legacy.repr.sys, m_apiVersion);
+#if PL_API_VER >= 387
+        auto legacyABI = frame_to_legacy(legacy);
+        m_pl_frame_set_chroma_location(reinterpret_cast<pl_frame *>(legacyABI.data.data()), chroma_location);
+        std::memcpy(frame->planes, legacyABI.data.data() + offsetof(pl_frame, planes), sizeof(frame->planes));
+#else
         m_pl_frame_set_chroma_location(&legacy, chroma_location);
-        legacy.repr.sys = color_system_from_legacy(legacy.repr.sys, m_apiVersion);
-        *frame = legacy;
+        std::memcpy(frame->planes, legacy.planes, sizeof(frame->planes));
+#endif
         return;
     }
 #endif

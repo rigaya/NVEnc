@@ -1533,7 +1533,7 @@ tstring NVEncFilterLibplaceboToneMapping::printParams(const NVEncFilterParamLibp
 }
 
 #if ENABLE_LIBDOVI
-static std::unique_ptr<pl_dovi_metadata> createDOVIMeta(const DoviRpuOpaque *rpu, const DoviRpuDataHeader *hdr) {
+static std::unique_ptr<pl_dovi_metadata> createDOVIMeta(const DoviRpuOpaque *rpu, const DoviRpuDataHeader *hdr, [[maybe_unused]] const int apiVersion) {
     auto dovi_meta = std::make_unique<pl_dovi_metadata>();
     if (hdr->use_prev_vdr_rpu_flag) {
         return dovi_meta;
@@ -1550,10 +1550,17 @@ static std::unique_ptr<pl_dovi_metadata> createDOVIMeta(const DoviRpuOpaque *rpu
                 cmp.method[i] = curve.mapping_idc;
             }
             {
+                // 新DLLはDolby Visionのピボットを2^bit_depthで正規化する。
+                auto pivotScale = (1 << (hdr->bl_bit_depth_minus8 + 8)) - 1;
+#if PL_API_VER >= 387
+                if (apiVersion >= 387) {
+                    pivotScale++;
+                }
+#endif
                 uint32_t pivot = 0;
                 for (int ip = 0; ip < (int)cmp.num_pivots; ip++) {
                     pivot += curve.pivots.data[ip];
-                    cmp.pivots[ip] = pivot / (float)((1 << (hdr->bl_bit_depth_minus8 + 8)) - 1);
+                    cmp.pivots[ip] = pivot / (float)pivotScale;
                 }
             }
 
@@ -1634,7 +1641,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setFrameParam(const RGYFrameInfo *pInp
                     return RGY_ERR_INVALID_PARAM;
                 }
                 const auto dovi_profile = header->guessed_profile;
-                m_tonemap.plDoviMeta = createDOVIMeta(rpu.get(), header.get());
+                m_tonemap.plDoviMeta = createDOVIMeta(rpu.get(), header.get(), m_pl->api_version());
 
                 m_tonemap.reprSrc->sys = PL_COLOR_SYSTEM_DOLBYVISION;
                 m_tonemap.reprSrc->dovi = m_tonemap.plDoviMeta.get();

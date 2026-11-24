@@ -147,7 +147,7 @@ public:
     pl_hdr_metadata p_hdr_metadata_empty() const { return *m_pl_hdr_metadata_empty; }
     pl_render_params p_render_default_params() const;
     pl_peak_detect_params p_peak_detect_default_params() const;
-    pl_color_map_params p_color_map_default_params() const { return *m_pl_color_map_default_params; }
+    pl_color_map_params p_color_map_default_params() const;
     pl_sigmoid_params p_sigmoid_default_params() const { return *m_pl_sigmoid_default_params; }
     pl_dither_params p_dither_default_params() const { return *m_pl_dither_default_params; }
 
