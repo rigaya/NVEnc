@@ -496,9 +496,8 @@ public:
             m_surfaces[i] = std::make_unique<PipelineTaskSurfacesPair>(std::move(frames[i]));
         }
     }
-    PipelineTaskSurface addSurface(std::unique_ptr<CUFrameBuf>& surf) {
-        deleteFreedSurface();
-        m_surfaces.push_back(std::move(std::unique_ptr<PipelineTaskSurfacesPair>(new PipelineTaskSurfacesPair(std::move(surf)))));
+    PipelineTaskSurface addSurface(std::unique_ptr<CUFrameBuf> surf) {
+        m_surfaces.push_back(std::make_unique<PipelineTaskSurfacesPair>(std::move(surf)));
         return m_surfaces.back()->getRef();
     }
     PipelineTaskSurface addSurface(std::unique_ptr<CUFrameCuvid>& surf) {
@@ -3938,7 +3937,7 @@ public:
                 // コピーを作ってそれをfilter関数に渡す
                 // vpp-rffなどoverwirteするフィルタのときに、filterframes.pop_front -> push がうまく動作しない
                 int nOutFrames = 0;
-                RGYFrameInfo *outInfo[16] = { 0 };
+                RGYFrameInfo *outInfo[NVEncFilter::MAX_OUTPUT_FRAMES] = { 0 };
                 RGYFrameInfo input = filterframes.front().first;
                 // ptr[0]==nullptr は通常フレームではなく、filter chainをflushするためのmarkerとして扱う。
                 const bool drainFrame = input.ptr[0] == nullptr;
@@ -4064,10 +4063,19 @@ public:
                 }
 
             } else {
-                frameVppOut = getWorkSurf();
+                frameVppOut = m_workSurfs.getFreeSurf();
                 if (!frameVppOut) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to get work surface for raw output.\n"));
-                    return RGY_ERR_NULL_PTR;
+                    // 1入力から複数枚出る場合、下流に渡すまで使用中の出力バッファは解放されない。
+                    // 不足分だけ追加し、以降の出力でも再利用する。
+                    const auto& frameInfo = m_vpFilters.back()->GetFilterParam()->frameOut;
+                    NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                    auto buffer = std::make_unique<CUFrameBuf>(frameInfo);
+                    const auto sts = (frameInfo.mem_type == RGY_MEM_TYPE_CPU) ? buffer->allocHost() : buffer->alloc();
+                    if (sts != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to allocate work surface for raw output: %s.\n"), get_err_mes(sts));
+                        return sts;
+                    }
+                    frameVppOut = m_workSurfs.addSurface(std::move(buffer));
                 }
             }
             if (m_stopwatch) m_stopwatch->add(0, 2);

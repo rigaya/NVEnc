@@ -7295,7 +7295,7 @@ NVENCSTATUS NVEncCore::Encode() {
 
                 NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
                 int nOutFrames = 0;
-                RGYFrameInfo *outInfo[16] = { 0 };
+                RGYFrameInfo *outInfo[NVEncFilter::MAX_OUTPUT_FRAMES] = { 0 };
                 auto sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames, cudaStreamDefault);
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());

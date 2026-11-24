@@ -3559,17 +3559,18 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
         m_Mux.thread.thRawVideo->qPackets.push(pktFrame);
         SetEvent(m_Mux.thread.thRawVideo->heEventPktAdded);
     } else {
-        return VideoEncodeRawFrame(avframe.get());
+        return VideoEncodeRawFrame(avframe.release());
     }
     return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYOutputAvcodec::VideoEncodeRawFrame(AVFrame *avframe) {
+    auto inputFrame = m_Mux.video.rawVideoFrame.getUnique(avframe);
     RGY_ERR result = RGY_ERR_NONE;
     // フレームをエンコーダーに送信
     bool frameSent = false;
     do {
-        auto ret = avcodec_send_frame(m_Mux.video.rawVideoCodecCtx.get(), avframe);
+        auto ret = avcodec_send_frame(m_Mux.video.rawVideoCodecCtx.get(), inputFrame.get());
         if (ret < 0) {
             if (ret == AVERROR(EAGAIN)) {
                 // エンコーダーが入力を受け付けない状態 - 出力を読み取ってから再試行
@@ -3578,18 +3579,16 @@ RGY_ERR RGYOutputAvcodec::VideoEncodeRawFrame(AVFrame *avframe) {
             } else if (ret == AVERROR_EOF) {
                 // エンコーダーがフラッシュされている
                 AddMessage(RGY_LOG_DEBUG, _T("Encoder has been flushed, no more frames can be sent.\n"));
-                m_Mux.video.rawVideoFrame.returnFree(&avframe);
                 return RGY_ERR_MORE_DATA; // フラッシュ中であることを示す
             } else {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to send frame to raw video encoder: %s\n"), qsv_av_err2str(ret).c_str());
-                m_Mux.video.rawVideoFrame.returnFree(&avframe);
                 m_Mux.format.streamError = true;
                 return RGY_ERR_UNKNOWN;
             }
         } else {
             // フレームの送信が成功
             frameSent = true;
-            m_Mux.video.rawVideoFrame.returnFree(&avframe);
+            inputFrame.reset();
         }
     
         // 利用可能なパケットを全て取得

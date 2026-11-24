@@ -88,6 +88,8 @@ using NVEncFilterParam = RGYFilterParam;
 
 class NVEncFilter : public RGYFilterBase {
 public:
+    static constexpr int MAX_OUTPUT_FRAMES = 16;
+
     NVEncFilter();
     virtual ~NVEncFilter();
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
