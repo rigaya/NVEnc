@@ -264,7 +264,6 @@ RGYFrameInfo *NVEncFilterNVOFFRUC::getNextOutFrame(RGYFrameInfo **ppOutputFrames
         auto uptr = std::make_unique<CUFrameBuf>(m_frameBuf.front()->frame.width, m_frameBuf.front()->frame.height, m_frameBuf.front()->frame.csp);
         auto ret = uptr->alloc();
         if (ret != RGY_ERR_NONE) {
-            m_frameBuf.clear();
             return nullptr;
         }
         m_frameBuf.push_back(std::move(uptr));
@@ -312,6 +311,7 @@ RGY_ERR NVEncFilterNVOFFRUC::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
     if (m_inputFrames++ == 0) {
         // 出力するフレームは自分自身のみ
         auto outFrame = getNextOutFrame(ppOutputFrames, pOutputFrameNum);
+        if (!outFrame) return RGY_ERR_MEMORY_ALLOC;
         sts = copyFrameAsync(outFrame, pInputFrame, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame: %s.\n"), get_err_mes(sts));
@@ -358,7 +358,12 @@ RGY_ERR NVEncFilterNVOFFRUC::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         if (!isNearToCurrentFrame && nextPts > (int64_t)bufferIn->timestamp()) {
             break;
         }
+        if (*pOutputFrameNum >= MAX_OUTPUT_FRAMES) {
+            AddMessage(RGY_LOG_ERROR, _T("FRUC needs more than %d output frames for one input timestamp interval.\n"), MAX_OUTPUT_FRAMES);
+            return RGY_ERR_UNSUPPORTED;
+        }
         auto outFrame = getNextOutFrame(ppOutputFrames, pOutputFrameNum);
+        if (!outFrame) return RGY_ERR_MEMORY_ALLOC;
         copyFramePropWithoutRes(outFrame, pInputFrame);
         if (isNearToCurrentFrame) {
             sts = copyFrameAsync(outFrame, pInputFrame, stream);

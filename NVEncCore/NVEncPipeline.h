@@ -496,10 +496,13 @@ public:
             m_surfaces[i] = std::make_unique<PipelineTaskSurfacesPair>(std::move(frames[i]));
         }
     }
+    PipelineTaskSurface appendSurface(std::unique_ptr<CUFrameBuf> surf) {
+        m_surfaces.push_back(std::make_unique<PipelineTaskSurfacesPair>(std::move(surf)));
+        return m_surfaces.back()->getRef();
+    }
     PipelineTaskSurface addSurface(std::unique_ptr<CUFrameBuf>& surf) {
         deleteFreedSurface();
-        m_surfaces.push_back(std::move(std::unique_ptr<PipelineTaskSurfacesPair>(new PipelineTaskSurfacesPair(std::move(surf)))));
-        return m_surfaces.back()->getRef();
+        return appendSurface(std::move(surf));
     }
     PipelineTaskSurface addSurface(std::unique_ptr<CUFrameCuvid>& surf) {
         deleteFreedSurface();
@@ -3938,7 +3941,7 @@ public:
                 // コピーを作ってそれをfilter関数に渡す
                 // vpp-rffなどoverwirteするフィルタのときに、filterframes.pop_front -> push がうまく動作しない
                 int nOutFrames = 0;
-                RGYFrameInfo *outInfo[16] = { 0 };
+                RGYFrameInfo *outInfo[NVEncFilter::MAX_OUTPUT_FRAMES] = { 0 };
                 RGYFrameInfo input = filterframes.front().first;
                 // ptr[0]==nullptr は通常フレームではなく、filter chainをflushするためのmarkerとして扱う。
                 const bool drainFrame = input.ptr[0] == nullptr;
@@ -4064,7 +4067,21 @@ public:
                 }
 
             } else {
-                frameVppOut = getWorkSurf();
+                // Outputs from this call cannot be recycled until the whole batch is queued.
+                // A VFR gap can make one FRUC input produce more frames than the initial pool.
+                frameVppOut = outputSurfs.empty() ? getWorkSurf() : m_workSurfs.getFreeSurf();
+                if (!frameVppOut && !outputSurfs.empty()) {
+                    const auto& info = m_vpFilters.back()->GetFilterParam()->frameOut;
+                    NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                    auto extra = std::make_unique<CUFrameBuf>(info);
+                    extra->releasePtr();
+                    auto err = (info.mem_type == RGY_MEM_TYPE_CPU) ? extra->allocHost() : extra->alloc();
+                    if (err != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to allocate extra raw output surface: %s.\n"), get_err_mes(err));
+                        return err;
+                    }
+                    frameVppOut = m_workSurfs.appendSurface(std::move(extra));
+                }
                 if (!frameVppOut) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get work surface for raw output.\n"));
                     return RGY_ERR_NULL_PTR;
@@ -4080,7 +4097,7 @@ public:
                 return RGY_ERR_INVALID_PARAM;
             }
             int nOutFrames = 0;
-            RGYFrameInfo *outInfo[16] = { 0 };
+            RGYFrameInfo *outInfo[NVEncFilter::MAX_OUTPUT_FRAMES] = { 0 };
             //エンコードバッファの情報を設定
             RGYFrameInfo frameVppOutInfo;
             if (frameVppOut.enc()) {
