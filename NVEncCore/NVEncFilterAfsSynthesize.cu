@@ -46,12 +46,6 @@
 
 #define u8x4(x)  (((uint32_t)x) | (((uint32_t)x) <<  8) | (((uint32_t)x) << 16) | (((uint32_t)x) << 24))
 
-template <typename T>
-__device__ __inline__
-T lerp(T v0, T v1, T t) {
-    return fma(t, v1, fma(-t, v0, v0));
-}
-
 __device__ __inline__
 uint32_t blend(uint32_t a_if_0, uint32_t b_if_1, uint32_t mask) {
     return (a_if_0 & (~mask)) | (b_if_1 & (mask));
@@ -73,24 +67,9 @@ uint32_t deint(int src1, int src3, int src4, int src5, int src7, uint32_t flag, 
 }
 
 __device__ __inline__
-float deint(float src1, float src3, float src4, float src5, float src7, uint32_t flag, uint32_t mask) {
-    //const float tmp2 = src1 + src7;
-    //const float tmp3 = src3 + src5;
-    //const float tmp = (tmp3 - ((tmp2 - tmp3) * 0.125f)) * 0.5f;
-    const float tmp = (src3 + src5) * 0.5625f - (src1 + src7) * 0.0625f;
-    return (((flag & mask) == 0) ? tmp : src4);
-}
-
-__device__ __inline__
 uint32_t blend(int src1, int src2, int src3, uint32_t flag, uint32_t mask) {
     int tmp = (src1 + src3 + src2 + src2 + 2) >> 2;
     return (uint32_t)(((flag & mask) == 0) ? tmp : src2);
-}
-
-__device__ __inline__
-float blend(float src1, float src2, float src3, uint32_t flag, uint32_t mask) {
-    float tmp = (src1 + src3 + 2.0f * src2) * 0.25f;
-    return ((flag & mask) == 0) ? tmp : src2;
 }
 
 __device__ __inline__
@@ -99,18 +78,8 @@ uint32_t mie_inter(int src1, int src2, int src3, int src4) {
 }
 
 __device__ __inline__
-float mie_inter(float src1, float src2, float src3, float src4) {
-    return (src1 + src2 + src3 + src4) * 0.25f;
-}
-
-__device__ __inline__
 uint32_t mie_spot(int src1, int src2, int src3, int src4, int src_spot) {
     return __urhadd(mie_inter(src1, src2, src3, src4), src_spot);
-}
-
-__device__ __inline__
-float mie_spot(float src1, float src2, float src3, float src4, float src_spot) {
-    return (mie_inter(src1, src2, src3, src4) + src_spot) * 0.5f;
 }
 
 __device__ __inline__
@@ -338,153 +307,109 @@ void proc_y(
 #undef pin
 }
 
-__inline__ __device__
-float get_uv(cudaTextureObject_t src_p0_0, cudaTextureObject_t src_p0_1, float ifx, int iy) {
-    //static const float WEIGHT[4] = {
-    //    7.0f / 8.0f,
-    //    5.0f / 8.0f,
-    //    3.0f / 8.0f,
-    //    1.0f / 8.0f
-    //};
-    //const float ifytex = ify + WEIGHT[iy & 3];
-    const float ify = ((iy - 2) >> 2) + 0.5f;
-    const float ifytex = ify + (3.5f - (float)(iy & 3)) * 0.25f;
-    return tex2D<float>((iy & 1) ? src_p0_1 : src_p0_0, ifx, ifytex);
+template<typename Type, typename Type4>
+__device__ __forceinline__
+void load_uv_422(int (&out)[4], const uint8_t *src, int pitch, int lastFieldRow, int x, int row) {
+    const int field = row & 1;
+    const int base = (row - 2) >> 2;
+    const int weight = 7 - ((row & 3) << 1);
+    const int row0 = 2 * clamp(base, 0, lastFieldRow) + field;
+    const int row1 = 2 * clamp(base + 1, 0, lastFieldRow) + field;
+    const Type4 a = reinterpret_cast<const Type4 *>(src + row0 * pitch)[x];
+    const Type4 b = reinterpret_cast<const Type4 *>(src + row1 * pitch)[x];
+#pragma unroll
+    for (int i = 0; i < 4; i++) {
+        const int av = static_cast<Type>(a >> (i * sizeof(Type) * 8));
+        const int bv = static_cast<Type>(b >> (i * sizeof(Type) * 8));
+        out[i] = (8 - weight) * av + weight * bv;
+    }
 }
 
 template<typename Type, typename Type4, int mode>
-__device__ __inline__
-void proc_uv(
-    Type4 *__restrict__ dst,
-    cudaTextureObject_t src_p0_0,
-    cudaTextureObject_t src_p0_1,
-    cudaTextureObject_t src_p1_0,
-    cudaTextureObject_t src_p1_1,
-    const uint8_t *__restrict__ sip,
-    const int sip_pitch,
-    const int src_width, const int src_height,
-    const int imgx,  //グローバルスレッドID x
-    const int imgy,  //グローバルスレッドID y
-    const int lx, const int ly, //ローカルスレッドID
-    const int tb_order, const uint8_t status
-) {
-    static_assert(-1 <= mode && mode <= 4, "mode should be -1 - 4");
-#define PREREAD_Y ((mode == 4) ? 6 : 2) //必要になる前後の行のぶん
-#define SHARED_C_Y (SYN_BLOCK_Y * 2 + PREREAD_Y)
-#define SHARED_C_XY (SHARED_C_Y * SYN_BLOCK_INT_X)
-#define SOFFSET(x,y,depth) ((depth) * SHARED_C_XY + (y) * SYN_BLOCK_INT_X + (x))
-    __shared__ float s_tmp[3][SHARED_C_Y][SYN_BLOCK_INT_X];
-    __shared__ Type s_out[SYN_BLOCK_Y][SYN_BLOCK_INT_X * 4];
-    float *pSharedX = (float *)&s_tmp[0][0][0] + SOFFSET(lx, 0, 0);
-    Type *psOut = &s_out[ly][lx];
-    int ix = blockIdx.x * SYN_BLOCK_INT_X * 4 + threadIdx.x; //YUV422ベースの色差インデックス 1スレッドは横方向に4つの色差pixelを担当
-    int iy = blockIdx.y * SYN_BLOCK_Y * 2 + threadIdx.y;     //YUV422ベースの色差インデックス 1スレッドは縦方向に2つの色差pixelを担当 (出力時はYUV420なので1つの色差pixelを担当)
-    float ifx = (float)ix + 0.5f;
-
-    //この関数内でsipだけはYUV444のデータであることに注意
-    sip += iy * sip_pitch + ix * 2/*YUV444->YUV420*/ * sizeof(uint8_t);
-
-    //sharedメモリ上に、YUV422相当のデータ(32x(16+PREREAD))を縦方向のテクスチャ補間で作ってから、
-    //blendを実行して、YUV422相当の合成データ(32x16)を作り、
-    //その後YUV420相当のデータ(32x8)をs_outに出力する
-    //横方向に4回ループを回して、32pixel x4の出力結果をs_out(横:128pixel)に格納する
-    for (int i = 0; i < 4; i++, ifx += SYN_BLOCK_INT_X, psOut += SYN_BLOCK_INT_X, sip += SYN_BLOCK_INT_X * 2/*YUV444->YUV420*/) {
-        //shredメモリに値をロード
-        //縦方向のテクスチャ補間を使って、YUV422相当のデータとしてロード
-        //横方向には補間しない
-        if (ly < PREREAD_Y) {
-            float *pShared = pSharedX + SOFFSET(0, ly, 0);
-            pShared[SOFFSET(0,0,0)] = get_uv(src_p0_0, src_p0_1, ifx, iy - (PREREAD_Y >> 1));
-            pShared[SOFFSET(0,0,1)] = get_uv(src_p1_0, src_p1_1, ifx, iy - (PREREAD_Y >> 1));
-        }
-        float *pShared = pSharedX + SOFFSET(0, ly + PREREAD_Y, 0);
-        #pragma unroll
-        for (int j = 0; j < 2; j++) {
-            pShared[SOFFSET(0,j*SYN_BLOCK_Y,0)] = get_uv(src_p0_0, src_p0_1, ifx, iy + (PREREAD_Y >> 1) + j * SYN_BLOCK_Y);
-            pShared[SOFFSET(0,j*SYN_BLOCK_Y,1)] = get_uv(src_p1_0, src_p1_1, ifx, iy + (PREREAD_Y >> 1) + j * SYN_BLOCK_Y);
-        }
-        __syncthreads();
-
-        #pragma unroll
-        for (int j = 0; j < 2; j++) {
-            //sipのy (境界チェックに必要)
-            const int iy_sip = iy + j * SYN_BLOCK_Y;
-            const uint8_t *psip = sip + j * SYN_BLOCK_Y * sip_pitch;
-
-            // -1するのは、pinのlineは最小値が1だから
-            float *pShared = pSharedX + SOFFSET(0, ly-1+j*SYN_BLOCK_Y, 0);
-#define pin(plane, line) (pShared[SOFFSET(0,line,plane)])
-
-            float pout;
-            if (mode == 1) {
-                if (status & AFS_FLAG_SHIFT0) {
-                    if (!is_latter_field(ly, tb_order)) {
-                        pout = mie_inter(pin(0, 2), pin(1, 1), pin(1, 2), pin(1, 3));
-                    } else {
-                        pout = mie_spot(pin(0, 1), pin(0, 3), pin(1, 1), pin(1, 3), pin(1, 2));
-                    }
-                } else {
-                    if (is_latter_field(ly, tb_order)) {
-                        pout = mie_inter(pin(0, 1), pin(0, 2), pin(0, 3), pin(1, 2));
-                    } else {
-                        pout = mie_spot(pin(0, 1), pin(0, 3), pin(1, 1), pin(1, 3), pin(0, 2));
-                    }
-                }
-            } else if (mode == 2) {
-                const uint8_t sip0 = (iy_sip < src_height) ? *psip : 0;
-                if (status & AFS_FLAG_SHIFT0) {
-                    if (!is_latter_field(ly, tb_order)) {
-                        pout = blend(pin(1, 1), pin(0, 2), pin(1, 3), sip0, 0x02020202);
-                    } else {
-                        pout = blend(pin(0, 1), pin(1, 2), pin(0, 3), sip0, 0x02020202);
-                    }
-                } else {
-                    pout = blend(pin(0, 1), pin(0, 2), pin(0, 3), sip0, 0x01010101);
-                }
-            } else if (mode == 3) {
-                const uint8_t sip0 = (iy_sip < src_height) ? *psip : 0;
-                if (status & AFS_FLAG_SHIFT0) {
-                    if (!is_latter_field(ly, tb_order)) {
-                        pout = blend(pin(1, 1), pin(0, 2), pin(1, 3), sip0, 0x06060606);
-                    } else {
-                        pout = blend(pin(0, 1), pin(1, 2), pin(0, 3), sip0, 0x06060606);
-                    }
-                } else {
-                    pout = blend(pin(0, 1), pin(0, 2), pin(0, 3), sip0, 0x05050505);
-                }
-            } else if (mode == 4) {
-                const uint8_t sip0 = (iy_sip < src_height) ? *psip : 0;
-                if (status & AFS_FLAG_SHIFT0) {
-                    if (!is_latter_field(ly, tb_order)) {
-                        pout = deint(pin(1, 1), pin(1, 3), pin(0, 4), pin(1, 5), pin(1, 7), sip0, 0x06060606);
-                    } else {
-                        pout = pin(1, 4);
-                    }
-                } else {
-                    if (is_latter_field(ly, tb_order)) {
-                        pout = deint(pin(0, 1), pin(0, 3), pin(0, 4), pin(0, 5), pin(0, 7), sip0, 0x05050505);
-                    } else {
-                        pout = pin(0, 4);
-                    }
-                }
+__device__ __forceinline__
+void synth_uv_422(int (&out)[4], const uint8_t *p0, const uint8_t *p1, int pitch,
+    int lastFieldRow, int x, int row, uint32_t flags, bool latter, bool shift) {
+    const uint8_t *center = (shift && latter) ? p1 : p0;
+    const uint8_t *neighbor = (shift && !latter) ? p1 : p0;
+    int middle[4];
+    load_uv_422<Type, Type4>(middle, center, pitch, lastFieldRow, x, row);
+    if (mode == 1) {
+        int top[4], bottom[4];
+        load_uv_422<Type, Type4>(top, neighbor, pitch, lastFieldRow, x, row - 1);
+        load_uv_422<Type, Type4>(bottom, neighbor, pitch, lastFieldRow, x, row + 1);
+        if (shift != latter) {
+            int other[4];
+            load_uv_422<Type, Type4>(other, p1, pitch, lastFieldRow, x, row);
+#pragma unroll
+            for (int i = 0; i < 4; i++) {
+                out[i] = mie_inter(top[i], middle[i], bottom[i], other[i]);
             }
-            pSharedX[SOFFSET(0, ly+j*SYN_BLOCK_Y, 2)] = pout;
+        } else {
+            int otherTop[4], otherBottom[4];
+            load_uv_422<Type, Type4>(otherTop, p1, pitch, lastFieldRow, x, row - 1);
+            load_uv_422<Type, Type4>(otherBottom, p1, pitch, lastFieldRow, x, row + 1);
+#pragma unroll
+            for (int i = 0; i < 4; i++) {
+                out[i] = mie_spot(top[i], bottom[i], otherTop[i], otherBottom[i], middle[i]);
+            }
         }
-        __syncthreads();
-        //sharedメモリ内でYUV422->YUV420
-        const int sy = (ly << 1) - (ly & 1);
-        pShared = pSharedX + SOFFSET(0,sy,2);
-        psOut[0] = (Type)(lerp(pShared[SOFFSET(0,0,0)], pShared[SOFFSET(0,2,0)], (ly & 1) ? 0.75f : 0.25f) * (float)(1<<(8*sizeof(Type))) + 0.5f);
+    } else if (mode == 4) {
+        if (shift != latter) {
+            int top[4], bottom[4], farTop[4], farBottom[4];
+            load_uv_422<Type, Type4>(top, neighbor, pitch, lastFieldRow, x, row - 1);
+            load_uv_422<Type, Type4>(bottom, neighbor, pitch, lastFieldRow, x, row + 1);
+            load_uv_422<Type, Type4>(farTop, neighbor, pitch, lastFieldRow, x, row - 3);
+            load_uv_422<Type, Type4>(farBottom, neighbor, pitch, lastFieldRow, x, row + 3);
+            const uint32_t mask = shift ? 0x06 : 0x05;
+            const int maxScaled = ((1 << (8 * sizeof(Type))) - 1) * 8;
+#pragma unroll
+            for (int i = 0; i < 4; i++) {
+                const int filtered = (9 * (top[i] + bottom[i]) - (farTop[i] + farBottom[i]) + 8) >> 4;
+                out[i] = ((flags >> (8 * i)) & mask) ? middle[i] : clamp(filtered, 0, maxScaled);
+            }
+        } else {
+#pragma unroll
+            for (int i = 0; i < 4; i++) {
+                out[i] = middle[i];
+            }
+        }
+    } else {
+        int top[4], bottom[4];
+        load_uv_422<Type, Type4>(top, neighbor, pitch, lastFieldRow, x, row - 1);
+        load_uv_422<Type, Type4>(bottom, neighbor, pitch, lastFieldRow, x, row + 1);
+        const uint32_t mask = (mode == 2) ? (shift ? 0x02 : 0x01) : (shift ? 0x06 : 0x05);
+#pragma unroll
+        for (int i = 0; i < 4; i++) {
+            out[i] = blend(top[i], middle[i], bottom[i], flags >> (8 * i), mask);
+        }
     }
-    __syncthreads();
-    //s_outに出力したものをメモリに書き出す
-    if (imgx < (src_width >> 1) && imgy < (src_height >> 1)) {
-        *dst = *(Type4 *)(&s_out[ly][lx << 2]);
+}
+
+__device__ __forceinline__
+uint32_t load_uv_flags(const uint8_t *sip, int pitch, int x, int row, int height) {
+    if (row >= height) {
+        return 0;
     }
-#undef SHARED_C_Y
-#undef SHARED_C_XY
-#undef SOFFSET
-#undef PREREAD_Y
+    const uint2 flags = reinterpret_cast<const uint2 *>(sip + row * pitch)[x];
+    return __byte_perm(flags.x, flags.y, 0x6420);
+}
+
+template<typename Type, typename Type4, int mode>
+__device__ __forceinline__
+Type4 proc_uv(const uint8_t *p0, const uint8_t *p1, int pitch, int lastFieldRow, int x, int row,
+    bool odd, uint32_t flags0, uint32_t flags1, bool latter, bool shift) {
+    // 420→422の補間値は8倍の整数で持ち回り、共有メモリやブロック同期を省く。
+    int s0[4], s1[4];
+    synth_uv_422<Type, Type4, mode>(s0, p0, p1, pitch, lastFieldRow, x, row, flags0, latter, shift);
+    synth_uv_422<Type, Type4, mode>(s1, p0, p1, pitch, lastFieldRow, x, row + 2, flags1, latter, shift);
+    Type4 packed = 0;
+#pragma unroll
+    for (int i = 0; i < 4; i++) {
+        const int v = odd ? (s0[i] + 3 * s1[i]) : (3 * s0[i] + s1[i]);
+        // 整数の画素値に戻すため、旧経路の正規化分母と復元倍率の差による偏りがない。
+        packed |= static_cast<Type4>((v + 16) >> 5) << (i * sizeof(Type) * 8);
+    }
+    return packed;
 }
 
 template<typename Type8, int mode>
@@ -515,16 +440,12 @@ __global__ void kernel_synthesize_mode_1234_yuv420(
     const uint8_t *__restrict__ p0,
     const uint8_t *__restrict__ p1,
     const uint8_t *__restrict__ sip,
-    cudaTextureObject_t src_u0_0,
-    cudaTextureObject_t src_u0_1,
-    cudaTextureObject_t src_u1_0,
-    cudaTextureObject_t src_u1_1,
-    cudaTextureObject_t src_v0_0,
-    cudaTextureObject_t src_v0_1,
-    cudaTextureObject_t src_v1_0,
-    cudaTextureObject_t src_v1_1,
-    const int width, const int height,
-    const int src_pitch_y, const int dst_pitch_y, const int dst_pitch_uv, const int sip_pitch,
+    const uint8_t *__restrict__ p0U,
+    const uint8_t *__restrict__ p1U,
+    const uint8_t *__restrict__ p0V,
+    const uint8_t *__restrict__ p1V,
+    const int width, const int height, const int uv_height,
+    const int src_pitch_y, const int src_pitch_uv, const int dst_pitch_y, const int dst_pitch_uv, const int sip_pitch,
     const int tb_order, const uint8_t status) {
     const int lx = threadIdx.x; //スレッド数=SYN_BLOCK_INT_X
     const int ly = threadIdx.y; //スレッド数=SYN_BLOCK_Y
@@ -543,17 +464,19 @@ __global__ void kernel_synthesize_mode_1234_yuv420(
         proc_y<Type8, mode>(dst_y +           0, p0, p1, sip_y +         0, tb_order + 0, status, y_h1_pos, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos);
         proc_y<Type8, mode>(dst_y + dst_pitch_y, p0, p1, sip_y + sip_pitch, tb_order + 1, status, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos, y_h8_pos);
     }
-    {
-        //u
+    if (imgx * 8 < width && imgy < uv_height) {
+        const bool odd = imgy & 1;
+        const int row = 2 * imgy - odd;
+        const int lastFieldRow = (uv_height >> 1) - 1;
+        const uint32_t flags0 = mode >= 2 ? load_uv_flags(sip, sip_pitch, imgx, row, height) : 0;
+        const uint32_t flags1 = mode >= 2 ? load_uv_flags(sip, sip_pitch, imgx, row + 2, height) : 0;
+        const bool latter = is_latter_field(row, tb_order);
+        const bool shift = (status & AFS_FLAG_SHIFT0) != 0;
         const int uv_pos_dst = imgy * dst_pitch_uv + imgx * sizeof(Type4);
-        Type4 *dst_u = (Type4 *)(dstU + uv_pos_dst);
-        proc_uv<Type, Type4, mode>(dst_u, src_u0_0, src_u0_1, src_u1_0, src_u1_1, sip, sip_pitch, width, height, imgx, imgy,
-            lx, ly, tb_order, status);
-
-        //v
-        Type4 *dst_v = (Type4 *)((uint8_t *)dstV + uv_pos_dst);
-        proc_uv<Type, Type4, mode>(dst_v, src_v0_0, src_v0_1, src_v1_0, src_v1_1, sip, sip_pitch, width, height, imgx, imgy,
-            lx, ly, tb_order, status);
+        *reinterpret_cast<Type4 *>(dstU + uv_pos_dst) = proc_uv<Type, Type4, mode>(
+            p0U, p1U, src_pitch_uv, lastFieldRow, imgx, row, odd, flags0, flags1, latter, shift);
+        *reinterpret_cast<Type4 *>(dstV + uv_pos_dst) = proc_uv<Type, Type4, mode>(
+            p0V, p1V, src_pitch_uv, lastFieldRow, imgx, row, odd, flags0, flags1, latter, shift);
     }
 }
 
@@ -829,17 +752,11 @@ __global__ void kernel_synthesize_mode_tune(
     }
 }
 
-template<typename Type>
-cudaError_t textureCreateSynthesize(afsTextureCache *texCache, cudaTextureObject_t& tex, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, uint8_t *ptr, int pitch, int width, int height) {
-    return texCache->get(tex, cudaCreateChannelDesc<Type>(), filterMode, readMode, ptr, pitch, width, height);
-}
-
 template<typename Type, typename Type2, typename Type4, typename Type8, int mode, bool yuv420>
 RGY_ERR run_synthesize(RGYFrameInfo *pFrameOut,
     const RGYFrameInfo *pFrame0, const RGYFrameInfo *pFrame1, uint8_t *sip, const int sipPitch,
     const int tb_order, const uint8_t status, const RGY_CSP csp,
-    afsTextureCache *texCache, cudaStream_t stream) {
-    auto sts = RGY_ERR_NONE;
+    cudaStream_t stream) {
     auto pDstY = getPlane(pFrameOut, RGY_PLANE_Y);
     auto pDstU = getPlane(pFrameOut, RGY_PLANE_U);
     auto pDstV = getPlane(pFrameOut, RGY_PLANE_V);
@@ -902,24 +819,12 @@ RGY_ERR run_synthesize(RGYFrameInfo *pFrameOut,
         const dim3 gridSize(divCeil(pDstY.width, blockSize.x * 8), divCeil(pDstY.height, blockSize.y * 2));
 
         if (yuv420) {
-            cudaTextureObject_t texP0U0, texP0U1, texP0V0, texP0V1, texP1U0, texP1U1, texP1V0,texP1V1;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texCache, texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr[0] + p0U.pitch[0] * 0, p0U.pitch[0] * 2, p0U.width, p0U.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texCache, texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr[0] + p0U.pitch[0] * 1, p0U.pitch[0] * 2, p0U.width, p0U.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texCache, texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr[0] + p0V.pitch[0] * 0, p0V.pitch[0] * 2, p0V.width, p0V.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texCache, texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr[0] + p0V.pitch[0] * 1, p0V.pitch[0] * 2, p0V.width, p0V.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texCache, texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr[0] + p1U.pitch[0] * 0, p1U.pitch[0] * 2, p1U.width, p1U.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texCache, texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr[0] + p1U.pitch[0] * 1, p1U.pitch[0] * 2, p1U.width, p1U.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texCache, texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr[0] + p1V.pitch[0] * 0, p1V.pitch[0] * 2, p1V.width, p1V.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texCache, texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr[0] + p1V.pitch[0] * 1, p1V.pitch[0] * 2, p1V.width, p1V.height >> 1)))) return sts;
-
             kernel_synthesize_mode_1234_yuv420<Type, Type4, Type8, mode><<<gridSize, blockSize, 0, stream>>>(
                 pDstY.ptr[0], pDstU.ptr[0], pDstV.ptr[0],
                 p0Y.ptr[0], p1Y.ptr[0], sip,
-                texP0U0, texP0U1, texP1U0, texP1U1,
-                texP0V0, texP0V1, texP1V0, texP1V1,
-                p0Y.width, p0Y.height, p0Y.pitch[0], pDstY.pitch[0], pDstU.pitch[0], sipPitch,
+                p0U.ptr[0], p1U.ptr[0], p0V.ptr[0], p1V.ptr[0],
+                p0Y.width, p0Y.height, p0U.height, p0Y.pitch[0], p0U.pitch[0], pDstY.pitch[0], pDstU.pitch[0], sipPitch,
                 tb_order, status);
-            //テクスチャはtexCacheが保持するので、ここでは破棄しない
         } else {
             kernel_synthesize_mode_1234_yuv444<Type, Type4, Type8, mode><<<gridSize, blockSize, 0, stream>>>(
                 pDstY.ptr[0], pDstU.ptr[0], pDstV.ptr[0],
@@ -995,7 +900,7 @@ RGY_ERR NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0,
         &pOut->frame, &p0->frame, &p1->frame,
         (showScanData) ? sp->map.frame.ptr[0] : sip->map.frame.ptr[0],
         (showScanData) ? sp->map.frame.pitch[0] : sip->map.frame.pitch[0],
-        (mode < 0) ? pAfsPrm->afs.tune : pAfsPrm->afs.tb_order, m_status[iframe], pOut->frame.csp, &m_texCache, stream);
+        (mode < 0) ? pAfsPrm->afs.tune : pAfsPrm->afs.tb_order, m_status[iframe], pOut->frame.csp, stream);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
