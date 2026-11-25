@@ -112,6 +112,10 @@ struct AFS_SCAN_DATA {
     AFS_SCAN_CLIP clip;
     int ff_motion, lf_motion;
     unique_ptr<cudaEvent_t, cudaevent_deleter> cuevent;
+    //motion countの読み戻し先。フレームごとに持つ。
+    //(以前はフィルタで1つだけ共有していたため、iの解析とコピーが、ホストがi-1の結果を読むより先に終わると、
+    // i-1の値としてiの値を読んでしまう競合があった)
+    CUMemBufPair buf_count_motion;
 };
 
 class afsScanCache {
@@ -277,7 +281,6 @@ protected:
     afsStripeCache  m_stripe;
     afsStatus       m_status;
     afsStreamStatus m_streamsts;
-    CUMemBufPair    m_count_motion;
     //yuv420入力時に、色差を輝度解像度へ拡大したもの (上半分U/下半分V)。frameは入力フレーム番号 (未使用時は-1)
     struct {
         CUFrameBuf buf;

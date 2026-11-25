@@ -134,6 +134,7 @@ RGY_ERR afsScanCache::alloc(const RGYFrameInfo& frameInfo) {
 void afsScanCache::clear() {
     for (int i = 0; i < _countof(m_scanArray); i++) {
         m_scanArray[i].map.clear();
+        m_scanArray[i].buf_count_motion.clear();
         m_scanArray[i].cuevent.reset();
         clearcache(i);
     }
@@ -424,7 +425,6 @@ NVEncFilterAfs::NVEncFilterAfs() :
     m_stripe(),
     m_status(),
     m_streamsts(),
-    m_count_motion(),
     m_uv444(),
     m_fpTimecode() {
     for (auto& uv : m_uv444) {
@@ -700,7 +700,7 @@ RGY_ERR NVEncFilterAfs::scan_frame(int iframe, int force, const NVEncFilterParam
         err = get_uv444(iframe, stream, &p0uv444);
         if (err != RGY_ERR_NONE) return err;
     }
-    auto err = analyze_stripe(p0, p1, p0uv444, p1uv444, sp, &m_count_motion, pAfsPrm, stream);
+    auto err = analyze_stripe(p0, p1, p0uv444, p1uv444, sp, &sp->buf_count_motion, pAfsPrm, stream);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed analyze_stripe: %s.\n"), get_err_mes(err));
         return err;
@@ -708,9 +708,9 @@ RGY_ERR NVEncFilterAfs::scan_frame(int iframe, int force, const NVEncFilterParam
     if (stream != cudaStreamDefault) {
         cudaEventRecord(*m_eventScanFrame.get(), stream);
         cudaStreamWaitEvent(*m_streamCopy.get(), *m_eventScanFrame.get(), 0);
-        err = m_count_motion.copyDtoHAsync(*m_streamCopy.get());
+        err = sp->buf_count_motion.copyDtoHAsync(*m_streamCopy.get());
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.copyDtoHAsync: %s.\n"), get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("failed buf_count_motion.copyDtoHAsync: %s.\n"), get_err_mes(err));
             return err;
         }
         cudaEventRecord(*sp->cuevent.get(), *m_streamCopy.get());
@@ -732,17 +732,17 @@ RGY_ERR NVEncFilterAfs::count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *cli
     if (STREAM_OPT) {
         cudaEventSynchronize(*sp->cuevent.get());
     } else {
-        err = m_count_motion.copyDtoH();
+        err = sp->buf_count_motion.copyDtoH();
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.copyDtoH: %s.\n"), get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("failed buf_count_motion.copyDtoH: %s.\n"), get_err_mes(err));
             return err;
         }
     }
 
-    const int nSize = (int)(m_count_motion.nSize / sizeof(uint32_t));
+    const int nSize = (int)(sp->buf_count_motion.nSize / sizeof(uint32_t));
     int count0 = 0;
     int count1 = 0;
-    uint32_t *ptrCount = (uint32_t *)m_count_motion.ptrHost;
+    uint32_t *ptrCount = (uint32_t *)sp->buf_count_motion.ptrHost;
     for (int i = 0; i < nSize; i++) {
         uint32_t count = ptrCount[i];
         count0 += count & 0xffff;
@@ -1162,7 +1162,6 @@ void NVEncFilterAfs::close() {
     m_scan.clear();
     m_stripe.clear();
     m_status.clear();
-    m_count_motion.clear();
     for (auto& uv : m_uv444) {
         uv.buf.clear();
         uv.frame = -1;
