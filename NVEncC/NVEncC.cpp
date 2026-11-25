@@ -439,6 +439,8 @@ static RGY_ERR run_encode_params(InEncodeVideoParam& params, std::atomic<bool> *
     return nvEnc.Encode();
 }
 
+#include "rgy_delay_load_hook.h"
+
 int _tmain(int argc, TCHAR **argv) {
 #if defined(_WIN32) || defined(_WIN64)
     _tsetlocale(LC_CTYPE, _T(".UTF8"));

@@ -219,6 +219,31 @@ RGY_ERR RGYOutput::readRawDebug(RGYBitstream *pBitstream) {
 }
 
 RGY_ERR RGYOutput::InitVideoBsf(const VideoInfo *videoOutputInfo) {
+    // フィルタが不要な出力では、遅延ロードされるライブラリを呼ばずに初期化を終える。
+    const bool needsMetadataFilter = (ENCODER_NVENC
+        && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC)
+        && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0)
+        || (ENCODER_QSV
+            && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC || videoOutputInfo->codec == RGY_CODEC_AV1)
+            && videoOutputInfo->vui.chromaloc != 0)
+        || (ENCODER_VCEENC // VCEEncの場合、常に上書き
+            && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC || videoOutputInfo->codec == RGY_CODEC_AV1))
+        || (ENCODER_MPP
+            && ((videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) // HEVCの時は常に上書き)
+                || (videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0
+                    || (videoOutputInfo->vui.format != 5
+                        || videoOutputInfo->vui.colorprim != 2
+                        || videoOutputInfo->vui.transfer != 2
+                        || videoOutputInfo->vui.matrix != 2
+                        || videoOutputInfo->vui.chromaloc != 0))));
+    if (!needsMetadataFilter) {
+        return RGY_ERR_NONE;
+    }
+    if (!check_avcodec_dll()) {
+        AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
+        return RGY_ERR_NULL_PTR;
+    }
+
     // bsfの作成
     std::unique_ptr<AVCodecParameters, RGYAVDeleter<AVCodecParameters>> codecpar(avcodec_parameters_alloc(), RGYAVDeleter<AVCodecParameters>(avcodec_parameters_free));
 
@@ -244,22 +269,7 @@ RGY_ERR RGYOutput::InitVideoBsf(const VideoInfo *videoOutputInfo) {
     std::vector<std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>>> bsfList;
 
     // VUI情報設定用
-    if ((ENCODER_NVENC
-        && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC)
-        && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0)
-        || (ENCODER_QSV
-            && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC || videoOutputInfo->codec == RGY_CODEC_AV1)
-            && videoOutputInfo->vui.chromaloc != 0)
-        || (ENCODER_VCEENC // VCEEncの場合、常に上書き
-            && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC || videoOutputInfo->codec == RGY_CODEC_AV1))
-        || (ENCODER_MPP
-            && ((videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) // HEVCの時は常に上書き)
-                || (videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0
-                    || (videoOutputInfo->vui.format != 5
-                        || videoOutputInfo->vui.colorprim != 2
-                        || videoOutputInfo->vui.transfer != 2
-                        || videoOutputInfo->vui.matrix != 2
-                        || videoOutputInfo->vui.chromaloc != 0))))) {
+    {
         const char *bsf_name = nullptr;
         switch (videoOutputInfo->codec) {
         case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;

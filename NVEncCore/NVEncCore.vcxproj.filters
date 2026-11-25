@@ -473,6 +473,12 @@
     <ClInclude Include="rgy_avutil.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_delay_load_hook.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="rgy_rescale.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="rgy_filter_input_probe.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
