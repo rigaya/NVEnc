@@ -17050,8 +17050,8 @@ tstring gen_cmd_help_vpp() {
     str += strsprintf(_T("      ldr_nits=<float>            Target SDR peak luminance in nits. (default: %.1f)\n"), FILTER_DEFAULT_COLORSPACE_LDRNITS);
     str += _T("        when: hdr2sdr!=none\n");
     str += strsprintf(_T("      desat_base=<float>          Base luminance for highlight desaturation. (default: %.2f)\n"), FILTER_DEFAULT_HDR2SDR_DESAT_BASE);
-    str += _T("        when: hdr2sdr=hable,mobius,reinhard,bt2390\n");
     str += _T("        bt2446a and bt2446a-preview ignore desat_*.\n");
+    str += _T("        when: hdr2sdr=hable,mobius,reinhard,bt2390\n");
     str += strsprintf(_T("      desat_strength=<float>      Highlight desaturation strength. (default: %.2f)\n"), FILTER_DEFAULT_HDR2SDR_DESAT_STRENGTH);
     str += _T("        when: hdr2sdr=hable,mobius,reinhard,bt2390\n");
     str += strsprintf(_T("      desat_exp=<float>           Highlight desaturation exponent. (default: %.2f)\n"), FILTER_DEFAULT_HDR2SDR_DESAT_EXP);
