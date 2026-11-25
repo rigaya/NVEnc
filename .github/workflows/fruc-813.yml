@@ -29,7 +29,7 @@ jobs:
           7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z || exit /b 1
           curl -fSL -o hwenc_headers.7z https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20250830/hwenc_headers_20260411.7z || exit /b 1
           7z x -o.. -y hwenc_headers.7z || exit /b 1
-          curl -fSL -o onnxruntime.zip https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-win-x64-gpu-1.23.2.zip || exit /b 1
+          curl -fSL --retry 3 -o onnxruntime.zip https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.23.2/microsoft.ml.onnxruntime.1.23.2.nupkg || exit /b 1
           7z x -oonnxruntime -y onnxruntime.zip || exit /b 1
           curl -fSL -o nvof.7z https://github.com/rigaya/NVEnc/releases/download/7.42/NVEncNVOFFRUC_20240303_x64.7z || exit /b 1
           7z x -oNVEncNVOFFRUCBin -y nvof.7z || exit /b 1
@@ -55,7 +55,7 @@ jobs:
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
           set VSHIP_DIR=${{ github.workspace }}\..\vship
-          set ONNXRUNTIME_DIR=${{ github.workspace }}\onnxruntime\onnxruntime-win-x64-gpu-1.23.2
+          set ONNXRUNTIME_DIR=${{ github.workspace }}\onnxruntime\build\native
           set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8
           set CUDA_PATH_V11_8=%CUDA_PATH%
           msbuild NVEnc.sln /t:NVEncC /p:Configuration=RelStatic /p:Platform=x64 -maxcpucount || exit /b 1
