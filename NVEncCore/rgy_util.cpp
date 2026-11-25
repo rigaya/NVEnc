@@ -34,6 +34,45 @@
 #endif
 #include <regex>
 
+#ifndef TTMATH_NOASM
+#define TTMATH_NOASM
+#endif
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4244 4834)
+#endif
+#include <ttmath/ttmathuint.h>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
+// FFmpegのコードは使わず、ttmathで時刻を換算する。
+// av_rescale_qと同じ結果にするため、分子が負、分母が非正、または商が符号付き64ビットの
+// 正の最大値を超える場合はINT64_MINを返す。入力がINT64_MINの場合の絶対値はINT64_MAXとし、
+// 端数がちょうど半分なら0から離れる方向に丸める。
+int64_t rational_rescale(int64_t value, rgy_rational<int> from, rgy_rational<int> to) {
+    const int64_t numerator = static_cast<int64_t>(from.n()) * to.d();
+    const int64_t denominator = static_cast<int64_t>(from.d()) * to.n();
+    if (numerator < 0 || denominator <= 0) {
+        return INT64_MIN;
+    }
+
+    // ライブラリの1語が32ビットの環境でも、積と丸めに必要な128ビットを確保する。
+    using WideUInt = ttmath::UInt<TTMATH_BITS(128)>;
+    const uint64_t magnitude = value == INT64_MIN ? INT64_MAX : (value < 0 ? -value : value);
+    WideUInt scaled(magnitude);
+    scaled *= WideUInt(static_cast<uint64_t>(numerator));
+    scaled += WideUInt(static_cast<uint64_t>(denominator / 2));
+    scaled /= WideUInt(static_cast<uint64_t>(denominator));
+
+    uint64_t quotient = 0;
+    if (scaled.ToUInt(quotient) != 0 || quotient > static_cast<uint64_t>(INT64_MAX)) {
+        return INT64_MIN;
+    }
+    const auto result = static_cast<int64_t>(quotient);
+    return value < 0 ? -result : result;
+}
+
 #pragma warning (push)
 #pragma warning (disable: 4100)
 #if defined(_WIN32) || defined(_WIN64)

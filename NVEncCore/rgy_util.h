@@ -575,6 +575,8 @@ public:
     }
 };
 
+int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
+
 static int64_t rgy_change_scale(int64_t t, const rgy_rational<int>& scale_in, const rgy_rational<int>& scale_out) {
     rgy_rational<int64_t> a = rgy_rational<int64_t>(scale_in.n(), scale_in.d());
     rgy_rational<int64_t> b = rgy_rational<int64_t>(scale_out.n(), scale_out.d());

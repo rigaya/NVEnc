@@ -31,15 +31,9 @@
 #if ENABLE_AVSW_READER && !FOR_AUO
 
 #include "rgy_avutil.h"
-#include "rgy_rescale.h"
 
 extern "C" {
 #include <libavutil/timestamp.h>
-}
-
-// v * from / to
-int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to) {
-    return rgy_rescale(v, from.n(), from.d(), to.n(), to.d());
 }
 
 //必要なavcodecのdllがそろっているかを確認

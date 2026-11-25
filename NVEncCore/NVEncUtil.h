@@ -545,6 +545,4 @@ static inline RGYBitstream RGYBitstreamInit(const NV_ENC_LOCK_BITSTREAM& nv_bits
     return bitstream;
 }
 
-int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
-
 #endif //__NVENC_UTIL_H__

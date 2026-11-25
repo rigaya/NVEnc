@@ -27,8 +27,6 @@
 
 #include "rgy_timecode.h"
 
-int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
-
 RGY_ERR RGYTimecode::init(const tstring &filename) {
     FILE *filep = nullptr;
     if (_tfopen_s(&filep, filename.c_str(), _T("w")) != 0 || filep == nullptr) {

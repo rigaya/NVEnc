@@ -2102,7 +2102,6 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_avlog.h" />
     <ClInclude Include="rgy_avutil.h" />
     <ClInclude Include="rgy_delay_load_hook.h" />
-    <ClInclude Include="rgy_rescale.h" />
     <ClInclude Include="rgy_filter_input_probe.h" />
     <ClInclude Include="rgy_bitstream.h" />
     <ClInclude Include="rgy_chapter.h" />

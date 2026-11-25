@@ -328,9 +328,6 @@ static inline int pktFlagGetTrackID(const AVPacket *pkt) {
     return (int)((uint32_t)pkt->flags >> 16);
 }
 
-// av_rescale_qのラッパー (v * from / to)
-int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
-
 // AVCodecContext::ticks_per_frameの代わり
 // For some codecs, the time base is closer to the field rate than the frame rate.
 // Most notably, H.264 and MPEG-2 specify time_base as half of frame duration
