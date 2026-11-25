@@ -36,6 +36,7 @@ static const int STREAM_OPT = 1;
 #define AFS_SOURCE_CACHE_NUM 16
 #define AFS_SCAN_CACHE_NUM   16
 #define AFS_STRIPE_CACHE_NUM 16
+#define AFS_UV444_CACHE_NUM   4 //scan_frameで使うのは直近2フレーム分 (p0, p1) のみ
 
 #define AFS_FLAG_SHIFT0      0x01
 #define AFS_FLAG_SHIFT1      0x02
@@ -239,7 +240,9 @@ protected:
     virtual void close() override;
     RGY_ERR check_param(shared_ptr<NVEncFilterParamAfs> pAfsParam);
 
-    RGY_ERR analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_SCAN_DATA *sp, CUMemBufPair *count_motion, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
+    RGY_ERR analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, const CUFrameBuf *p0uv444, const CUFrameBuf *p1uv444, AFS_SCAN_DATA *sp, CUMemBufPair *count_motion, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
+    RGY_ERR upsample_uv420(CUFrameBuf *pDst, const CUFrameBuf *pSrc, cudaStream_t stream);
+    RGY_ERR get_uv444(int iframe, cudaStream_t stream, const CUFrameBuf **ppUV444);
     bool scan_frame_result_cached(int iframe, const VppAfs *pAfsPrm);
     RGY_ERR scan_frame(int iframe, int force, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
     RGY_ERR count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *clip);
@@ -275,5 +278,10 @@ protected:
     afsStatus       m_status;
     afsStreamStatus m_streamsts;
     CUMemBufPair    m_count_motion;
+    //yuv420入力時に、色差を輝度解像度へ拡大したもの (上半分U/下半分V)。frameは入力フレーム番号 (未使用時は-1)
+    struct {
+        CUFrameBuf buf;
+        int frame;
+    } m_uv444[AFS_UV444_CACHE_NUM];
     unique_ptr<FILE, fp_deleter> m_fpTimecode;
 };

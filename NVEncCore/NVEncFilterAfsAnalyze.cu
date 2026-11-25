@@ -93,16 +93,6 @@ Flags analyze_motion(uint2 p0, uint2 p1, uint32_t thre_motion2, uint32_t thre_sh
 }
 
 __inline__ __device__
-Flags analyze_motion(float p0, float p1, const float thre_motionf, const float thre_shiftf, int flag_offset) {
-    const float abs = fabsf(p0 - p1);
-
-    Flags mask_motion = (thre_motionf > abs) ? u8x4(motion_flag)  & (0x000000ffu << flag_offset) : 0u;
-    Flags mask_shift  = (thre_shiftf  > abs) ? u8x4(motion_shift) & (0x000000ffu << flag_offset) : 0u;
-
-    return mask_motion | mask_shift;
-}
-
-__inline__ __device__
 Flags analyze_stripe(uint32_t p0, uint32_t p1, uint8_t flag_sign, uint8_t flag_deint, uint8_t flag_shift, const uint32_t thre_deint4, const uint32_t thre_shift4) {
     uint32_t abs     = __vabsdiffu4(p0, p1);
     Flags new_sign   = __vcmpgeu4(p0, p1) & u8x4(flag_sign);
@@ -118,17 +108,6 @@ Flags analyze_stripe(uint2 p0, uint2 p1, uint8_t flag_sign, uint8_t flag_deint, 
     Flags new_sign   = __byte_perm(__vcmpgeu2(p0.x, p1.x), __vcmpgeu2(p0.y, p1.y), _PERM(6,4,2,0)) & u8x4(flag_sign);
     Flags mask_deint = __byte_perm(__vcmpgtu2(abs0, thre_deint2), __vcmpgtu2(abs1, thre_deint2), _PERM(6,4,2,0)) & u8x4(flag_deint);
     Flags mask_shift = __byte_perm(__vcmpgtu2(abs0, thre_shift2), __vcmpgtu2(abs1, thre_shift2), _PERM(6,4,2,0)) & u8x4(flag_shift);
-    return new_sign | mask_deint | mask_shift;
-}
-
-__inline__ __device__
-Flags analyze_stripe(float p0, float p1, uint8_t flag_sign, uint8_t flag_deint, uint8_t flag_shift, const float thre_deintf, const float thre_shiftf, int flag_offset) {
-    const float abs0 = fabsf(p1 - p0);
-
-    Flags new_sign   = (p0 >= p1) ? (uint32_t)flag_sign  << flag_offset : 0u;
-    Flags mask_deint = (abs0 > thre_deintf) ? (uint32_t)flag_deint << flag_offset : 0u;
-    Flags mask_shift = (abs0 > thre_shiftf) ? (uint32_t)flag_shift << flag_offset : 0u;
-
     return new_sign | mask_deint | mask_shift;
 }
 
@@ -171,63 +150,68 @@ __inline__ __device__ Flags analyze_y(
     return flag;
 }
 
-__inline__ __device__
-float get_uv(cudaTextureObject_t src_p0_0, cudaTextureObject_t src_p0_1, float ifx, int iy) {
-    //static const float WEIGHT[4] = {
-    //    7.0f / 8.0f,
-    //    5.0f / 8.0f,
-    //    3.0f / 8.0f,
-    //    1.0f / 8.0f
-    //};
-    //const float ifytex = ify + WEIGHT[iy & 3];
-    const float ify = ((iy - 2) >> 2) + 0.5f;
-    const float ifytex = ify + (3.5f - (float)(iy & 3)) * 0.25f;
-    return tex2D<float>((iy & 1) ? src_p0_1 : src_p0_0, ifx, ifytex);
-}
+// 4:2:0の色差を、インターレースを考慮して輝度解像度(4:4:4相当)へ整数演算で拡大する。
+// 以前はanalyzeカーネル内で色差をtex2D<float>の線形補間で毎回求めていたが、
+// その結果をfloatのスカラーで判定するため、輝度のようなSWAR(4画素同時処理)ができず、
+// フェッチ数と命令数がanalyzeの大半を占めていた。
+// ここで1フレームにつき1回だけ拡大しておき、analyzeでは輝度と同じType4のSWAR処理に乗せる。
+// 重みは従来のテクスチャ補間と同じ:
+//   縦: 輝度の行iy=4m+r に対し、同じフィールド(iy&1)の色差の行Fを使う (重みは1/8単位)
+//       r=0: F0[m-1]*1 + F0[m]*7, r=1: F1[m-1]*3 + F1[m]*5,
+//       r=2: F0[m]*5 + F0[m+1]*3, r=3: F1[m]*7 + F1[m+1]*1   (F0=偶数行, F1=奇数行, 端はclamp)
+//   横: 輝度の偶数画素は色差の画素そのまま、奇数画素は左右の色差の平均
+// 丸めは1回だけ行う (floatの値との差は許容する)。
+// 出力: 上半分(0～height-1行)にU、下半分(height～2*height-1行)にV
+// 1スレッドで色差4画素(輝度8画素)を処理する (1画素ずつだと命令発行が律速になったため)
+template<typename Type, typename Type4, typename Type8>
+__global__ void kernel_afs_upsample_uv420(
+    uint8_t *__restrict__ dst, const int dst_pitch,
+    const uint8_t *__restrict__ src_u, const uint8_t *__restrict__ src_v, const int src_pitch,
+    const int uv_width, const int uv_height, const int height) {
+    const int cx = (blockIdx.x * blockDim.x + threadIdx.x) * 4; // 色差のx
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y; // 輝度のy
+    const int plane = blockIdx.z; // 0:U, 1:V
+    if (cx >= uv_width || iy >= height) return;
 
-template<typename Type4, bool tb_order>
-__inline__ __device__ Flags analyze_c(
-    cudaTextureObject_t src_p0_0,
-    cudaTextureObject_t src_p0_1,
-    cudaTextureObject_t src_p1_0,
-    cudaTextureObject_t src_p1_1,
-    int ix, int iy,
-    const float thre_motionf, const float thre_deintf, const float thre_shiftf) {
-    Flags flag4 = 0;
-    float ifx = (ix << 1) + 0.5f;
+    const uint8_t *src = (plane) ? src_v : src_u;
+    const int field = iy & 1;
+    const int m = iy >> 2;
+    const int r = iy & 3;
+    const int field_h = uv_height >> 1; // 従来のテクスチャ(高さ uv_height>>1)に合わせる
+    const int fa = (r < 2) ? m - 1 : m;
+    const int wb = 7 - 2 * r; // r=0:7, 1:5, 2:3, 3:1
+    const int wa = 8 - wb;
+    const int ya = clamp(fa,     0, field_h - 1) * 2 + field;
+    const int yb = clamp(fa + 1, 0, field_h - 1) * 2 + field;
+    const Type *line_a = (const Type *)(src + ya * src_pitch);
+    const Type *line_b = (const Type *)(src + yb * src_pitch);
 
-    #pragma unroll
-    for (int i = 0; i < 4; i++, ifx += 0.5f) {
-        //motion
-        float p0 = get_uv(src_p0_0, src_p0_1, ifx, iy);
-        float p1 = get_uv(src_p1_0, src_p1_1, ifx, iy);
-        float p2 = p1;
-        Flags flag = analyze_motion(p0, p1, thre_motionf, thre_shiftf, i * 8);
-
-        if (iy > 0) {
-            //non-shift
-            p1 = get_uv(src_p0_0, src_p0_1, ifx, iy-1);
-            flag |= analyze_stripe(p0, p1, non_shift_sign, non_shift_deint, non_shift_shift, thre_deintf, thre_shiftf, i * 8);
-
-            //shift
-            if (tb_order) {
-                if (iy & 1) {
-                    p0 = p2;
-                } else {
-                    p1 = get_uv(src_p1_0, src_p1_1, ifx, iy-1);
-                }
-            } else {
-                if (iy & 1) {
-                    p1 = get_uv(src_p1_0, src_p1_1, ifx, iy-1);
-                } else {
-                    p0 = p2;
-                }
-            }
-            flag |= analyze_stripe(p1, p0, shift_sign, shift_deint, shift_shift, thre_deintf, thre_shiftf, i * 8);
+    //縦補間した値 (8倍) を5画素分求める。右端より先はpitch内のゴミなので、最後の有効画素で置き換える
+    int v[5];
+    {
+        const Type4 a4 = *(const Type4 *)(line_a + cx);
+        const Type4 b4 = *(const Type4 *)(line_b + cx);
+        const Type *a = (const Type *)&a4;
+        const Type *b = (const Type *)&b4;
+        #pragma unroll
+        for (int k = 0; k < 4; k++) {
+            v[k] = wa * (int)a[k] + wb * (int)b[k];
         }
-        flag4 |= flag;
+        const int cx4 = min(cx + 4, uv_width - 1);
+        v[4] = wa * (int)line_a[cx4] + wb * (int)line_b[cx4];
     }
-    return flag4;
+    #pragma unroll
+    for (int k = 1; k < 5; k++) {
+        if (cx + k >= uv_width) v[k] = v[k-1];
+    }
+    Type8 out;
+    Type *o = (Type *)&out;
+    #pragma unroll
+    for (int k = 0; k < 4; k++) {
+        o[2*k+0] = (Type)((v[k] + 4) >> 3);
+        o[2*k+1] = (Type)((v[k] + v[k+1] + 8) >> 4);
+    }
+    *(Type8 *)(dst + (plane * height + iy) * dst_pitch + cx * 2 * sizeof(Type)) = out;
 }
 
 __inline__ __device__
@@ -336,23 +320,20 @@ void merge_mask(Flags masky, Flags masku, Flags maskv, Flags& mask0, Flags& mask
     mask0 |= mask1;
 }
 
-template<typename Type, typename Type4, bool tb_order, bool yuv420>
+//色差はyuv420の場合もkernel_afs_upsample_uv420で輝度解像度に拡大したものを受け取り、輝度と同じSWAR処理で判定する
+template<typename Type, typename Type4, bool tb_order>
 __global__ void kernel_afs_analyze_12(
     uint32_t *__restrict__ ptr_dst,
     int *__restrict__ ptr_count,
     cudaTextureObject_t src_p0y,
-    cudaTextureObject_t src_p0u0,
-    cudaTextureObject_t src_p0u1, //yuv444では使用されない
-    cudaTextureObject_t src_p0v0,
-    cudaTextureObject_t src_p0v1, //yuv444では使用されない
+    cudaTextureObject_t src_p0u,
+    cudaTextureObject_t src_p0v,
     cudaTextureObject_t src_p1y,
-    cudaTextureObject_t src_p1u0,
-    cudaTextureObject_t src_p1u1, //yuv444では使用されない
-    cudaTextureObject_t src_p1v0,
-    cudaTextureObject_t src_p1v1, //yuv444では使用されない
+    cudaTextureObject_t src_p1u,
+    cudaTextureObject_t src_p1v,
     const int width_int, const int si_pitch_int, const int h,
     const uint32_t thre_Ymotion, const uint32_t thre_deint, const uint32_t thre_shift,
-    const uint32_t thre_Cmotion, const float thre_Cmotionf, const float thre_deintf, const float thre_shiftf,
+    const uint32_t thre_Cmotion, const uint32_t thre_Cdeint, const uint32_t thre_Cshift,
     const uint32_t scan_left, const uint32_t scan_top, const uint32_t scan_width, const uint32_t scan_height, const uint8_t select_plane) {
 
     __shared__ uint32_t shared[SHARED_INT_X * SHARED_Y * 5]; //int単位でアクセスする
@@ -365,9 +346,7 @@ __global__ void kernel_afs_analyze_12(
     uint32_t motion_count = 0;
 
 #define CALL_ANALYZE_Y(p0, p1, y_offset) analyze_y<Type4, tb_order>((p0), (p1), (imgx), (imgy+(y_offset)), thre_Ymotion,  thre_deint,  thre_shift)
-#define CALL_ANALYZE_C(p0_0, p0_1, p1_0, p1_1, y_offset) \
-    (yuv420) ? analyze_c<Type4, tb_order>((p0_0), (p0_1), (p1_0), (p1_1), (imgx), (imgy+(y_offset)), thre_Cmotionf, thre_deintf, thre_shiftf) \
-             : analyze_y<Type4, tb_order>((p0_0), (p1_0), (imgx), (imgy+(y_offset)), thre_Cmotion, thre_deint, thre_shift)
+#define CALL_ANALYZE_C(p0, p1, y_offset) analyze_y<Type4, tb_order>((p0), (p1), (imgx), (imgy+(y_offset)), thre_Cmotion, thre_Cdeint, thre_Cshift)
 
     uint32_t *ptr_shared = shared + shared_int_idx(lx,0,0);
     ptr_dst += (imgy-4) * si_pitch_int + imgx;
@@ -380,8 +359,8 @@ __global__ void kernel_afs_analyze_12(
         const int y_offset = iy - ly - 4; //ブロック先頭からの相対位置 -4 ～ 3
         const bool in_frame = imgy + y_offset >= 0; //フレーム上端より上は判定なし(0)とする
         ptr_shared[shared_int_idx(0, iy-4, 0)] = (in_frame) ? CALL_ANALYZE_Y(src_p0y, src_p1y, y_offset) : 0;
-        ptr_shared[shared_int_idx(0, iy-4, 1)] = (in_frame) ? CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, y_offset) : 0;
-        ptr_shared[shared_int_idx(0, iy-4, 2)] = (in_frame) ? CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, y_offset) : 0;
+        ptr_shared[shared_int_idx(0, iy-4, 1)] = (in_frame) ? CALL_ANALYZE_C(src_p0u, src_p1u, y_offset) : 0;
+        ptr_shared[shared_int_idx(0, iy-4, 2)] = (in_frame) ? CALL_ANALYZE_C(src_p0v, src_p1v, y_offset) : 0;
     }
 
     for (int iloop = 0; iloop <= BLOCK_LOOP_Y; iloop++,
@@ -390,8 +369,8 @@ __global__ void kernel_afs_analyze_12(
     ) {
         { //差分情報を計算
             ptr_shared[shared_int_idx(0, ly+4, 0)] = CALL_ANALYZE_Y(src_p0y, src_p1y, 4);
-            ptr_shared[shared_int_idx(0, ly+4, 1)] = CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, 4);
-            ptr_shared[shared_int_idx(0, ly+4, 2)] = CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, 4);
+            ptr_shared[shared_int_idx(0, ly+4, 1)] = CALL_ANALYZE_C(src_p0u, src_p1u, 4);
+            ptr_shared[shared_int_idx(0, ly+4, 2)] = CALL_ANALYZE_C(src_p0v, src_p1v, 4);
             __syncthreads();
         }
         Flags mask1;
@@ -475,50 +454,43 @@ cudaError_t textureCreateAnalyze(cudaTextureObject_t& tex, cudaTextureFilterMode
 template<typename Type, typename Type4, int bit_depth, bool tb_order, bool yuv420>
 RGY_ERR run_analyze_stripe(uint8_t *dst, const int dstPitch,
     const RGYFrameInfo *pFrame0, const RGYFrameInfo *pFrame1,
+    const RGYFrameInfo *pUV444_0, const RGYFrameInfo *pUV444_1, //yuv420の場合の輝度解像度に拡大した色差 (上半分U/下半分V)
     CUMemBufPair *count_motion,
     const VppAfs *pAfsPrm, cudaStream_t stream) {
     const auto p0Y = getPlane(pFrame0, RGY_PLANE_Y);
-    const auto p0U = getPlane(pFrame0, RGY_PLANE_U);
-    const auto p0V = getPlane(pFrame0, RGY_PLANE_V);
     const auto p1Y = getPlane(pFrame1, RGY_PLANE_Y);
-    const auto p1U = getPlane(pFrame1, RGY_PLANE_U);
-    const auto p1V = getPlane(pFrame1, RGY_PLANE_V);
+    auto p0U = getPlane(pFrame0, RGY_PLANE_U);
+    auto p0V = getPlane(pFrame0, RGY_PLANE_V);
+    auto p1U = getPlane(pFrame1, RGY_PLANE_U);
+    auto p1V = getPlane(pFrame1, RGY_PLANE_V);
 
     if (   p0Y.width != p1Y.width || p0Y.height != p1Y.height
         || p0U.width != p1U.width || p0U.height != p1U.height
         || p0V.width != p1V.width || p0V.height != p1V.height) {
         return RGY_ERR_UNKNOWN;
     }
+    if (yuv420) {
+        //拡大済みの色差を輝度と同じサイズの平面として扱う
+        auto setUV444Plane = [&p0Y](RGYFrameInfo& planeU, RGYFrameInfo& planeV, const RGYFrameInfo *pUV444) {
+            planeU = *pUV444;
+            planeU.width = p0Y.width;
+            planeU.height = p0Y.height;
+            planeV = planeU;
+            planeV.ptr[0] = planeU.ptr[0] + (size_t)planeU.pitch[0] * p0Y.height;
+        };
+        setUV444Plane(p0U, p0V, pUV444_0);
+        setUV444Plane(p1U, p1V, pUV444_1);
+    }
 
     auto sts = RGY_ERR_NONE;
-    cudaTextureObject_t texP0Y = 0;
-    cudaTextureObject_t texP1Y = 0;
+    cudaTextureObject_t texP0Y = 0, texP0U = 0, texP0V = 0;
+    cudaTextureObject_t texP1Y = 0, texP1U = 0, texP1V = 0;
     if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP0Y, cudaFilterModePoint, cudaReadModeElementType, p0Y.ptr[0], p0Y.pitch[0], (p0Y.width + 3) / 4, p0Y.height)))) return sts;
     if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP1Y, cudaFilterModePoint, cudaReadModeElementType, p1Y.ptr[0], p1Y.pitch[0], (p1Y.width + 3) / 4, p1Y.height)))) return sts;
-
-    cudaTextureObject_t texP0U0 = 0;
-    cudaTextureObject_t texP0U1 = 0; //yuv444では使用されない
-    cudaTextureObject_t texP0V0 = 0;
-    cudaTextureObject_t texP0V1 = 0; //yuv444では使用されない
-    cudaTextureObject_t texP1U0 = 0;
-    cudaTextureObject_t texP1U1 = 0; //yuv444では使用されない
-    cudaTextureObject_t texP1V0 = 0;
-    cudaTextureObject_t texP1V1 = 0; //yuv444では使用されない
-    if (yuv420) {
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr[0] + p0U.pitch[0] * 0, p0U.pitch[0] * 2, p0U.width, p0U.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr[0] + p0U.pitch[0] * 1, p0U.pitch[0] * 2, p0U.width, p0U.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr[0] + p0V.pitch[0] * 0, p0V.pitch[0] * 2, p0V.width, p0V.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr[0] + p0V.pitch[0] * 1, p0V.pitch[0] * 2, p0V.width, p0V.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr[0] + p1U.pitch[0] * 0, p1U.pitch[0] * 2, p1U.width, p1U.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr[0] + p1U.pitch[0] * 1, p1U.pitch[0] * 2, p1U.width, p1U.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr[0] + p1V.pitch[0] * 0, p1V.pitch[0] * 2, p1V.width, p1V.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr[0] + p1V.pitch[0] * 1, p1V.pitch[0] * 2, p1V.width, p1V.height >> 1)))) return sts;
-    } else {
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP0U0, cudaFilterModePoint, cudaReadModeElementType, p0U.ptr[0], p0U.pitch[0], (p0U.width + 3) / 4, p0U.height)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP0V0, cudaFilterModePoint, cudaReadModeElementType, p0V.ptr[0], p0V.pitch[0], (p0V.width + 3) / 4, p0V.height)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP1U0, cudaFilterModePoint, cudaReadModeElementType, p1U.ptr[0], p1U.pitch[0], (p1U.width + 3) / 4, p1U.height)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP1V0, cudaFilterModePoint, cudaReadModeElementType, p1V.ptr[0], p1V.pitch[0], (p1V.width + 3) / 4, p1V.height)))) return sts;
-    }
+    if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP0U, cudaFilterModePoint, cudaReadModeElementType, p0U.ptr[0], p0U.pitch[0], (p0U.width + 3) / 4, p0U.height)))) return sts;
+    if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP0V, cudaFilterModePoint, cudaReadModeElementType, p0V.ptr[0], p0V.pitch[0], (p0V.width + 3) / 4, p0V.height)))) return sts;
+    if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP1U, cudaFilterModePoint, cudaReadModeElementType, p1U.ptr[0], p1U.pitch[0], (p1U.width + 3) / 4, p1U.height)))) return sts;
+    if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP1V, cudaFilterModePoint, cudaReadModeElementType, p1V.ptr[0], p1V.pitch[0], (p1V.width + 3) / 4, p1V.height)))) return sts;
 
     dim3 blockSize(BLOCK_INT_X, BLOCK_Y);
     //横方向は1スレッドで4pixel処理する
@@ -547,19 +519,28 @@ RGY_ERR run_analyze_stripe(uint8_t *dst, const int dstPitch,
     uint32_t thre_deint_yuv   = (uint32_t)clamp((pAfsPrm->thre_deint   * 219 +  383)>>thre_rsft, 0, thre_max);
     uint32_t thre_Ymotion_yuv = (uint32_t)clamp((pAfsPrm->thre_Ymotion * 219 +  383)>>thre_rsft, 0, thre_max);
     uint32_t thre_Cmotion_yuv = (uint32_t)clamp((pAfsPrm->thre_Cmotion * 224 + 2112)>>thre_rsft, 0, thre_max);
-    if (sizeof(Type) == 1) {
-        thre_shift_yuv   = u8x4(thre_shift_yuv);
-        thre_deint_yuv   = u8x4(thre_deint_yuv);
-        thre_Ymotion_yuv = u8x4(thre_Ymotion_yuv);
-        thre_Cmotion_yuv = u8x4(thre_Cmotion_yuv);
-    } else if (sizeof(Type) == 2) {
-        thre_shift_yuv   = u16x2(thre_shift_yuv);
-        thre_deint_yuv   = u16x2(thre_deint_yuv);
-        thre_Ymotion_yuv = u16x2(thre_Ymotion_yuv);
-        thre_Cmotion_yuv = u16x2(thre_Cmotion_yuv);
-    } else {
-        return RGY_ERR_UNKNOWN;
+    uint32_t thre_Cdeint_yuv  = thre_deint_yuv;
+    uint32_t thre_Cshift_yuv  = thre_shift_yuv;
+    if (yuv420) {
+        //以前のfloat版(色差のスケール 224/4096)の判定にできるだけ合わせた整数の閾値
+        //motion : (thre > abs) の判定なので切り上げ
+        //deint/shift : (abs > thre) の判定なので切り捨て
+        //(shiftはmotion側でも thre > abs で使うが、既定値では割り切れるので差は出ない)
+        thre_Cmotion_yuv = (uint32_t)clamp((pAfsPrm->thre_Cmotion * 224 + (1 << thre_rsft) - 1) >> thre_rsft, 0, thre_max);
+        thre_Cdeint_yuv  = (uint32_t)clamp((pAfsPrm->thre_deint   * 224) >> thre_rsft, 0, thre_max);
+        thre_Cshift_yuv  = (uint32_t)clamp((pAfsPrm->thre_shift   * 224) >> thre_rsft, 0, thre_max);
     }
+    auto pack_thre = [](uint32_t thre) {
+        return (sizeof(Type) == 1) ? u8x4(thre) : u16x2(thre);
+    };
+    static_assert(sizeof(Type) == 1 || sizeof(Type) == 2, "unsupported Type");
+    thre_shift_yuv   = pack_thre(thre_shift_yuv);
+    thre_deint_yuv   = pack_thre(thre_deint_yuv);
+    thre_Ymotion_yuv = pack_thre(thre_Ymotion_yuv);
+    thre_Cmotion_yuv = pack_thre(thre_Cmotion_yuv);
+    thre_Cdeint_yuv  = pack_thre(thre_Cdeint_yuv);
+    thre_Cshift_yuv  = pack_thre(thre_Cshift_yuv);
+
     uint8_t select_plane = SELECT_PLANE_Y | SELECT_PLANE_U | SELECT_PLANE_V;
     if (pAfsPrm->tune == AFS_TUNE_MODE_ANALYZE_SHIFT_Y || pAfsPrm->tune == AFS_TUNE_MODE_ANALYZE_NONSHIFT_Y) {
         select_plane = SELECT_PLANE_Y;
@@ -569,20 +550,13 @@ RGY_ERR run_analyze_stripe(uint8_t *dst, const int dstPitch,
         select_plane = SELECT_PLANE_V;
     }
 
-    //YC48 -> yuv420/yuv444(bit_depth)へのスケーリング
-    //色差はcudaReadModeNormalizedFloatをつ開くので、そのぶんのスケーリングも必要
-    const float thre_mul = (224.0f / (float)(4096 >> (bit_depth - 8))) * (1.0f / (1 << (sizeof(Type) * 8)));
-    const float thre_shift_yuvf   = std::max(0.0f, pAfsPrm->thre_shift * thre_mul);
-    const float thre_deint_yuvf   = std::max(0.0f, pAfsPrm->thre_deint * thre_mul);
-    const float thre_Cmotion_yuvf = std::max(0.0f, pAfsPrm->thre_Cmotion * thre_mul);
-
-    kernel_afs_analyze_12<Type, Type4, tb_order, yuv420><<<gridSize, blockSize, 0, stream>>>(
+    kernel_afs_analyze_12<Type, Type4, tb_order><<<gridSize, blockSize, 0, stream>>>(
         (uint32_t *)dst, (int *)count_motion->ptrDevice,
-        texP0Y, texP0U0, texP0U1, texP0V0, texP0V1,
-        texP1Y, texP1U0, texP1U1, texP1V0, texP1V1,
+        texP0Y, texP0U, texP0V,
+        texP1Y, texP1U, texP1V,
         divCeil(p0Y.width, 4), dstPitch / sizeof(uint32_t), p0Y.height,
         thre_Ymotion_yuv, thre_deint_yuv, thre_shift_yuv,
-        thre_Cmotion_yuv, thre_Cmotion_yuvf, thre_deint_yuvf, thre_shift_yuvf,
+        thre_Cmotion_yuv, thre_Cdeint_yuv, thre_Cshift_yuv,
         scan_left, scan_top, scan_width, scan_height, select_plane);
     sts = err_to_rgy(cudaGetLastError());
     if (sts != RGY_ERR_NONE) {
@@ -591,20 +565,47 @@ RGY_ERR run_analyze_stripe(uint8_t *dst, const int dstPitch,
 
     cudaDestroyTextureObject(texP0Y);
     cudaDestroyTextureObject(texP1Y);
-    cudaDestroyTextureObject(texP0U0);
-    cudaDestroyTextureObject(texP0V0);
-    cudaDestroyTextureObject(texP1U0);
-    cudaDestroyTextureObject(texP1V0);
-    if (yuv420) {
-        cudaDestroyTextureObject(texP0U1);
-        cudaDestroyTextureObject(texP0V1);
-        cudaDestroyTextureObject(texP1U1);
-        cudaDestroyTextureObject(texP1V1);
-    }
+    cudaDestroyTextureObject(texP0U);
+    cudaDestroyTextureObject(texP0V);
+    cudaDestroyTextureObject(texP1U);
+    cudaDestroyTextureObject(texP1V);
     return err_to_rgy(cudaGetLastError());
 }
 
-RGY_ERR NVEncFilterAfs::analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_SCAN_DATA *sp, CUMemBufPair *count_motion, const NVEncFilterParamAfs *pAfsParam, cudaStream_t stream) {
+template<typename Type, typename Type4, typename Type8>
+RGY_ERR run_upsample_uv420(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc, cudaStream_t stream) {
+    const auto planeY = getPlane(pSrc, RGY_PLANE_Y);
+    const auto planeU = getPlane(pSrc, RGY_PLANE_U);
+    const auto planeV = getPlane(pSrc, RGY_PLANE_V);
+    if (planeU.pitch[0] != planeV.pitch[0]
+        || pDst->width < planeY.width || pDst->height < planeY.height * 2) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    //ベクトルでの読み書きのため、各行の先頭がType4/Type8単位で揃っている必要がある
+    if (   (planeU.pitch[0] % sizeof(Type4)) != 0 || ((size_t)planeU.ptr[0] % sizeof(Type4)) != 0 || ((size_t)planeV.ptr[0] % sizeof(Type4)) != 0
+        || (pDst->pitch[0] % sizeof(Type8)) != 0 || ((size_t)pDst->ptr[0] % sizeof(Type8)) != 0) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    dim3 blockSize(32, 8, 1);
+    dim3 gridSize(divCeil(planeU.width, blockSize.x * 4), divCeil(planeY.height, blockSize.y), 2);
+    kernel_afs_upsample_uv420<Type, Type4, Type8><<<gridSize, blockSize, 0, stream>>>(
+        pDst->ptr[0], pDst->pitch[0],
+        planeU.ptr[0], planeV.ptr[0], planeU.pitch[0],
+        planeU.width, planeU.height, planeY.height);
+    return err_to_rgy(cudaGetLastError());
+}
+
+RGY_ERR NVEncFilterAfs::upsample_uv420(CUFrameBuf *pDst, const CUFrameBuf *pSrc, cudaStream_t stream) {
+    switch (pSrc->frame.csp) {
+    case RGY_CSP_YV12:    return run_upsample_uv420<uint8_t,  uint32_t, uint2>(&pDst->frame, &pSrc->frame, stream);
+    case RGY_CSP_YV12_16: return run_upsample_uv420<uint16_t, uint2,    uint4>(&pDst->frame, &pSrc->frame, stream);
+    default:
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp for afs_upsample_uv420: %s\n"), RGY_CSP_NAMES[pSrc->frame.csp]);
+        return RGY_ERR_UNSUPPORTED;
+    }
+}
+
+RGY_ERR NVEncFilterAfs::analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, const CUFrameBuf *p0uv444, const CUFrameBuf *p1uv444, AFS_SCAN_DATA *sp, CUMemBufPair *count_motion, const NVEncFilterParamAfs *pAfsParam, cudaStream_t stream) {
     struct analyze_func {
         decltype(run_analyze_stripe<uint8_t, uint32_t, 8, true, true>)* func[2];
         analyze_func(decltype(run_analyze_stripe<uint8_t, uint32_t, 8, true, true>)* tb_order_0, decltype(run_analyze_stripe<uint8_t, uint32_t, 8, true, true>)* tb_order_1) {
@@ -629,8 +630,14 @@ RGY_ERR NVEncFilterAfs::analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_SCAN_
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for afs_analyze_stripe: %s\n"), RGY_CSP_NAMES[pAfsParam->frameIn.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
+    const bool yuv420 = RGY_CSP_CHROMA_FORMAT[pAfsParam->frameIn.csp] == RGY_CHROMAFMT_YUV420;
+    if (yuv420 && (p0uv444 == nullptr || p1uv444 == nullptr)) {
+        AddMessage(RGY_LOG_ERROR, _T("upsampled chroma buffer not set for afs_analyze_stripe.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
     auto sts = analyze_stripe_func_list.at(pAfsParam->frameIn.csp).func[!!pAfsParam->afs.tb_order](
         sp->map.frame.ptr[0], sp->map.frame.pitch[0], &p0->frame, &p1->frame,
+        (yuv420) ? &p0uv444->frame : nullptr, (yuv420) ? &p1uv444->frame : nullptr,
         count_motion, &pAfsParam->afs, stream);
     if (sts != RGY_ERR_NONE) {
         return sts;

@@ -425,7 +425,11 @@ NVEncFilterAfs::NVEncFilterAfs() :
     m_status(),
     m_streamsts(),
     m_count_motion(),
+    m_uv444(),
     m_fpTimecode() {
+    for (auto& uv : m_uv444) {
+        uv.frame = -1;
+    }
     m_name = _T("afs");
 }
 
@@ -560,6 +564,19 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     AddMessage(RGY_LOG_DEBUG, _T("allocated stripe buffer: %dx%d, pitch %d, %s.\n"),
         m_stripe.get(0)->map.frame.width, m_stripe.get(0)->map.frame.height, m_stripe.get(0)->map.frame.pitch[0], RGY_CSP_NAMES[m_stripe.get(0)->map.frame.csp]);
 
+    if (RGY_CSP_CHROMA_FORMAT[pAfsParam->frameOut.csp] == RGY_CHROMAFMT_YUV420) {
+        const RGY_CSP csp_uv444 = (RGY_CSP_BIT_DEPTH[pAfsParam->frameOut.csp] > 8) ? RGY_CSP_Y16 : RGY_CSP_Y8;
+        for (auto& uv : m_uv444) {
+            uv.frame = -1;
+            if (RGY_ERR_NONE != (err = uv.buf.alloc(pAfsParam->frameOut.width, pAfsParam->frameOut.height * 2, csp_uv444))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("allocated uv444 buffer: %dx%d, pitch %d, %s.\n"),
+            m_uv444[0].buf.frame.width, m_uv444[0].buf.frame.height, m_uv444[0].buf.frame.pitch[0], RGY_CSP_NAMES[m_uv444[0].buf.frame.csp]);
+    }
+
     m_streamAnalyze = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
     if (RGY_ERR_NONE != (err = err_to_rgy(cudaStreamCreateWithFlags(m_streamAnalyze.get(), cudaStreamNonBlocking)))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(err));
@@ -642,6 +659,23 @@ bool NVEncFilterAfs::scan_frame_result_cached(int frame, const VppAfs *pAfsPrm) 
         (mode == 1 && sp->mode == 1 && sp->thre_deint == pAfsPrm->thre_deint && sp->thre_Ymotion == pAfsPrm->thre_Ymotion && sp->thre_Cmotion == pAfsPrm->thre_Cmotion));
 }
 
+RGY_ERR NVEncFilterAfs::get_uv444(int iframe, cudaStream_t stream, const CUFrameBuf **ppUV444) {
+    //m_source.get()と同じくclampした番号をキーにする
+    const int idx = clamp(iframe, 0, m_source.inframe() - 1);
+    auto uv = &m_uv444[idx & (AFS_UV444_CACHE_NUM - 1)];
+    if (uv->frame != idx) {
+        //scan_frameと同じstreamで処理するので、前のanalyzeの読み込みとの順序は保証される
+        auto err = upsample_uv420(&uv->buf, m_source.get(idx), stream);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed upsample_uv420: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        uv->frame = idx;
+    }
+    *ppUV444 = &uv->buf;
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR NVEncFilterAfs::scan_frame(int iframe, int force, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream) {
     if (!force && scan_frame_result_cached(iframe, &pAfsPrm->afs)) {
         return RGY_ERR_NONE;
@@ -658,7 +692,15 @@ RGY_ERR NVEncFilterAfs::scan_frame(int iframe, int force, const NVEncFilterParam
     sp->thre_shift = pAfsPrm->afs.thre_shift, sp->thre_deint = pAfsPrm->afs.thre_deint;
     sp->thre_Ymotion = pAfsPrm->afs.thre_Ymotion, sp->thre_Cmotion = pAfsPrm->afs.thre_Cmotion;
     sp->clip.top = sp->clip.bottom = sp->clip.left = sp->clip.right = -1;
-    auto err = analyze_stripe(p0, p1, sp, &m_count_motion, pAfsPrm, stream);
+    const CUFrameBuf *p1uv444 = nullptr;
+    const CUFrameBuf *p0uv444 = nullptr;
+    if (RGY_CSP_CHROMA_FORMAT[pAfsPrm->frameIn.csp] == RGY_CHROMAFMT_YUV420) {
+        auto err = get_uv444(iframe - 1, stream, &p1uv444);
+        if (err != RGY_ERR_NONE) return err;
+        err = get_uv444(iframe, stream, &p0uv444);
+        if (err != RGY_ERR_NONE) return err;
+    }
+    auto err = analyze_stripe(p0, p1, p0uv444, p1uv444, sp, &m_count_motion, pAfsPrm, stream);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed analyze_stripe: %s.\n"), get_err_mes(err));
         return err;
@@ -1121,6 +1163,10 @@ void NVEncFilterAfs::close() {
     m_stripe.clear();
     m_status.clear();
     m_count_motion.clear();
+    for (auto& uv : m_uv444) {
+        uv.buf.clear();
+        uv.frame = -1;
+    }
     m_fpTimecode.reset();
     AddMessage(RGY_LOG_DEBUG, _T("closed afs filter.\n"));
 }
