@@ -41,157 +41,64 @@
 #include <sm_32_intrinsics.h>
 #pragma warning (pop)
 
-#define FILTER_BLOCK_INT_X  (32) //work groupサイズ(x) = スレッド数/work group
-#define FILTER_BLOCK_Y       (8) //work groupサイズ(y) = スレッド数/work group
-
-#define u8x4(x)  (((uint32_t)x) | (((uint32_t)x) <<  8) | (((uint32_t)x) << 16) | (((uint32_t)x) << 24))
-
-__device__ __inline__
-void filter_h_1(uint32_t shared[2][FILTER_BLOCK_Y+4][FILTER_BLOCK_INT_X+2], int sx, int sy) {
-    uint32_t x0 = shared[0][sy][sx-1];
-    uint32_t x1 = shared[0][sy][sx+0];
-    uint32_t x2 = shared[0][sy][sx+1];
-#if __CUDA_ARCH__ >= 320
-    uint32_t x3 = __funnelshift_r(x0, x1, 24);
-    uint32_t x4 = __funnelshift_r(x1, x2,  8);
-#else
-    uint32_t x3 = x0 >> 24 | x1 <<  8;
-    uint32_t x4 = x1 >>  8 | x2 << 24;
-#endif
-    shared[1][sy][sx] = x1 | ((x3 | x4) & u8x4(0x03)) | ((x3 & x4) & u8x4(0x04));
-}
-
-__device__ __inline__
-void filter_h_1_edge(uint32_t shared[2][FILTER_BLOCK_Y+4][FILTER_BLOCK_INT_X+2], int sx, int sy) {
-    uint32_t x0 = (sx-1 >= 0)                 ? shared[0][sy][sx-1] : 0;
-    uint32_t x1 =                               shared[0][sy][sx+0];
-    uint32_t x2 = (sx+1<FILTER_BLOCK_INT_X+2) ? shared[0][sy][sx+1] : 0;
-#if __CUDA_ARCH__ >= 320
-    uint32_t x3 = __funnelshift_r(x0, x1, 24);
-    uint32_t x4 = __funnelshift_r(x1, x2, 8);
-#else
-    uint32_t x3 = x0 >> 24 | x1 <<  8;
-    uint32_t x4 = x1 >>  8 | x2 << 24;
-#endif
-    shared[1][sy][sx] = x1 | ((x3 | x4) & u8x4(0x03)) | ((x3 & x4) & u8x4(0x04));
-}
-
-__device__ __inline__
-void filter_v_1(uint32_t shared[2][FILTER_BLOCK_Y+4][FILTER_BLOCK_INT_X+2], int sx, int sy) {
-    uint32_t x0 = shared[1][sy-1][sx];
-    uint32_t x1 = shared[1][sy+0][sx];
-    uint32_t x2 = shared[1][sy+1][sx];
-    shared[0][sy][sx] = x1 | (x0 & x2 & u8x4(0x03 | 0x04));
-}
-
-__device__ __inline__
-void filter_h_2(uint32_t shared[2][FILTER_BLOCK_Y+4][FILTER_BLOCK_INT_X+2], int sx, int sy) {
-    uint32_t x0 = shared[0][sy][sx-1];
-    uint32_t x1 = shared[0][sy][sx+0];
-    uint32_t x2 = shared[0][sy][sx+1];
-#if __CUDA_ARCH__ >= 320
-    uint32_t x3 = __funnelshift_r(x0, x1, 24);
-    uint32_t x4 = __funnelshift_r(x1, x2,  8);
-#else
-    uint32_t x3 = x0 >> 24 | x1 <<  8;
-    uint32_t x4 = x1 >>  8 | x2 << 24;
-#endif
-    shared[1][sy][sx] = x1 & ((x3 & x4) | u8x4(0xf8));
-}
-
-__device__ __inline__
-uint32_t get_filter_v_2(uint32_t shared[2][FILTER_BLOCK_Y+4][FILTER_BLOCK_INT_X+2], int sx, int sy) {
-    uint32_t x0 = shared[1][sy-1][sx];
-    uint32_t x1 = shared[1][sy+0][sx];
-    uint32_t x2 = shared[1][sy+1][sx];
-    return x1 & ((x0 & x2) | u8x4(0xf8));
-}
+static constexpr int MAPF_WARP_SIZE = 32;
+static constexpr int MAPF_COLUMNS = MAPF_WARP_SIZE - 2;
+static constexpr int MAPF_ROWS = 16;
+static constexpr int MAPF_WARPS = 4;
 
 __global__ void kernel_afs_analyze_map_filter(
     uint32_t *__restrict__ ptr_dst,
     const uint32_t *__restrict__ ptr_src,
     const int si_w_type, const int pitch_type, const int height) {
-    const int lx = threadIdx.x; //スレッド数=FILTER_BLOCK_INT_X
-    const int ly = threadIdx.y; //スレッド数=FILTER_BLOCK_Y
-    const int imgx = blockIdx.x * FILTER_BLOCK_INT_X /*blockDim.x*/ + threadIdx.x;
-    const int imgy = blockIdx.y * FILTER_BLOCK_Y     /*blockDim.y*/ + threadIdx.y;
+    const int lane = threadIdx.x;
+    const int ix = static_cast<int>(blockIdx.x) * MAPF_COLUMNS + lane - 1;
+    const int y0 = (blockIdx.y * MAPF_WARPS + threadIdx.y) * MAPF_ROWS;
+    const int srcx = clamp(ix, 0, si_w_type - 1);
+    const bool writeColumn = lane > 0 && lane < MAPF_WARP_SIZE - 1 && ix < si_w_type;
 
-    //左右の縁 lx(0)=0, lx(1)=FILTER_BLOCK_INT_X+1
-    const int sx_edge = (lx) ? FILTER_BLOCK_INT_X+1 : 0;
-
-    __shared__ uint32_t shared[2][FILTER_BLOCK_Y+4][FILTER_BLOCK_INT_X+2];
-
-    //sharedメモリへのロード
-#define SRCPTR(ix, iy) *(uint32_t *)(ptr_src + clamp((iy), 0, height - 1) * pitch_type + clamp((ix), 0, si_w_type - 1))
-    //中央部分のロード
-    shared[0][ly][lx+1] = SRCPTR(imgx, imgy-2);
-    if (lx < 2) {
-        //x方向の左(lx=0)右(lx=1)の縁をロード
-        shared[0][ly][sx_edge] = SRCPTR(imgx-1+sx_edge, imgy-2);
-    }
-    if (ly < 4) {
-        shared[0][ly + FILTER_BLOCK_Y][lx+1] = SRCPTR(imgx, imgy-2+FILTER_BLOCK_Y);
-        if (lx < 2) {
-            //x方向の左(lx=0)右(lx=1)の縁をロード
-            shared[0][ly + FILTER_BLOCK_Y][sx_edge] = SRCPTR(imgx-1+sx_edge, imgy-2+FILTER_BLOCK_Y);
+    // 横の隣接語はワープ内で交換し、縦の中間値は直近の行だけをレジスタに保持する。
+    // 両端のレーンも交換に参加する。出力レーンが参照するのは各端の内側1バイトだけ。
+    // (旧実装はsharedのタイルの右ハローを1語先(+33)から読んでいたため、タイル右端の語の結果が誤っていた。本実装で解消している)
+    uint32_t h1Prev2 = 0, h1Prev = 0;
+    uint32_t h2Prev2 = 0, h2Prev = 0;
+#pragma unroll
+    for (int row = -2; row < MAPF_ROWS + 2; row++) {
+        const int srcy = clamp(y0 + row, 0, height - 1);
+        const uint32_t raw = ptr_src[srcy * pitch_type + srcx];
+        const uint32_t rawLeft = __shfl_up_sync(0xffffffff, raw, 1);
+        const uint32_t rawRight = __shfl_down_sync(0xffffffff, raw, 1);
+        const uint32_t h1Left = __funnelshift_r(rawLeft, raw, 24);
+        const uint32_t h1Right = __funnelshift_r(raw, rawRight, 8);
+        const uint32_t h1 = raw | ((h1Left | h1Right) & 0x03030303u) | ((h1Left & h1Right) & 0x04040404u);
+        if (row >= 0) {
+            const uint32_t v1 = h1Prev | (h1Prev2 & h1 & 0x07070707u);
+            const uint32_t v1Left = __shfl_up_sync(0xffffffff, v1, 1);
+            const uint32_t v1Right = __shfl_down_sync(0xffffffff, v1, 1);
+            const uint32_t h2Left = __funnelshift_r(v1Left, v1, 24);
+            const uint32_t h2Right = __funnelshift_r(v1, v1Right, 8);
+            const uint32_t h2 = v1 & ((h2Left & h2Right) | 0xf8f8f8f8u);
+            const int y = y0 + row - 2;
+            if (row >= 2 && writeColumn && y < height) {
+                ptr_dst[y * pitch_type + ix] = h2Prev & ((h2Prev2 & h2) | 0xf8f8f8f8u);
+            }
+            h2Prev2 = h2Prev;
+            h2Prev = h2;
         }
-    }
-    __syncthreads();
-#undef SRCPTR
-
-    //filter_h(1)
-    filter_h_1(shared, lx+1, ly);
-    if (lx < 2) {
-        //x方向の縁
-        filter_h_1_edge(shared, sx_edge, ly);
-    }
-    if (ly < 4) {
-        filter_h_1(shared, lx+1, ly+FILTER_BLOCK_Y);
-        if (lx < 2) {
-            //x方向の縁
-            filter_h_1_edge(shared, sx_edge, ly+FILTER_BLOCK_Y);
-        }
-    }
-    __syncthreads();
-
-    //filter_v(1)
-    filter_v_1(shared, lx, ly+1);
-    if (lx < 2) {
-        //x方向の縁
-        filter_v_1(shared, lx+FILTER_BLOCK_INT_X, ly+1);
-    }
-    if (ly < 2) {
-        filter_v_1(shared, lx, ly+1+FILTER_BLOCK_Y);
-        if (lx < 2) {
-            //x方向の縁
-            filter_v_1(shared, lx+FILTER_BLOCK_INT_X, ly+1+FILTER_BLOCK_Y);
-        }
-    }
-    __syncthreads();
-
-    //filter_h(2)
-    filter_h_2(shared, lx+1, ly+1);
-    if (ly < 2) {
-        filter_h_2(shared, lx+1, ly+1+FILTER_BLOCK_Y);
-    }
-    __syncthreads();
-
-    //filter_v(2)
-    if (imgx < si_w_type && imgy < height) {
-        uint32_t ret = get_filter_v_2(shared, lx+1, ly+2);
-        ptr_dst[imgy * pitch_type + imgx] = ret;
+        h1Prev2 = h1Prev;
+        h1Prev = h1;
     }
 }
 
 RGY_ERR run_analyze_map_filter(uint8_t *dst, uint8_t *sp,
     const int srcWidth, const int srcPitch, const int srcHeight,
     cudaStream_t stream) {
-    dim3 blockSize(FILTER_BLOCK_INT_X, FILTER_BLOCK_Y);
-    dim3 gridSize(divCeil(srcWidth, blockSize.x * sizeof(uint32_t)), divCeil(srcHeight, blockSize.y));
+    const int widthWords = divCeil(srcWidth, sizeof(uint32_t));
+    dim3 blockSize(MAPF_WARP_SIZE, MAPF_WARPS);
+    dim3 gridSize(divCeil(widthWords, MAPF_COLUMNS), divCeil(srcHeight, MAPF_ROWS * MAPF_WARPS));
 
     kernel_afs_analyze_map_filter<<<gridSize, blockSize, 0, stream>>>(
         (uint32_t *)dst, (uint32_t *)sp,
-        divCeil(srcWidth, sizeof(uint32_t)), divCeil(srcPitch, sizeof(uint32_t)), srcHeight);
+        widthWords, divCeil(srcPitch, sizeof(uint32_t)), srcHeight);
     return err_to_rgy(cudaGetLastError());
 }
 
