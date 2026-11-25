@@ -28,6 +28,8 @@
 
 #pragma once
 
+#include <map>
+#include <tuple>
 #include "NVEncFilter.h"
 #include "NVEncParam.h"
 
@@ -82,6 +84,21 @@ public:
     };
     virtual ~NVEncFilterParamAfs() {};
     virtual tstring print() const override;
+};
+
+//テクスチャオブジェクトのキャッシュ
+//afsのバッファ(source/uv444)はフィルタの動作中は固定なので、毎フレーム作り直さずに使い回す。
+//(1フレームあたり十数回のcudaCreateTextureObject/cudaDestroyTextureObjectがホスト側の負荷になっていた)
+class afsTextureCache {
+public:
+    afsTextureCache() : m_tex() {};
+    ~afsTextureCache() { clear(); };
+    cudaError_t get(cudaTextureObject_t& tex, const cudaChannelFormatDesc& desc, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode,
+        uint8_t *ptr, int pitch, int width, int height);
+    void clear();
+protected:
+    using Key = std::tuple<uint8_t *, int, int, int, int, int, int, int, int, int, int>;
+    std::map<Key, cudaTextureObject_t> m_tex;
 };
 
 class afsSourceCache {
@@ -286,5 +303,6 @@ protected:
         CUFrameBuf buf;
         int frame;
     } m_uv444[AFS_UV444_CACHE_NUM];
+    afsTextureCache m_texCache;
     unique_ptr<FILE, fp_deleter> m_fpTimecode;
 };

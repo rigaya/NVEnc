@@ -51,6 +51,45 @@ T absdiff(T a, T b) {
     return (a >= b) ? a_b : b_a;
 }
 
+cudaError_t afsTextureCache::get(cudaTextureObject_t& tex, const cudaChannelFormatDesc& desc, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode,
+    uint8_t *ptr, int pitch, int width, int height) {
+    const Key key = std::make_tuple(ptr, pitch, width, height, desc.x, desc.y, desc.z, desc.w, (int)desc.f, (int)filterMode, (int)readMode);
+    auto it = m_tex.find(key);
+    if (it != m_tex.end()) {
+        tex = it->second;
+        return cudaSuccess;
+    }
+    cudaResourceDesc resDesc;
+    memset(&resDesc, 0, sizeof(resDesc));
+    resDesc.resType = cudaResourceTypePitch2D;
+    resDesc.res.pitch2D.devPtr = ptr;
+    resDesc.res.pitch2D.pitchInBytes = pitch;
+    resDesc.res.pitch2D.width = width;
+    resDesc.res.pitch2D.height = height;
+    resDesc.res.pitch2D.desc = desc;
+
+    cudaTextureDesc texDesc;
+    memset(&texDesc, 0, sizeof(texDesc));
+    texDesc.addressMode[0]   = cudaAddressModeClamp;
+    texDesc.addressMode[1]   = cudaAddressModeClamp;
+    texDesc.filterMode       = filterMode;
+    texDesc.readMode         = readMode;
+    texDesc.normalizedCoords = 0;
+
+    auto err = cudaCreateTextureObject(&tex, &resDesc, &texDesc, nullptr);
+    if (err == cudaSuccess) {
+        m_tex[key] = tex;
+    }
+    return err;
+}
+
+void afsTextureCache::clear() {
+    for (auto& t : m_tex) {
+        cudaDestroyTextureObject(t.second);
+    }
+    m_tex.clear();
+}
+
 afsSourceCache::afsSourceCache() :
     m_sourceArray(),
     m_nFramesInput(0) {
@@ -426,6 +465,7 @@ NVEncFilterAfs::NVEncFilterAfs() :
     m_status(),
     m_streamsts(),
     m_uv444(),
+    m_texCache(),
     m_fpTimecode() {
     for (auto& uv : m_uv444) {
         uv.frame = -1;
@@ -1148,6 +1188,7 @@ void NVEncFilterAfs::write_timecode(int64_t pts, const rgy_rational<int>& timeba
 }
 
 void NVEncFilterAfs::close() {
+    m_texCache.clear(); //バッファを解放する前に破棄する
     m_streamAnalyze.reset();
     m_streamCopy.reset();
     m_eventSrcAdd.reset();
