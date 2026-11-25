@@ -166,4 +166,8 @@ const char *get_encoder_version();
 #define ENABLE_INTERLACE_FROM_HWMEM 1
 #endif // #if defined(WIN32) || defined(WIN64)
 
+#ifndef ENABLE_PROBE_BUILD
+#define ENABLE_PROBE_BUILD 0
+#endif
+
 #endif //__RGY_CONFIG_H__

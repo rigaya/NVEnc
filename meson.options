@@ -94,3 +94,9 @@ option('onnxruntime_dir',
   value: '',
   description: 'ONNX Runtime installation path for headers (expects include/onnxruntime_cxx_api.h)'
 )
+
+option('nvenc_probe',
+  type: 'boolean',
+  value: false,
+  description: 'Build the GPU diagnostics executable'
+)

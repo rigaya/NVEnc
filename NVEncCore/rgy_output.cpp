@@ -218,7 +218,11 @@ RGY_ERR RGYOutput::readRawDebug(RGYBitstream *pBitstream) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutput::InitVideoBsf(const VideoInfo *videoOutputInfo) {
+RGY_ERR RGYOutput::InitVideoBsf([[maybe_unused]] const VideoInfo *videoOutputInfo) {
+#if ENABLE_PROBE_BUILD
+    // 診断では符号化が成功するかを確認するため、出力補正に使うビットストリームフィルタを省く。
+    return RGY_ERR_NONE;
+#else
     // フィルタが不要な出力では、遅延ロードされるライブラリを呼ばずに初期化を終える。
     const bool needsMetadataFilter = (ENCODER_NVENC
         && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC)
@@ -397,6 +401,7 @@ RGY_ERR RGYOutput::InitVideoBsf(const VideoInfo *videoOutputInfo) {
         m_bsf = std::make_unique<RGYOutputBSF>(bsfc, videoOutputInfo->codec, m_strWriterName, m_printMes);
     }
     return RGY_ERR_NONE;
+#endif
 }
 
 template<typename T>

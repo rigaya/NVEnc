@@ -3531,6 +3531,8 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 
 RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufilters,
     RGYFrameInfo & inputFrame, const VppType vppType, const InEncodeVideoParam *inputParam, [[maybe_unused]] const sInputCrop *crop, const std::pair<int, int> resize, VideoVUIInfo& vuiInfo) {
+    // 入力の色空間変換は初期化処理が行うため、診断構成では個々のフィルタを生成しない。
+#if !ENABLE_PROBE_BUILD
     //フィルタが必要
     //colorspace
     if (vppType == VppType::CL_COLORSPACE) {
@@ -5490,10 +5492,13 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         m_encFps = param->baseFps;
         return RGY_ERR_NONE;
     }
+#endif
     return RGY_ERR_UNSUPPORTED;
 }
 
 bool NVEncCore::VppRffEnabled() {
+    // 診断構成には繰り返しフィールドのフィルタとその型情報がないため、未使用として扱う。
+#if !ENABLE_PROBE_BUILD
     //vpp-rffが使用されているか
     for (auto& vppblock : m_vpFilters) {
         for (auto& filter : vppblock.vppnv) {
@@ -5502,10 +5507,13 @@ bool NVEncCore::VppRffEnabled() {
             }
         }
     }
+#endif
     return false;
 }
 
 bool NVEncCore::VppAfsRffAware() {
+    // 診断構成には自動フィールドシフトのフィルタとその型情報がないため、未使用として扱う。
+#if !ENABLE_PROBE_BUILD
     //vpp-afsのrffが使用されているか
     for (auto& vppblock : m_vpFilters) {
         for (auto& filter : vppblock.vppnv) {
@@ -5517,10 +5525,15 @@ bool NVEncCore::VppAfsRffAware() {
             }
         }
     }
+#endif
     return false;
 }
 
 RGY_ERR NVEncCore::InitSsimFilter(const InEncodeVideoParam *inputParam) {
+#if ENABLE_PROBE_BUILD
+    // 診断では品質比較用の復号や測定を行わない。
+    return inputParam->common.metric.enabled() ? RGY_ERR_UNSUPPORTED : RGY_ERR_NONE;
+#else
     if (inputParam->common.metric.enabled() && m_dev->encoder()) {
         //デコードのほうもチェックしてあげないといけない
         const auto& cuvid_csp = m_dev->cuvid_csp();
@@ -5570,6 +5583,7 @@ RGY_ERR NVEncCore::InitSsimFilter(const InEncodeVideoParam *inputParam) {
         m_videoQualityMetric = std::move(filterSsim);
     }
     return RGY_ERR_NONE;
+#endif
 }
 
 RGY_ERR NVEncCore::CheckDynamicRCParams(std::vector<NVEncRCParam>& dynamicRC) {

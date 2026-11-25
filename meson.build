@@ -90,6 +90,7 @@ if cuda_ver_major < 10
 endif
 
 # CUDAバージョンに応じたGPU code生成オプション
+nvenc_probe = get_option('nvenc_probe')
 nvenc_dev_ptx = get_option('nvenc_dev_ptx')
 nvenc_cuda_cc = get_option('nvenc_cuda_cc')
 
@@ -112,6 +113,10 @@ elif nvenc_dev_ptx
     message('Dev PTX: nvidia-smi unavailable, falling back to compute_75')
     gpu_code_gen = ['--generate-code', 'arch=compute_75,code=[compute_75,sm_75]']
   endif
+elif nvenc_probe
+  # 最も古い対象向けの中間コードを1種類だけ持ち、実行時にドライバーに変換させる。
+  compute_num = cuda_ver_major <= 12 ? '50' : '75'
+  gpu_code_gen = ['--generate-code', 'arch=compute_' + compute_num + ',code=compute_' + compute_num]
 else
   gpu_code_gen = []
 
@@ -151,17 +156,17 @@ message('GPU code generation targets: ' + ' '.join(gpu_code_gen))
 # ==============================================================================
 # ビルドオプション
 # ==============================================================================
-enable_vapoursynth = get_option('enable_vapoursynth')
-enable_avisynth = get_option('enable_avisynth')
-enable_libass = get_option('enable_libass')
+enable_vapoursynth = not nvenc_probe and get_option('enable_vapoursynth')
+enable_avisynth = not nvenc_probe and get_option('enable_avisynth')
+enable_libass = not nvenc_probe and get_option('enable_libass')
 libass_static = get_option('libass_static')
-enable_libplacebo_option = get_option('enable_libplacebo')
+enable_libplacebo_option = nvenc_probe ? 'disabled' : get_option('enable_libplacebo')
 libplacebo_static = get_option('libplacebo_static')
-enable_vmaf_option = get_option('enable_vmaf')
+enable_vmaf_option = nvenc_probe ? 'disabled' : get_option('enable_vmaf')
 libvmaf_static = get_option('libvmaf_static')
-enable_libvship_option = get_option('enable_libvship')
+enable_libvship_option = nvenc_probe ? 'disabled' : get_option('enable_libvship')
 enable_vulkan_option = get_option('enable_vulkan')
-enable_onnxruntime_option = get_option('enable_onnxruntime')
+enable_onnxruntime_option = nvenc_probe ? 'disabled' : get_option('enable_onnxruntime')
 onnxruntime_dir = get_option('onnxruntime_dir')
 
 # ==============================================================================
@@ -215,12 +220,13 @@ endif
 rt_dep = cpp.find_library('rt', required: true)
 
 # FFmpeg (必須)
-libavutil_dep = dependency('libavutil', required: true)
-libavcodec_dep = dependency('libavcodec', required: true)
-libavformat_dep = dependency('libavformat', required: true)
-libavfilter_dep = dependency('libavfilter', required: true)
-libavdevice_dep = dependency('libavdevice', required: true)
-libswresample_dep = dependency('libswresample', required: true)
+ffmpeg_dependency_args = nvenc_probe ? {'static': true} : {}
+libavutil_dep = dependency('libavutil', required: true, kwargs: ffmpeg_dependency_args)
+libavcodec_dep = dependency('libavcodec', required: true, kwargs: ffmpeg_dependency_args)
+libavformat_dep = dependency('libavformat', required: true, kwargs: ffmpeg_dependency_args)
+libavfilter_dep = dependency('libavfilter', required: true, kwargs: ffmpeg_dependency_args)
+libavdevice_dep = dependency('libavdevice', required: true, kwargs: ffmpeg_dependency_args)
+libswresample_dep = dependency('libswresample', required: true, kwargs: ffmpeg_dependency_args)
 
 ffmpeg_deps = [
   libavutil_dep,
@@ -698,7 +704,7 @@ endif
 # libdovi / libhdr10plus: system優先、なければ同梱build (configure互換)
 cargo_prog = find_program('cargo', required: false)
 cargo_multiarch_libdir = 'lib/' + host_machine.cpu_family() + '-linux-gnu'
-if cargo_prog.found()
+if not nvenc_probe and cargo_prog.found()
   cargo_home_dir = source_root / '.cargo_home'
   cargo_c_check = run_command(
     'env',
@@ -724,8 +730,8 @@ if cargo_prog.found()
   endif
 endif
 
-libdovi_dep = dependency('dovi', required: false)
-if not libdovi_dep.found()
+libdovi_dep = dependency(nvenc_probe ? '' : 'dovi', required: false)
+if not nvenc_probe and not libdovi_dep.found()
   if not cargo_prog.found()
     error('cargo is required to build bundled libdovi when system dovi is not available')
   endif
@@ -766,8 +772,8 @@ if not libdovi_dep.found()
   endif
 endif
 
-libhdr10plus_dep = dependency('hdr10plus-rs', required: false)
-if not libhdr10plus_dep.found()
+libhdr10plus_dep = dependency(nvenc_probe ? '' : 'hdr10plus-rs', required: false)
+if not nvenc_probe and not libhdr10plus_dep.found()
   if not cargo_prog.found()
     error('cargo is required to build bundled libhdr10plus-rs when system hdr10plus-rs is not available')
   endif
@@ -842,6 +848,7 @@ conf_data.set10('ENABLE_AVI_READER', false)
 conf_data.set10('ENABLE_AVISYNTH_READER', enable_avisynth and have_avisynth_headers)
 conf_data.set10('ENABLE_VAPOURSYNTH_READER', enable_vapoursynth and have_vapoursynth_headers)
 conf_data.set10('ENABLE_AVSW_READER', true)
+conf_data.set10('ENABLE_PROBE_BUILD', nvenc_probe)
 conf_data.set10('ENABLE_SM_READER', false)
 conf_data.set10('ENABLE_LIBASS_SUBBURN', libass_dep.found())
 conf_data.set10('LIBASS_STATIC_LINK', libass_dep.found() and libass_static)
@@ -938,37 +945,10 @@ nvenccore_sources = files(
   'NVEncCore/NVEncCore.cpp',
   'NVEncCore/NVEncDevice.cpp',
   'NVEncCore/NVEncFilter.cpp',
-  'NVEncCore/NVEncFilterAfs.cpp',
-  'NVEncCore/NVEncFilterBwdif.cpp',
-  'NVEncCore/NVEncFilterIvtc.cpp',
-  'NVEncCore/NVEncFilterColorspace.cpp',
-  'NVEncCore/NVEncFilterCurves.cpp',
-  'NVEncCore/NVEncFilterCustom.cpp',
-  'NVEncCore/NVEncFilterDelogo.cpp',
-  'NVEncCore/NVEncFilterDegrain.cpp',
-  'NVEncCore/NVEncFilterDegrainCommon.cpp',
-  'NVEncCore/NVEncFilterDegrainMV.cpp',
-  'NVEncCore/rgy_filter_nnedi_field.cpp',
-  'NVEncCore/rgy_filter_nnedi_weights.cpp',
-  'NVEncCore/rgy_filter_kfm_analyze.cpp',
-  'NVEncCore/NVEncFilterKfm.cpp',
-  'NVEncCore/NVEncFilterDenoiseFFT3D.cpp',
-  'NVEncCore/NVEncFilterDenoiseGauss.cpp',
+  # 解像度変更から参照されるため、診断構成でもリサイズの実装は残す。
   'NVEncCore/NVEncFilterLibplacebo.cpp',
   'NVEncCore/NVEncFilterNGX.cpp',
-  'NVEncCore/NVEncFilterNVOFFRUC.cpp',
-  'NVEncCore/NVEncFilterNvvfx.cpp',
-  'NVEncCore/NVEncFilterOnnx.cpp',
-  'NVEncCore/NVEncFilterRifeOV.cpp',
-  'NVEncCore/NVEncFilterOnnxDeint.cpp',
-  'NVEncCore/NVEncFilterRtgmcShimmerRepair.cpp',
-  'NVEncCore/NVEncFilterOverlay.cpp',
-  'NVEncCore/NVEncFilterPad.cpp',
   'NVEncCore/NVEncFilterParam.cpp',
-  'NVEncCore/NVEncFilterRff.cpp',
-  'NVEncCore/NVEncFilterSelectEvery.cpp',
-  'NVEncCore/NVEncFilterSsim.cpp',
-  'NVEncCore/NVEncFilterSubburn.cpp',
   'NVEncCore/NVEncParam.cpp',
   'NVEncCore/NVEncUtil.cpp',
   'NVEncCore/NVEncFilterVulkan.cpp',
@@ -1046,6 +1026,41 @@ nvenccore_sources = files(
   'NVEncCore/rgy_vulkan.cpp',
   'NVEncCore/rgy_wav_parser.cpp',
 )
+
+if nvenc_probe
+  nvenccore_sources += files('NVEncCore/NVEncProbeStubs.cpp')
+else
+  nvenccore_sources += files(
+    'NVEncCore/NVEncFilterAfs.cpp',
+    'NVEncCore/NVEncFilterBwdif.cpp',
+    'NVEncCore/NVEncFilterIvtc.cpp',
+    'NVEncCore/NVEncFilterColorspace.cpp',
+    'NVEncCore/NVEncFilterCurves.cpp',
+    'NVEncCore/NVEncFilterCustom.cpp',
+    'NVEncCore/NVEncFilterDelogo.cpp',
+    'NVEncCore/NVEncFilterDegrain.cpp',
+    'NVEncCore/NVEncFilterDegrainCommon.cpp',
+    'NVEncCore/NVEncFilterDegrainMV.cpp',
+    'NVEncCore/rgy_filter_nnedi_field.cpp',
+    'NVEncCore/rgy_filter_nnedi_weights.cpp',
+    'NVEncCore/rgy_filter_kfm_analyze.cpp',
+    'NVEncCore/NVEncFilterKfm.cpp',
+    'NVEncCore/NVEncFilterDenoiseFFT3D.cpp',
+    'NVEncCore/NVEncFilterDenoiseGauss.cpp',
+    'NVEncCore/NVEncFilterNVOFFRUC.cpp',
+    'NVEncCore/NVEncFilterNvvfx.cpp',
+    'NVEncCore/NVEncFilterOnnx.cpp',
+    'NVEncCore/NVEncFilterRifeOV.cpp',
+    'NVEncCore/NVEncFilterOnnxDeint.cpp',
+    'NVEncCore/NVEncFilterRtgmcShimmerRepair.cpp',
+    'NVEncCore/NVEncFilterOverlay.cpp',
+    'NVEncCore/NVEncFilterPad.cpp',
+    'NVEncCore/NVEncFilterRff.cpp',
+    'NVEncCore/NVEncFilterSelectEvery.cpp',
+    'NVEncCore/NVEncFilterSsim.cpp',
+    'NVEncCore/NVEncFilterSubburn.cpp',
+  )
+endif
 
 # SIMD最適化ソース (個別フラグが必要)
 # これらは static_library で個別にビルドしてリンク
@@ -1151,6 +1166,14 @@ cuda_sources = files(
   'NVEncCore/NVEncFilterWarpsharp.cu',
   'NVEncCore/NVEncFilterYadif.cu',
 )
+
+if nvenc_probe
+  # 入力の色空間変換と、入力解像度が途中で変わった場合のリサイズを残す。
+  cuda_sources = files(
+    'NVEncCore/NVEncFilterCrop.cu',
+    'NVEncCore/NVEncFilterResize.cu',
+  )
+endif
 
 # ==============================================================================
 # SIMD専用ライブラリ (個別コンパイルフラグ)
@@ -1295,12 +1318,12 @@ subdir('meson_embed')  # embed_resource.sh を配置
 # ==============================================================================
 # 実行ファイル
 # ==============================================================================
-executable('nvencc',
+executable(nvenc_probe ? 'nvencc-probe' : 'nvencc',
   nvencsdk_sources + nvenccore_sources + tinyxml2_sources + nvencc_sources + cuda_sources +
   [resource_nnedi3, resource_colorspace, resource_perfmon],
   cpp_args: common_cpp_args,
   cuda_args: cuda_args,
-  link_args: ['-Wno-deprecated-gpu-targets'],
+  link_args: ['-Wno-deprecated-gpu-targets'] + (nvenc_probe ? ['-static-libstdc++', '-static-libgcc'] : []),
   include_directories: common_include_dirs,
   dependencies: all_deps,
   link_with: simd_libs,

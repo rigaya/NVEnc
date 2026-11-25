@@ -440,8 +440,14 @@ static RGY_ERR run_encode_params(InEncodeVideoParam& params, std::atomic<bool> *
 }
 
 #include "rgy_delay_load_hook.h"
+#if ENABLE_PROBE_BUILD
+#include "rgy_probe_cli.h"
+#endif
 
 int _tmain(int argc, TCHAR **argv) {
+#if ENABLE_PROBE_BUILD
+    if (!rgy_probe_cli_args(argc, argv)) return 1;
+#endif
 #if defined(_WIN32) || defined(_WIN64)
     _tsetlocale(LC_CTYPE, _T(".UTF8"));
 #endif //#if defined(_WIN32) || defined(_WIN64)

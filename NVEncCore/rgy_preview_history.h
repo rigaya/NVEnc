@@ -47,7 +47,11 @@ using RGYPreviewHistoryFilter = RGYFilter;
 #endif
 
 // 対応表にない処理は保守的に履歴依存とし、判定は必ず実フィルタへ委譲する。
-inline bool rgy_preview_filter_depends_on_history(const VppType type, const RGYParamVpp& vpp) {
+inline bool rgy_preview_filter_depends_on_history([[maybe_unused]] const VppType type, [[maybe_unused]] const RGYParamVpp& vpp) {
+#if ENCODER_NVENC && ENABLE_PROBE_BUILD
+    // 診断構成は履歴を調べるためのフィルタを含まないため、履歴に依存するとみなす。
+    return true;
+#else
     std::unique_ptr<RGYPreviewHistoryFilter> filter;
     switch (type) {
     case VppType::CL_CROP: filter = RGY_PREVIEW_HISTORY_FILTER(NVEncFilterCspCrop, RGYFilterCspCrop); break;
@@ -72,6 +76,7 @@ inline bool rgy_preview_filter_depends_on_history(const VppType type, const RGYP
     default: return true;
     }
     return filter->dependsOnHistory(vpp);
+#endif
 }
 #undef RGY_PREVIEW_HISTORY_FILTER
 
