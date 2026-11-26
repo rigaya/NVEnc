@@ -855,19 +855,23 @@ NVENCSTATUS NVEncoder::SetEncodeCodecList() {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     uint32_t dwEncodeGUIDCount = 0;
     if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeGUIDCount(m_hEncoder, &dwEncodeGUIDCount))) {
+        RGY_PROBE(record_nvenc_failure("encoder_init_failed", "nvEncGetEncodeGUIDCount", nvStatus));
         NVPrintFuncError(_T("nvEncGetEncodeGUIDCount"), nvStatus);
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("m_pEncodeAPI->nvEncGetEncodeGUIDCount: %d.\n"), dwEncodeGUIDCount);
+    if (dwEncodeGUIDCount == 0) {
+        return NV_ENC_SUCCESS;
+    }
 
     uint32_t uArraysize = 0;
-    GUID guid_init = { 0 };
-    std::vector<GUID> list_codecs;
-    list_codecs.resize(dwEncodeGUIDCount, guid_init);
-    if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeGUIDs(m_hEncoder, &list_codecs[0], dwEncodeGUIDCount, &uArraysize))) {
+    std::vector<GUID> list_codecs(dwEncodeGUIDCount);
+    if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeGUIDs(m_hEncoder, list_codecs.data(), dwEncodeGUIDCount, &uArraysize))) {
+        RGY_PROBE(record_nvenc_failure("encoder_init_failed", "nvEncGetEncodeGUIDs", nvStatus));
         NVPrintFuncError(_T("nvEncGetEncodeGUIDs"), nvStatus);
         return nvStatus;
     }
+    list_codecs.resize((std::min)(dwEncodeGUIDCount, uArraysize));
     for (const auto& codec : list_codecs) {
         PrintMes(RGY_LOG_DEBUG, _T("Found codec %s.\n"), get_name_from_guid(codec, list_nvenc_codecs));
         m_EncodeFeatures.push_back(NVEncCodecFeature(codec));
@@ -1074,8 +1078,8 @@ NVENCSTATUS NVEncoder::createDeviceCodecList() {
 NVENCSTATUS NVEncoder::createDeviceFeatureList(bool getPresetConfig) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     //m_EncodeFeaturesが作成されていなければ、自動的に作成
-    if (m_EncodeFeatures.size() == 0) {
-        SetEncodeCodecList();
+    if (m_EncodeFeatures.empty()) {
+        nvStatus = SetEncodeCodecList();
     }
 
     if (NV_ENC_SUCCESS == nvStatus) {
@@ -1595,8 +1599,16 @@ RGY_ERR NVEncCtrl::InitCuda() {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncCtrl::GetDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, const bool skipHWDecodeCheck) {
-    return InitDeviceList(gpuList, cudaSchedule, true, RGYParamInitVulkan::TargetVendor, skipHWDecodeCheck, false);
+RGY_ERR NVEncCtrl::GetDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, const bool skipHWDecodeCheck
+#if ENABLE_PROBE_BUILD
+    , const ProbeDeviceFailure& onProbeFailure
+#endif
+) {
+    return InitDeviceList(gpuList, cudaSchedule, true, RGYParamInitVulkan::TargetVendor, skipHWDecodeCheck, false, nullptr
+#if ENABLE_PROBE_BUILD
+        , onProbeFailure
+#endif
+    );
 }
 
 RGY_ERR NVEncCtrl::ShowDeviceList(const int cudaSchedule, const bool skipHWDecodeCheck) {
@@ -1621,7 +1633,7 @@ RGY_ERR NVEncCtrl::ShowDeviceList(const int cudaSchedule, const bool skipHWDecod
 RGY_ERR NVEncCtrl::ShowCodecSupport(const int cudaSchedule, const bool skipHWDecodeCheck) {
     RGY_ERR sts = RGY_ERR_NONE;
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    if (RGY_ERR_NONE != (sts = InitDeviceList(gpuList, cudaSchedule, true, RGYParamInitVulkan::TargetVendor, skipHWDecodeCheck, false))) {
+    if (RGY_ERR_NONE != (sts = GetDeviceList(gpuList, cudaSchedule, skipHWDecodeCheck))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return sts;
     }
@@ -2054,7 +2066,11 @@ RGY_ERR NVEncCtrl::ShowNVEncPresetTuneParams(const int cudaSchedule, const bool 
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, bool initDX11, RGYParamInitVulkan initVulkan, const bool skipHWDecodeCheck, const int disableNVML, const NVEncDeviceInfoCache *deviceInfoCache) {
+RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, bool initDX11, RGYParamInitVulkan initVulkan, const bool skipHWDecodeCheck, const int disableNVML, const NVEncDeviceInfoCache *deviceInfoCache
+#if ENABLE_PROBE_BUILD
+    , const ProbeDeviceFailure& onProbeFailure
+#endif
+) {
 #if !ENABLE_D3D11
     initDX11 = false;
 #endif
@@ -2091,10 +2107,22 @@ RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuLi
     for (int cudaDeviceID = 0; cudaDeviceID < cudaDeviceCount; cudaDeviceID++) {
         cudaGetLastError(); //これまでのエラーを初期化
         if (m_nDeviceId < 0 || m_nDeviceId == cudaDeviceID) {
+#if ENABLE_PROBE_BUILD
+            if (onProbeFailure) {
+                // 診断一覧ではGPUごとに照会失敗の理由を採取する。
+                rgy_probe::clear_failure();
+            }
+#endif
             auto gpu = std::make_unique<NVGPUInfo>(m_pLog);
-            if (gpu->initDevice(cudaDeviceID, (CUctx_flags)cudaSchedule, m_nDeviceId == cudaDeviceID, initDX11, initVulkan, skipHWDecodeCheck, disableNVMLCheck, deviceInfoCache) == RGY_ERR_NONE) {
+            const auto result = gpu->initDevice(cudaDeviceID, (CUctx_flags)cudaSchedule, m_nDeviceId == cudaDeviceID, initDX11, initVulkan, skipHWDecodeCheck, disableNVMLCheck, deviceInfoCache);
+            if (result == RGY_ERR_NONE) {
                 gpuList.push_back(std::move(gpu));
             }
+#if ENABLE_PROBE_BUILD
+            else if (onProbeFailure) {
+                onProbeFailure(cudaDeviceID, result);
+            }
+#endif
         }
     }
     if (gpuList.size() == 0) {

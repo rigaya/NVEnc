@@ -52,6 +52,9 @@
 
 #include "rgy_version.h"
 #include "rgy_log.h"
+#if ENABLE_PROBE_BUILD
+#include <functional>
+#endif
 
 #if defined(_WIN32) || defined(_WIN64)
 #ifdef _M_IX86
@@ -392,13 +395,20 @@ protected:
 
 class NVEncCtrl {
 public:
+#if ENABLE_PROBE_BUILD
+    using ProbeDeviceFailure = std::function<void(int, RGY_ERR)>;
+#endif
     NVEncCtrl();
     virtual ~NVEncCtrl();
 
     //CUDAインターフェース・デバイスの初期化
     virtual RGY_ERR Initialize(const int deviceID, const RGYParamInitVulkan enableVulkan, RGYLogLevel logLevel);
 
-    RGY_ERR GetDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, const bool skipHWDecodeCheck);
+    RGY_ERR GetDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, const bool skipHWDecodeCheck
+#if ENABLE_PROBE_BUILD
+        , const ProbeDeviceFailure& onProbeFailure = {}
+#endif
+    );
     RGY_ERR ShowDeviceList(const int cudaSchedule, const bool skipHWDecodeCheck);
     RGY_ERR ShowCodecSupport(const int cudaSchedule, const bool skipHWDecodeCheck);
     RGY_ERR ShowNVEncFeatures(const int cudaSchedule, const bool skipHWDecodeCheck);
@@ -417,7 +427,11 @@ protected:
     RGY_ERR InitCuda();
 
     //deviceリストを作成
-    RGY_ERR InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, bool initDX11, RGYParamInitVulkan initVulkan, const bool skipHWDecodeCheck, const int disableNVML, const NVEncDeviceInfoCache *deviceInfoCache = nullptr);
+    RGY_ERR InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, bool initDX11, RGYParamInitVulkan initVulkan, const bool skipHWDecodeCheck, const int disableNVML, const NVEncDeviceInfoCache *deviceInfoCache = nullptr
+#if ENABLE_PROBE_BUILD
+        , const ProbeDeviceFailure& onProbeFailure = {}
+#endif
+    );
 
     std::shared_ptr<RGYLog>      m_pLog;                //ログ出力管理
     int                          m_nDeviceId;             //DeviceId

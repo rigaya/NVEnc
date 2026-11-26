@@ -1,6 +1,7 @@
 ﻿#include "rgy_version.h"
 
 #if ENABLE_PROBE_BUILD
+#include <algorithm>
 #include <cstdio>
 #include <cstdint>
 #include "rgy_util.h"
@@ -152,8 +153,27 @@ int nvenc_probe_devices() {
     }
 
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    if (ctrl.GetDeviceList(gpuList, 0, false) != RGY_ERR_NONE) {
+    const auto status = ctrl.GetDeviceList(gpuList, 0, false, [&](int index, RGY_ERR error) {
         auto failure = rgy_probe::get_failure();
+        if (failure.is_null()) {
+            failure = rgy_probe::failure("encoder_init_failed", nullptr, static_cast<int>(error), rgy_probe::utf8(get_err_mes(error)));
+        }
+
+        // NVEncの照会に失敗しても、CUDAから識別子を取得できればGPUの行を残す。
+        CUdevice cudaDevice = 0;
+        if (cuDeviceGet(&cudaDevice, index) != CUDA_SUCCESS) {
+            return;
+        }
+        auto device = nvenc_probe_device_identity(index, cudaDevice);
+        char name[256] = {};
+        device["name"] = cuDeviceGetName(name, sizeof(name), cudaDevice) == CUDA_SUCCESS
+            ? Json(rgy_probe::utf8(char_to_tstring(name).c_str())) : Json(nullptr);
+        device["encode_test_visible"] = false;
+        rgy_probe::set_encode_failure(device, std::move(failure));
+        devices.push_back(std::move(device));
+    });
+    if (status != RGY_ERR_NONE) {
+        auto failure = devices.empty() ? rgy_probe::get_failure() : devices.front().at("encode_failure");
         if (failure.is_null()) {
             failure = rgy_probe::failure("device_not_visible");
         }
@@ -163,8 +183,20 @@ int nvenc_probe_devices() {
     for (const auto &gpu : gpuList) {
         auto device = nvenc_probe_device_identity(gpu->id(), gpu->cudevicetx());
         device["name"] = rgy_probe::utf8(gpu->name().c_str());
+        // --check-hwと同じNVEnc GUIDの一覧から判定する。
+        const auto& features = gpu->nvenc_codec_features();
+        const auto supports = [&](const GUID& codec) {
+            return std::any_of(features.begin(), features.end(), [&](const auto& feature) {
+                return feature.codec == codec;
+            });
+        };
+        rgy_probe::set_encode_caps(device, supports(NV_ENC_CODEC_H264_GUID),
+            supports(NV_ENC_CODEC_HEVC_GUID), supports(NV_ENC_CODEC_AV1_GUID));
         devices.push_back(std::move(device));
     }
+    std::sort(devices.begin(), devices.end(), [](const Json& a, const Json& b) {
+        return a.at("encoder_device_index").get<int>() < b.at("encoder_device_index").get<int>();
+    });
     rgy_probe::finish_list(std::move(devices));
     return 0;
 }

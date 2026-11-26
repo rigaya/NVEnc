@@ -320,6 +320,16 @@ inline void set_device(Json device) {
     s.device = std::move(device);
 }
 
+inline void set_encode_caps(Json& device, bool h264, bool hevc, bool av1) {
+    device["encode"] = {{"h264", h264}, {"hevc", hevc}, {"av1", av1}};
+    device["encode_failure"] = nullptr;
+}
+
+inline void set_encode_failure(Json& device, Json failure) {
+    device["encode"] = nullptr;
+    device["encode_failure"] = std::move(failure);
+}
+
 inline void add_output(uint64_t frames, uint64_t bytes, bool has_payload = true) {
     auto& s = detail::state();
     std::lock_guard<std::mutex> lock(s.mutex);
