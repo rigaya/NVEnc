@@ -659,9 +659,7 @@ int _tmain(int argc, TCHAR **argv) {
     }
 
     const auto err = run_encode_params(encPrm);
-#if ENABLE_PROBE_BUILD
-    rgy_probe::finish_report(err);
-#endif
+    RGY_PROBE(rgy_probe::finish_report(err));
     return err == RGY_ERR_NONE ? 0 : 1;
 }
 

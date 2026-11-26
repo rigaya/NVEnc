@@ -170,6 +170,13 @@ const char *get_encoder_version();
 #define ENABLE_PROBE_BUILD 0
 #endif
 
+// 診断専用の1文を通常構成から取り除き、本体の処理を読みやすくする。
+#if ENABLE_PROBE_BUILD
+#define RGY_PROBE(...) __VA_ARGS__
+#else
+#define RGY_PROBE(...)
+#endif
+
 #if ENABLE_PROBE_BUILD
 // 診断では符号化の確認に不要な入力機能や外部ライブラリを省く。
 #undef ENABLE_LIBASS_SUBBURN

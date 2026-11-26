@@ -466,9 +466,7 @@ NVENCSTATUS NVEncoder::NvEncDestroyBitstreamBuffer(NV_ENC_OUTPUT_PTR bitstreamBu
 NVENCSTATUS NVEncoder::NvEncLockBitstream(NV_ENC_LOCK_BITSTREAM *lockBitstreamBufferParams) {
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockBitstream(m_hEncoder, lockBitstreamBufferParams);
     if (nvStatus != NV_ENC_SUCCESS) {
-#if ENABLE_PROBE_BUILD
-        record_nvenc_failure("encode_failed", "nvEncLockBitstream", nvStatus);
-#endif
+        RGY_PROBE(record_nvenc_failure("encode_failed", "nvEncLockBitstream", nvStatus));
         NVPrintFuncError(_T("nvEncLockBitstream"), nvStatus);
         return nvStatus;
     }
@@ -522,9 +520,7 @@ NVENCSTATUS NVEncoder::NvEncReconfigureEncoder(NV_ENC_RECONFIGURE_PARAMS *reconf
 NVENCSTATUS NVEncoder::NvEncEncodePicture(NV_ENC_PIC_PARAMS *picParams) {
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncEncodePicture(m_hEncoder, picParams);
     if (nvStatus != NV_ENC_SUCCESS && nvStatus != NV_ENC_ERR_NEED_MORE_INPUT) {
-#if ENABLE_PROBE_BUILD
-        record_nvenc_failure("encode_failed", "nvEncEncodePicture", nvStatus);
-#endif
+        RGY_PROBE(record_nvenc_failure("encode_failed", "nvEncEncodePicture", nvStatus));
         NVPrintFuncError(_T("NvEncEncodePicture"), nvStatus);
         return nvStatus;
     }
@@ -681,14 +677,10 @@ NVENCSTATUS NVEncoder::NvEncFlushEncoderQueue(void *hEOSEvent) {
     encPicParams.encodePicFlags = NV_ENC_PIC_FLAG_EOS;
     encPicParams.completionEvent = hEOSEvent;
 
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("drain");
-#endif
+    RGY_PROBE(rgy_probe::event("drain"));
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncEncodePicture(m_hEncoder, &encPicParams);
     if (nvStatus != NV_ENC_SUCCESS) {
-#if ENABLE_PROBE_BUILD
-        record_nvenc_failure("encode_failed", "nvEncEncodePicture", nvStatus);
-#endif
+        RGY_PROBE(record_nvenc_failure("encode_failed", "nvEncEncodePicture", nvStatus));
         NVPrintFuncError(_T("nvEncEncodePicture"), nvStatus);
         return nvStatus;
     }
@@ -697,9 +689,7 @@ NVENCSTATUS NVEncoder::NvEncFlushEncoderQueue(void *hEOSEvent) {
 
 NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE deviceType, const int sessionRetry) {
 
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("session_open");
-#endif
+    RGY_PROBE(rgy_probe::event("session_open"));
     MYPROC nvEncodeAPICreateInstance; // function pointer to create instance in nvEncodeAPI
     if (NULL == (nvEncodeAPICreateInstance = (MYPROC)RGY_GET_PROC_ADDRESS(m_hinstLib, "NvEncodeAPICreateInstance"))) {
 #if ENABLE_PROBE_BUILD
@@ -731,14 +721,10 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
     openSessionExParams.reserved = NULL;
 
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-#if ENABLE_PROBE_BUILD
-    const char *lastApi = nullptr;
-#endif
+    RGY_PROBE(const char *lastApi = nullptr);
     for (const auto apiver : API_VER_LIST) {
         INIT_STRUCT_BY_APIVER((*m_pEncodeAPI), apiver);
-#if ENABLE_PROBE_BUILD
-        lastApi = "NvEncodeAPICreateInstance";
-#endif
+        RGY_PROBE(lastApi = "NvEncodeAPICreateInstance");
 
         nvStatus = nvEncodeAPICreateInstance(m_pEncodeAPI.get());
         if (nvStatus != NV_ENC_SUCCESS) {
@@ -746,9 +732,7 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
                 PrintMes(RGY_LOG_DEBUG, _T("Failed to create instance of nvEncodeAPI(ver=0x%x: %d.%d), trying an older API version.\n"), apiver, nvenc_api_ver_major(apiver), nvenc_api_ver_minor(apiver));
                 continue;
             }
-#if ENABLE_PROBE_BUILD
-            record_nvenc_failure("session_open_failed", lastApi, nvStatus);
-#endif
+            RGY_PROBE(record_nvenc_failure("session_open_failed", lastApi, nvStatus));
             NVPrintFuncError(_T("nvEncodeAPICreateInstance"), nvStatus);
             return nvStatus;
         }
@@ -756,9 +740,7 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
 
         openSessionExParams.apiVersion = apiver;
         setStructVer(openSessionExParams, apiver);
-#if ENABLE_PROBE_BUILD
-        lastApi = "nvEncOpenEncodeSessionEx";
-#endif
+        RGY_PROBE(lastApi = "nvEncOpenEncodeSessionEx");
         nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder);
         if (nvStatus != NV_ENC_ERR_INVALID_VERSION) {
             break;
@@ -797,9 +779,7 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
         m_apiVer = openSessionExParams.apiVersion;
         PrintMes(RGY_LOG_DEBUG, _T("Opened Encode Session (API ver %d.%d)\n"), nvenc_api_ver_major(m_apiVer), nvenc_api_ver_minor(m_apiVer));
     } else {
-#if ENABLE_PROBE_BUILD
-        record_nvenc_failure("session_open_failed", lastApi, nvStatus);
-#endif
+        RGY_PROBE(record_nvenc_failure("session_open_failed", lastApi, nvStatus));
         NVPrintFuncError(_T("nvEncOpenEncodeSessionEx"), nvStatus);
     }
     return nvStatus;
@@ -807,9 +787,7 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
 
 NVENCSTATUS NVEncoder::loadNVEncAPIDLL() {
     if (m_hinstLib == nullptr) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::event("load_library");
-#endif
+        RGY_PROBE(rgy_probe::event("load_library"));
         m_hinstLib = RGY_LOAD_LIBRARY(NVENCODE_API_DLL);
         if (m_hinstLib == nullptr && NVENCODE_API_DLL2 != nullptr) {
             m_hinstLib = RGY_LOAD_LIBRARY(NVENCODE_API_DLL2);
@@ -864,9 +842,7 @@ NVENCSTATUS NVEncoder::InitSession() {
 NVENCSTATUS NVEncoder::CreateEncoder(NV_ENC_INITIALIZE_PARAMS *initParams) {
     NVENCSTATUS nvStatus;
     if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncInitializeEncoder(m_hEncoder, initParams))) {
-#if ENABLE_PROBE_BUILD
-        record_nvenc_failure("encoder_init_failed", "nvEncInitializeEncoder", nvStatus);
-#endif
+        RGY_PROBE(record_nvenc_failure("encoder_init_failed", "nvEncInitializeEncoder", nvStatus));
         NVPrintFuncError(_T("nvEncInitializeEncoder"), nvStatus);
         return nvStatus;
     }
@@ -1156,13 +1132,9 @@ RGY_ERR NVGPUInfo::initDevice(int cudaDeviceID, CUctx_flags ctxFlags, bool error
     const auto error_level = (error_if_fail) ? RGY_LOG_ERROR : RGY_LOG_DEBUG;
 
     writeLog(RGY_LOG_DEBUG, _T("checking for CUDA device #%d.\n"), cudaDeviceID);
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("open_device");
-#endif
+    RGY_PROBE(rgy_probe::event("open_device"));
     if ((cuResult = cuDeviceGet(&cuDevice, cudaDeviceID)) != CUDA_SUCCESS) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuDeviceGet", cuResult));
-#endif
+        RGY_PROBE(rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuDeviceGet", cuResult)));
         writeLog(error_level, _T("  Error: cuDeviceGet(%d): %s\n"), cudaDeviceID, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return RGY_ERR_DEVICE_NOT_FOUND;
     }
@@ -1255,9 +1227,7 @@ RGY_ERR NVGPUInfo::initDevice(int cudaDeviceID, CUctx_flags ctxFlags, bool error
 #endif // #if ENABLE_VULKAN
 
     if ((cuResult = cuDeviceGetName(dev_name, _countof(dev_name), cuDevice)) != CUDA_SUCCESS) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuDeviceGetName", cuResult));
-#endif
+        RGY_PROBE(rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuDeviceGetName", cuResult)));
         writeLog(error_level, _T("  Error: cuDeviceGetName(%d): %s\n"), cudaDeviceID, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return RGY_ERR_DEVICE_NOT_AVAILABLE;
     }
@@ -1366,9 +1336,7 @@ RGY_ERR NVGPUInfo::initDevice(int cudaDeviceID, CUctx_flags ctxFlags, bool error
 
     CUcontext cuCtxTemp;
     if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&cuCtxTemp))) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuCtxPopCurrent", cuResult));
-#endif
+        RGY_PROBE(rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuCtxPopCurrent", cuResult)));
         writeLog(RGY_LOG_ERROR, _T("cuCtxPopCurrent error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return RGY_ERR_CUDA;
     }
@@ -1377,9 +1345,7 @@ RGY_ERR NVGPUInfo::initDevice(int cudaDeviceID, CUctx_flags ctxFlags, bool error
 
     CUvideoctxlock vidCtxLockTmp;
     if (CUDA_SUCCESS != (cuResult = cuvidCtxLockCreate(&vidCtxLockTmp, m_cuCtx.get()))) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuvidCtxLockCreate", cuResult));
-#endif
+        RGY_PROBE(rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuvidCtxLockCreate", cuResult)));
         writeLog(RGY_LOG_ERROR, _T("Failed cuvidCtxLockCreate: 0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return RGY_ERR_CUDA;
     }
@@ -1612,22 +1578,16 @@ RGY_ERR NVEncCtrl::InitCuda() {
     cudaerr = cudaGetLastError();
 
     CUresult cuResult;
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("enumerate");
-#endif
+    RGY_PROBE(rgy_probe::event("enumerate"));
     if (CUDA_SUCCESS != (cuResult = cuInit(0))) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuInit", cuResult));
-#endif
+        RGY_PROBE(rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuInit", cuResult)));
         PrintMes(RGY_LOG_ERROR, _T("cuInit error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return err_to_rgy(cuResult);
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuInit: Success.\n"));
 
     if (CUDA_SUCCESS != (cuResult = cuvidInit(0))) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuvidInit", cuResult));
-#endif
+        RGY_PROBE(rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuvidInit", cuResult)));
         PrintMes(RGY_LOG_ERROR, _T("cuvidInit error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return err_to_rgy(cuResult);
     }
@@ -2106,29 +2066,21 @@ RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuLi
     initVulkan = RGYParamInitVulkan::Disable;
 #endif
     int cudaDeviceCount = 0;
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("enumerate");
-#endif
+    RGY_PROBE(rgy_probe::event("enumerate"));
     auto cuResult = cuDeviceGetCount(&cudaDeviceCount);
     if (cuResult != CUDA_SUCCESS) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuDeviceGetCount", cuResult));
-#endif
+        RGY_PROBE(rgy_probe::remember_failure(nvenc_probe_cuda_failure("device_not_visible", "cuDeviceGetCount", cuResult)));
         PrintMes(RGY_LOG_ERROR, _T("cuDeviceGetCount error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return RGY_ERR_NO_DEVICE;
     }
     if (cudaDeviceCount == 0) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::remember_failure(rgy_probe::failure("device_not_visible", "cuDeviceGetCount", 0));
-#endif
+        RGY_PROBE(rgy_probe::remember_failure(rgy_probe::failure("device_not_visible", "cuDeviceGetCount", 0)));
         PrintMes(RGY_LOG_ERROR, _T("Error: no CUDA device.\n"));
         return RGY_ERR_NO_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuDeviceGetCount: Success, %d.\n"), cudaDeviceCount);
     if (m_nDeviceId > cudaDeviceCount - 1) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::remember_failure(rgy_probe::failure("device_not_visible"));
-#endif
+        RGY_PROBE(rgy_probe::remember_failure(rgy_probe::failure("device_not_visible")));
         PrintMes(RGY_LOG_ERROR, _T("Invalid Device Id = %d\n"), m_nDeviceId);
         return RGY_ERR_INVALID_DEVICE;
     }

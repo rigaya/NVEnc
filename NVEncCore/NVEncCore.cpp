@@ -1010,9 +1010,7 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
         return RGY_ERR_UNSUPPORTED;
     }
     int highBitDepthSupportCount = 0;
-#if ENABLE_PROBE_BUILD
-    bool codecAvailable = false;
-#endif
+    RGY_PROBE(bool codecAvailable = false);
     //エンコーダの対応をチェック
     tstring message; //GPUチェックのメッセージ
     for (auto gpu = gpuList.begin(); gpu != gpuList.end(); ) {
@@ -1026,9 +1024,7 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
             gpu = gpuList.erase(gpu);
             continue;
         }
-#if ENABLE_PROBE_BUILD
-        codecAvailable = true;
-#endif
+        RGY_PROBE(codecAvailable = true);
         // プロファイルのチェック (新フィールドに基づく)
         GUID codecProfileGUID = GUID_EMPTY;
         if (inputParam->codec_rgy == RGY_CODEC_AV1) {
@@ -1341,9 +1337,7 @@ RGY_ERR NVEncCore::InitDevice(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, 
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitDevice: device #%d (%s) selected.\n"), (*gpu)->id(), (*gpu)->name().c_str());
     m_dev = std::move(*gpu);
-#if ENABLE_PROBE_BUILD
-    rgy_probe::set_device(nvenc_probe_device_identity(m_dev->id(), m_dev->cudevicetx()));
-#endif
+    RGY_PROBE(rgy_probe::set_device(nvenc_probe_device_identity(m_dev->id(), m_dev->cudevicetx())));
     if (inputParam->codec_rgy == RGY_CODEC_RAW || inputParam->codec_rgy == RGY_CODEC_AVCODEC) {
         PrintMes(RGY_LOG_DEBUG, _T("raw or avcodec output selected, skip initializing encoder.\n"));
         return RGY_ERR_NONE;
@@ -1905,9 +1899,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         return RGY_ERR_UNSUPPORTED;
     }
     if (inputParam->codec_rgy == RGY_CODEC_AV1 && !m_dev->encoder()->checkAPIver(12, 0)) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::remember_failure(rgy_probe::failure("unsupported_codec", nullptr, nullptr, "AV1 requires NVENC API 12.0 or later."));
-#endif
+        RGY_PROBE(rgy_probe::remember_failure(rgy_probe::failure("unsupported_codec", nullptr, nullptr, "AV1 requires NVENC API 12.0 or later.")));
         PrintMes(RGY_LOG_ERROR, _T("Selected codec %s requires NVENC API v12.0 or later.\n"), CodecToStr(inputParam->codec_rgy).c_str());
         return RGY_ERR_UNSUPPORTED;
     }
@@ -1915,9 +1907,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     m_stCodecGUID = codec_guid_rgy_to_enc(inputParam->codec_rgy);
     auto codecFeature = m_dev->encoder()->getCodecFeature(m_stCodecGUID);
     if (codecFeature == nullptr) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::remember_failure(rgy_probe::failure("unsupported_codec"));
-#endif
+        RGY_PROBE(rgy_probe::remember_failure(rgy_probe::failure("unsupported_codec")));
         PrintMes(RGY_LOG_ERROR, _T("Selected codec (%s) is not supported.\n"), CodecToStr(inputParam->codec_rgy).c_str());
         return RGY_ERR_UNSUPPORTED;
     }
@@ -5789,9 +5779,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
 #endif // ENABLE_VULKAN
 
     //m_pDeviceを初期化
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("load_library");
-#endif
+    RGY_PROBE(rgy_probe::event("load_library"));
     if (!check_if_nvcuda_dll_available()) {
         PrintMes(RGY_LOG_ERROR,
             FOR_AUO ? _T("CUDAが使用できないため、NVEncによるエンコードが行えません。(check_if_nvcuda_dll_available)\n") : _T("CUDA not available.\n"));
@@ -6081,9 +6069,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
             }
         }
     }
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("encoder_init");
-#endif
+    RGY_PROBE(rgy_probe::event("encoder_init"));
     const auto setInputParamStart = std::chrono::steady_clock::now();
     if ((sts = SetInputParam(inputParam)) != RGY_ERR_NONE) {
         return sts;
@@ -6438,9 +6424,7 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
 }
 
 RGY_ERR NVEncCore::Encode() {
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("encode");
-#endif
+    RGY_PROBE(rgy_probe::event("encode"));
     PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: RunEncode2...\n"));
     if (m_pipelineTasks.size() == 0) {
         PrintMes(RGY_LOG_DEBUG, _T("Failed to create pipeline: size = 0.\n"));
@@ -6615,9 +6599,7 @@ RGY_ERR NVEncCore::Encode() {
     // flush
     PrintMes(RGY_LOG_DEBUG, _T("Flushing start....\n"));
     if (err == RGY_ERR_MORE_BITSTREAM) { // 読み込みの完了を示すフラグ
-#if ENABLE_PROBE_BUILD
-        rgy_probe::event("drain");
-#endif
+        RGY_PROBE(rgy_probe::event("drain"));
         err = RGY_ERR_NONE;
         int flushOutputWrites = 0;
         int64_t flushOutputWriteMsTotal = 0;
