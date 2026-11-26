@@ -139,10 +139,10 @@ RGYInputRaw::~RGYInputRaw() {
 }
 
 void RGYInputRaw::Close() {
-    if (m_fSource) {
+    if (m_fSource && m_fSource != stdin) {
         fclose(m_fSource);
-        m_fSource = NULL;
     }
+    m_fSource = NULL;
     m_pBuffer.reset();
     m_nBufSize = 0;
     m_y4mHeaderTimebase = rgy_rational<int>(0, 0);
