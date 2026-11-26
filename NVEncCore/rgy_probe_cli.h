@@ -45,6 +45,7 @@ struct State {
     Json stage;
     Json warnings = Json::array();
     Json failure;
+    std::string last_error_log;
     uint64_t frames = 0;
     uint64_t bytes = 0;
     bool has_payload = false;
@@ -104,7 +105,20 @@ inline const char *reason_for(RGY_ERR error, const Json& stage) {
     return "encoder_init_failed";
 }
 
+inline void attach_error_log(Json& failure, const std::string& message) {
+    if (failure.is_null() || message.empty()) {
+        return;
+    }
+    auto& original = failure["message"];
+    if (original.is_null() || original == "") {
+        original = message;
+    } else if (original != message) {
+        failure["details"]["last_error_log"] = message;
+    }
+}
+
 inline void finish_report_locked(State& s, Json failure) {
+    attach_error_log(failure, s.last_error_log);
     const auto status = failure.is_null() ? Json("encoded") : failure.at("reason");
     s.finished = true;
     write_line(s.output.get(), {
@@ -115,6 +129,7 @@ inline void finish_report_locked(State& s, Json failure) {
 }
 
 inline void finish_list_locked(State& s, Json devices, Json failure) {
+    attach_error_log(failure, s.last_error_log);
     Json row = {{"build", s.build}, {"devices", std::move(devices)}, {"failure", std::move(failure)}};
     if (s.mode == Mode::devices) {
         row["backend"] = s.backend_requested;
@@ -161,6 +176,23 @@ inline std::string utf8(const TCHAR *text) {
 #else
     return text;
 #endif
+}
+
+// stderrの装飾を加える前に、最後のエラーログの文言を保持する。
+inline void record_error_log(const TCHAR *text) {
+    auto& s = detail::state();
+    std::lock_guard<std::mutex> lock(s.mutex);
+    if (!s.output || s.finished) {
+        return;
+    }
+    auto message = utf8(text);
+    const auto end = message.find_last_not_of("\r\n");
+    if (end != std::string::npos) {
+        // JSONの1行上限を超えないよう、ログの長さを制限する。
+        constexpr size_t max_error_log_bytes = 4096;
+        message.resize(end >= max_error_log_bytes ? max_error_log_bytes : end + 1);
+        s.last_error_log = std::move(message);
+    }
 }
 
 inline Json identity_string(const std::optional<std::string>& value) {
@@ -356,7 +388,7 @@ inline void finish_report(RGY_ERR error) {
     }
     if (s.failure.is_null() && error != RGY_ERR_NONE) {
         s.failure = detail::make_failure(s.stage, detail::reason_for(error, s.stage), nullptr,
-                                         static_cast<int>(error), utf8(get_err_mes(error)));
+                                         static_cast<int>(error), s.last_error_log.empty() ? utf8(get_err_mes(error)) : s.last_error_log);
     }
     if (s.failure.is_null() && !s.has_payload) {
         s.failure = detail::make_failure(s.stage, "no_output");

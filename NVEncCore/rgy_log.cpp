@@ -37,6 +37,7 @@
 #include "gpu_info.h"
 #include "rgy_filesystem.h"
 #include "rgy_env.h"
+#include "rgy_probe_cli.h"
 
 int rgy_print_stderr(int log_level, const TCHAR *mes, void *handle_, bool disableColor) {
     int ret = 0;
@@ -389,6 +390,10 @@ void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TC
         return;
     }
 
+#if ENABLE_PROBE_BUILD
+    const auto error_log = log_level == RGY_LOG_ERROR ? buffer : nullptr;
+#endif
+
     auto convert_to_html = [log_level](std::string str) {
         //str = str_replace(str, "<", "&lt;");
         //str = str_replace(str, ">", "&gt;");
@@ -466,6 +471,11 @@ void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TC
     }
 #endif
     std::lock_guard<std::mutex> lock(*m_mtx.get());
+#if ENABLE_PROBE_BUILD
+    if (error_log) {
+        rgy_probe::record_error_log(error_log);
+    }
+#endif
     if (m_pStrLog.length() > 0) {
         FILE *fp_log = NULL;
         //logはANSI(まあようはShift-JIS)で保存する
