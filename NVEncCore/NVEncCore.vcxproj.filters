@@ -24,6 +24,9 @@
     <ClCompile Include="NVEncCore.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="NVEncProbeStubs.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="FrameQueue.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
