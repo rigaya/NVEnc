@@ -7,6 +7,7 @@
 #if ENABLE_PROBE_BUILD
 #include "../json/json.hpp"
 #include "rgy_err.h"
+#include "rgy_gpu_inventory.h"
 
 #include <cstdint>
 #include <cstring>
@@ -20,19 +21,9 @@
 #include <fcntl.h>
 #include <io.h>
 #include <windows.h>
-#if ENABLE_D3D11
-#include <winternl.h>
-#include <d3dkmthk.h>
-#pragma comment(lib, "gdi32.lib")
-#endif
 #else
 #include <fcntl.h>
 #include <unistd.h>
-#ifdef __linux__
-#include <filesystem>
-#include <sys/stat.h>
-#include <sys/sysmacros.h>
-#endif
 #endif
 
 namespace rgy_probe {
@@ -172,81 +163,25 @@ inline std::string utf8(const TCHAR *text) {
 #endif
 }
 
-inline Json pci_bdf(unsigned int domain, unsigned int bus, unsigned int device, unsigned int function) {
-    if (domain > 0xffff || bus > 0xff || device > 0x1f || function > 7) {
-        return nullptr;
-    }
-    char text[13] = {};
-    std::snprintf(text, sizeof(text), "%04x:%02x:%02x.%x", domain, bus, device, function);
-    return text;
+inline Json identity_string(const std::optional<std::string>& value) {
+    return value ? Json(*value) : Json(nullptr);
 }
 
 #if defined(_WIN32) && ENABLE_D3D11
-inline Json luid_string(const LUID& luid) {
-    const auto value = (static_cast<uint64_t>(static_cast<uint32_t>(luid.HighPart)) << 32) | luid.LowPart;
-    char text[17] = {};
-    std::snprintf(text, sizeof(text), "%016llx", static_cast<unsigned long long>(value));
-    return text;
-}
+using rgy_gpu_inventory::luid_string;
 
 inline Json pci_bdf_from_luid(const LUID& luid) {
-    D3DKMT_OPENADAPTERFROMLUID openParam = {};
-    openParam.AdapterLuid = luid;
-    if (D3DKMTOpenAdapterFromLuid(&openParam) != 0) {
-        return nullptr;
-    }
-    D3DKMT_ADAPTERADDRESS address = {};
-    D3DKMT_QUERYADAPTERINFO query = {};
-    query.hAdapter = openParam.hAdapter;
-    query.Type = KMTQAITYPE_ADAPTERADDRESS;
-    query.pPrivateDriverData = &address;
-    query.PrivateDriverDataSize = sizeof(address);
-    const auto queryStatus = D3DKMTQueryAdapterInfo(&query);
-    D3DKMT_CLOSEADAPTER closeParam = {};
-    closeParam.hAdapter = openParam.hAdapter;
-    D3DKMTCloseAdapter(&closeParam);
-    if (queryStatus != 0) {
-        return nullptr;
-    }
-    // Windowsのアダプターアドレスはドメイン番号を持たず、プロトコルでは0で表す。
-    return pci_bdf(0, address.BusNumber, address.DeviceNumber, address.FunctionNumber);
+    return identity_string(rgy_gpu_inventory::pci_bdf_from_luid(luid));
 }
 #endif
 
 #ifdef __linux__
 inline Json pci_bdf_from_drm_fd(int fd) {
-    struct stat device = {};
-    if (fstat(fd, &device) != 0 || !S_ISCHR(device.st_mode)) {
-        return nullptr;
-    }
-    const auto path = std::filesystem::path("/sys/dev/char")
-        / (std::to_string(major(device.st_rdev)) + ":" + std::to_string(minor(device.st_rdev))) / "device";
-    std::error_code error;
-    const auto target = std::filesystem::canonical(path, error);
-    if (error) {
-        return nullptr;
-    }
-    const auto name = target.filename().string();
-    unsigned int domain = 0, bus = 0, slot = 0, function = 0;
-    char trailing = 0;
-    if (name.size() != 12 || std::sscanf(name.c_str(), "%4x:%2x:%2x.%1x%c", &domain, &bus, &slot, &function, &trailing) != 4) {
-        return nullptr;
-    }
-    return pci_bdf(domain, bus, slot, function);
+    return identity_string(rgy_gpu_inventory::pci_bdf_from_drm_fd(fd));
 }
 
 inline Json drm_render_node_from_fd(int fd) {
-    std::error_code error;
-    const auto path = std::filesystem::read_symlink("/proc/self/fd/" + std::to_string(fd), error);
-    if (error || !path.is_absolute()) {
-        return nullptr;
-    }
-    const auto name = path.filename().string();
-    if (name.compare(0, 7, "renderD") != 0 || name.size() == 7
-        || name.find_first_not_of("0123456789", 7) != std::string::npos) {
-        return nullptr;
-    }
-    return path.string();
+    return identity_string(rgy_gpu_inventory::drm_render_node_from_fd(fd));
 }
 #endif
 

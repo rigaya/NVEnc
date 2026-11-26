@@ -42,38 +42,7 @@
 #pragma comment(lib, "dxgi.lib")
 #endif
 #if ENABLE_D3D11
-#include <winternl.h> // NTSTATUS
-#include <d3dkmthk.h>
-#pragma comment(lib, "gdi32.lib")
-#endif
-
-#if ENABLE_D3D11
-// Get PCI Bus/Device/Function from LUID via D3DKMT
-static bool queryAdapterBDFFromLuid(const LUID &luid, UINT &bus, UINT &device, UINT &function) {
-    D3DKMT_OPENADAPTERFROMLUID openParam = {};
-    openParam.AdapterLuid = luid;
-    auto statusVal = D3DKMTOpenAdapterFromLuid(&openParam);
-    if (statusVal != 0) {
-        return false;
-    }
-    D3DKMT_ADAPTERADDRESS addr = {};
-    D3DKMT_QUERYADAPTERINFO q = {};
-    q.hAdapter = openParam.hAdapter;
-    q.Type = KMTQAITYPE_ADAPTERADDRESS;
-    q.pPrivateDriverData = &addr;
-    q.PrivateDriverDataSize = sizeof(addr);
-    statusVal = D3DKMTQueryAdapterInfo(&q);
-    D3DKMT_CLOSEADAPTER closeParam = {};
-    closeParam.hAdapter = openParam.hAdapter;
-    statusVal = D3DKMTCloseAdapter(&closeParam);
-    if (statusVal != 0) {
-        return false;
-    }
-    bus = addr.BusNumber;
-    device = addr.DeviceNumber;
-    function = addr.FunctionNumber;
-    return true;
-}
+#include "rgy_gpu_inventory.h"
 #endif
 
 #if ENCODER_QSV
@@ -453,7 +422,7 @@ void DX11AdapterManager::EnumerateAdapters(RGYLog *log) {
 
         // ここに到達したら「本物」。さらにPCI B/D/Fが同一なら重複扱いでスキップ。
         UINT bus = 0, dev = 0, func = 0;
-        if (queryAdapterBDFFromLuid(desc.AdapterLuid, bus, dev, func)) {
+        if (rgy_gpu_inventory::query_adapter_bdf(desc.AdapterLuid, bus, dev, func)) {
             if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  Found Adaptor %d: %s, BDF %u:%u:%u\n"),
                 count, wstring_to_tstring(desc.Description).c_str(), bus, dev, func);
             // 無効BDF (例: dev/func が 0xFFFF) は除外 (リモートデスクトップで接続した場合などに生じる)

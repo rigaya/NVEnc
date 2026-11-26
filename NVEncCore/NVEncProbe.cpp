@@ -16,15 +16,7 @@ Json cuda_pci_bdf(CUdevice device) {
     if (cuDeviceGetPCIBusId(busId, sizeof(busId), device) != CUDA_SUCCESS) {
         return nullptr;
     }
-    unsigned int domain = 0, bus = 0, slot = 0, function = 0;
-    char suffix = '\0';
-    if (std::sscanf(busId, "%x:%x:%x.%x%c", &domain, &bus, &slot, &function, &suffix) != 4
-        || domain > 0xffff || bus > 0xff || slot > 0x1f || function > 7) {
-        return nullptr;
-    }
-    char bdf[13] = {};
-    std::snprintf(bdf, sizeof(bdf), "%04x:%02x:%02x.%x", domain, bus, slot, function);
-    return bdf;
+    return rgy_probe::identity_string(rgy_gpu_inventory::normalize_pci_bdf(busId));
 }
 
 Json cuda_uuid(CUdevice device) {
@@ -53,13 +45,10 @@ Json cuda_luid([[maybe_unused]] CUdevice device) {
     unsigned int nodeMask = 0;
     if (getLuid && getLuid(luid, &nodeMask, device) == CUDA_SUCCESS) {
         // CUDAのバイト列はWindowsのLUIDと同じリトルエンディアン。
-        uint64_t value = 0;
-        for (size_t i = 0; i < sizeof(luid); ++i) {
-            value |= static_cast<uint64_t>(static_cast<unsigned char>(luid[i])) << (i * 8);
-        }
-        char id[17] = {};
-        std::snprintf(id, sizeof(id), "%016llx", static_cast<unsigned long long>(value));
-        return id;
+        LUID adapter = {};
+        static_assert(sizeof(adapter) == sizeof(luid));
+        std::memcpy(&adapter, luid, sizeof(adapter));
+        return rgy_gpu_inventory::luid_string(adapter);
     }
 #endif
     return nullptr;
@@ -136,12 +125,15 @@ int nvenc_probe_inventory() {
         const auto nameResult = cuDeviceGetName(name, sizeof(name), device);
         size_t bytes = 0;
         const auto memResult = cuDeviceTotalMem(&bytes, device);
+        int integrated = 0;
+        const auto integratedResult = cuDeviceGetAttribute(&integrated, CU_DEVICE_ATTRIBUTE_INTEGRATED, device);
         devices.push_back({
             {"cuda_index", index},
             {"name", nameResult == CUDA_SUCCESS ? Json(rgy_probe::utf8(char_to_tstring(name).c_str())) : Json(nullptr)},
             {"pci_bdf", cuda_pci_bdf(device)},
             {"uuid", cuda_uuid(device)},
-            {"total_mem_bytes", memResult == CUDA_SUCCESS ? Json(bytes) : Json(nullptr)}
+            {"total_mem_bytes", memResult == CUDA_SUCCESS ? Json(bytes) : Json(nullptr)},
+            {"integrated", integratedResult == CUDA_SUCCESS ? Json(integrated != 0) : Json(nullptr)}
         });
     }
     const bool failed = devices.empty() && !failure.is_null();
