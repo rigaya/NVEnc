@@ -9,6 +9,9 @@
 #include "rgy_err.h"
 
 #include <cstdint>
+#include <cstring>
+#include <exception>
+#include <initializer_list>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -17,9 +20,19 @@
 #include <fcntl.h>
 #include <io.h>
 #include <windows.h>
+#if ENABLE_D3D11
+#include <winternl.h>
+#include <d3dkmthk.h>
+#pragma comment(lib, "gdi32.lib")
+#endif
 #else
 #include <fcntl.h>
 #include <unistd.h>
+#ifdef __linux__
+#include <filesystem>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#endif
 #endif
 
 namespace rgy_probe {
@@ -34,7 +47,8 @@ struct State {
     std::unique_ptr<FILE, int (*)(FILE *)> output{nullptr, std::fclose};
     Mode mode = Mode::report;
     Json build;
-    Json backend;
+    Json backend_requested;
+    Json backend_used;
     Json codec;
     Json device;
     Json stage;
@@ -103,7 +117,7 @@ inline void finish_report_locked(State& s, Json failure) {
     const auto status = failure.is_null() ? Json("encoded") : failure.at("reason");
     s.finished = true;
     write_line(s.output.get(), {
-        {"build", s.build}, {"codec", s.codec}, {"backend_requested", s.backend}, {"backend_used", s.backend},
+        {"build", s.build}, {"codec", s.codec}, {"backend_requested", s.backend_requested}, {"backend_used", s.backend_used},
         {"device", s.device}, {"status", status}, {"frames", s.frames}, {"bytes", s.bytes},
         {"warnings", s.warnings}, {"failure", std::move(failure)}
     }, "result");
@@ -112,7 +126,7 @@ inline void finish_report_locked(State& s, Json failure) {
 inline void finish_list_locked(State& s, Json devices, Json failure) {
     Json row = {{"build", s.build}, {"devices", std::move(devices)}, {"failure", std::move(failure)}};
     if (s.mode == Mode::devices) {
-        row["backend"] = s.backend;
+        row["backend"] = s.backend_requested;
     }
     s.finished = true;
     write_line(s.output.get(), std::move(row), s.mode == Mode::devices ? "devices" : "inventory");
@@ -157,6 +171,84 @@ inline std::string utf8(const TCHAR *text) {
     return text;
 #endif
 }
+
+inline Json pci_bdf(unsigned int domain, unsigned int bus, unsigned int device, unsigned int function) {
+    if (domain > 0xffff || bus > 0xff || device > 0x1f || function > 7) {
+        return nullptr;
+    }
+    char text[13] = {};
+    std::snprintf(text, sizeof(text), "%04x:%02x:%02x.%x", domain, bus, device, function);
+    return text;
+}
+
+#if defined(_WIN32) && ENABLE_D3D11
+inline Json luid_string(const LUID& luid) {
+    const auto value = (static_cast<uint64_t>(static_cast<uint32_t>(luid.HighPart)) << 32) | luid.LowPart;
+    char text[17] = {};
+    std::snprintf(text, sizeof(text), "%016llx", static_cast<unsigned long long>(value));
+    return text;
+}
+
+inline Json pci_bdf_from_luid(const LUID& luid) {
+    D3DKMT_OPENADAPTERFROMLUID openParam = {};
+    openParam.AdapterLuid = luid;
+    if (D3DKMTOpenAdapterFromLuid(&openParam) != 0) {
+        return nullptr;
+    }
+    D3DKMT_ADAPTERADDRESS address = {};
+    D3DKMT_QUERYADAPTERINFO query = {};
+    query.hAdapter = openParam.hAdapter;
+    query.Type = KMTQAITYPE_ADAPTERADDRESS;
+    query.pPrivateDriverData = &address;
+    query.PrivateDriverDataSize = sizeof(address);
+    const auto queryStatus = D3DKMTQueryAdapterInfo(&query);
+    D3DKMT_CLOSEADAPTER closeParam = {};
+    closeParam.hAdapter = openParam.hAdapter;
+    D3DKMTCloseAdapter(&closeParam);
+    if (queryStatus != 0) {
+        return nullptr;
+    }
+    // Windowsのアダプターアドレスはドメイン番号を持たず、プロトコルでは0で表す。
+    return pci_bdf(0, address.BusNumber, address.DeviceNumber, address.FunctionNumber);
+}
+#endif
+
+#ifdef __linux__
+inline Json pci_bdf_from_drm_fd(int fd) {
+    struct stat device = {};
+    if (fstat(fd, &device) != 0 || !S_ISCHR(device.st_mode)) {
+        return nullptr;
+    }
+    const auto path = std::filesystem::path("/sys/dev/char")
+        / (std::to_string(major(device.st_rdev)) + ":" + std::to_string(minor(device.st_rdev))) / "device";
+    std::error_code error;
+    const auto target = std::filesystem::canonical(path, error);
+    if (error) {
+        return nullptr;
+    }
+    const auto name = target.filename().string();
+    unsigned int domain = 0, bus = 0, slot = 0, function = 0;
+    char trailing = 0;
+    if (name.size() != 12 || std::sscanf(name.c_str(), "%4x:%2x:%2x.%1x%c", &domain, &bus, &slot, &function, &trailing) != 4) {
+        return nullptr;
+    }
+    return pci_bdf(domain, bus, slot, function);
+}
+
+inline Json drm_render_node_from_fd(int fd) {
+    std::error_code error;
+    const auto path = std::filesystem::read_symlink("/proc/self/fd/" + std::to_string(fd), error);
+    if (error || !path.is_absolute()) {
+        return nullptr;
+    }
+    const auto name = path.filename().string();
+    if (name.compare(0, 7, "renderD") != 0 || name.size() == 7
+        || name.find_first_not_of("0123456789", 7) != std::string::npos) {
+        return nullptr;
+    }
+    return path.string();
+}
+#endif
 
 inline bool start(Mode mode, const char *encoder, const char *version, const char *rev, const char *backend) {
     auto& s = detail::state();
@@ -215,7 +307,8 @@ inline bool start(Mode mode, const char *encoder, const char *version, const cha
     const std::string revision = rev ? rev : "";
     s.build = {{"encoder", encoder}, {"version", version},
                {"rev", revision.empty() || revision.front() == 'r' ? revision : "r" + revision}};
-    s.backend = backend;
+    s.backend_requested = backend ? Json(backend) : Json(nullptr);
+    s.backend_used = backend && std::strcmp(backend, "auto") != 0 ? Json(backend) : Json(nullptr);
     return true;
 }
 
@@ -267,6 +360,19 @@ inline Json get_failure() {
     return s.failure;
 }
 
+inline void set_backends(const char *requested, const char *used) {
+    auto& s = detail::state();
+    std::lock_guard<std::mutex> lock(s.mutex);
+    s.backend_requested = requested ? Json(requested) : Json(nullptr);
+    s.backend_used = used ? Json(used) : Json(nullptr);
+}
+
+inline void set_backend_used(const char *used) {
+    auto& s = detail::state();
+    std::lock_guard<std::mutex> lock(s.mutex);
+    s.backend_used = used ? Json(used) : Json(nullptr);
+}
+
 inline void set_codec(const char *codec) {
     auto& s = detail::state();
     std::lock_guard<std::mutex> lock(s.mutex);
@@ -291,6 +397,10 @@ inline void add_warning(Json warning) {
     auto& s = detail::state();
     std::lock_guard<std::mutex> lock(s.mutex);
     s.warnings.push_back(std::move(warning));
+}
+
+inline void add_warning(const char *api, int code, const TCHAR *message) {
+    add_warning({{"api", api ? Json(api) : Json(nullptr)}, {"code", code}, {"message", message ? Json(utf8(message)) : Json(nullptr)}});
 }
 
 inline void finish_report(RGY_ERR error) {
@@ -347,7 +457,7 @@ inline bool rgy_probe_cli_args(int& argc, TCHAR **argv) {
     int next = 1;
     for (int i = 1; i < argc; ++i) {
         if (_tcscmp(argv[i], _T("--probe-report")) == 0) {
-            // 診断結果の出力を実装するまでは、この印だけを除いて既存の引数解析に渡す。
+            // 診断モードの印を除いて、エンコード引数を既存の解析処理に渡す。
             probe = true;
             continue;
         }
@@ -370,7 +480,8 @@ inline bool rgy_probe_cli_args(int& argc, TCHAR **argv) {
 inline int rgy_probe_main(int argc, TCHAR **argv, const char *encoder, const char *version,
                           const char *rev, const char *defaultBackend,
                           std::initializer_list<const char *> allowedBackends,
-                          int (*inventory)(), int (*devices)(const char *backend), int (*report)(int, TCHAR **)) {
+                          int (*inventory)(), int (*devices)(const char *backend), int (*report)(int, TCHAR **),
+                          const char *defaultReportBackend = nullptr) {
     using rgy_probe::Mode;
     Mode mode = Mode::report;
     int modeCount = 0;
@@ -402,7 +513,9 @@ inline int rgy_probe_main(int argc, TCHAR **argv, const char *encoder, const cha
             }
         }
     }
-    if (!rgy_probe::start(mode, encoder, version, rev, devicesBackend ? devicesBackend : defaultBackend)) {
+    const auto backend = mode == Mode::report && defaultReportBackend
+        ? defaultReportBackend : devicesBackend ? devicesBackend : defaultBackend;
+    if (!rgy_probe::start(mode, encoder, version, rev, backend)) {
         return 1;
     }
     const auto fail = [mode](const char *reason, const char *message) {
