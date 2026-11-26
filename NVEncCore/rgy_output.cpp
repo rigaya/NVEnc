@@ -28,6 +28,9 @@
 #include "rgy_output.h"
 #include "rgy_filesystem.h"
 #include "rgy_bitstream.h"
+#if ENABLE_PROBE_BUILD
+#include "rgy_probe_cli.h"
+#endif
 #include "rgy_language.h"
 #include "convert_csp.h"
 #include "rgy_parallel_enc.h"
@@ -1129,6 +1132,45 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
     if (!m_qFirstProcessData) {
         const auto dataSize = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
         WRITE_CHECK(dataSize, pBitstream->size());
+#if ENABLE_PROBE_BUILD
+        if (rgy_probe::active()) {
+            WRITE_CHECK(std::fflush(m_fDest.get()), 0);
+            bool hasPayload = false;
+            bool showsExistingFrame = false;
+            switch (m_VideoOutputInfo.codec) {
+            case RGY_CODEC_H264: {
+                const auto units = get_parse_nal_unit_h264_func()(pBitstream->data(), dataSize);
+                hasPayload = std::any_of(units.begin(), units.end(), [](const auto& unit) {
+                    return unit.type >= 1 && unit.type <= 5;
+                });
+                break;
+            }
+            case RGY_CODEC_HEVC: {
+                const auto units = get_parse_nal_unit_hevc_func()(pBitstream->data(), dataSize);
+                hasPayload = std::any_of(units.begin(), units.end(), [](const auto& unit) {
+                    return unit.type <= 31;
+                });
+                break;
+            }
+            case RGY_CODEC_AV1: {
+                const auto units = parse_unit_av1(pBitstream->data(), dataSize);
+                for (const auto& unit : units) {
+                    const auto payloadOffset = static_cast<size_t>(unit->obu_offset);
+                    if (payloadOffset >= unit->unit_data.size()) {
+                        continue;
+                    }
+                    hasPayload |= unit->type == OBU_FRAME || unit->type == OBU_TILE_GROUP;
+                    // 既に圧縮済みのフレームの再表示も、表示フレームの1枚として数える。
+                    showsExistingFrame |= unit->type == OBU_FRAME_HEADER
+                        && (unit->unit_data[payloadOffset] & 0x80) != 0;
+                }
+                break;
+            }
+            default: break;
+            }
+            rgy_probe::add_output(hasPayload || showsExistingFrame ? 1 : 0, dataSize, hasPayload);
+        }
+#endif
         nBytesWritten += dataSize;
     }
 

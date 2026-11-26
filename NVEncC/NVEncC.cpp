@@ -442,11 +442,11 @@ static RGY_ERR run_encode_params(InEncodeVideoParam& params, std::atomic<bool> *
 #include "rgy_delay_load_hook.h"
 #if ENABLE_PROBE_BUILD
 #include "rgy_probe_cli.h"
-#endif
-
+#include "rgy_rev.h"
+#include "NVEncProbe.h"
+static int nvenc_cli_main(int argc, TCHAR **argv) {
+#else
 int _tmain(int argc, TCHAR **argv) {
-#if ENABLE_PROBE_BUILD
-    if (!rgy_probe_cli_args(argc, argv)) return 1;
 #endif
 #if defined(_WIN32) || defined(_WIN64)
     _tsetlocale(LC_CTYPE, _T(".UTF8"));
@@ -598,6 +598,14 @@ int _tmain(int argc, TCHAR **argv) {
     if (parse_cmd(&encPrm, (int)argvCopy.size()-1, argvCopy.data())) {
         return 1;
     }
+#if ENABLE_PROBE_BUILD
+    switch (encPrm.codec_rgy) {
+    case RGY_CODEC_H264: rgy_probe::set_codec("h264"); break;
+    case RGY_CODEC_HEVC: rgy_probe::set_codec("hevc"); break;
+    case RGY_CODEC_AV1: rgy_probe::set_codec("av1"); break;
+    default: break;
+    }
+#endif
 
     for (int i = 1; i < (int)argvCopy.size()-1; i++) {
         if (tstring(argvCopy[i]) == _T("--check-preset-params")) {
@@ -650,5 +658,16 @@ int _tmain(int argc, TCHAR **argv) {
         return processMonitorRGYDeviceUsage(encPrm.deviceID);
     }
 
-    return run_encode_params(encPrm) == RGY_ERR_NONE ? 0 : 1;
+    const auto err = run_encode_params(encPrm);
+#if ENABLE_PROBE_BUILD
+    rgy_probe::finish_report(err);
+#endif
+    return err == RGY_ERR_NONE ? 0 : 1;
 }
+
+#if ENABLE_PROBE_BUILD
+int _tmain(int argc, TCHAR **argv) {
+    return rgy_probe_main(argc, argv, "NVEnc", VER_STR_FILEVERSION, ENCODER_REV, "nvenc", { "nvenc" },
+        nvenc_probe_inventory, [](const char *) { return nvenc_probe_devices(); }, nvenc_cli_main);
+}
+#endif

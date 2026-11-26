@@ -1153,6 +1153,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="NVEncProbe.cpp" Condition="'$(Configuration)|$(Platform)'=='RelProbe|x64'" />
     <ClCompile Include="NVEncProbeStubs.cpp" Condition="'$(Configuration)|$(Platform)'=='RelProbe|x64'" />
     <ClCompile Include="NVEncFilterColorspace.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -2297,6 +2298,8 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncDevice.h" />
     <ClInclude Include="NvEncoderPerf.h" />
     <ClInclude Include="NVEncCore.h" />
+    <ClInclude Include="NVEncProbe.h" />
+    <ClInclude Include="rgy_probe_cli.h" />
     <ClInclude Include="NVEncParam.h" />
     <ClInclude Include="NVEncCmd.h" />
     <ClInclude Include="NVEncUtil.h" />

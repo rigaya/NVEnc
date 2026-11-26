@@ -398,6 +398,7 @@ public:
     //CUDAインターフェース・デバイスの初期化
     virtual RGY_ERR Initialize(const int deviceID, const RGYParamInitVulkan enableVulkan, RGYLogLevel logLevel);
 
+    RGY_ERR GetDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, const bool skipHWDecodeCheck);
     RGY_ERR ShowDeviceList(const int cudaSchedule, const bool skipHWDecodeCheck);
     RGY_ERR ShowCodecSupport(const int cudaSchedule, const bool skipHWDecodeCheck);
     RGY_ERR ShowNVEncFeatures(const int cudaSchedule, const bool skipHWDecodeCheck);

@@ -35,6 +35,7 @@
 #include "rgy_filesystem.h"
 #include "rgy_device_info_cache.h"
 #include "rgy_rev.h"
+#include "rgy_version.h"
 
 #define DEVICE_INFO_CACHE_FILE_NAME _T("device_info_") _T(ENCODER_NAME) _T("_cache.txt")
 #define DEVICE_INFO_CACHE_HEADER "device_info_" ENCODER_NAME "_cache_v2"
@@ -68,6 +69,9 @@ RGY_ERR RGYDeviceInfoCache::loadCacheFile() {
     m_deviceInfos.clear();
     m_deviceDecCodecCsp.clear();
 
+#if ENABLE_PROBE_BUILD
+    return RGY_ERR_NOT_FOUND;
+#else
     const auto cachFilePath = getCacheFilePath();
 
     if (!rgy_file_exists(cachFilePath)) {
@@ -134,6 +138,7 @@ RGY_ERR RGYDeviceInfoCache::loadCacheFile() {
         return sts;
     }
     return RGY_ERR_NONE;
+#endif
 }
 
 RGY_ERR RGYDeviceInfoCache::parseDeviceInfo(std::ifstream& cacheFile) {
@@ -369,6 +374,9 @@ void RGYDeviceInfoCache::writeEncFeatures([[maybe_unused]] std::ofstream& cacheF
 }
 
 RGY_ERR RGYDeviceInfoCache::saveCacheFile() {
+#if ENABLE_PROBE_BUILD
+    return RGY_ERR_NONE;
+#else
     if (!m_dataUpdated) {
         return RGY_ERR_NONE;
     }
@@ -391,4 +399,5 @@ RGY_ERR RGYDeviceInfoCache::saveCacheFile() {
 #endif
     }
     return RGY_ERR_NONE;
+#endif
 }

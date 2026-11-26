@@ -1028,7 +1028,7 @@ nvenccore_sources = files(
 )
 
 if nvenc_probe
-  nvenccore_sources += files('NVEncCore/NVEncProbeStubs.cpp')
+  nvenccore_sources += files('NVEncCore/NVEncProbeStubs.cpp', 'NVEncCore/NVEncProbe.cpp')
 else
   nvenccore_sources += files(
     'NVEncCore/NVEncFilterAfs.cpp',
