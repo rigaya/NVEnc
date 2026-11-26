@@ -491,6 +491,9 @@
     <ClInclude Include="rgy_filter_input_probe.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_gpu_inventory.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="rgy_version.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
