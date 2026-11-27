@@ -1094,6 +1094,20 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         if (RGY_ERR_NONE != (sts = flush_count_motion(pAfsParam.get()))) {
             return sts;
         }
+        //STREAM_OPT時は、get_stripe_infoで新たに作ったstripeのcountも次の呼び出しで反映する。
+        //通常は出力を1フレーム遅らせることで、フレームFの判定を確定する(set_status(F))までに、
+        //判定で使うstripe(F+3まで)のcountが反映されるようにしている。
+        //入力の終了後はiframeが進まないため、新たに作ったstripeのcountが反映されないまま判定が確定し、
+        //stripeのキャッシュに残った16フレーム前のcountを使ってしまっていた。
+        //入力の終了後は、判定で使うstripe(m_nFrame+preread_len+3まで)のcountを、判定より前に反映しておく。
+        for (int i = m_nFrame; i <= m_nFrame + preread_len + 3; i++) {
+            for (int j = 0; j < 2; j++) { //1回目で(未作成なら)作成、2回目で保留していたcountを反映する
+                if (RGY_ERR_NONE != (sts = get_stripe_info(i, 0, pAfsParam.get(), stream))) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed on get_stripe_info(iframe=%d): %s.\n"), i, get_err_mes(sts));
+                    return sts;
+                }
+            }
+        }
     }
 
     // statusの負値はdropを表すため、位相計算には原点を引いた時刻を渡す。
