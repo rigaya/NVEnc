@@ -1073,7 +1073,20 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         }
     }
 
+    static const int preread_len = 3;
     if (pInputFrame->ptr[0] == nullptr) {
+        //終端の判定では、入力の範囲外のフレームのscanも参照する (analyze_frame(F)はF+5まで参照する)。
+        //開始時のscan_frame(-1)と同じく、範囲外のフレームは、ソースキャッシュのclampにより最後のフレーム同士を比較したもの
+        //(動きなし)としてscanしておく。
+        //(以前は範囲外のフレームをscanしていなかったため、scanのキャッシュに残った16フレーム前の結果を参照していた)
+        //参照されるのは m_nFrame-1 ～ scan_end で、scanのキャッシュ(AFS_SCAN_CACHE_NUM)に収まる
+        const int scan_end = std::max(iframe, m_nFrame + preread_len + 5);
+        for (int i = iframe; i <= scan_end; i++) {
+            if (RGY_ERR_NONE != (sts = scan_frame(i, false, pAfsParam.get(), (STREAM_OPT) ? *m_streamAnalyze.get() : stream))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe=%d): %s.\n"), i, get_err_mes(sts));
+                return sts;
+            }
+        }
         //STREAM_OPT時は、scan_frame(i)でi-1のmotion countを反映するため、最後にscanしたフレームの分は反映されないまま残る。
         //(以前はそのまま終端の判定に進んでいたため、最後の入力フレームのmotion countとclipとして、
         // scanのキャッシュに残った16フレーム前の値を使ってしまっていた)
@@ -1094,7 +1107,6 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             return sts;
         }
     }
-    static const int preread_len = 3;
     //十分な数のフレームがたまった、あるいはdrainモードならフレームを出力
     if (iframe >= (5+preread_len+STREAM_OPT) || pInputFrame->ptr[0] == nullptr) {
         int reverse[4] = { 0 }, assume_shift[4] = { 0 }, result_stat[4] = { 0 };
