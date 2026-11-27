@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <limits>
 #include <map>
 #include <tuple>
 #include "NVEncFilter.h"
@@ -267,6 +268,7 @@ protected:
     bool scan_frame_result_cached(int iframe, const VppAfs *pAfsPrm);
     RGY_ERR scan_frame(int iframe, int force, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
     RGY_ERR count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *clip);
+    RGY_ERR flush_count_motion(const NVEncFilterParamAfs *pAfsPrm);
 
     RGY_ERR merge_scan(AFS_STRIPE_DATA *sp, AFS_SCAN_DATA *sp0, AFS_SCAN_DATA *sp1, CUMemBufPair *count_stripe, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
     RGY_ERR count_stripe(AFS_STRIPE_DATA *sp, const AFS_SCAN_CLIP *clip, int tb_order);
@@ -292,6 +294,10 @@ protected:
     int64_t m_nPts;
     int64_t m_inputOriginPts;
     bool m_inputOriginValid;
+    //STREAM_OPT時に、motion countをまだ反映していないscanのフレーム番号 (なければAFS_NO_PENDING_COUNT_MOTION)
+    //scan_frame(i)ではi-1のmotion countを反映するため、最後にscanしたフレームの分が反映されずに残る
+    int m_pendingCountMotion;
+    static const int AFS_NO_PENDING_COUNT_MOTION = std::numeric_limits<int>::min();
 
     afsSourceCache  m_source;
     afsScanCache    m_scan;

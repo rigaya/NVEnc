@@ -459,6 +459,7 @@ NVEncFilterAfs::NVEncFilterAfs() :
     m_nPts(0),
     m_inputOriginPts(0),
     m_inputOriginValid(false),
+    m_pendingCountMotion(AFS_NO_PENDING_COUNT_MOTION),
     m_source(),
     m_scan(),
     m_stripe(),
@@ -654,6 +655,7 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     m_nPts = 0;
     m_inputOriginPts = 0;
     m_inputOriginValid = false;
+    m_pendingCountMotion = AFS_NO_PENDING_COUNT_MOTION;
     const auto quarterTimebase = (pAfsParam->inFps.n() > 0 && pAfsParam->inFps.d() > 0)
         ? pAfsParam->inFps.inv() * rgy_rational<int>(1, 4) : pAfsParam->inTimebase;
     m_streamsts.set_timebase(quarterTimebase, pAfsParam->inTimebase);
@@ -755,11 +757,27 @@ RGY_ERR NVEncFilterAfs::scan_frame(int iframe, int force, const NVEncFilterParam
         }
         cudaEventRecord(*sp->cuevent.get(), *m_streamCopy.get());
         sp = m_scan.get(iframe-1);
+        //このフレームのmotion countは、次のscan_frameかflush_count_motionで反映する
+        m_pendingCountMotion = iframe;
     }
 
     err = count_motion(sp, &pAfsPrm->afs.clip);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed analyze_stripe: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    return err;
+}
+
+RGY_ERR NVEncFilterAfs::flush_count_motion(const NVEncFilterParamAfs *pAfsPrm) {
+    if (m_pendingCountMotion == AFS_NO_PENDING_COUNT_MOTION) {
+        return RGY_ERR_NONE;
+    }
+    auto sp = m_scan.get(m_pendingCountMotion);
+    m_pendingCountMotion = AFS_NO_PENDING_COUNT_MOTION;
+    auto err = count_motion(sp, &pAfsPrm->afs.clip);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed count_motion: %s.\n"), get_err_mes(err));
         return err;
     }
     return err;
@@ -1055,6 +1073,16 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         }
     }
 
+    if (pInputFrame->ptr[0] == nullptr) {
+        //STREAM_OPT時は、scan_frame(i)でi-1のmotion countを反映するため、最後にscanしたフレームの分は反映されないまま残る。
+        //(以前はそのまま終端の判定に進んでいたため、最後の入力フレームのmotion countとclipとして、
+        // scanのキャッシュに残った16フレーム前の値を使ってしまっていた)
+        //入力の終了時に、終端の判定より前に反映しておく
+        if (RGY_ERR_NONE != (sts = flush_count_motion(pAfsParam.get()))) {
+            return sts;
+        }
+    }
+
     // statusの負値はdropを表すため、位相計算には原点を引いた時刻を渡す。
     const int64_t input_origin = m_inputOriginValid ? m_inputOriginPts : 0;
 
@@ -1198,6 +1226,7 @@ void NVEncFilterAfs::close() {
     m_nPts = 0;
     m_inputOriginPts = 0;
     m_inputOriginValid = false;
+    m_pendingCountMotion = AFS_NO_PENDING_COUNT_MOTION;
     m_frameBuf.clear();
     m_source.clear();
     m_scan.clear();
