@@ -3534,6 +3534,7 @@ npp dll可以在[这里](https://github.com/rigaya/NVEnc/releases/tag/8.01) (npp
           模式 21 和 23 需要 VFX SDK 1.3 或更新版本的 nvngx_vsr.dll，且需要 Ampere 或更新的 GPU。
           模式 5 - 7、20、22 为 NVIDIA 保留，不能使用。
           模式 8 - 15 不改变帧尺寸，要求输出分辨率与输入相同。
+          使用模式 4 和 23 时，将 `--output-res` 设为输入分辨率（使用 `--crop` 时为裁剪后的分辨率），即可在原分辨率下进行画质修复。
         - vsr-strength=&lt;float&gt;  
           ngx-vsr 效果的强度 (0.0 - 1.0, default=1.0)
           值越大增强效果越强。

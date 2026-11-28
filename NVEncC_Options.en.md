@@ -3450,6 +3450,7 @@ Specify the resizing algorithm.
           modes 21 and 23 require nvngx_vsr.dll from VFX SDK 1.3 or later, and an Ampere or newer GPU.
           modes 5 - 7, 20 and 22 are reserved by NVIDIA, and cannot be used.
           modes 8 - 15 do not resize the frame, and require the output resolution to be the same as the input.
+          Modes 4 and 23 can restore detail at the original resolution when `--output-res` matches the input size (the cropped size when using `--crop`).
         - vsr-strength=&lt;float&gt;  
           strength of the ngx-vsr effect (0.0 - 1.0, default=1.0)
           larger value applies stronger enhancement.

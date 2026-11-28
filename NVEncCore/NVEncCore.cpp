@@ -3243,15 +3243,11 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
     }
     RGY_VPP_RESIZE_TYPE resizeRequired = RGY_VPP_RESIZE_TYPE_NONE;
-    // ngx-vsr quality 8-15 (denoise/deblur) from VFX SDK 1.2 nvngx_vsr.dll
-    // run at input=output resolution; the resize filter must be created even
-    // when no resize is requested (requires an explicit --output-res matching
-    // the input resolution). 16-19 (high-bitrate) are upscalers like 1-4 and
-    // follow the normal resize rules.
+    // 明示した出力解像度が入力と同じ場合でも、VSRの画質復元を適用する。
 #if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+    const auto ngxVsrQuality = inputParam->vppnv.ngxVSR.quality;
     const bool ngxVsrSameRes = inputParam->vpp.resize_algo == RGY_VPP_RESIZE_NGX_VSR
-        && inputParam->vppnv.ngxVSR.quality >= 8
-        && inputParam->vppnv.ngxVSR.quality <= 15;
+        && (ngxVsrQuality == 4 || (ngxVsrQuality >= 8 && ngxVsrQuality <= 15) || ngxVsrQuality == 23);
 #else
     const bool ngxVsrSameRes = false;
 #endif
