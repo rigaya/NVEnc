@@ -214,6 +214,20 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2026.11.28 (9.42)
+- --vpp-resizeのngx-vsrで、Q4とStreaming Ultraを同一解像度で使えるように。 ( #816 )
+- --vpp-nvvfx-framegenに10bit HDR10入力対応を追加。 ( #811 )
+- --vpp-colorspaceのhdr2sdrにbt2446a-previewを追加。
+- --vpp-kfmを高速化し、GPUバッファ使用量を削減。
+- --vpp-degrainを高速化。
+- --vpp-rtgmcを高速化。
+- --vpp-afsを高速化。
+- libplacebo API 387に対応。
+- 使用するffmpegのライブラリを9.1に更新。
+- --vpp-afsの細かな不具合を修正。
+- --output-resが入力と同じとき--vpp-descale後のリサイズがスキップされる問題を修正。 ( #810 )
+- --vpp-frucのraw出力でバッファが枯渇する問題と、同期出力時の二重返却を修正。 ( #813 )
+
 2026.11.13 (9.41)
 - VPPフィルタのプレビューを可能に。(HWEncVppPreview)
 - --vpp-kfmを高速化。

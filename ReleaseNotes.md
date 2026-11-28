@@ -1,5 +1,20 @@
 # NVEnc Release Notes
 
+## 9.42
+
+- Allow ngx-vsr quality 4 (Q4) and Streaming Ultra (23) at the same resolution as the input in [--vpp-resize](./NVEncC_Options.en.md#--vpp-resize-string-or-param1value1param2value2). ( #816 )
+- Add 10-bit HDR10 input support to [--vpp-nvvfx-framegen](./NVEncC_Options.en.md#--vpp-nvvfx-framegen-param1value1param2value2). ( #811 ) by @rampageX
+- Add `hdr2sdr=bt2446a-preview` to [--vpp-colorspace](./NVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2).
+- Speed up [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) and reduce GPU buffer usage.
+- Speed up [--vpp-degrain](./NVEncC_Options.en.md#--vpp-degrain-param1value1).
+- Speed up [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Speed up [--vpp-afs](./NVEncC_Options.en.md#--vpp-afs-param1value1param2value2).
+- Support libplacebo API 387.
+- Update FFmpeg libraries to 9.1.
+- Fix minor issues in [--vpp-afs](./NVEncC_Options.en.md#--vpp-afs-param1value1param2value2).
+- Fix [--vpp-descale](./NVEncC_Options.en.md#--vpp-descale-param1value1param2value2) skipping the following resize when [--output-res](./NVEncC_Options.en.md#--output-res-intxintstringstring) matches the input size. ( #810 )
+- Fix buffer exhaustion on raw output and a double return on synchronous output in [--vpp-fruc](./NVEncC_Options.en.md#--vpp-fruc-param1value1param2value2). ( #813 )
+
 ## 9.41
 
 - Add VPP filter preview. ( With [HWEncVppPreview](https://github.com/rigaya/HWEncVppPreview) )
